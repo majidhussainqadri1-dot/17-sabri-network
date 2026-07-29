@@ -24,10 +24,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f payload/part-000.b64
-          test -f payload/part-001.b64
-          test -f payload/part-002.b64
-          test -f payload/part-003.b64
+          echo 'e096c884c0d1f1a9f2c01ed294439c8821908d6bde99d50c054de1528009664b  payload/part-000.b64' | sha256sum --check -
+          echo '40b4335c49567b0ea5b7f647dcca56e741634a013e63ff039176365917f8d7c5  payload/part-001.b64' | sha256sum --check -
+          echo '7fd79da06aca69c0defd6f3d65a7efad82f9f7f437e1952f15df072c084ba56e  payload/part-002.b64' | sha256sum --check -
+          echo 'ab18ac721ee393edd6fd7c16903e673efe6a6e6ed30f831c23d8d5781e37e75a  payload/part-003.b64' | sha256sum --check -
           mkdir -p source-packages
           cat payload/part-*.b64 | tr -d '\n\r' | base64 --decode > source-packages/17-sabri-network-1.1.0.zip
           echo 'ebddffd4b5b157d50b58680767a6525fec84477fd91afeb58d6f257c77571400  source-packages/17-sabri-network-1.1.0.zip' | sha256sum --check -
