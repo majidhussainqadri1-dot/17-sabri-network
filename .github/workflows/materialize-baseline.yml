@@ -1,0 +1,61 @@
+name: Materialize File 17 Baseline
+
+on:
+  push:
+    branches:
+      - baseline/file-17-original-import
+    paths:
+      - payload/READY
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out import branch
+        uses: actions/checkout@v4
+        with:
+          ref: baseline/file-17-original-import
+          fetch-depth: 0
+
+      - name: Reconstruct and verify original archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f payload/part-000.b64
+          test -f payload/part-001.b64
+          test -f payload/part-002.b64
+          test -f payload/part-003.b64
+          mkdir -p source-packages
+          cat payload/part-*.b64 | tr -d '\n\r' | base64 --decode > source-packages/17-sabri-network-1.1.0.zip
+          echo 'ebddffd4b5b157d50b58680767a6525fec84477fd91afeb58d6f257c77571400  source-packages/17-sabri-network-1.1.0.zip' | sha256sum --check -
+          unzip -t source-packages/17-sabri-network-1.1.0.zip
+
+      - name: Extract original plugin source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf sabri-network
+          unzip -q source-packages/17-sabri-network-1.1.0.zip
+          test -f sabri-network/sabri-network.php
+          grep -q 'Version: 1.1.0' sabri-network/sabri-network.php
+
+      - name: Remove transport payload
+        shell: bash
+        run: rm -rf payload
+
+      - name: Commit materialized baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No materialization changes were required.'
+            exit 0
+          fi
+          git commit -m 'Import original File 17 source package'
+          git push origin HEAD:baseline/file-17-original-import
