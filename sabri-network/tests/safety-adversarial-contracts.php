@@ -41,6 +41,14 @@ safety_adv_check(str_contains($safety, 'min(3650, max(30, $days))'), 'Retention 
 safety_adv_check(str_contains($safety, 'legal_hold=0 AND anonymized_at IS NULL') && str_contains($safety, 'legal_hold=0 AND status=\'expired\''), 'Legal holds must block both minimization and later deletion.');
 safety_adv_check(strpos($safety, "SET reporter_id=0,reported_user_id=0") < strpos($safety, 'DELETE FROM $table'), 'Report data must be minimized before the later deletion stage.');
 safety_adv_check(str_contains($safety, 'add_option(self::RETENTION_LOCK') && str_contains($safety, 'release_retention_lock'), 'Concurrent retention workers must use a bounded atomic lock.');
+safety_adv_check(
+    substr_count($safety, "'option_value' => \$stored") >= 2
+        && str_contains($safety, '$wpdb->update(')
+        && str_contains($safety, '$wpdb->delete('),
+    'Stale takeover and release must compare the exact previously observed lock value.'
+);
+safety_adv_check(!str_contains($safety, 'delete_option(self::RETENTION_LOCK)'), 'Retention locking must not use a delete-then-add takeover or an unconditional owner release.');
+safety_adv_check(str_contains($safety, "wp_cache_delete(self::RETENTION_LOCK, 'options')"), 'Direct compare-safe option mutations must invalidate the option cache after success.');
 safety_adv_check(str_contains($safety, "reporter_id=0,client_uuid=NULL,updated_at") && str_contains($safety, 'legal_hold=1'), 'Held reports must still minimize the reporter account identifier where permitted.');
 safety_adv_check(str_contains($privacy, 'Some abuse-report evidence is retained under an approved legal or safety hold'), 'Privacy output must disclose retained safety evidence honestly.');
 safety_adv_check(!preg_match('/\b(?:REMOTE_ADDR|HTTP_X_FORWARDED_FOR|HTTP_CLIENT_IP)\b/', $all), 'Report and rate-limit records must not persist raw IP addresses.');
@@ -60,7 +68,6 @@ safety_adv_check(str_contains($rest, "appeal_status='pending'") && str_contains(
 safety_adv_check(str_contains($rest, 'appeal_reviewer_conflict') && str_contains($rest, 'report_appeal_pending'), 'Pending appeals must block ordinary triage and enforce reviewer separation.');
 safety_adv_check(str_contains($rest, "appeal_status=%s") && str_contains($rest, "status = \$decision === 'overturn' ? 'reviewing'"), 'Overturned appeals must reopen the report through the canonical state.');
 safety_adv_check(str_contains($rest, "'evidence_integrity' =>") && str_contains($safety, 'hash_equals(strtolower($expected_hash)'), 'Evidence integrity must be actively verified, not merely stored.');
-
 
 if ($failures) {
     fwrite(STDERR, "Safety adversarial contract failures (" . count($failures) . "/$checks):\n");
