@@ -2,77 +2,83 @@
 
 **Target:** Sabri Network and Messages 2.0.0  
 **Branch:** `codex/file-17-review-2.0.0`  
-**Code commit:** `ffc36c80611b4cee5591b23397bd26bec63828e8`  
-**Final cleanup/QA commit:** `dbaef05198bcaab5c0e890bc098b450a3416dd04`  
-**GitHub Actions run:** `30698113280`  
-**Result:** PASS; not staging-accepted, merged, live-deployed, or operational
+**Result:** included QA and deterministic packaging PASS; not staging-accepted, merged, live-deployed, or operational
 
 ## Implemented controls
 
-- Added a native `SN_Safety` service while preserving File 17 as the canonical report-data owner.
-- Added UUIDv4 client idempotency for report retries and a database uniqueness constraint per reporter/client UUID.
-- Added canonical hashed target keys for user, conversation, and message report targets.
-- Added bounded global and same-target reporting limits.
-- Added evidence hashes and bounded report metadata.
-- Added administrator report inventory and triage endpoints.
-- Added optimistic record-version checks to prevent lost moderator updates.
-- Added legal/safety holds that block ordinary retention deletion and privacy destruction where evidence must be retained.
-- Added category-aware retention deadlines with bounded adapter overrides.
-- Added an atomic option-lock around retention processing.
-- Added two-stage retention: identifier/content anonymization first, then delayed deletion.
-- Added checkpoint-compatible legacy report migration and operational counts.
-- Expanded WordPress privacy export and erasure to declare retained evidence honestly and minimize identifiers where permitted.
-- Added cryptographically generated client report UUIDs in the browser and retry-safe reuse of the same UUID.
+- Native `SN_Safety` enforcement while preserving File 17 as the canonical report-data owner.
+- UUIDv4 report idempotency and database uniqueness per reporter/client UUID.
+- Canonical hashed target keys for user, conversation and message targets.
+- Bounded global and same-target reporting limits.
+- Canonicalized evidence hashes and active integrity verification.
+- Administrator report inventory, triage, reasoned decisions and optimistic version checks.
+- Reported-user notice, versioned appeals, duplicate resistance and reviewer separation.
+- Legal/safety holds with fail-closed release authorization.
+- Category-aware bounded retention deadlines.
+- Two-stage retention: minimization first, delayed deletion later.
+- Hold-aware WordPress privacy export and erasure.
+- Legacy report migration and operational retention/hold counts.
 
-## Corrective review findings
+## Corrective findings resolved
 
-Two regression-contract defects were found during integration and corrected before acceptance:
+1. **Schema contract regression:** realtime contracts were advanced to the combined report schema.
+2. **Privacy test ownership drift:** erasure tests were moved from the former inline implementation to canonical `SN_Safety` behavior.
+3. **Retention stale-lock race:** delete-then-add takeover could remove another worker's newly acquired lock.
+   - Takeover now uses exact observed-value compare-and-swap.
+   - Release now uses exact owner-value compare-and-delete.
+   - Successful direct option mutations invalidate the WordPress option cache.
+4. **Missing behavioral lock proof:** runtime tests now simulate initial acquisition, stale takeover, a competing winner, release-time replacement, active-lock rejection and malformed-lock recovery.
+5. **Repository evidence drift:** stale status, counts, package hashes and incomplete checksum lists were corrected.
+6. **Checksum coverage gap:** `CHECKSUMS.sha256` now covers exactly every installable source file, and the quality gate verifies both coverage and exact digests.
 
-1. The realtime suite still required schema `2.0.1` after the report schema advanced to `2.0.2`; the test was corrected to require the combined schema.
-2. The original privacy adversarial suite looked only for the former inline report-erasure array; it was corrected to verify the new legal-hold-aware canonical erasure in `SN_Safety`.
-
-A concurrent GitHub Actions materialization race rejected one bot push after all tests had passed. A parallel verified run had already committed the identical safety batch. Temporary payload/materializer files were then removed, and the ordinary read-only quality workflow was restored.
-
-## Two review rounds
-
-### Round 1 — comprehensive/static
+## Review Round 1 — comprehensive/static/runtime
 
 - Initial static contracts: **60/60 PASS**
 - Realtime static contracts: **37/37 PASS**
-- Package static contracts: **8/8 PASS**
-- Safety static contracts: **20/20 PASS**
+- Package static contracts: **9/9 PASS**
+- Safety static contracts: **36/36 PASS**
+- Safety runtime contracts: **25/25 PASS**
+- Relationship static contracts: **45/45 PASS**
+- Relationship runtime contracts: **8/8 PASS**
 
-### Round 2 — fresh/adversarial
+**Round 1 total: 220/220 PASS.**
+
+## Review Round 2 — fresh/adversarial
 
 - Initial adversarial contracts: **59/59 PASS**
 - Realtime adversarial contracts: **33/33 PASS**
 - Package adversarial contracts: **8/8 PASS**
-- Safety adversarial contracts: **16/16 PASS**
+- Safety adversarial contracts: **31/31 PASS**
+- Relationship adversarial contracts: **37/37 PASS**
 
-**Total included contract checks: 241/241 PASS.**
+**Round 2 total: 168/168 PASS.**
+
+> **Combined included contract checks: 388/388 PASS.**
 
 Additional gates:
 
-- PHP syntax: PASS for all included PHP files
+- PHP syntax: PASS
 - JavaScript syntax: PASS
 - Shell syntax: PASS
 - CSS integrity: PASS
 - Repository hygiene: PASS
+- Installable source checksum coverage and digest verification: PASS
 - Deterministic double-build and byte comparison: PASS
 - Artifact creation/upload: PASS
 
 ## Verified package
 
-**SHA-256:** `f32160217e98d7d69ab7fc263c442c08b97492b082fa2be6dde2dcbd11e28529`
+**Installable ZIP SHA-256:** `d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65`
 
 The included checks have no known unresolved failure. This does not assert that undiscovered defects are impossible.
 
 ## Remaining production gates
 
 - Production File 00/File 02 identity adapter and real-role acceptance
-- File 19, File 20, File 24, and File 25 integration acceptance
+- File 19, File 20, File 24 and File 25 integration acceptance
 - Approved malware scanner and private-storage operational validation
 - Production STUN/TURN and approved SFU
-- Staging fresh install, upgrade/migration, rollback, backup/restore, and real-content testing
-- Penetration, dependency, load/race, browser/device, RTL/LTR, and accessibility acceptance
-- Founder approval, merge, live deployment, and operational monitoring
+- Staging fresh install, upgrade/migration, rollback, backup/restore and real-content testing
+- Real WordPress/MySQL concurrency and privacy-erasure acceptance
+- Penetration, dependency, load/race, browser/device, RTL/LTR and accessibility acceptance
+- Founder approval, merge, live deployment and operational monitoring
