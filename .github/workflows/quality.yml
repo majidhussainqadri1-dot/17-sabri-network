@@ -4,12 +4,18 @@ on:
   push:
     branches:
       - codex/file-17-review-2.0.0
+  pull_request:
+    branches:
+      - main
+    types:
+      - ready_for_review
 
 permissions:
   contents: write
 
 jobs:
   materialize:
+    if: github.event_name == 'push' || github.head_ref == 'codex/file-17-review-2.0.0'
     runs-on: ubuntu-latest
     steps:
       - name: Check out controlled review branch
