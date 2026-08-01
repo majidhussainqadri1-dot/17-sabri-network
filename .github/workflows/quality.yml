@@ -1,0 +1,41 @@
+name: File 17 Quality
+
+on:
+  push:
+    branches:
+      - main
+      - codex/file-17-review-2.0.0
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y rsync zip
+      - name: Run quality checks
+        run: bash sabri-network/tools/quality-check.sh
+      - name: Build package
+        run: bash sabri-network/tools/package.sh
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-17-sabri-network-messages-2.0.0
+          path: |
+            sabri-network/build/17-sabri-network-and-messages-2.0.0.zip
+            sabri-network/build/17-sabri-network-and-messages-2.0.0.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
