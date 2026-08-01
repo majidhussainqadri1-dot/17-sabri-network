@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 /** Canonical persistence and bounded operational helpers for File 17. */
 final class SN_DB {
-    public const DB_VERSION = '2.0.1';
+    public const DB_VERSION = '2.0.2';
 
     public static function table(string $name): string {
         global $wpdb;
@@ -234,16 +234,26 @@ final class SN_DB {
             reported_user_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             conversation_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             message_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            client_uuid CHAR(36) NULL DEFAULT NULL,
+            target_key CHAR(64) NOT NULL DEFAULT '',
             category VARCHAR(40) NOT NULL,
             details TEXT NULL,
             evidence LONGTEXT NULL,
+            evidence_hash CHAR(64) NOT NULL DEFAULT '',
             status VARCHAR(20) NOT NULL DEFAULT 'open',
+            legal_hold TINYINT(1) NOT NULL DEFAULT 0,
+            retention_until DATETIME NULL,
+            anonymized_at DATETIME NULL,
+            version INT UNSIGNED NOT NULL DEFAULT 1,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY (id),
+            UNIQUE KEY reporter_client (reporter_id,client_uuid),
             KEY reporter_id (reporter_id),
             KEY reported_user_id (reported_user_id),
-            KEY status (status)
+            KEY target_created (target_key,created_at),
+            KEY status_updated (status,updated_at),
+            KEY retention_queue (legal_hold,anonymized_at,retention_until)
         ) $charset;";
 
         $sql[] = "CREATE TABLE " . self::table('attachments') . " (
@@ -298,6 +308,9 @@ final class SN_DB {
         self::backfill_direct_keys();
         self::backfill_active_call_keys();
         self::drop_legacy_otp_table();
+        if (class_exists('SN_Safety')) {
+            SN_Safety::migrate_reports();
+        }
         update_option('sn_db_version', self::DB_VERSION, false);
     }
 
@@ -576,6 +589,9 @@ final class SN_DB {
             $wpdb->query($wpdb->prepare('UPDATE ' . self::table('calls') . " SET status='ended',active_key=NULL,ended_at=%s WHERE id IN ($placeholders)", $now, ...$stale_calls));
             $wpdb->query($wpdb->prepare('UPDATE ' . self::table('call_members') . " SET status=CASE WHEN status='invited' THEN 'missed' ELSE 'left' END,left_at=%s WHERE call_id IN ($placeholders) AND status IN ('invited','joined')", $now, ...$stale_calls));
             $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('signals') . " WHERE call_id IN ($placeholders)", ...$stale_calls));
+        }
+        if (class_exists('SN_Safety')) {
+            SN_Safety::purge_expired_reports();
         }
     }
 

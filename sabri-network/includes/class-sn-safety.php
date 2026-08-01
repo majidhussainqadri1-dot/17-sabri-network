@@ -1,0 +1,210 @@
+<?php
+defined('ABSPATH') || exit;
+
+/**
+ * Abuse-reporting, legal-hold, retention and privacy-minimization controls.
+ *
+ * File 17 owns the native report record. File 24 may consume assurance evidence
+ * through hooks, but does not replace these enforcement controls.
+ */
+final class SN_Safety {
+    private const DEFAULT_RETENTION_DAYS = 365;
+    private const HIGH_RISK_RETENTION_DAYS = 730;
+    private const ANONYMIZED_DELETE_DAYS = 180;
+    private const RETENTION_LOCK = 'sn_report_retention_lock';
+
+    public static function valid_uuid(string $value): bool {
+        return (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', trim($value));
+    }
+
+    public static function target_key(int $reported_user_id, int $conversation_id, int $message_id): string {
+        if ($message_id > 0) {
+            return hash('sha256', 'message:' . $message_id);
+        }
+        if ($conversation_id > 0) {
+            return hash('sha256', 'conversation:' . $conversation_id);
+        }
+        return hash('sha256', 'user:' . max(0, $reported_user_id));
+    }
+
+    public static function evidence_hash(array $evidence): string {
+        return hash('sha256', (string) wp_json_encode($evidence, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    public static function retention_until(string $category, ?string $created_at = null): string {
+        $high_risk = ['child_safety', 'threat', 'fraud', 'stolen_account', 'malware'];
+        $days = in_array($category, $high_risk, true) ? self::HIGH_RISK_RETENTION_DAYS : self::DEFAULT_RETENTION_DAYS;
+        $days = (int) apply_filters('sn_network_report_retention_days', $days, $category);
+        $days = min(3650, max(30, $days));
+        $base = $created_at ? strtotime($created_at . ' UTC') : time();
+        if ($base === false) {
+            $base = time();
+        }
+        return gmdate('Y-m-d H:i:s', $base + $days * DAY_IN_SECONDS);
+    }
+
+    public static function allowed_statuses(): array {
+        return ['open', 'reviewing', 'actioned', 'dismissed', 'closed', 'expired'];
+    }
+
+    public static function migrate_reports(): void {
+        global $wpdb;
+        $table = SN_DB::table('reports');
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return;
+        }
+        for ($batch = 0; $batch < 20; $batch++) {
+            $rows = $wpdb->get_results(
+                "SELECT id,reported_user_id,conversation_id,message_id,category,evidence,created_at,target_key,retention_until,evidence_hash FROM $table WHERE target_key='' OR retention_until IS NULL OR evidence_hash='' ORDER BY id ASC LIMIT 250" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            );
+            if (!$rows) {
+                break;
+            }
+            foreach ($rows as $row) {
+                $decoded = json_decode((string) $row->evidence, true);
+                $evidence = is_array($decoded) ? $decoded : [];
+                $wpdb->update($table, [
+                    'target_key' => self::target_key((int) $row->reported_user_id, (int) $row->conversation_id, (int) $row->message_id),
+                    'retention_until' => self::retention_until((string) $row->category, (string) $row->created_at),
+                    'evidence_hash' => self::evidence_hash($evidence),
+                    'version' => 1,
+                ], ['id' => (int) $row->id], ['%s', '%s', '%s', '%d'], ['%d']);
+            }
+            if (count($rows) < 250) {
+                break;
+            }
+        }
+    }
+
+    public static function purge_expired_reports(int $limit = 200): array {
+        global $wpdb;
+        $limit = min(500, max(1, $limit));
+        $token = self::acquire_retention_lock();
+        if ($token === '') {
+            return ['anonymized' => 0, 'deleted' => 0, 'locked' => true];
+        }
+
+        $table = SN_DB::table('reports');
+        $now = current_time('mysql', true);
+        $anonymized = 0;
+        $deleted = 0;
+        try {
+            $ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+                "SELECT id FROM $table WHERE legal_hold=0 AND anonymized_at IS NULL AND retention_until IS NOT NULL AND retention_until<=%s ORDER BY retention_until ASC,id ASC LIMIT %d",
+                $now,
+                $limit
+            )));
+            foreach ($ids as $id) {
+                $updated = $wpdb->query($wpdb->prepare(
+                    "UPDATE $table SET reporter_id=0,reported_user_id=0,conversation_id=0,message_id=0,client_uuid=NULL,target_key=%s,details='',evidence='[]',evidence_hash=%s,status='expired',anonymized_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND legal_hold=0 AND anonymized_at IS NULL",
+                    hash('sha256', 'expired-report:' . $id),
+                    hash('sha256', '[]'),
+                    $now,
+                    $now,
+                    $id
+                ));
+                if ($updated === 1) {
+                    $anonymized++;
+                    SN_DB::audit('report_retention_anonymized', 'report', $id, 'success', [], 0);
+                }
+            }
+
+            $delete_before = gmdate('Y-m-d H:i:s', time() - self::ANONYMIZED_DELETE_DAYS * DAY_IN_SECONDS);
+            $delete_ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+                "SELECT id FROM $table WHERE legal_hold=0 AND status='expired' AND anonymized_at IS NOT NULL AND anonymized_at<=%s ORDER BY anonymized_at ASC,id ASC LIMIT %d",
+                $delete_before,
+                $limit
+            )));
+            if ($delete_ids) {
+                $placeholders = implode(',', array_fill(0, count($delete_ids), '%d'));
+                $result = $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE id IN ($placeholders) AND legal_hold=0 AND status='expired'", ...$delete_ids));
+                if ($result !== false) {
+                    $deleted = (int) $result;
+                }
+            }
+        } finally {
+            self::release_retention_lock($token);
+        }
+
+        return ['anonymized' => $anonymized, 'deleted' => $deleted, 'locked' => false];
+    }
+
+    public static function erase_user_report_data(int $user_id): array {
+        global $wpdb;
+        $table = SN_DB::table('reports');
+        $now = current_time('mysql', true);
+        $empty_hash = hash('sha256', '[]');
+
+        $retained_submitted = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table WHERE reporter_id=%d AND legal_hold=1",
+            $user_id
+        ));
+        $retained_reported = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table WHERE reported_user_id=%d AND legal_hold=1",
+            $user_id
+        ));
+
+        $held_reporter_updates = $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET reporter_id=0,client_uuid=NULL,updated_at=%s,version=version+1 WHERE reporter_id=%d AND legal_hold=1",
+            $now,
+            $user_id
+        ));
+        $redacted_reporter_updates = $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET reporter_id=0,client_uuid=NULL,details='',evidence='[]',evidence_hash=%s,updated_at=%s,version=version+1 WHERE reporter_id=%d AND legal_hold=0",
+            $empty_hash,
+            $now,
+            $user_id
+        ));
+        $redacted_reported_updates = $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET reported_user_id=0,updated_at=%s,version=version+1 WHERE reported_user_id=%d AND legal_hold=0",
+            $now,
+            $user_id
+        ));
+
+        return [
+            'redacted' => max(0, (int) $redacted_reporter_updates) + max(0, (int) $redacted_reported_updates),
+            'retained' => $retained_submitted + $retained_reported,
+            'held_reporter_minimized' => max(0, (int) $held_reporter_updates),
+        ];
+    }
+
+    public static function operational_summary(): array {
+        global $wpdb;
+        $table = SN_DB::table('reports');
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) {
+            return ['open' => 0, 'reviewing' => 0, 'legal_holds' => 0, 'retention_due' => 0];
+        }
+        $now = current_time('mysql', true);
+        return [
+            'open' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE status='open'"), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            'reviewing' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE status='reviewing'"), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            'legal_holds' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE legal_hold=1"), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            'retention_due' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE legal_hold=0 AND anonymized_at IS NULL AND retention_until IS NOT NULL AND retention_until<=%s", $now)),
+        ];
+    }
+
+    private static function acquire_retention_lock(): string {
+        $token = wp_generate_uuid4();
+        $expires = time() + 10 * MINUTE_IN_SECONDS;
+        $value = $token . '|' . $expires;
+        if (add_option(self::RETENTION_LOCK, $value, '', false)) {
+            return $token;
+        }
+        $stored = (string) get_option(self::RETENTION_LOCK, '');
+        $parts = explode('|', $stored, 2);
+        if (isset($parts[1]) && (int) $parts[1] < time()) {
+            delete_option(self::RETENTION_LOCK);
+            if (add_option(self::RETENTION_LOCK, $value, '', false)) {
+                return $token;
+            }
+        }
+        return '';
+    }
+
+    private static function release_retention_lock(string $token): void {
+        $stored = (string) get_option(self::RETENTION_LOCK, '');
+        if (str_starts_with($stored, $token . '|')) {
+            delete_option(self::RETENTION_LOCK);
+        }
+    }
+}

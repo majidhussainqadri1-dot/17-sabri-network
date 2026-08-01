@@ -32,3 +32,6 @@ Transport security and private storage are not end-to-end encryption. File 17 mu
 ## Security reporting
 
 Do not place patient data, message bodies, credentials, private file links, or exploit details in public issues. Use the platform's private security-reporting and incident process.
+
+## Abuse-report evidence and retention
+Reports use a client-generated UUIDv4 for idempotency, a one-way canonical target key, global and same-target throttles, bounded evidence, and a SHA-256 evidence-integrity value. Legal/safety holds may only be changed through the administrator-authorized triage contract. Expired, unheld evidence is first anonymized and later deleted by a bounded locked worker. Ordinary users cannot set a hold or force the internal `expired` state.

@@ -20,7 +20,16 @@
       return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, {dateStyle:'medium', timeStyle:'short'}).format(date);
     } catch (_) { return ''; }
   };
-  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const uuid = () => {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    if (!window.crypto?.getRandomValues) throw new Error('Secure random identifiers are unavailable in this browser.');
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map(value => value.toString(16).padStart(2, '0'));
+    return `${hex.slice(0,4).join('')}-${hex.slice(4,6).join('')}-${hex.slice(6,8).join('')}-${hex.slice(8,10).join('')}-${hex.slice(10).join('')}`;
+  };
 
   const state = {
     user: null,
@@ -568,9 +577,20 @@
   }
 
   function reportDialog(target) {
+    let clientId;
+    try { clientId = uuid(); } catch (error) { toast(error.message, 'error'); return; }
     openModal('Report', `<form id="sn-report-form" class="sn-form"><label for="sn-report-category">Category</label><select id="sn-report-category">${['spam','fraud','harassment','threat','hate','impersonation','fake_doctor','medical_misinformation','sexual_content','child_safety','illegal_products','malware','stolen_account','privacy'].map(item => `<option value="${item}">${item.replaceAll('_',' ')}</option>`).join('')}</select><label for="sn-report-details">Details</label><textarea id="sn-report-details" maxlength="4000"></textarea><button class="sn-btn sn-btn-primary" type="submit">Submit report</button></form>`, body => $('#sn-report-form', body).addEventListener('submit', async event => {
       event.preventDefault();
-      try { await api('report', {method:'POST', body:{...target, category:$('#sn-report-category').value, details:$('#sn-report-details').value}}); closeModal(); toast('Report submitted.', 'success'); } catch (error) { toast(error.message, 'error'); }
+      const submit = event.currentTarget.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      try {
+        await api('report', {method:'POST', body:{...target, client_id:clientId, category:$('#sn-report-category').value, details:$('#sn-report-details').value}});
+        closeModal();
+        toast('Report submitted.', 'success');
+      } catch (error) {
+        submit.disabled = false;
+        toast(error.message, 'error');
+      }
     }));
   }
 

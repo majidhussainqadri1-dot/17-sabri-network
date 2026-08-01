@@ -147,7 +147,7 @@ final class SN_Privacy {
         }
 
         $reports = $wpdb->get_results($wpdb->prepare(
-            'SELECT id,reported_user_id,conversation_id,message_id,category,details,evidence,status,created_at,updated_at FROM ' . SN_DB::table('reports') . ' WHERE reporter_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+            'SELECT id,reported_user_id,conversation_id,message_id,category,details,evidence,status,legal_hold,retention_until,anonymized_at,version,created_at,updated_at FROM ' . SN_DB::table('reports') . ' WHERE reporter_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
             $user_id,
             $limit,
             $offset
@@ -165,6 +165,10 @@ final class SN_Privacy {
                     ['name' => __('Details', 'sabri-network'), 'value' => (string) $report->details],
                     ['name' => __('Evidence', 'sabri-network'), 'value' => (string) $report->evidence],
                     ['name' => __('Status', 'sabri-network'), 'value' => (string) $report->status],
+                    ['name' => __('Legal or safety hold', 'sabri-network'), 'value' => (int) $report->legal_hold ? __('Yes', 'sabri-network') : __('No', 'sabri-network')],
+                    ['name' => __('Retention deadline', 'sabri-network'), 'value' => (string) $report->retention_until],
+                    ['name' => __('Anonymized', 'sabri-network'), 'value' => (string) $report->anonymized_at],
+                    ['name' => __('Record version', 'sabri-network'), 'value' => (int) $report->version],
                     ['name' => __('Created', 'sabri-network'), 'value' => (string) $report->created_at],
                 ],
             ];
@@ -234,6 +238,7 @@ final class SN_Privacy {
         }
 
         $limit = 100;
+        $report_erasure = ['redacted' => 0, 'retained' => 0];
         $messages = $wpdb->get_results($wpdb->prepare(
             'SELECT id,attachment_id,attachment_source FROM ' . SN_DB::table('messages') . ' WHERE sender_id=%d ORDER BY id ASC LIMIT %d',
             $user_id,
@@ -303,8 +308,7 @@ final class SN_Privacy {
             $wpdb->delete(SN_DB::table('notifications'), ['user_id' => $user_id], ['%d']);
             $wpdb->delete(SN_DB::table('signals'), ['from_user_id' => $user_id], ['%d']);
             $wpdb->delete(SN_DB::table('signals'), ['to_user_id' => $user_id], ['%d']);
-            $wpdb->update(SN_DB::table('reports'), ['reporter_id' => 0, 'details' => '', 'evidence' => '[]'], ['reporter_id' => $user_id], ['%d', '%s', '%s'], ['%d']);
-            $wpdb->update(SN_DB::table('reports'), ['reported_user_id' => 0], ['reported_user_id' => $user_id], ['%d'], ['%d']);
+            $report_erasure = SN_Safety::erase_user_report_data($user_id);
             $wpdb->update(SN_DB::table('audit_log'), ['actor_id' => 0, 'context' => '{}'], ['actor_id' => $user_id], ['%d', '%s'], ['%d']);
 
             $attachments = array_map('intval', $wpdb->get_col($wpdb->prepare('SELECT id FROM ' . SN_DB::table('attachments') . ' WHERE owner_id=%d AND deleted_at IS NULL', $user_id)));
@@ -316,10 +320,13 @@ final class SN_Privacy {
         }
 
         SN_DB::audit('privacy_erasure', 'user', $user_id, 'success', ['batch' => $page], 0);
+        $items_retained = (int) $report_erasure['retained'] > 0;
         return [
             'items_removed' => true,
-            'items_retained' => false,
-            'messages' => [],
+            'items_retained' => $items_retained,
+            'messages' => $items_retained
+                ? [__('Some abuse-report evidence is retained under an approved legal or safety hold; account identifiers were minimized where permitted.', 'sabri-network')]
+                : [],
             'done' => count($messages) < $limit,
         ];
     }

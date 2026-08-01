@@ -62,3 +62,6 @@ The package script creates `build/17-sabri-network-and-messages-2.0.0.zip` and i
 ## Explicit non-claims
 
 Version 2.0.0 does **not** claim audited end-to-end encryption, a production TURN/SFU service, native mobile applications, completed penetration testing, completed load testing, staging acceptance, live deployment, or operational completion.
+
+### Report safety and retention
+Version 2.0.0 includes native report idempotency, target-scoped abuse controls, legal/safety holds, retention deadlines, privacy minimization, administrator triage with optimistic record versions, and automated two-stage retention cleanup. File 24 may receive assurance evidence through integration hooks but does not replace File 17's native enforcement.

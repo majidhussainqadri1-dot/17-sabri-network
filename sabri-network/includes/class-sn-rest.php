@@ -11,6 +11,8 @@ final class SN_REST {
     public static function register_routes(): void {
         self::route('/health', 'GET', 'health', '__return_true');
         self::route('/admin/health', 'GET', 'admin_health', [self::class, 'admin_access']);
+        self::route('/admin/reports', 'GET', 'admin_reports', [self::class, 'admin_access']);
+        self::route('/admin/reports/(?P<id>\d+)', 'POST', 'admin_update_report', [self::class, 'admin_access']);
 
         register_rest_route(self::NS, '/me', [
             ['methods' => 'GET', 'callback' => [self::class, 'get_me'], 'permission_callback' => [self::class, 'access']],
@@ -122,6 +124,7 @@ final class SN_REST {
             'notification_adapter' => has_filter('sn_network_notification_handled'),
             'attachment_scanner' => has_filter('sn_network_attachment_scan_result'),
             'sfu_available' => (bool) apply_filters('sn_network_sfu_available', false, get_current_user_id(), 0),
+            'report_safety' => SN_Safety::operational_summary(),
             'time' => gmdate('c'),
         ]);
     }
@@ -1377,12 +1380,129 @@ final class SN_REST {
         return rest_ensure_response(['blocked' => $blocked]);
     }
 
+    public static function admin_reports(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $administrator_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('admin_reports', (string) $administrator_id, 120, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $status = sanitize_key((string) $request->get_param('status'));
+        if ($status !== '' && !in_array($status, SN_Safety::allowed_statuses(), true)) {
+            return new WP_Error('invalid_report_status', 'Choose a valid report status.', ['status' => 400]);
+        }
+        $page = max(1, absint($request->get_param('page')));
+        $per_page = min(100, max(1, absint($request->get_param('per_page')) ?: 25));
+        $offset = ($page - 1) * $per_page;
+        $table = SN_DB::table('reports');
+        if ($status !== '') {
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT id,reporter_id,reported_user_id,conversation_id,message_id,category,details,evidence,status,legal_hold,retention_until,anonymized_at,version,created_at,updated_at FROM $table WHERE status=%s ORDER BY id DESC LIMIT %d OFFSET %d",
+                $status,
+                $per_page,
+                $offset
+            ));
+            $total = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE status=%s", $status));
+        } else {
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT id,reporter_id,reported_user_id,conversation_id,message_id,category,details,evidence,status,legal_hold,retention_until,anonymized_at,version,created_at,updated_at FROM $table ORDER BY id DESC LIMIT %d OFFSET %d",
+                $per_page,
+                $offset
+            ));
+            $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table"); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        }
+        $reports = [];
+        foreach ($rows as $row) {
+            $evidence = json_decode((string) $row->evidence, true);
+            $reports[] = [
+                'id' => (int) $row->id,
+                'reporter_id' => (int) $row->reporter_id,
+                'reported_user_id' => (int) $row->reported_user_id,
+                'conversation_id' => (int) $row->conversation_id,
+                'message_id' => (int) $row->message_id,
+                'category' => (string) $row->category,
+                'details' => (string) $row->details,
+                'evidence' => is_array($evidence) ? $evidence : [],
+                'status' => (string) $row->status,
+                'legal_hold' => (bool) $row->legal_hold,
+                'retention_until' => (string) $row->retention_until,
+                'anonymized_at' => (string) $row->anonymized_at,
+                'version' => (int) $row->version,
+                'created_at' => (string) $row->created_at,
+                'updated_at' => (string) $row->updated_at,
+            ];
+        }
+        return rest_ensure_response([
+            'reports' => $reports,
+            'page' => $page,
+            'per_page' => $per_page,
+            'total' => $total,
+            'summary' => SN_Safety::operational_summary(),
+        ]);
+    }
+
+    public static function admin_update_report(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $administrator_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('admin_report_update', (string) $administrator_id, 120, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $id = absint($request['id']);
+        $expected_version = absint($request->get_param('version'));
+        if ($id <= 0 || $expected_version <= 0) {
+            return new WP_Error('invalid_report_version', 'A valid report version is required.', ['status' => 400]);
+        }
+        $table = SN_DB::table('reports');
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d", $id));
+        if (!$row) {
+            return self::not_found();
+        }
+        $status = sanitize_key((string) $request->get_param('status'));
+        if ($status === '') {
+            $status = (string) $row->status;
+        }
+        if (!in_array($status, SN_Safety::allowed_statuses(), true) || $status === 'expired') {
+            return new WP_Error('invalid_report_status', 'Choose a valid operational report status.', ['status' => 400]);
+        }
+        $legal_hold = $request->has_param('legal_hold')
+            ? rest_sanitize_boolean($request->get_param('legal_hold'))
+            : (bool) $row->legal_hold;
+        $note = mb_substr(sanitize_textarea_field((string) $request->get_param('note')), 0, 500);
+        $now = current_time('mysql', true);
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET status=%s,legal_hold=%d,updated_at=%s,version=version+1 WHERE id=%d AND version=%d",
+            $status,
+            $legal_hold ? 1 : 0,
+            $now,
+            $id,
+            $expected_version
+        ));
+        if ($updated !== 1) {
+            return new WP_Error('report_update_conflict', 'The report changed before this decision was saved.', ['status' => 409]);
+        }
+        SN_DB::audit('report_triage_updated', 'report', $id, 'success', [
+            'status' => $status,
+            'legal_hold' => $legal_hold ? 1 : 0,
+            'note' => $note,
+            'previous_version' => $expected_version,
+        ]);
+        do_action('sn_network_report_triage_updated', $id, $status, $legal_hold, $administrator_id);
+        return rest_ensure_response([
+            'id' => $id,
+            'status' => $status,
+            'legal_hold' => $legal_hold,
+            'version' => $expected_version + 1,
+            'updated_at' => $now,
+        ]);
+    }
+
     public static function report(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $reporter_id = get_current_user_id();
-        if (!SN_Policy::consume_rate_limit('report', (string) $reporter_id, 20, DAY_IN_SECONDS)) {
-            return self::rate_limited();
+        $client_uuid = strtolower(trim((string) $request->get_param('client_id')));
+        if (!SN_Safety::valid_uuid($client_uuid)) {
+            return new WP_Error('invalid_report_client_id', 'A valid report idempotency identifier is required.', ['status' => 400]);
         }
+
         $reported_user_id = absint($request->get_param('reported_user_id'));
         $conversation_id = absint($request->get_param('conversation_id'));
         $message_id = absint($request->get_param('message_id'));
@@ -1409,6 +1529,35 @@ final class SN_REST {
         if (!$reported_user_id && !$conversation_id) {
             return new WP_Error('invalid_report_target', 'Select a valid report target.', ['status' => 400]);
         }
+
+        $target_key = SN_Safety::target_key($reported_user_id, $conversation_id, $message_id);
+        $table = SN_DB::table('reports');
+        $existing = $wpdb->get_row($wpdb->prepare(
+            "SELECT id,target_key,status,retention_until,version FROM $table WHERE reporter_id=%d AND client_uuid=%s LIMIT 1",
+            $reporter_id,
+            $client_uuid
+        ));
+        if ($existing) {
+            if (!hash_equals((string) $existing->target_key, $target_key)) {
+                return new WP_Error('report_idempotency_conflict', 'This report identifier was already used for another target.', ['status' => 409]);
+            }
+            return rest_ensure_response([
+                'reported' => true,
+                'id' => (int) $existing->id,
+                'status' => (string) $existing->status,
+                'retention_until' => (string) $existing->retention_until,
+                'version' => (int) $existing->version,
+                'duplicate' => true,
+            ]);
+        }
+
+        if (!SN_Policy::consume_rate_limit('report_global', (string) $reporter_id, 20, DAY_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        if (!SN_Policy::consume_rate_limit('report_target', $reporter_id . ':' . $target_key, 5, DAY_IN_SECONDS)) {
+            return new WP_Error('report_target_rate_limited', 'Too many reports were submitted for this same target.', ['status' => 429]);
+        }
+
         $category = sanitize_key((string) $request->get_param('category'));
         $allowed = ['spam', 'fraud', 'harassment', 'threat', 'hate', 'impersonation', 'fake_doctor', 'medical_misinformation', 'sexual_content', 'child_safety', 'illegal_products', 'malware', 'stolen_account', 'privacy'];
         if (!in_array($category, $allowed, true)) {
@@ -1417,24 +1566,59 @@ final class SN_REST {
         $details = mb_substr(sanitize_textarea_field((string) $request->get_param('details')), 0, 4000);
         $evidence = self::sanitize_report_evidence($request->get_param('evidence'));
         $now = current_time('mysql', true);
-        $ok = $wpdb->insert(SN_DB::table('reports'), [
+        $retention_until = SN_Safety::retention_until($category, $now);
+        $ok = $wpdb->insert($table, [
             'reporter_id' => $reporter_id,
             'reported_user_id' => $reported_user_id,
             'conversation_id' => $conversation_id,
             'message_id' => $message_id,
+            'client_uuid' => $client_uuid,
+            'target_key' => $target_key,
             'category' => $category,
             'details' => $details,
             'evidence' => wp_json_encode($evidence),
+            'evidence_hash' => SN_Safety::evidence_hash($evidence),
             'status' => 'open',
+            'legal_hold' => 0,
+            'retention_until' => $retention_until,
+            'version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
         if ($ok === false) {
+            $race = $wpdb->get_row($wpdb->prepare(
+                "SELECT id,target_key,status,retention_until,version FROM $table WHERE reporter_id=%d AND client_uuid=%s LIMIT 1",
+                $reporter_id,
+                $client_uuid
+            ));
+            if ($race && hash_equals((string) $race->target_key, $target_key)) {
+                return rest_ensure_response([
+                    'reported' => true,
+                    'id' => (int) $race->id,
+                    'status' => (string) $race->status,
+                    'retention_until' => (string) $race->retention_until,
+                    'version' => (int) $race->version,
+                    'duplicate' => true,
+                ]);
+            }
             return self::database_error();
         }
         $id = (int) $wpdb->insert_id;
-        SN_DB::audit('report_created', 'report', $id, 'success', ['category' => $category, 'conversation_id' => $conversation_id, 'message_id' => $message_id]);
-        return rest_ensure_response(['reported' => true, 'id' => $id]);
+        SN_DB::audit('report_created', 'report', $id, 'success', [
+            'category' => $category,
+            'conversation_id' => $conversation_id,
+            'message_id' => $message_id,
+            'retention_until' => $retention_until,
+        ]);
+        do_action('sn_network_report_created', $id, $reporter_id, $reported_user_id, $conversation_id, $message_id, $category);
+        return rest_ensure_response([
+            'reported' => true,
+            'id' => $id,
+            'status' => 'open',
+            'retention_until' => $retention_until,
+            'version' => 1,
+            'duplicate' => false,
+        ]);
     }
 
     private static function required_tables(): array {

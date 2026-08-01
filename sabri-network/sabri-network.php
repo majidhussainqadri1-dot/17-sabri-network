@@ -18,6 +18,7 @@ define('SN_DIR', plugin_dir_path(__FILE__));
 define('SN_URL', plugin_dir_url(__FILE__));
 
 require_once SN_DIR . 'includes/class-sn-db.php';
+require_once SN_DIR . 'includes/class-sn-safety.php';
 require_once SN_DIR . 'includes/class-sn-policy.php';
 require_once SN_DIR . 'includes/class-sn-private-files.php';
 require_once SN_DIR . 'includes/class-sn-privacy.php';

@@ -23,11 +23,13 @@ echo '== Review round 1: comprehensive static contracts =='
 php tests/static-contracts.php
 php tests/realtime-static-contracts.php
 php tests/package-static-contracts.php
+php tests/safety-static-contracts.php
 
 echo '== Review round 2: fresh/adversarial contracts =='
 php tests/adversarial-contracts.php
 php tests/realtime-adversarial-contracts.php
 php tests/package-adversarial-contracts.php
+php tests/safety-adversarial-contracts.php
 
 echo '== CSS integrity =='
 python3 - <<'PY'
@@ -40,7 +42,7 @@ print('CSS integrity: PASS')
 PY
 
 echo '== Repository hygiene =='
-if grep -RInE --exclude-dir=.git --exclude-dir=build --exclude='quality-check.sh' --exclude='static-contracts.php' --exclude='realtime-static-contracts.php' '(TODO|FIXME|HACK|console\.log\(|debugger;)' .; then
+if grep -RInE --exclude-dir=.git --exclude-dir=build --exclude='quality-check.sh' --exclude='static-contracts.php' --exclude='realtime-static-contracts.php' --exclude='safety-static-contracts.php' '(TODO|FIXME|HACK|console\.log\(|debugger;)' .; then
   echo 'Repository hygiene check failed.' >&2
   exit 1
 fi

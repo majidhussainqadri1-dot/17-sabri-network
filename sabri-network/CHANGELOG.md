@@ -41,3 +41,10 @@
 ### Status
 
 Code-reviewed candidate only. Two independent local review suites currently report zero known failures in 119 static/adversarial contract checks. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, and live deployment remain separate gates.
+
+## 2.0.0 — Safety and retention hardening batch
+- Added UUIDv4 idempotency and database uniqueness for abuse reports.
+- Added canonical report target keys, same-target throttling, evidence hashes and bounded category-based retention.
+- Added legal/safety holds, two-stage minimization/deletion and an atomic retention-worker lock.
+- Added administrator-only report inventory and optimistic-concurrency triage contracts.
+- Added hold-aware privacy export/erasure behavior and operational report diagnostics.

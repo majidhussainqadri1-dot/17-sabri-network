@@ -86,6 +86,7 @@ final class SN_Admin {
         $storage = SN_Private_Files::ensure_storage();
         $legacy_messages = $count('messages', "WHERE attachment_id>0 AND attachment_source='legacy_wp'");
         $legacy_updates = $count('updates', "WHERE media_id>0 AND media_source='legacy_wp'");
+        $report_summary = SN_Safety::operational_summary();
         ?>
         <div class="wrap sn-admin-wrap">
             <h1>Sabri Network and Messages <small style="font-size:14px;color:#646970">Version <?php echo esc_html(SN_VERSION); ?></small></h1>
@@ -112,8 +113,12 @@ final class SN_Admin {
                 <tr><th>Conversations</th><td><?php echo esc_html((string) $count('conversations')); ?></td></tr>
                 <tr><th>Messages</th><td><?php echo esc_html((string) $count('messages')); ?></td></tr>
                 <tr><th>Calls</th><td><?php echo esc_html((string) $count('calls')); ?></td></tr>
-                <tr><th>Open reports</th><td><?php echo esc_html((string) $count('reports', "WHERE status='open'")); ?></td></tr>
+                <tr><th>Open reports</th><td><?php echo esc_html((string) $report_summary['open']); ?></td></tr>
+                <tr><th>Reports under review</th><td><?php echo esc_html((string) $report_summary['reviewing']); ?></td></tr>
+                <tr><th>Legal/safety holds</th><td><?php echo esc_html((string) $report_summary['legal_holds']); ?></td></tr>
+                <tr><th>Retention actions due</th><td><?php echo esc_html((string) $report_summary['retention_due']); ?></td></tr>
             </tbody></table>
+            <p class="description">Authorized report triage is available through the administrator-only <code>sabri-network/v2/admin/reports</code> REST contract with optimistic record-version checks.</p>
 
             <h2>Safe settings</h2>
             <form method="post" action="options.php" style="max-width:1000px">
