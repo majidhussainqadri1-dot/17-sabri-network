@@ -39,6 +39,11 @@ jobs:
               if old not in s:
                   raise SystemExit(f'Materializer patch anchor missing: {old}')
               s = s.replace(old, new)
+          helper_wrong = "def replace_once(rel, old, new):\n    p=REPO/rel"
+          helper_right = "def replace_once(rel, old, new):\n    p=ROOT/rel"
+          if helper_wrong not in s:
+              raise SystemExit('Materializer helper repair anchor missing')
+          s = s.replace(helper_wrong, helper_right, 1)
           p.write_text(s, encoding='utf-8')
           PY
           python /tmp/materialize-review-3.py
