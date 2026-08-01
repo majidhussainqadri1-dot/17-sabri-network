@@ -47,4 +47,18 @@ if find . -path './.git' -prune -o -path './build' -prune -o -type f -size +5M -
   exit 1
 fi
 
+echo '== Reproducible package =='
+bash tools/package.sh >/tmp/file17-package-first.log
+first_hash="$(sha256sum build/17-sabri-network-and-messages-2.0.0.zip | cut -d' ' -f1)"
+cp build/17-sabri-network-and-messages-2.0.0.zip /tmp/file17-package-first.zip
+bash tools/package.sh >/tmp/file17-package-second.log
+second_hash="$(sha256sum build/17-sabri-network-and-messages-2.0.0.zip | cut -d' ' -f1)"
+if [[ "$first_hash" != "$second_hash" ]]; then
+  echo "Reproducible packaging failed: $first_hash != $second_hash" >&2
+  exit 1
+fi
+cmp -s /tmp/file17-package-first.zip build/17-sabri-network-and-messages-2.0.0.zip
+rm -f /tmp/file17-package-first.zip /tmp/file17-package-first.log /tmp/file17-package-second.log
+echo "Reproducible package: PASS ($first_hash)"
+
 echo 'QUALITY CHECK: PASS'
