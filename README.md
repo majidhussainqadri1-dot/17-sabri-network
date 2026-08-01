@@ -17,6 +17,8 @@ File 17 owns consent-based Network relationships, conversations, private message
 - Deterministic double-build and byte comparison: PASS
 - Current installable ZIP SHA-256: `d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65`
 
+Exact current head, CI run and artifact identifiers are maintained in Pull Request #2 so committed source does not create a self-referential evidence loop.
+
 ## Truthful status
 
 - Draft pull request: open
