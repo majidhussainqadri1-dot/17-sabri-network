@@ -39,10 +39,11 @@ $auth = adv_content('includes/class-sn-auth.php');
 $rest = adv_content('includes/class-sn-rest.php');
 $files = adv_content('includes/class-sn-private-files.php');
 $privacy = adv_content('includes/class-sn-privacy.php');
+$safety = adv_content('includes/class-sn-safety.php');
 $js = adv_content('assets/js/network.js');
 $quality = adv_content('tools/quality-check.sh');
 $package = adv_content('tools/package.sh');
-$all = implode("\n", [$main, $admin, $shortcode, $db, $policy, $auth, $rest, $files, $privacy, $js]);
+$all = implode("\n", [$main, $admin, $shortcode, $db, $policy, $auth, $rest, $files, $privacy, $safety, $js]);
 $meSection = substr($rest, strpos($rest, 'public static function get_me'), strpos($rest, 'public static function update_me') - strpos($rest, 'public static function get_me'));
 $conversationFormatSection = substr($rest, strpos($rest, 'private static function format_conversation'), strpos($rest, 'private static function format_message') - strpos($rest, 'private static function format_conversation'));
 
@@ -95,7 +96,7 @@ foreach (['sabri-network-messages', 'sabri-network-updates', 'sabri-network-cont
 }
 adv_check(str_contains($privacy, "['owner_id' => 0, 'status' => 'archived'") , 'Erasure must not leave an active ownerless conversation.');
 adv_check(!str_contains($privacy, 'self::delete_ids(SN_DB::table(\'signals\'), \'call_id\', $call_ids)'), 'Erasing one group-call member must not indiscriminately delete every participant signal by call ID.');
-adv_check(str_contains($privacy, "['reporter_id' => 0, 'details' => '', 'evidence' => '[]']"), 'Reporter-authored free text and evidence must be erased when no hold applies.');
+adv_check(str_contains($safety, "details='',evidence='[]'") && str_contains($safety, "reporter_id=%d AND legal_hold=0"), 'Reporter-authored free text and evidence must be erased when no hold applies.');
 
 // UI, route, and presentation boundaries.
 adv_check(str_contains($shortcode, 'SN_Activator::is_owned_page($page_id)'), 'Assets must load only on the File-17-owned Network page or safe route.');
