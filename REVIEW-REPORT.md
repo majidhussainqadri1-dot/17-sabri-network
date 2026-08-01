@@ -79,7 +79,7 @@ This independent round focuses on negative paths, stale state, race conditions, 
 - CSS brace/responsive integrity check: PASS.
 - Repository hygiene checks: PASS.
 - Reproducible ZIP integrity: PASS.
-- Final package SHA-256: `212e1b89f9e4c4741b10705d5fd88085068b4d0c129635c6434867094d7e50e0`.
+- Final package SHA-256 after the continued coding batch and GitHub Actions packaging: `a9b518338f5d8dd995c7b82397b5913de132a6c7122a5fe38ef3f3c972944e32`.
 
 ## 6. Remaining production gates
 
@@ -114,9 +114,9 @@ A further controlled coding batch was completed after the initial 2.0.0 review:
 
 ### Added QA evidence
 
-- Realtime static contracts: **37/37 PASS** locally.
-- Realtime adversarial contracts: **33/33 PASS** locally.
+- Realtime static contracts: **37/37 PASS** locally and in GitHub Actions.
+- Realtime adversarial contracts: **33/33 PASS** locally and in GitHub Actions.
 - Added checks: **70 PASS**.
-- Combined included contract checks after this batch: **189 PASS**, subject to GitHub Actions confirmation on the updated branch.
+- Combined included contract checks after this batch: **189/189 PASS**. GitHub Actions run `30695030002` independently completed quality checks, package construction, and artifact upload successfully on commit `c97976ad04fdadb5dcc13bcb779939a4306c6c28`.
 
 The candidate remains a controlled review build. Staging, external adapters, penetration/load testing, Founder approval, merge, and live deployment remain separate gates.
