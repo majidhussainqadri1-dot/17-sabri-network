@@ -1,10 +1,5 @@
+/sabri-network/build/
 .DS_Store
 Thumbs.db
 *.log
-*.tmp
-*.swp
-.idea/
-.vscode/
-node_modules/
-vendor/
-source-packages/*.zip
+.phpunit.result.cache

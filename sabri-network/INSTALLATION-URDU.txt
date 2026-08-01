@@ -1,0 +1,17 @@
+فائل 17 — Sabri Network and Messages 2.0.0
+تنصیب کا محفوظ طریقہ
+
+1۔ پہلے مکمل Database اور Files Backup بنائیں اور Restore Test کا ثبوت محفوظ کریں۔
+2۔ ZIP صرف Staging ویب سائٹ پر نصب کریں؛ Live پر براہِ راست نصب نہ کریں۔
+3۔ Plugin فعال کریں۔
+4۔ WordPress Admin میں Network → System Check کھولیں۔
+5۔ File 00/File 02 کا Identity Adapter منسلک کریں؛ اس کے بغیر Network user actions حفاظتی طور پر بند رہیں گے۔
+6۔ File 19 Notification Adapter منسلک کریں، یا محدود local fallback کو واضح طور پر قبول کریں۔
+7۔ Private Storage ویب روٹ سے باہر قابلِ تحریر ہونا چاہیے۔
+8۔ Document Uploads کے لیے منظور شدہ Malware Scanner Adapter لازم ہے۔
+9۔ Calls کے لیے منظور شدہ STUN ترتیب دیں؛ TURN credentials صرف short-lived adapter سے دیں۔
+10۔ Group Calls اس وقت تک فعال نہ کریں جب تک منظور شدہ SFU دستیاب اور آزمودہ نہ ہو۔
+11۔ Founder، Doctor، Adult Member، Minor، Blocked، Suspended اور Unauthorized account کے عملی tests کریں۔
+12۔ Migration، rollback، privacy export/erasure، attachment delivery، rate limiting، calls اور reports کے tests کامیاب ہونے کے بعد ہی Founder approval لیا جائے۔
+
+اہم: یہ نسخہ E2EE، penetration testing، load testing، staging acceptance یا production readiness کا دعویٰ نہیں کرتا۔

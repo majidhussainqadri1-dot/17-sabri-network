@@ -1,0 +1,40 @@
+File 17 — Sabri Network and Messages 2.0.0
+حقیقی حیثیت — 1 اگست 2026ء
+
+Specified: مکمل
+Coded: 2.0.0 reviewed candidate
+Packaged: reproducible ZIP اور SHA-256 verification مکمل
+Automated QA: دو الگ local review suites کامیاب؛ GitHub CI الگ gate
+Staging Accepted: ابھی نہیں
+Live Deployed: ابھی نہیں
+Operational: ابھی نہیں
+
+موجود اہم نظام:
+- accepted-contact relationships
+- direct/group/community/channel conversation model
+- private messages، read state، reactions، edit/delete windows
+- private attachments، web-root/symlink protection اور controlled delivery
+- updates، calls، WebRTC signaling، signal acknowledgement
+- conversation ownership transfer before owner departure
+- blocks، reports، rate limits، audit، privacy export/erasure
+- File 00/02، 19، 20، 24 اور 25 integration boundaries
+
+نظرِ ثانی و QA evidence:
+- Review Round 1 — static contracts: 60/60 PASS
+- Review Round 2 — fresh/adversarial contracts: 59/59 PASS
+- مجموعی included checks: 119 PASS
+- PHP، JavaScript، shell syntax اور CSS integrity: PASS
+- مفہوم: شامل suites میں اس وقت کوئی معلوم failure نہیں؛ مطلق بےنقصی کا دعویٰ نہیں۔
+
+لازمی بیرونی gates:
+- File 00/File 02 identity authority adapter
+- File 19 notifications اور File 20/25 integration acceptance
+- approved malware scanner
+- approved STUN/TURN؛ group calls کے لیے SFU
+- staging migration and rollback rehearsal
+- real-role security/privacy/accessibility/UX acceptance
+- penetration، dependency، load اور race testing
+- backup/restore verification
+- Founder approval before live deployment
+
+یہ نظام audited end-to-end encryption کا دعویٰ نہیں کرتا۔
