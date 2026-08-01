@@ -1,16 +1,15 @@
-name: Materialize File 17 Source
+name: Materialize Reviewed File 17 Source
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - 'source-packages/base64/**'
-      - 'tools/reconstruct-source-package.sh'
+      - 'review-payload/**'
       - '.github/workflows/materialize-source.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   materialize:
@@ -19,36 +18,29 @@ jobs:
       - name: Check out review branch
         uses: actions/checkout@v4
         with:
+          ref: codex/file-17-review-2.0.0
           fetch-depth: 0
 
-      - name: Reconstruct verified source package
+      - name: Reconstruct and verify reviewed repository
         shell: bash
         run: |
           set -euo pipefail
-          bash tools/reconstruct-source-package.sh
+          cat review-payload/part-*.b64 | base64 -d > /tmp/file17-reviewed.tar.xz
+          echo '864cbe1979d9c0dcd76557f9f90a09d05b9dab56242df67407d36f47d341e59e  /tmp/file17-reviewed.tar.xz' | sha256sum -c -
+          mkdir -p /tmp/file17-reviewed
+          tar -xJf /tmp/file17-reviewed.tar.xz -C /tmp/file17-reviewed
+          test -f /tmp/file17-reviewed/sabri-network/sabri-network.php
+          grep -q 'Version: 2.0.0' /tmp/file17-reviewed/sabri-network/sabri-network.php
+          bash /tmp/file17-reviewed/sabri-network/tools/quality-check.sh
 
-      - name: Extract source tree
+      - name: Replace review branch with verified source
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf sabri-network
-          unzip -q source-packages/17-sabri-network-1.1.0.zip
-          test -f sabri-network/sabri-network.php
-          grep -q 'Version: 1.1.0' sabri-network/sabri-network.php
-
-      - name: Validate baseline source
-        shell: bash
-        run: |
-          set -euo pipefail
-          find sabri-network -name '*.php' -print0 | xargs -0 -n1 php -l
-          node --check sabri-network/assets/js/network.js
-
-      - name: Upload verified source artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: file-17-source-baseline
-          path: |
-            sabri-network
-            source-packages/17-sabri-network-1.1.0.zip
-          if-no-files-found: error
-          retention-days: 7
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/file17-reviewed/. .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: materialize reviewed File 17 Network and Messages 2.0.0'
+          git push origin HEAD:codex/file-17-review-2.0.0
