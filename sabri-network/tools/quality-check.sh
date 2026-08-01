@@ -22,10 +22,12 @@ echo 'PASS shell scripts'
 echo '== Review round 1: comprehensive static contracts =='
 php tests/static-contracts.php
 php tests/realtime-static-contracts.php
+php tests/package-static-contracts.php
 
 echo '== Review round 2: fresh/adversarial contracts =='
 php tests/adversarial-contracts.php
 php tests/realtime-adversarial-contracts.php
+php tests/package-adversarial-contracts.php
 
 echo '== CSS integrity =='
 python3 - <<'PY'
