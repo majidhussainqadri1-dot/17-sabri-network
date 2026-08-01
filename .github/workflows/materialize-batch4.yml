@@ -6,12 +6,21 @@ on:
       - codex/file-17-review-2.0.0
     paths:
       - 'batch4-payload/READY'
+  pull_request:
+    branches:
+      - main
+    types:
+      - ready_for_review
+    paths:
+      - 'batch4-payload/**'
+      - '.github/workflows/materialize-batch4.yml'
 
 permissions:
   contents: write
 
 jobs:
   materialize:
+    if: github.event_name == 'push' || github.head_ref == 'codex/file-17-review-2.0.0'
     runs-on: ubuntu-latest
     steps:
       - name: Check out review branch
