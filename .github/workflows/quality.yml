@@ -27,6 +27,9 @@ jobs:
           replacements = {
               'ROOT=Path.cwd()': "REPO=Path.cwd()\nROOT=REPO/'sabri-network'",
               "ROOT/'sabri-network/tests/": "ROOT/'tests/",
+              "ROOT/'sabri-network/tools/": "ROOT/'tools/",
+              "ROOT/'sabri-network/SYSTEM-STATUS.txt'": "ROOT/'SYSTEM-STATUS.txt'",
+              "ROOT/'sabri-network/CHANGELOG.md'": "ROOT/'CHANGELOG.md'",
               'p=ROOT/rel': 'p=REPO/rel',
               "manifest=ROOT/'MANIFEST.md'": "manifest=REPO/'MANIFEST.md'",
               "for p in (ROOT/'sabri-network').rglob('*'):": "for p in ROOT.rglob('*'):",
