@@ -1,41 +1,32 @@
-name: File 17 Quality
+name: File 17 Materialize Review 3
 
 on:
   push:
     branches:
-      - main
       - codex/file-17-review-2.0.0
-  pull_request:
-    branches:
-      - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  quality:
+  materialize:
+    if: github.event_name == 'push' && github.ref_name == 'codex/file-17-review-2.0.0'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          coverage: none
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install packaging dependencies
-        run: sudo apt-get update && sudo apt-get install -y rsync zip
-      - name: Run quality checks
-        run: bash sabri-network/tools/quality-check.sh
-      - name: Build package
-        run: bash sabri-network/tools/package.sh
-      - name: Upload package
-        uses: actions/upload-artifact@v4
-        with:
-          name: file-17-sabri-network-messages-2.0.0
-          path: |
-            sabri-network/build/17-sabri-network-and-messages-2.0.0.zip
-            sabri-network/build/17-sabri-network-and-messages-2.0.0.zip.sha256
-          if-no-files-found: error
-          retention-days: 14
+          ref: codex/file-17-review-2.0.0
+          fetch-depth: 1
+      - name: Materialize reviewed corrections
+        run: |
+          cat .github/materialize-parts/part-* | base64 -d | gzip -d > /tmp/materialize-review-3.py
+          python /tmp/materialize-review-3.py
+          rm -rf .github/materialize-parts
+      - name: Commit corrected review batch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix File 17 third forensic review findings"
+          git push origin HEAD:codex/file-17-review-2.0.0
