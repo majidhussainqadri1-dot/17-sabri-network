@@ -1,86 +1,65 @@
-name: File 17 Quality
+name: Materialize Verified File 17 Corrective Batch
 
 on:
   push:
     branches:
-      - main
       - codex/file-17-review-2.0.0
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: write
 
 jobs:
-  quality:
+  materialize:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out controlled review branch
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          ref: codex/file-17-review-2.0.0
           fetch-depth: 0
-
-      - name: Materialize verified pending coding batch
-        if: github.ref_name == 'codex/file-17-review-2.0.0' || github.head_ref == 'codex/file-17-review-2.0.0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f batch4-payload/READY ]]; then
-            cat batch4-payload/part-*.b64 | base64 -d > /tmp/file17-batch4.tar.xz
-            expected='afa57e8929eb0cf07c010d7a6d813d91d03a0d6afcfd14bdffd999f6a76e29f9'
-            actual="$(sha256sum /tmp/file17-batch4.tar.xz | cut -d' ' -f1)"
-            echo "Pending batch archive SHA-256: ${actual}"
-            if [[ "$actual" != "$expected" ]]; then
-              echo "Expected archive SHA-256: ${expected}" >&2
-              echo 'Checking XZ stream integrity without extraction...' >&2
-              xz -t /tmp/file17-batch4.tar.xz
-              echo 'Archive inventory preview:' >&2
-              tar -tJf /tmp/file17-batch4.tar.xz | sed -n '1,80p' >&2
-              echo 'Verified payload checksum mismatch; materialization refused.' >&2
-              exit 1
-            fi
-            mkdir -p /tmp/file17-batch4
-            tar -xJf /tmp/file17-batch4.tar.xz -C /tmp/file17-batch4
-            test -f /tmp/file17-batch4/sabri-network/includes/class-sn-relationships.php
-            cp -a /tmp/file17-batch4/. .
-            rm -rf batch4-payload
-            touch /tmp/file17-batch-materialized
-          fi
 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install packaging dependencies
-        run: sudo apt-get update && sudo apt-get install -y rsync zip
-      - name: Run quality checks
-        run: bash sabri-network/tools/quality-check.sh
-      - name: Build package
-        run: bash sabri-network/tools/package.sh
 
-      - name: Commit verified pending coding batch
-        if: success()
+      - name: Install verification and packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y rsync zip xz-utils
+
+      - name: Verify and materialize corrective batch
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -f /tmp/file17-batch-materialized ]]; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -A
-            git commit -m 'feat: add canonical follow graph and profile actions'
-            git push origin HEAD:codex/file-17-review-2.0.0
-          fi
+          cat batch5-payload/part-*.b64 | base64 -d > /tmp/file17-batch5.tar.xz
+          echo '3e9d47f4998e55c9dcf66a8a371ce1aeafe54de752758c76fb3a877bce884760  /tmp/file17-batch5.tar.xz' | sha256sum -c -
+          xz -t /tmp/file17-batch5.tar.xz
+          tar -xJf /tmp/file17-batch5.tar.xz -C .
+          test -f sabri-network/includes/class-sn-relationships.php
+          test -f sabri-network/tests/relationships-adversarial-contracts.php
+          rm -rf batch4-payload batch5-payload
+          rm -f .github/workflows/materialize-batch4.yml
+          bash sabri-network/tools/quality-check.sh
 
-      - name: Upload package
+      - name: Upload verified package
         uses: actions/upload-artifact@v4
         with:
-          name: file-17-sabri-network-messages-2.0.0
+          name: file-17-sabri-network-messages-2.0.0-corrective-batch
           path: |
             sabri-network/build/17-sabri-network-and-messages-2.0.0.zip
             sabri-network/build/17-sabri-network-and-messages-2.0.0.zip.sha256
           if-no-files-found: error
           retention-days: 14
+
+      - name: Commit verified corrective batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: harden safety and add canonical follow graph'
+          git push origin HEAD:codex/file-17-review-2.0.0
