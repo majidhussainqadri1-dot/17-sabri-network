@@ -1,10 +1,10 @@
 File 17 — Sabri Network and Messages 2.0.0
-حقیقی حیثیت — 1 اگست 2026ء
+حقیقی حیثیت — 2 اگست 2026ء
 
 Specified: مکمل
 Coded: 2.0.0 reviewed candidate
-Packaged: reproducible ZIP اور SHA-256 verification مکمل
-Automated QA: دو الگ local review suites کامیاب؛ GitHub CI الگ gate
+Packaged: deterministic ZIP اور SHA-256 verification موجود
+Automated QA: دو الگ review rounds، runtime/adversarial concurrency checks اور checksum gate شامل
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
@@ -16,25 +16,32 @@ Operational: ابھی نہیں
 - private attachments، web-root/symlink protection اور controlled delivery
 - updates، calls، WebRTC signaling، signal acknowledgement
 - conversation ownership transfer before owner departure
-- blocks، reports، rate limits، audit، privacy export/erasure
+- blocks، reports، appeals، legal/safety holds، rate limits، audit، privacy export/erasure
 - File 00/02، 19، 20، 24 اور 25 integration boundaries
 
+تازہ retention اور integrity اصلاح:
+- stale report-retention lock takeover اب delete-then-add نہیں کرتا۔
+- takeover exact previously observed option value پر atomic compare-and-swap سے ہوتا ہے۔
+- release exact owner value پر compare-and-delete سے ہوتا ہے؛ سابق worker نئے owner کا lock حذف نہیں کرسکتا۔
+- کامیاب direct option mutation کے بعد WordPress option cache invalidate ہوتی ہے۔
+- runtime tests stale takeover، competing takeover، release race، active lock اور malformed lock recovery کو جانچتے ہیں۔
+- committed CHECKSUMS.sha256 installable source tree کی مکمل coverage اور exact hashes کے ساتھ quality gate میں verify ہوتا ہے۔
+
 نظرِ ثانی و QA evidence:
-- Review Round 1 — static contracts: 60/60 PASS
-- Review Round 2 — fresh/adversarial contracts: 59/59 PASS
-- مجموعی included checks: 119 PASS
-- PHP، JavaScript، shell syntax اور CSS integrity: PASS
-- مفہوم: شامل suites میں اس وقت کوئی معلوم failure نہیں؛ مطلق بےنقصی کا دعویٰ نہیں۔
+- Review Round 1: static، runtime، realtime، package، safety اور relationships suites
+- Review Round 2: fresh/adversarial suites
+- موجود configured included contract checks: 388
+- PHP، JavaScript، shell syntax، CSS integrity، repository hygiene، source checksums اور deterministic double-build: لازمی gates
+- مفہوم: شامل suites میں معلوم failure صفر ہونے کی صورت automated-QA green ہوگی؛ مطلق بےنقصی یا staging acceptance کا دعویٰ نہیں۔
 
 لازمی بیرونی gates:
 - File 00/File 02 identity authority adapter
-- File 19 notifications اور File 20/25 integration acceptance
+- File 19 notifications اور File 20/24/25 integration acceptance
 - approved malware scanner
 - approved STUN/TURN؛ group calls کے لیے SFU
-- staging migration and rollback rehearsal
+- staging fresh install، migration، rollback اور backup/restore rehearsal
 - real-role security/privacy/accessibility/UX acceptance
-- penetration، dependency، load اور race testing
-- backup/restore verification
-- Founder approval before live deployment
+- penetration، dependency، load اور حقیقی MySQL race testing
+- Founder approval before merge/live deployment
 
 یہ نظام audited end-to-end encryption کا دعویٰ نہیں کرتا۔
