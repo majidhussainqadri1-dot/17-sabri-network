@@ -17,7 +17,7 @@ function package_adv_check(bool $condition, string $message): void {
     }
 }
 
-package_adv_check(str_contains($package, "find \"$STAGE/sabri-network\" -type l") && str_contains($package, 'Packaging refused: symbolic links'), 'Release packaging must reject symbolic links.');
+package_adv_check(str_contains($package, 'find "$STAGE/sabri-network" -type l') && str_contains($package, 'Packaging refused: symbolic links'), 'Release packaging must reject symbolic links.');
 package_adv_check(str_contains($package, "--exclude='build/'") && str_contains($package, "--exclude='tests/'") && str_contains($package, "--exclude='tools/'"), 'Development and recursive build files must be excluded.');
 package_adv_check(!preg_match('/\bdate\s+\+|current_time|time\(\)/', $package), 'Release bytes must not depend on the current clock.');
 package_adv_check(str_contains($package, 'touch -h -t "$FIXED_TIMESTAMP"'), 'Every staged entry must receive the fixed timestamp.');
