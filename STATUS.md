@@ -9,7 +9,7 @@
 **Current installable ZIP SHA-256:** `d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65`  
 **Staging/live/operational:** not completed
 
-Exact current head, CI run and workflow artifact identifiers are maintained in Pull Request #2 because embedding a commit's own future CI identifier inside the committed source would create a self-referential evidence loop.
+Exact current head, CI run and workflow artifact identifiers are maintained in Pull Request #2. They are intentionally not embedded here because every source edit creates a new head and a new CI run; embedding those future identifiers inside the commit would create a self-referential evidence loop.
 
 ## Latest corrective batch
 
