@@ -1,20 +1,28 @@
 # File 17 — Sabri Network and Messages 2.0.0
 
-This branch contains the reviewed and corrected File-17 source for the Sabri Social Homeopathy Platform.
+This branch contains the reviewed and corrected File-17 candidate for the Sabri Social Homeopathy Platform.
 
 ## Canonical scope
 
-File 17 owns consent-based Network relationships, conversations, private messages and attachments, temporary updates, direct-call state/signaling, blocks, reports, privacy operations, and native audit records. It does not duplicate File 00/02 identity, File 19 notification delivery, File 20 global shell, File 24 assurance governance, or File 25 public-profile presentation.
+File 17 owns consent-based Network relationships, conversations, private messages and attachments, temporary updates, direct-call state/signaling, blocks, reports, appeals, native retention enforcement, privacy operations, and audit records. It does not duplicate File 00/02 identity, File 19 notification delivery, File 20 global shell, File 24 assurance governance, or File 25 public-profile presentation.
 
-## Evidence status
+## Current engineering evidence
 
-- Source review and defect remediation: completed for this engineering pass
-- Review Round 1: 60/60 static contracts PASS
-- Review Round 2: 59/59 adversarial contracts PASS
-- PHP/JavaScript/shell syntax and CSS integrity: PASS
-- Production ZIP: built by GitHub Actions from `sabri-network/`
+- Two independent review rounds: PASS
+- Included static/runtime/adversarial contract checks: **388/388 PASS**
+- Retention-lock takeover and release race tests: PASS
+- PHP, JavaScript and shell syntax: PASS
+- CSS integrity and repository hygiene: PASS
+- Complete installable-source checksum coverage: PASS
+- Deterministic double-build and byte comparison: PASS
+- Current installable ZIP SHA-256: `d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65`
+
+## Truthful status
+
+- Draft pull request: open
+- Merged into `main`: no
 - Staging accepted: no
 - Live deployed: no
 - Operational: no
 
-See `REVIEW-REPORT.md` and `sabri-network/SYSTEM-STATUS.txt`.
+See `REVIEW-REPORT.md`, `SAFETY-HARDENING-REPORT.md`, `STATUS.md`, and `sabri-network/SYSTEM-STATUS.txt`.
