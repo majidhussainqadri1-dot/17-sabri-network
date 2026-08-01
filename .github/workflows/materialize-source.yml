@@ -1,0 +1,59 @@
+name: Materialize File 17 Source
+
+on:
+  push:
+    branches:
+      - codex/file-17-review-2.0.0
+    paths:
+      - 'source-packages/base64/**'
+      - 'tools/reconstruct-source-package.sh'
+      - '.github/workflows/materialize-source.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out review branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/file-17-review-2.0.0
+          fetch-depth: 0
+
+      - name: Reconstruct verified source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/reconstruct-source-package.sh
+
+      - name: Extract source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf sabri-network
+          unzip -q source-packages/17-sabri-network-1.1.0.zip
+          test -f sabri-network/sabri-network.php
+          grep -q 'Version: 1.1.0' sabri-network/sabri-network.php
+
+      - name: Validate baseline source
+        shell: bash
+        run: |
+          set -euo pipefail
+          find sabri-network -name '*.php' -print0 | xargs -0 -n1 php -l
+          node --check sabri-network/assets/js/network.js
+
+      - name: Commit materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network source-packages/17-sabri-network-1.1.0.zip
+          if git diff --cached --quiet; then
+            echo 'Source already materialized.'
+            exit 0
+          fi
+          git commit -m 'Materialize verified File 17 source for review'
+          git push origin HEAD:codex/file-17-review-2.0.0
