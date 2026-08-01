@@ -69,7 +69,7 @@ Result: **59/59 PASS**.
 
 This independent round focuses on negative paths, stale state, race conditions, authority bypass, minor exposure, shared attachment lifecycle, TURN/SFU boundaries, call cleanup, report-target integrity, erasure side effects, route/shell duplication, protocol allowlisting, release reproducibility, ownership-transfer races, symlinked storage, malformed timestamps, and upgrade cron recovery.
 
-**Combined included checks:** **119 PASS**. This means no known failure remains in the included suites; it is not a claim that the software is incapable of containing an undiscovered defect.
+**Combined initial checks:** **119 PASS**. This means no known failure remains in the included suites; it is not a claim that the software is incapable of containing an undiscovered defect.
 
 ## 5. Additional verification
 
@@ -78,8 +78,8 @@ This independent round focuses on negative paths, stale state, race conditions, 
 - Shell syntax check: PASS.
 - CSS brace/responsive integrity check: PASS.
 - Repository hygiene checks: PASS.
-- Reproducible ZIP integrity: PASS.
-- Final package SHA-256 after the continued coding batch and GitHub Actions packaging: `a9b518338f5d8dd995c7b82397b5913de132a6c7122a5fe38ef3f3c972944e32`.
+- Deterministic ZIP integrity and byte-for-byte repeatability: PASS.
+- Current deterministic package SHA-256: `48a2b4e6089b66f2085c816786dcc25f1b3b2a331ef588b5d894f889895b7c3d`.
 
 ## 6. Remaining production gates
 
@@ -96,7 +96,7 @@ The following are intentionally not represented as completed:
 
 ## 7. Truthful completion status
 
-The code review, identified-defect correction, local syntax checks, two independent contract-review rounds, and reproducible packaging are the deliverables of this engineering pass. Production completion requires the remaining external and staging gates above.
+The code review, identified-defect correction, syntax checks, independent contract-review rounds, and deterministic packaging are the deliverables of this engineering pass. Production completion requires the remaining external and staging gates above.
 
 ## 8. Continued coding batch — realtime state, channel authority and call revocation
 
@@ -112,11 +112,33 @@ A further controlled coding batch was completed after the initial 2.0.0 review:
 - corrected polling so list refreshes merge summary data instead of discarding detailed active-conversation membership and authority state;
 - extended WordPress privacy export/erasure to conversation preferences, presence, and typing state.
 
-### Added QA evidence
+### Added realtime QA evidence
 
-- Realtime static contracts: **37/37 PASS** locally and in GitHub Actions.
-- Realtime adversarial contracts: **33/33 PASS** locally and in GitHub Actions.
-- Added checks: **70 PASS**.
-- Combined included contract checks after this batch: **189/189 PASS**. GitHub Actions run `30695030002` independently completed quality checks, package construction, and artifact upload successfully on commit `c97976ad04fdadb5dcc13bcb779939a4306c6c28`.
+- Realtime static contracts: **37/37 PASS**.
+- Realtime adversarial contracts: **33/33 PASS**.
+- Added realtime checks: **70 PASS**.
+- Combined included checks after the realtime batch: **189/189 PASS**.
+
+## 9. Packaging determinism defect and corrective batch
+
+A later independent artifact comparison detected that successive successful CI builds produced different ZIP hashes even though release content had not changed. The cause was ZIP timestamps and filesystem metadata. Because the repository had claimed reproducible packaging, this variance was treated as a verified defect rather than ignored.
+
+Corrective coding:
+
+- fixed locale to `C` and timezone to UTC;
+- normalized release file modes to `0644` and directory modes to `0755`;
+- assigned every staged entry the ZIP-compatible fixed timestamp `1980-01-01 00:00:00`;
+- sorted every ZIP input path deterministically;
+- used `zip -X` to strip platform-dependent extra metadata;
+- rejected symbolic links in the release tree;
+- made the quality gate build the package twice, compare both hashes, and compare the actual ZIP bytes.
+
+### Packaging review rounds
+
+- Package static contracts: **8/8 PASS**.
+- Package fresh/adversarial contracts: **8/8 PASS**.
+- Runtime double-build byte comparison: **PASS**.
+- GitHub Actions run `30695265916`: quality checks, deterministic build, and artifact upload **PASS** on commit `fa8ccddf16d2388623d742e6c2490c75c27056e9`.
+- Total included contract checks after all continued coding: **205/205 PASS**.
 
 The candidate remains a controlled review build. Staging, external adapters, penetration/load testing, Founder approval, merge, and live deployment remain separate gates.
