@@ -3,14 +3,17 @@
 **Target:** File 17 — Sabri Network and Messages 2.0.0  
 **State:** reviewed and coded candidate; draft PR  
 **Known failures in included suites:** 0  
-**Included contract checks:** 205/205 PASS  
-**Confirmed corrective QA runs:** `30695265916` and `30695322270` — success  
-**Current deterministic package SHA-256:** `48a2b4e6089b66f2085c816786dcc25f1b3b2a331ef588b5d894f889895b7c3d`  
-**Independent cross-run ZIP byte comparison:** PASS  
+**Included contract checks:** 241/241 PASS  
+**Latest confirmed head QA run:** `30698113280` — quality, deterministic build, and artifact upload PASS  
+**Current head:** `dbaef05198bcaab5c0e890bc098b450a3416dd04`  
+**Current deterministic package SHA-256:** `f32160217e98d7d69ab7fc263c442c08b97492b082fa2be6dde2dcbd11e28529`  
+**Runtime double-build byte comparison:** PASS  
 **Staging/live/operational:** not completed
 
-The continued coding adds privacy-scoped presence, expiring typing state, native mute/archive preferences, mute-aware fallback notifications, channel publishing authority, active-call membership revocation, signaling membership enforcement, polling-state preservation, and expanded privacy export/erasure coverage.
+The continued coding now includes privacy-scoped presence, expiring typing state, native mute/archive preferences, mute-aware fallback notifications, channel publishing authority, active-call membership revocation, signaling membership enforcement, polling-state preservation, and expanded privacy export/erasure coverage.
 
-A subsequent artifact comparison exposed non-deterministic ZIP metadata. Packaging now fixes locale, timezone, timestamps, modes and entry ordering; strips extra ZIP metadata; rejects symlinks; and performs two independent builds with hash and byte comparison inside the quality gate. Separate successful GitHub Actions artifacts were also verified as byte-identical.
+The latest safety hardening adds report submission idempotency, canonical report target keys, bounded global and same-target limits, evidence hashes, administrator triage with optimistic version checks, legal/safety holds, category-aware retention deadlines, locked retention cleanup, staged anonymization/deletion, legacy report migration, privacy minimization, and operational safety counts. File 24 may consume assurance evidence but does not replace File 17's native enforcement.
+
+Packaging fixes locale, timezone, timestamps, modes and entry ordering; strips extra ZIP metadata; rejects symlinks; and performs two independent builds with hash and byte comparison inside the quality gate.
 
 Remaining gates include production identity and integration adapters, scanner/TURN/SFU operations, staging migration and rollback, real-role acceptance, penetration/dependency/load/race testing, backup/restore verification, browser/device/accessibility acceptance, and Founder approval.
