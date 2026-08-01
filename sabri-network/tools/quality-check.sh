@@ -55,6 +55,25 @@ if find . -path './.git' -prune -o -path './build' -prune -o -type f -size +5M -
   exit 1
 fi
 
+echo '== Installable source checksums =='
+(
+  cd "$ROOT/.."
+  expected_files="$(find sabri-network -type f \
+    ! -path 'sabri-network/build/*' \
+    ! -path 'sabri-network/tests/*' \
+    ! -path 'sabri-network/tools/*' \
+    ! -name 'REVIEW-REPORT.md' \
+    -print | LC_ALL=C sort)"
+  listed_files="$(awk '{print $2}' CHECKSUMS.sha256 | sed 's#^\./##' | LC_ALL=C sort)"
+  if [[ "$expected_files" != "$listed_files" ]]; then
+    echo 'Installable source checksum manifest does not match the package source tree.' >&2
+    diff -u <(printf '%s\n' "$expected_files") <(printf '%s\n' "$listed_files") >&2 || true
+    exit 1
+  fi
+  sha256sum -c CHECKSUMS.sha256
+)
+echo 'Installable source checksums: PASS'
+
 echo '== Reproducible package =='
 bash tools/package.sh >/tmp/file17-package-first.log
 first_hash="$(sha256sum build/17-sabri-network-and-messages-2.0.0.zip | cut -d' ' -f1)"
