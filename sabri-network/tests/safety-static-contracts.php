@@ -43,6 +43,14 @@ safety_check(str_contains($db, 'decision_reason TEXT') && str_contains($db, 'dec
 safety_check(str_contains($db, 'appeal_status VARCHAR(20)') && str_contains($db, 'appeal_reason TEXT') && str_contains($db, 'KEY appeal_queue'), 'Report appeals must have a canonical queueable schema.');
 safety_check(str_contains($db, 'SN_Safety::migrate_reports()'), 'Report migration must run during schema installation.');
 safety_check(str_contains($db, 'SN_Safety::purge_expired_reports()'), 'Hourly cleanup must invoke report retention minimization.');
+safety_check(
+    str_contains($safety, "['option_name' => self::RETENTION_LOCK, 'option_value' => \$stored]")
+        && str_contains($safety, '$wpdb->update(')
+        && str_contains($safety, '$wpdb->delete(')
+        && !str_contains($safety, 'delete_option(self::RETENTION_LOCK)'),
+    'Retention lock takeover and release must use compare-safe database mutations rather than delete-then-add.'
+);
+safety_check(str_contains($safety, "wp_cache_delete(self::RETENTION_LOCK, 'options')"), 'Successful direct option mutations must invalidate the WordPress option cache.');
 safety_check(str_contains($safety, 'valid_uuid') && str_contains($safety, "-4[0-9a-f]{3}-[89ab]"), 'Report client identifiers must be UUIDv4 values.');
 safety_check(str_contains($safety, 'canonicalize_evidence') && str_contains($safety, 'ksort($value, SORT_STRING)'), 'Evidence hashes must use recursive canonicalization.');
 safety_check(str_contains($safety, 'evidence_is_intact') && str_contains($rest, "'evidence_integrity'"), 'Administrator evidence views must expose integrity verification.');
