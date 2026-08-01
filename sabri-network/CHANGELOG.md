@@ -36,15 +36,20 @@
 - Revoked active call membership and pending signals transactionally when a member leaves or is removed.
 - Required current conversation membership for call history visibility, call-state mutation, signaling reads/writes and acknowledgements.
 - Corrected polling so list refreshes no longer discard detailed active-conversation membership and authority state.
-- Extended privacy export/erasure and added 70 new static/adversarial realtime-state checks.
+- Extended privacy export/erasure and added static, runtime, realtime, package, safety, relationship and adversarial checks.
+
+### Safety and retention hardening batch
+
+- Added UUIDv4 idempotency and database uniqueness for abuse reports.
+- Added canonical report target keys, same-target throttling, evidence hashes and bounded category-based retention.
+- Added legal/safety holds, two-stage minimization/deletion and an administrator report/appeal workflow.
+- Added administrator-only report inventory and optimistic-concurrency triage contracts.
+- Added hold-aware privacy export/erasure behavior and operational report diagnostics.
+- Replaced stale-lock delete-then-add takeover with an exact-value compare-and-swap update.
+- Replaced lock release with exact-value compare-and-delete so an expired former worker cannot delete a replacement owner lock.
+- Added runtime race simulations for initial acquisition, stale takeover, competing takeover, release races, active locks and malformed-lock recovery.
+- Added complete installable-source checksum coverage and exact-hash verification to the quality gate.
 
 ### Status
 
-Code-reviewed candidate only. Two independent local review suites currently report zero known failures in 119 static/adversarial contract checks. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, and live deployment remain separate gates.
-
-## 2.0.0 — Safety and retention hardening batch
-- Added UUIDv4 idempotency and database uniqueness for abuse reports.
-- Added canonical report target keys, same-target throttling, evidence hashes and bounded category-based retention.
-- Added legal/safety holds, two-stage minimization/deletion and an atomic retention-worker lock.
-- Added administrator-only report inventory and optimistic-concurrency triage contracts.
-- Added hold-aware privacy export/erasure behavior and operational report diagnostics.
+Code-reviewed candidate only. The current quality gate executes two independent review rounds with 388 included contract checks, PHP/JavaScript/shell syntax, CSS integrity, repository hygiene, complete installable-source checksum verification and deterministic byte-for-byte packaging. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, backup/restore, cross-file integration and live deployment remain separate gates.
