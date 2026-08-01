@@ -1,65 +1,41 @@
-name: File 17 Materialize Review 3
+name: File 17 Quality
 
 on:
+  push:
+    branches:
+      - main
+      - codex/file-17-review-2.0.0
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  materialize:
-    if: github.event.pull_request.head.ref == 'codex/file-17-review-2.0.0'
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
-          ref: codex/file-17-review-2.0.0
-          fetch-depth: 1
-      - name: Materialize reviewed corrections
-        run: |
-          cat .github/materialize-parts/part-* | base64 -d | gzip -d > /tmp/materialize-review-3.py
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('/tmp/materialize-review-3.py')
-          s = p.read_text(encoding='utf-8')
-          replacements = {
-              'ROOT=Path.cwd()': "REPO=Path.cwd()\nROOT=REPO/'sabri-network'",
-              "ROOT/'sabri-network/tests/": "ROOT/'tests/",
-              "ROOT/'sabri-network/tools/": "ROOT/'tools/",
-              "ROOT/'sabri-network/SYSTEM-STATUS.txt'": "ROOT/'SYSTEM-STATUS.txt'",
-              "ROOT/'sabri-network/CHANGELOG.md'": "ROOT/'CHANGELOG.md'",
-              'p=ROOT/rel': 'p=REPO/rel',
-              "manifest=ROOT/'MANIFEST.md'": "manifest=REPO/'MANIFEST.md'",
-              "for p in (ROOT/'sabri-network').rglob('*'):": "for p in ROOT.rglob('*'):",
-              'rel=p.relative_to(ROOT).as_posix()': 'rel=p.relative_to(REPO).as_posix()',
-              "hashlib.sha256((ROOT/r).read_bytes())": "hashlib.sha256((REPO/r).read_bytes())",
-              "(ROOT/'CHECKSUMS.sha256')": "(REPO/'CHECKSUMS.sha256')",
-              "(ROOT/'.github/workflows/quality.yml')": "(REPO/'.github/workflows/quality.yml')",
-          }
-          for old, new in replacements.items():
-              if old not in s:
-                  raise SystemExit(f'Materializer patch anchor missing: {old}')
-              s = s.replace(old, new)
-          helper_wrong = "def replace_once(rel, old, new):\n    p=REPO/rel"
-          helper_right = "def replace_once(rel, old, new):\n    p=ROOT/rel"
-          if helper_wrong not in s:
-              raise SystemExit('Materializer helper repair anchor missing')
-          s = s.replace(helper_wrong, helper_right, 1)
-          workflow_writer = "(REPO/'.github/workflows/quality.yml').write_text("
-          if workflow_writer not in s:
-              raise SystemExit('Materializer workflow suppression anchor missing')
-          s = s.replace(workflow_writer, "Path('/tmp/restored-quality.yml').write_text(", 1)
-          p.write_text(s, encoding='utf-8')
-          PY
-          python /tmp/materialize-review-3.py
-          rm -rf .github/materialize-parts
-      - name: Commit corrected review batch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet && exit 0
-          git commit -m "Fix File 17 third forensic review findings"
-          git push origin HEAD:codex/file-17-review-2.0.0
+          php-version: '8.3'
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y rsync zip
+      - name: Run quality checks
+        run: bash sabri-network/tools/quality-check.sh
+      - name: Build package
+        run: bash sabri-network/tools/package.sh
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-17-sabri-network-messages-2.0.0
+          path: |
+            sabri-network/build/17-sabri-network-and-messages-2.0.0.zip
+            sabri-network/build/17-sabri-network-and-messages-2.0.0.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
