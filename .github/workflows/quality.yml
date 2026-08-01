@@ -40,14 +40,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cp .github/workflows/quality.yml /tmp/file17-materializer.yml
           cat batch5-payload/part-*.b64 | base64 -d > /tmp/file17-batch5.tar.xz
           echo '3e9d47f4998e55c9dcf66a8a371ce1aeafe54de752758c76fb3a877bce884760  /tmp/file17-batch5.tar.xz' | sha256sum -c -
           xz -t /tmp/file17-batch5.tar.xz
           tar -xJf /tmp/file17-batch5.tar.xz -C .
+          cp /tmp/file17-materializer.yml .github/workflows/quality.yml
           test -f sabri-network/includes/class-sn-relationships.php
           test -f sabri-network/tests/relationships-adversarial-contracts.php
           rm -rf batch4-payload batch5-payload
-          rm -f .github/workflows/materialize-batch4.yml
           bash sabri-network/tools/quality-check.sh
 
       - name: Upload verified package
