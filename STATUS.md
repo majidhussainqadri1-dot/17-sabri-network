@@ -4,8 +4,9 @@
 **State:** reviewed and coded candidate; draft PR  
 **Known failures in included suites:** 0  
 **Included contract checks:** 241/241 PASS  
-**Latest confirmed head QA run:** `30698113280` — quality, deterministic build, and artifact upload PASS  
-**Current head:** `dbaef05198bcaab5c0e890bc098b450a3416dd04`  
+**Latest confirmed source QA run:** `30698113280` — quality, deterministic build, and artifact upload PASS  
+**Safety hardening code commit:** `ffc36c80611b4cee5591b23397bd26bec63828e8`  
+**Read-only workflow cleanup commit tested by that run:** `dbaef05198bcaab5c0e890bc098b450a3416dd04`  
 **Current deterministic package SHA-256:** `f32160217e98d7d69ab7fc263c442c08b97492b082fa2be6dde2dcbd11e28529`  
 **Runtime double-build byte comparison:** PASS  
 **Staging/live/operational:** not completed
