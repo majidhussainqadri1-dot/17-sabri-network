@@ -24,6 +24,7 @@ require_once SN_DIR . 'includes/class-sn-private-files.php';
 require_once SN_DIR . 'includes/class-sn-privacy.php';
 require_once SN_DIR . 'includes/class-sn-activator.php';
 require_once SN_DIR . 'includes/class-sn-auth.php';
+require_once SN_DIR . 'includes/class-sn-relationships.php';
 require_once SN_DIR . 'includes/class-sn-admin.php';
 require_once SN_DIR . 'includes/class-sn-rest.php';
 require_once SN_DIR . 'includes/class-sn-ajax.php';
@@ -53,6 +54,7 @@ final class Sabri_Network {
         add_action('wp_enqueue_scripts', ['SN_Shortcode', 'register_assets'], 5);
         add_action('wp_enqueue_scripts', ['SN_Shortcode', 'enqueue_if_network'], 20);
         add_shortcode('sabri_network', ['SN_Shortcode', 'render']);
+        add_filter('sn_network_profile_action_state', ['SN_Relationships', 'filter_profile_action_state'], 10, 3);
 
         SN_Ajax::register();
         SN_Privacy::register();
@@ -63,6 +65,7 @@ final class Sabri_Network {
         add_filter('redirect_canonical', [$this, 'disable_safe_canonical'], 10, 2);
         add_filter('the_content', [$this, 'force_network_content'], 9999);
         add_action('sn_cleanup_hourly', ['SN_DB', 'cleanup_expired']);
+        add_action('sn_network_retry_private_delete', ['SN_Private_Files', 'retry_delete_bytes']);
     }
 
     public function load_textdomain(): void {
@@ -85,6 +88,16 @@ final class Sabri_Network {
         }
 
         /** File 20 consumes this route contract; File 17 does not inject a second global menu. */
+        do_action('sn_network_relationship_contract_registered', [
+            'owner' => 'file-17',
+            'version' => SN_VERSION,
+            'state_route' => rest_url('sabri-network/v2/users/{user_id}/relationship'),
+            'follow_route' => rest_url('sabri-network/v2/users/{user_id}/follow'),
+            'contact_route' => rest_url('sabri-network/v2/contacts/{user_id}'),
+            'block_route' => rest_url('sabri-network/v2/blocks/{user_id}'),
+            'conversation_route' => rest_url('sabri-network/v2/conversations'),
+        ]);
+
         do_action('sn_network_route_registered', [
             'key' => 'network',
             'label' => (string) get_option('sn_menu_label', 'Network'),

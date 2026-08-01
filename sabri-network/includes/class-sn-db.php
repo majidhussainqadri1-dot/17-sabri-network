@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 /** Canonical persistence and bounded operational helpers for File 17. */
 final class SN_DB {
-    public const DB_VERSION = '2.0.2';
+    public const DB_VERSION = '2.0.4';
 
     public static function table(string $name): string {
         global $wpdb;
@@ -109,6 +109,21 @@ final class SN_DB {
             KEY user_status (user_id,status),
             KEY contact_status (contact_user_id,status),
             KEY requested_by (requested_by)
+        ) $charset;";
+
+        $sql[] = "CREATE TABLE " . self::table('follows') . " (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            follower_id BIGINT UNSIGNED NOT NULL,
+            followed_id BIGINT UNSIGNED NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            version INT UNSIGNED NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            decided_at DATETIME NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY follower_followed (follower_id,followed_id),
+            KEY follower_status (follower_id,status,id),
+            KEY followed_status (followed_id,status,id)
         ) $charset;";
 
         $sql[] = "CREATE TABLE " . self::table('updates') . " (
@@ -242,6 +257,15 @@ final class SN_DB {
             evidence_hash CHAR(64) NOT NULL DEFAULT '',
             status VARCHAR(20) NOT NULL DEFAULT 'open',
             legal_hold TINYINT(1) NOT NULL DEFAULT 0,
+            decision_reason TEXT NULL,
+            decision_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            decision_at DATETIME NULL,
+            appeal_status VARCHAR(20) NOT NULL DEFAULT 'none',
+            appeal_reason TEXT NULL,
+            appealed_at DATETIME NULL,
+            appeal_decided_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            appeal_decision_reason TEXT NULL,
+            appeal_decided_at DATETIME NULL,
             retention_until DATETIME NULL,
             anonymized_at DATETIME NULL,
             version INT UNSIGNED NOT NULL DEFAULT 1,
@@ -253,6 +277,7 @@ final class SN_DB {
             KEY reported_user_id (reported_user_id),
             KEY target_created (target_key,created_at),
             KEY status_updated (status,updated_at),
+            KEY appeal_queue (appeal_status,appealed_at),
             KEY retention_queue (legal_hold,anonymized_at,retention_until)
         ) $charset;";
 
@@ -388,6 +413,36 @@ final class SN_DB {
     public static function are_contacts(int $a, int $b): bool {
         $row = self::contact_record($a, $b);
         return $row && (string) $row->status === 'accepted';
+    }
+
+    public static function follow_record(int $follower_id, int $followed_id): ?object {
+        global $wpdb;
+        if ($follower_id <= 0 || $followed_id <= 0 || $follower_id === $followed_id) {
+            return null;
+        }
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT * FROM ' . self::table('follows') . ' WHERE follower_id=%d AND followed_id=%d LIMIT 1',
+            $follower_id,
+            $followed_id
+        ));
+        return is_object($row) ? $row : null;
+    }
+
+    public static function is_following(int $follower_id, int $followed_id): bool {
+        $row = self::follow_record($follower_id, $followed_id);
+        return $row && (string) $row->status === 'active';
+    }
+
+    public static function follow_counts(int $user_id): array {
+        global $wpdb;
+        if ($user_id <= 0) {
+            return ['followers' => 0, 'following' => 0];
+        }
+        $table = self::table('follows');
+        return [
+            'followers' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE followed_id=%d AND status='active'", $user_id)),
+            'following' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE follower_id=%d AND status='active'", $user_id)),
+        ];
     }
 
     public static function is_blocked(int $a, int $b): bool {

@@ -51,7 +51,7 @@ final class SN_Auth {
             'name' => sanitize_text_field($user->display_name),
             'avatar' => $can_see_avatar ? get_avatar_url($user_id, ['size' => 192]) : SN_URL . 'assets/network-default-avatar.svg',
             'phone' => $can_see_phone ? $phone : '',
-            'phone_masked' => $phone ? self::mask_phone($phone) : '',
+            'phone_masked' => $can_see_phone && $phone ? self::mask_phone($phone) : '',
             'verified' => (bool) apply_filters('sn_network_user_verified', (bool) get_user_meta($user_id, 'sn_phone_verified', true), $user_id),
             'about' => mb_substr(sanitize_textarea_field((string) get_user_meta($user_id, 'sn_about', true)), 0, 500),
             'role_label' => sanitize_text_field((string) apply_filters('sn_network_user_role_label', get_user_meta($user_id, 'sn_role_label', true), $user_id)),
@@ -63,7 +63,7 @@ final class SN_Auth {
             'name' => mb_substr(sanitize_text_field((string) ($filtered['name'] ?? $projection['name'])), 0, 191),
             'avatar' => $avatar ?: SN_URL . 'assets/network-default-avatar.svg',
             'phone' => $can_see_phone ? mb_substr(sanitize_text_field((string) ($filtered['phone'] ?? $projection['phone'])), 0, 32) : '',
-            'phone_masked' => mb_substr(sanitize_text_field((string) ($filtered['phone_masked'] ?? $projection['phone_masked'])), 0, 32),
+            'phone_masked' => $can_see_phone ? mb_substr(sanitize_text_field((string) ($filtered['phone_masked'] ?? $projection['phone_masked'])), 0, 32) : '',
             'verified' => (bool) ($filtered['verified'] ?? $projection['verified']),
             'about' => mb_substr(sanitize_textarea_field((string) ($filtered['about'] ?? $projection['about'])), 0, 500),
             'role_label' => mb_substr(sanitize_text_field((string) ($filtered['role_label'] ?? $projection['role_label'])), 0, 100),
@@ -74,7 +74,7 @@ final class SN_Auth {
         if ($viewer_id === $target_id && $viewer_id > 0) {
             return true;
         }
-        if (SN_Policy::is_minor($target_id)) {
+        if (SN_Policy::age_state($target_id) !== 'adult') {
             return false;
         }
         $visibility = (string) ($privacy['phone_visibility'] ?? 'contacts');

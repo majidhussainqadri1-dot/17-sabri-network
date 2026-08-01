@@ -28,7 +28,13 @@ final class SN_Safety {
     }
 
     public static function evidence_hash(array $evidence): string {
-        return hash('sha256', (string) wp_json_encode($evidence, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $canonical = self::canonicalize_evidence($evidence);
+        return hash('sha256', (string) wp_json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    public static function evidence_is_intact(array $evidence, string $expected_hash): bool {
+        return preg_match('/^[0-9a-f]{64}$/i', $expected_hash) === 1
+            && hash_equals(strtolower($expected_hash), self::evidence_hash($evidence));
     }
 
     public static function retention_until(string $category, ?string $created_at = null): string {
@@ -45,6 +51,25 @@ final class SN_Safety {
 
     public static function allowed_statuses(): array {
         return ['open', 'reviewing', 'actioned', 'dismissed', 'closed', 'expired'];
+    }
+
+    public static function can_transition_status(string $from, string $to): bool {
+        $transitions = [
+            'open' => ['open', 'reviewing', 'actioned', 'dismissed', 'closed'],
+            'reviewing' => ['reviewing', 'actioned', 'dismissed', 'closed'],
+            'actioned' => ['actioned', 'reviewing', 'closed'],
+            'dismissed' => ['dismissed', 'reviewing', 'closed'],
+            'closed' => ['closed', 'reviewing'],
+            'expired' => ['expired'],
+        ];
+        return isset($transitions[$from]) && in_array($to, $transitions[$from], true);
+    }
+
+    public static function legal_hold_release_authorized(int $administrator_id, object $report): bool {
+        if ($administrator_id <= 0 || !(bool) $report->legal_hold) {
+            return false;
+        }
+        return (bool) apply_filters('sn_network_legal_hold_release_authorized', false, $administrator_id, $report);
     }
 
     public static function migrate_reports(): void {
@@ -96,7 +121,7 @@ final class SN_Safety {
             )));
             foreach ($ids as $id) {
                 $updated = $wpdb->query($wpdb->prepare(
-                    "UPDATE $table SET reporter_id=0,reported_user_id=0,conversation_id=0,message_id=0,client_uuid=NULL,target_key=%s,details='',evidence='[]',evidence_hash=%s,status='expired',anonymized_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND legal_hold=0 AND anonymized_at IS NULL",
+                    "UPDATE $table SET reporter_id=0,reported_user_id=0,conversation_id=0,message_id=0,client_uuid=NULL,target_key=%s,details='',evidence='[]',evidence_hash=%s,status='expired',decision_reason='',decision_by=0,decision_at=NULL,appeal_status='none',appeal_reason='',appealed_at=NULL,appeal_decided_by=0,appeal_decision_reason='',appeal_decided_at=NULL,anonymized_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND legal_hold=0 AND anonymized_at IS NULL",
                     hash('sha256', 'expired-report:' . $id),
                     hash('sha256', '[]'),
                     $now,
@@ -133,7 +158,7 @@ final class SN_Safety {
         global $wpdb;
         $table = SN_DB::table('reports');
         $now = current_time('mysql', true);
-        $empty_hash = hash('sha256', '[]');
+        $empty_hash = self::evidence_hash([]);
 
         $retained_submitted = (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM $table WHERE reporter_id=%d AND legal_hold=1",
@@ -144,27 +169,69 @@ final class SN_Safety {
             $user_id
         ));
 
-        $held_reporter_updates = $wpdb->query($wpdb->prepare(
-            "UPDATE $table SET reporter_id=0,client_uuid=NULL,updated_at=%s,version=version+1 WHERE reporter_id=%d AND legal_hold=1",
-            $now,
-            $user_id
-        ));
-        $redacted_reporter_updates = $wpdb->query($wpdb->prepare(
-            "UPDATE $table SET reporter_id=0,client_uuid=NULL,details='',evidence='[]',evidence_hash=%s,updated_at=%s,version=version+1 WHERE reporter_id=%d AND legal_hold=0",
-            $empty_hash,
-            $now,
-            $user_id
-        ));
-        $redacted_reported_updates = $wpdb->query($wpdb->prepare(
-            "UPDATE $table SET reported_user_id=0,updated_at=%s,version=version+1 WHERE reported_user_id=%d AND legal_hold=0",
-            $now,
-            $user_id
-        ));
+        $wpdb->query('START TRANSACTION');
+        try {
+            $held_reporter_updates = $wpdb->query($wpdb->prepare(
+                "UPDATE $table SET reporter_id=0,client_uuid=NULL,updated_at=%s,version=version+1 WHERE reporter_id=%d AND legal_hold=1",
+                $now,
+                $user_id
+            ));
+            if ($held_reporter_updates === false) {
+                throw new RuntimeException('held_reporter_minimization_failed');
+            }
+
+            $redacted_reporter_updates = $wpdb->query($wpdb->prepare(
+                "UPDATE $table SET reporter_id=0,client_uuid=NULL,details='',evidence='[]',evidence_hash=%s,updated_at=%s,version=version+1 WHERE reporter_id=%d AND legal_hold=0",
+                $empty_hash,
+                $now,
+                $user_id
+            ));
+            if ($redacted_reporter_updates === false) {
+                throw new RuntimeException('reporter_redaction_failed');
+            }
+
+            $target_rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT id,conversation_id,message_id,target_key FROM $table WHERE reported_user_id=%d AND legal_hold=0 FOR UPDATE",
+                $user_id
+            ));
+            if (!is_array($target_rows)) {
+                throw new RuntimeException('reported_user_query_failed');
+            }
+            $redacted_reported_updates = 0;
+            foreach ($target_rows as $target_row) {
+                $target_key = ((int) $target_row->conversation_id === 0 && (int) $target_row->message_id === 0)
+                    ? hash('sha256', 'erased-user-report:' . (int) $target_row->id)
+                    : (string) $target_row->target_key;
+                $updated = $wpdb->query($wpdb->prepare(
+                    "UPDATE $table SET reported_user_id=0,target_key=%s,appeal_reason='',appealed_at=NULL,appeal_decision_reason='',appeal_decided_by=0,appeal_decided_at=NULL,decision_reason='',decision_by=0,decision_at=NULL,updated_at=%s,version=version+1 WHERE id=%d AND reported_user_id=%d AND legal_hold=0",
+                    $target_key,
+                    $now,
+                    (int) $target_row->id,
+                    $user_id
+                ));
+                if ($updated === false) {
+                    throw new RuntimeException('reported_user_redaction_failed');
+                }
+                $redacted_reported_updates += (int) $updated;
+            }
+
+            $wpdb->query('COMMIT');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            SN_DB::audit('report_privacy_erasure_failed', 'user', $user_id, 'failed', ['reason' => $e->getMessage()], 0);
+            return [
+                'redacted' => 0,
+                'retained' => $retained_submitted + $retained_reported,
+                'held_reporter_minimized' => 0,
+                'failed' => true,
+            ];
+        }
 
         return [
-            'redacted' => max(0, (int) $redacted_reporter_updates) + max(0, (int) $redacted_reported_updates),
+            'redacted' => (int) $redacted_reporter_updates + $redacted_reported_updates,
             'retained' => $retained_submitted + $retained_reported,
-            'held_reporter_minimized' => max(0, (int) $held_reporter_updates),
+            'held_reporter_minimized' => (int) $held_reporter_updates,
+            'failed' => false,
         ];
     }
 
@@ -181,6 +248,21 @@ final class SN_Safety {
             'legal_holds' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE legal_hold=1"), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             'retention_due' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE legal_hold=0 AND anonymized_at IS NULL AND retention_until IS NOT NULL AND retention_until<=%s", $now)),
         ];
+    }
+
+    private static function canonicalize_evidence(array $value): array {
+        if (array_is_list($value)) {
+            return array_map(static function ($item) {
+                return is_array($item) ? self::canonicalize_evidence($item) : $item;
+            }, $value);
+        }
+        ksort($value, SORT_STRING);
+        foreach ($value as $key => $item) {
+            if (is_array($item)) {
+                $value[$key] = self::canonicalize_evidence($item);
+            }
+        }
+        return $value;
     }
 
     private static function acquire_retention_lock(): string {

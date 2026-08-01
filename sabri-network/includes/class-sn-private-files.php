@@ -229,10 +229,50 @@ final class SN_Private_Files {
             'attachment',
             $attachment_id,
             $bytes_deleted ? 'success' : 'failure',
-            [],
+            $bytes_deleted ? [] : ['storage_key_hash' => hash('sha256', (string) $row->storage_key)],
             $actor_id
         );
-        return true;
+        if (!$bytes_deleted) {
+            do_action('sn_network_private_bytes_delete_failed', $attachment_id, (string) $row->storage_key);
+            if (!wp_next_scheduled('sn_network_retry_private_delete', [$attachment_id])) {
+                wp_schedule_single_event(time() + 5 * MINUTE_IN_SECONDS, 'sn_network_retry_private_delete', [$attachment_id]);
+            }
+        }
+        return $bytes_deleted;
+    }
+
+    public static function retry_delete_bytes(int $attachment_id): void {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT id,storage_key FROM ' . SN_DB::table('attachments') . ' WHERE id=%d AND deleted_at IS NOT NULL',
+            $attachment_id
+        ));
+        if (!$row) {
+            return;
+        }
+        $path = self::path_for_key((string) $row->storage_key);
+        if (!is_file($path)) {
+            delete_transient('sn_private_delete_retry_' . $attachment_id);
+            return;
+        }
+        $deleted = self::is_safe_path($path) && @unlink($path);
+        $attempts = (int) get_transient('sn_private_delete_retry_' . $attachment_id) + 1;
+        SN_DB::audit(
+            $deleted ? 'attachment_delete_retry_succeeded' : 'attachment_delete_retry_failed',
+            'attachment',
+            $attachment_id,
+            $deleted ? 'success' : 'failure',
+            ['attempt' => $attempts, 'storage_key_hash' => hash('sha256', (string) $row->storage_key)],
+            0
+        );
+        if ($deleted) {
+            delete_transient('sn_private_delete_retry_' . $attachment_id);
+            return;
+        }
+        set_transient('sn_private_delete_retry_' . $attachment_id, $attempts, DAY_IN_SECONDS);
+        if ($attempts < 5 && !wp_next_scheduled('sn_network_retry_private_delete', [$attachment_id])) {
+            wp_schedule_single_event(time() + min(HOUR_IN_SECONDS, 5 * MINUTE_IN_SECONDS * (2 ** $attempts)), 'sn_network_retry_private_delete', [$attachment_id]);
+        }
     }
 
     private static function scan_status(string $path, string $mime, string $name, int $owner_id): string|WP_Error {

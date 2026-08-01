@@ -13,6 +13,7 @@ final class SN_REST {
         self::route('/admin/health', 'GET', 'admin_health', [self::class, 'admin_access']);
         self::route('/admin/reports', 'GET', 'admin_reports', [self::class, 'admin_access']);
         self::route('/admin/reports/(?P<id>\d+)', 'POST', 'admin_update_report', [self::class, 'admin_access']);
+        self::route('/admin/reports/(?P<id>\d+)/appeal', 'POST', 'admin_decide_report_appeal', [self::class, 'admin_access']);
 
         register_rest_route(self::NS, '/me', [
             ['methods' => 'GET', 'callback' => [self::class, 'get_me'], 'permission_callback' => [self::class, 'access']],
@@ -23,6 +24,10 @@ final class SN_REST {
             ['methods' => 'POST', 'callback' => [self::class, 'request_contact'], 'permission_callback' => [self::class, 'access']],
         ]);
         self::route('/contacts/(?P<id>\d+)', 'POST', 'decide_contact');
+        self::route('/follows', 'GET', 'get_follows');
+        self::route('/follows/(?P<id>\d+)', 'POST', 'decide_follow');
+        self::route('/users/(?P<id>\d+)/relationship', 'GET', 'relationship_state');
+        self::route('/users/(?P<id>\d+)/follow', 'POST', 'change_follow');
 
         register_rest_route(self::NS, '/conversations', [
             ['methods' => 'GET', 'callback' => [self::class, 'get_conversations'], 'permission_callback' => [self::class, 'access']],
@@ -77,6 +82,8 @@ final class SN_REST {
 
         self::route('/block', 'POST', 'block_user');
         self::route('/report', 'POST', 'report');
+        self::route('/reports/appealable', 'GET', 'appealable_reports');
+        self::route('/reports/(?P<id>\d+)/appeal', 'POST', 'appeal_report');
     }
 
     private static function route(string $path, string $methods, string $callback, $permission = null): void {
@@ -92,10 +99,14 @@ final class SN_REST {
     }
 
     public static function admin_access(): true|WP_Error {
-        if (!is_user_logged_in()) {
-            return new WP_Error('authentication_required', 'Sign in to view Network diagnostics.', ['status' => 401]);
+        $access = SN_Policy::access();
+        if (is_wp_error($access)) {
+            return $access;
         }
-        return current_user_can('manage_options')
+        $administrator_id = get_current_user_id();
+        $allowed = current_user_can('manage_options')
+            && (bool) apply_filters('sn_network_administrator_access_authorized', true, $administrator_id);
+        return $allowed
             ? true
             : new WP_Error('forbidden', 'Administrator access is required.', ['status' => 403]);
     }
@@ -273,6 +284,54 @@ final class SN_REST {
         return rest_ensure_response(['request_id' => $id, 'status' => $status]);
     }
 
+    public static function relationship_state(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $state = SN_Relationships::state(get_current_user_id(), absint($request['id']));
+        return is_wp_error($state) ? $state : rest_ensure_response($state);
+    }
+
+    public static function get_follows(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $user_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('follow_list', (string) $user_id, 120, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $scope = sanitize_key((string) $request->get_param('scope')) ?: 'all';
+        $limit = absint($request->get_param('limit')) ?: 25;
+        $cursor = mb_substr(sanitize_text_field((string) $request->get_param('cursor')), 0, 512);
+        $lists = SN_Relationships::lists($user_id, $scope, $limit, $cursor);
+        return is_wp_error($lists) ? $lists : rest_ensure_response($lists);
+    }
+
+    public static function change_follow(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $user_id = get_current_user_id();
+        $target_id = absint($request['id']);
+        $action = sanitize_key((string) $request->get_param('action')) ?: 'follow';
+        if (!SN_Policy::consume_rate_limit('follow_change', (string) $user_id, 60, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        if ($action === 'follow') {
+            $result = SN_Relationships::follow($user_id, $target_id);
+        } elseif ($action === 'unfollow') {
+            $result = SN_Relationships::unfollow($user_id, $target_id, absint($request->get_param('version')));
+        } else {
+            return new WP_Error('invalid_follow_action', 'Choose follow or unfollow.', ['status' => 400]);
+        }
+        return is_wp_error($result) ? $result : rest_ensure_response($result);
+    }
+
+    public static function decide_follow(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $user_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('follow_decision', (string) $user_id, 60, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $result = SN_Relationships::decide(
+            $user_id,
+            absint($request['id']),
+            sanitize_key((string) $request->get_param('decision')),
+            absint($request->get_param('version'))
+        );
+        return is_wp_error($result) ? $result : rest_ensure_response($result);
+    }
+
     public static function get_conversations(): WP_REST_Response {
         global $wpdb;
         $user_id = get_current_user_id();
@@ -412,33 +471,68 @@ final class SN_REST {
         global $wpdb;
         $conversation_id = absint($request['id']);
         $actor_id = get_current_user_id();
-        $actor_role = SN_DB::member_role($conversation_id, $actor_id);
-        if (!in_array($actor_role, ['owner', 'moderator'], true)) {
-            return new WP_Error('forbidden', 'Only a conversation owner or moderator may add members.', ['status' => 403]);
-        }
-        $conversation = self::conversation_row($conversation_id);
-        if (!$conversation || (string) $conversation->type === 'direct') {
-            return new WP_Error('invalid_conversation', 'Members cannot be added to this conversation.', ['status' => 400]);
-        }
         $target_id = absint($request->get_param('user_id'));
-        $limit = max(2, (int) apply_filters('sn_network_group_member_limit', 256, (string) $conversation->type));
-        $existing = self::member_row($conversation_id, $target_id);
-        if ((!$existing || $existing->left_at) && count(self::conversation_member_ids($conversation_id)) >= $limit) {
-            return new WP_Error('member_limit_reached', 'This conversation has reached its member limit.', ['status' => 409]);
+        if ($target_id <= 0 || $target_id === $actor_id || !get_user_by('id', $target_id)) {
+            return new WP_Error('invalid_member', 'Select a valid Network member.', ['status' => 400]);
         }
         $policy = SN_Policy::can_contact($actor_id, $target_id, 'group');
         if (is_wp_error($policy)) {
             return $policy;
         }
-        $requested_role = sanitize_key((string) $request->get_param('role'));
-        $role = $requested_role === 'moderator' && $actor_role === 'owner' ? 'moderator' : 'member';
-        $now = current_time('mysql', true);
-        $ok = $existing
-            ? $wpdb->update(SN_DB::table('members'), ['role' => $role, 'left_at' => null, 'joined_at' => $now], ['id' => (int) $existing->id])
-            : $wpdb->insert(SN_DB::table('members'), ['conversation_id' => $conversation_id, 'user_id' => $target_id, 'role' => $role, 'joined_at' => $now]);
-        if ($ok === false) {
-            return self::database_error();
+
+        $conversations = SN_DB::table('conversations');
+        $members = SN_DB::table('members');
+        $wpdb->query('START TRANSACTION');
+        try {
+            $conversation = $wpdb->get_row($wpdb->prepare("SELECT * FROM $conversations WHERE id=%d FOR UPDATE", $conversation_id));
+            if (!$conversation || (string) $conversation->type === 'direct' || (string) $conversation->status !== 'active') {
+                throw new DomainException('invalid_conversation');
+            }
+            $actor = $wpdb->get_row($wpdb->prepare(
+                "SELECT id,role,left_at FROM $members WHERE conversation_id=%d AND user_id=%d FOR UPDATE",
+                $conversation_id,
+                $actor_id
+            ));
+            if (!$actor || $actor->left_at !== null || !in_array((string) $actor->role, ['owner', 'moderator'], true)) {
+                throw new UnexpectedValueException('forbidden');
+            }
+            $existing = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM $members WHERE conversation_id=%d AND user_id=%d FOR UPDATE",
+                $conversation_id,
+                $target_id
+            ));
+            $is_new_active_member = !$existing || $existing->left_at !== null;
+            if ($is_new_active_member) {
+                $limit = max(2, (int) apply_filters('sn_network_group_member_limit', 256, (string) $conversation->type));
+                $active_count = (int) $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM $members WHERE conversation_id=%d AND left_at IS NULL",
+                    $conversation_id
+                ));
+                if ($active_count >= $limit) {
+                    throw new OverflowException('member_limit_reached');
+                }
+            }
+
+            $requested_role = sanitize_key((string) $request->get_param('role'));
+            $role = $requested_role === 'moderator' && (string) $actor->role === 'owner' ? 'moderator' : 'member';
+            $now = current_time('mysql', true);
+            $ok = $existing
+                ? $wpdb->update($members, ['role' => $role, 'left_at' => null, 'joined_at' => $now], ['id' => (int) $existing->id])
+                : $wpdb->insert($members, ['conversation_id' => $conversation_id, 'user_id' => $target_id, 'role' => $role, 'joined_at' => $now]);
+            if ($ok === false) {
+                throw new RuntimeException('member_write_failed');
+            }
+            $wpdb->query('COMMIT');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            return match ($e->getMessage()) {
+                'invalid_conversation' => new WP_Error('invalid_conversation', 'Members cannot be added to this conversation.', ['status' => 400]),
+                'forbidden' => new WP_Error('forbidden', 'Only a conversation owner or moderator may add members.', ['status' => 403]),
+                'member_limit_reached' => new WP_Error('member_limit_reached', 'This conversation has reached its member limit.', ['status' => 409]),
+                default => self::database_error(),
+            };
         }
+
         SN_DB::add_notification($target_id, 'conversation_invite', 'Added to a Network conversation', '', 'conversation', $conversation_id);
         SN_DB::audit('member_added', 'conversation', $conversation_id, 'success', ['target_id' => $target_id, 'role' => $role]);
         return rest_ensure_response(['added' => true, 'role' => $role]);
@@ -1338,6 +1432,18 @@ final class SN_REST {
                 if ($contact && $wpdb->update(SN_DB::table('contacts'), ['status' => 'blocked', 'updated_at' => $now], ['id' => (int) $contact->id]) === false) {
                     throw new RuntimeException('contact_block_failed');
                 }
+                $follow_updates = $wpdb->query($wpdb->prepare(
+                    "UPDATE " . SN_DB::table('follows') . " SET status='inactive',updated_at=%s,decided_at=%s,version=version+1 WHERE ((follower_id=%d AND followed_id=%d) OR (follower_id=%d AND followed_id=%d)) AND status IN ('active','pending')",
+                    $now,
+                    $now,
+                    $user_id,
+                    $target_id,
+                    $target_id,
+                    $user_id
+                ));
+                if ($follow_updates === false) {
+                    throw new RuntimeException('follow_block_cleanup_failed');
+                }
                 $conversation = self::direct_conversation_row($user_id, $target_id);
                 if ($conversation) {
                     $call_ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
@@ -1396,7 +1502,7 @@ final class SN_REST {
         $table = SN_DB::table('reports');
         if ($status !== '') {
             $rows = $wpdb->get_results($wpdb->prepare(
-                "SELECT id,reporter_id,reported_user_id,conversation_id,message_id,category,details,evidence,status,legal_hold,retention_until,anonymized_at,version,created_at,updated_at FROM $table WHERE status=%s ORDER BY id DESC LIMIT %d OFFSET %d",
+                "SELECT id,reporter_id,reported_user_id,conversation_id,message_id,category,details,evidence,evidence_hash,status,legal_hold,decision_reason,decision_by,decision_at,appeal_status,appeal_reason,appealed_at,appeal_decided_by,appeal_decision_reason,appeal_decided_at,retention_until,anonymized_at,version,created_at,updated_at FROM $table WHERE status=%s ORDER BY id DESC LIMIT %d OFFSET %d",
                 $status,
                 $per_page,
                 $offset
@@ -1404,7 +1510,7 @@ final class SN_REST {
             $total = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE status=%s", $status));
         } else {
             $rows = $wpdb->get_results($wpdb->prepare(
-                "SELECT id,reporter_id,reported_user_id,conversation_id,message_id,category,details,evidence,status,legal_hold,retention_until,anonymized_at,version,created_at,updated_at FROM $table ORDER BY id DESC LIMIT %d OFFSET %d",
+                "SELECT id,reporter_id,reported_user_id,conversation_id,message_id,category,details,evidence,evidence_hash,status,legal_hold,decision_reason,decision_by,decision_at,appeal_status,appeal_reason,appealed_at,appeal_decided_by,appeal_decision_reason,appeal_decided_at,retention_until,anonymized_at,version,created_at,updated_at FROM $table ORDER BY id DESC LIMIT %d OFFSET %d",
                 $per_page,
                 $offset
             ));
@@ -1422,8 +1528,18 @@ final class SN_REST {
                 'category' => (string) $row->category,
                 'details' => (string) $row->details,
                 'evidence' => is_array($evidence) ? $evidence : [],
+                'evidence_integrity' => is_array($evidence) && SN_Safety::evidence_is_intact($evidence, (string) $row->evidence_hash),
                 'status' => (string) $row->status,
                 'legal_hold' => (bool) $row->legal_hold,
+                'decision_reason' => (string) $row->decision_reason,
+                'decision_by' => (int) $row->decision_by,
+                'decision_at' => (string) $row->decision_at,
+                'appeal_status' => (string) $row->appeal_status,
+                'appeal_reason' => (string) $row->appeal_reason,
+                'appealed_at' => (string) $row->appealed_at,
+                'appeal_decided_by' => (int) $row->appeal_decided_by,
+                'appeal_decision_reason' => (string) $row->appeal_decision_reason,
+                'appeal_decided_at' => (string) $row->appeal_decided_at,
                 'retention_until' => (string) $row->retention_until,
                 'anonymized_at' => (string) $row->anonymized_at,
                 'version' => (int) $row->version,
@@ -1431,6 +1547,12 @@ final class SN_REST {
                 'updated_at' => (string) $row->updated_at,
             ];
         }
+        SN_DB::audit('report_inventory_viewed', 'report', 0, 'success', [
+            'status' => $status,
+            'page' => $page,
+            'per_page' => $per_page,
+            'returned' => count($reports),
+        ], $administrator_id);
         return rest_ensure_response([
             'reports' => $reports,
             'page' => $page,
@@ -1463,15 +1585,41 @@ final class SN_REST {
         if (!in_array($status, SN_Safety::allowed_statuses(), true) || $status === 'expired') {
             return new WP_Error('invalid_report_status', 'Choose a valid operational report status.', ['status' => 400]);
         }
+        if (!SN_Safety::can_transition_status((string) $row->status, $status)) {
+            return new WP_Error('invalid_report_transition', 'This report status transition is not allowed.', ['status' => 409]);
+        }
+
         $legal_hold = $request->has_param('legal_hold')
             ? rest_sanitize_boolean($request->get_param('legal_hold'))
             : (bool) $row->legal_hold;
-        $note = mb_substr(sanitize_textarea_field((string) $request->get_param('note')), 0, 500);
+        $status_changed = $status !== (string) $row->status;
+        $hold_changed = $legal_hold !== (bool) $row->legal_hold;
+        if ((string) $row->appeal_status === 'pending' && $status_changed) {
+            return new WP_Error('report_appeal_pending', 'Decide the pending appeal before changing this report status.', ['status' => 409]);
+        }
+        if (!$status_changed && !$hold_changed) {
+            return new WP_Error('report_update_not_changed', 'Change the report status or legal-hold state before saving.', ['status' => 400]);
+        }
+
+        $note = mb_substr(sanitize_textarea_field((string) $request->get_param('note')), 0, 2000);
+        if (mb_strlen(trim($note)) < 10) {
+            return new WP_Error('report_decision_reason_required', 'A meaningful decision reason is required.', ['status' => 400]);
+        }
+        if ((bool) $row->legal_hold && !$legal_hold && !SN_Safety::legal_hold_release_authorized($administrator_id, $row)) {
+            return new WP_Error('legal_hold_release_not_authorized', 'Legal or safety hold release requires separate authorization.', ['status' => 403]);
+        }
+
         $now = current_time('mysql', true);
+        $stored_reason = $status_changed ? $note : (string) $row->decision_reason;
+        $stored_by = $status_changed ? $administrator_id : (int) $row->decision_by;
+        $stored_at = $status_changed ? $now : ($row->decision_at ?: null);
         $updated = $wpdb->query($wpdb->prepare(
-            "UPDATE $table SET status=%s,legal_hold=%d,updated_at=%s,version=version+1 WHERE id=%d AND version=%d",
+            "UPDATE $table SET status=%s,legal_hold=%d,decision_reason=%s,decision_by=%d,decision_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND version=%d",
             $status,
             $legal_hold ? 1 : 0,
+            $stored_reason,
+            $stored_by,
+            $stored_at,
             $now,
             $id,
             $expected_version
@@ -1480,18 +1628,200 @@ final class SN_REST {
             return new WP_Error('report_update_conflict', 'The report changed before this decision was saved.', ['status' => 409]);
         }
         SN_DB::audit('report_triage_updated', 'report', $id, 'success', [
+            'previous_status' => (string) $row->status,
             'status' => $status,
+            'previous_legal_hold' => (int) $row->legal_hold,
             'legal_hold' => $legal_hold ? 1 : 0,
-            'note' => $note,
+            'reason' => $note,
             'previous_version' => $expected_version,
-        ]);
+        ], $administrator_id);
+        if ($status_changed && (int) $row->reported_user_id > 0 && in_array($status, ['actioned', 'closed'], true)) {
+            SN_DB::add_notification(
+                (int) $row->reported_user_id,
+                'report_decision',
+                'A safety report decision is available',
+                'Open Network safety decisions to review the reason and appeal options.',
+                'report',
+                $id
+            );
+        }
         do_action('sn_network_report_triage_updated', $id, $status, $legal_hold, $administrator_id);
         return rest_ensure_response([
             'id' => $id,
             'status' => $status,
             'legal_hold' => $legal_hold,
+            'decision_reason' => $stored_reason,
+            'decision_by' => $stored_by,
+            'decision_at' => $stored_at,
             'version' => $expected_version + 1,
             'updated_at' => $now,
+        ]);
+    }
+
+    public static function appealable_reports(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $user_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('appealable_reports', (string) $user_id, 60, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $table = SN_DB::table('reports');
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id,category,status,decision_reason,decision_at,appeal_status,appealed_at,appeal_decision_reason,appeal_decided_at,version,updated_at FROM $table WHERE reported_user_id=%d AND anonymized_at IS NULL AND status IN ('actioned','closed','reviewing') ORDER BY updated_at DESC,id DESC LIMIT 100",
+            $user_id
+        ));
+        if (!is_array($rows)) {
+            return self::database_error();
+        }
+        $items = [];
+        foreach ($rows as $row) {
+            $items[] = [
+                'id' => (int) $row->id,
+                'category' => (string) $row->category,
+                'status' => (string) $row->status,
+                'decision_reason' => (string) $row->decision_reason,
+                'decision_at' => (string) $row->decision_at,
+                'appeal_status' => (string) $row->appeal_status,
+                'appealed_at' => (string) $row->appealed_at,
+                'appeal_decision_reason' => (string) $row->appeal_decision_reason,
+                'appeal_decided_at' => (string) $row->appeal_decided_at,
+                'version' => (int) $row->version,
+                'updated_at' => (string) $row->updated_at,
+                'can_appeal' => in_array((string) $row->status, ['actioned', 'closed'], true) && (string) $row->appeal_status === 'none',
+            ];
+        }
+        SN_DB::audit('appealable_reports_viewed', 'user', $user_id, 'success', ['returned' => count($items)], $user_id);
+        return rest_ensure_response(['reports' => $items]);
+    }
+
+    public static function appeal_report(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $user_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('report_appeal', (string) $user_id, 10, DAY_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $id = absint($request['id']);
+        $expected_version = absint($request->get_param('version'));
+        $reason = mb_substr(sanitize_textarea_field((string) $request->get_param('reason')), 0, 2000);
+        if ($id <= 0 || $expected_version <= 0) {
+            return new WP_Error('invalid_report_version', 'A valid report version is required.', ['status' => 400]);
+        }
+        if (mb_strlen(trim($reason)) < 20) {
+            return new WP_Error('appeal_reason_required', 'Explain the appeal in at least 20 characters.', ['status' => 400]);
+        }
+
+        $table = SN_DB::table('reports');
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d", $id));
+        if (!$row || (int) $row->reported_user_id !== $user_id || $row->anonymized_at) {
+            return self::not_found();
+        }
+        if (!in_array((string) $row->status, ['actioned', 'closed'], true)) {
+            return new WP_Error('report_not_appealable', 'This report does not currently have an appealable decision.', ['status' => 409]);
+        }
+        if ((string) $row->appeal_status !== 'none'
+            && !(bool) apply_filters('sn_network_report_reappeal_allowed', false, $user_id, $row)) {
+            return new WP_Error('report_already_appealed', 'An appeal has already been recorded for this report.', ['status' => 409]);
+        }
+
+        $now = current_time('mysql', true);
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET appeal_status='pending',appeal_reason=%s,appealed_at=%s,appeal_decided_by=0,appeal_decision_reason='',appeal_decided_at=NULL,updated_at=%s,version=version+1 WHERE id=%d AND version=%d AND reported_user_id=%d",
+            $reason,
+            $now,
+            $now,
+            $id,
+            $expected_version,
+            $user_id
+        ));
+        if ($updated !== 1) {
+            return new WP_Error('report_appeal_conflict', 'The report changed before this appeal was saved.', ['status' => 409]);
+        }
+        SN_DB::audit('report_appealed', 'report', $id, 'success', [
+            'previous_status' => (string) $row->status,
+            'previous_version' => $expected_version,
+        ], $user_id);
+        do_action('sn_network_report_appealed', $id, $user_id);
+        return rest_ensure_response([
+            'id' => $id,
+            'appeal_status' => 'pending',
+            'appealed_at' => $now,
+            'version' => $expected_version + 1,
+        ]);
+    }
+
+    public static function admin_decide_report_appeal(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $administrator_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('admin_report_appeal', (string) $administrator_id, 60, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $id = absint($request['id']);
+        $expected_version = absint($request->get_param('version'));
+        $decision = sanitize_key((string) $request->get_param('decision'));
+        $reason = mb_substr(sanitize_textarea_field((string) $request->get_param('reason')), 0, 2000);
+        if ($id <= 0 || $expected_version <= 0 || !in_array($decision, ['uphold', 'overturn'], true)) {
+            return new WP_Error('invalid_appeal_decision', 'A valid report version and appeal decision are required.', ['status' => 400]);
+        }
+        if (mb_strlen(trim($reason)) < 20) {
+            return new WP_Error('appeal_decision_reason_required', 'Explain the appeal decision in at least 20 characters.', ['status' => 400]);
+        }
+
+        $table = SN_DB::table('reports');
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d", $id));
+        if (!$row || $row->anonymized_at) {
+            return self::not_found();
+        }
+        if ((string) $row->appeal_status !== 'pending') {
+            return new WP_Error('appeal_not_pending', 'This report has no pending appeal.', ['status' => 409]);
+        }
+        if ((int) $row->decision_by > 0 && (int) $row->decision_by === $administrator_id) {
+            return new WP_Error('appeal_reviewer_conflict', 'A different authorized reviewer must decide this appeal.', ['status' => 403]);
+        }
+        if (!(bool) apply_filters('sn_network_report_appeal_reviewer_authorized', true, $administrator_id, $row)) {
+            return new WP_Error('appeal_reviewer_not_authorized', 'This administrator is not authorized to decide the appeal.', ['status' => 403]);
+        }
+
+        $appeal_status = $decision === 'uphold' ? 'upheld' : 'overturned';
+        $status = $decision === 'overturn' ? 'reviewing' : (string) $row->status;
+        $now = current_time('mysql', true);
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET status=%s,appeal_status=%s,appeal_decided_by=%d,appeal_decision_reason=%s,appeal_decided_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND version=%d AND appeal_status='pending'",
+            $status,
+            $appeal_status,
+            $administrator_id,
+            $reason,
+            $now,
+            $now,
+            $id,
+            $expected_version
+        ));
+        if ($updated !== 1) {
+            return new WP_Error('report_appeal_conflict', 'The report changed before this appeal decision was saved.', ['status' => 409]);
+        }
+        SN_DB::audit('report_appeal_decided', 'report', $id, 'success', [
+            'decision' => $decision,
+            'resulting_status' => $status,
+            'reason' => $reason,
+            'previous_version' => $expected_version,
+        ], $administrator_id);
+        if ((int) $row->reported_user_id > 0) {
+            SN_DB::add_notification(
+                (int) $row->reported_user_id,
+                'report_appeal_decision',
+                'Your safety-report appeal was decided',
+                $decision === 'overturn' ? 'The former decision was reopened for review.' : 'The former decision was upheld.',
+                'report',
+                $id
+            );
+        }
+        do_action('sn_network_report_appeal_decided', $id, $appeal_status, $administrator_id);
+        return rest_ensure_response([
+            'id' => $id,
+            'status' => $status,
+            'appeal_status' => $appeal_status,
+            'appeal_decision_reason' => $reason,
+            'appeal_decided_by' => $administrator_id,
+            'appeal_decided_at' => $now,
+            'version' => $expected_version + 1,
         ]);
     }
 
@@ -1622,7 +1952,7 @@ final class SN_REST {
     }
 
     private static function required_tables(): array {
-        return ['conversations', 'members', 'messages', 'reactions', 'contacts', 'updates', 'update_views', 'calls', 'call_members', 'signals', 'presence', 'typing', 'notifications', 'blocks', 'reports', 'attachments', 'rate_limits', 'audit_log'];
+        return ['conversations', 'members', 'messages', 'reactions', 'contacts', 'follows', 'updates', 'update_views', 'calls', 'call_members', 'signals', 'presence', 'typing', 'notifications', 'blocks', 'reports', 'attachments', 'rate_limits', 'audit_log'];
     }
 
     private static function identity_authority_ready(): bool {
@@ -1664,8 +1994,15 @@ final class SN_REST {
             if (SN_Policy::is_minor($id) && !(bool) apply_filters('sn_network_minor_discoverable', false, $id, $viewer_id)) {
                 continue;
             }
+            if (SN_DB::is_blocked($viewer_id, $id)) {
+                continue;
+            }
             $user = SN_Auth::public_user($id);
             if ($user) {
+                $relationship = SN_Relationships::state($viewer_id, $id);
+                if (!is_wp_error($relationship)) {
+                    $user['relationship'] = $relationship;
+                }
                 $output[] = $user;
             }
         }

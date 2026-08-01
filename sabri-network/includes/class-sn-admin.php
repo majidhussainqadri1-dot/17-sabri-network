@@ -59,7 +59,7 @@ final class SN_Admin {
             return;
         }
         global $wpdb;
-        $tables = ['conversations', 'members', 'messages', 'reactions', 'contacts', 'updates', 'update_views', 'calls', 'call_members', 'signals', 'notifications', 'blocks', 'reports', 'attachments', 'rate_limits', 'audit_log'];
+        $tables = ['conversations', 'members', 'messages', 'reactions', 'contacts', 'follows', 'updates', 'update_views', 'calls', 'call_members', 'signals', 'notifications', 'blocks', 'reports', 'attachments', 'rate_limits', 'audit_log'];
         $missing = [];
         foreach ($tables as $table) {
             $full = SN_DB::table($table);
@@ -112,6 +112,7 @@ final class SN_Admin {
             <table class="widefat striped" style="max-width:1000px"><tbody>
                 <tr><th>Conversations</th><td><?php echo esc_html((string) $count('conversations')); ?></td></tr>
                 <tr><th>Messages</th><td><?php echo esc_html((string) $count('messages')); ?></td></tr>
+                <tr><th>Active follows</th><td><?php echo esc_html((string) $count('follows')); ?></td></tr>
                 <tr><th>Calls</th><td><?php echo esc_html((string) $count('calls')); ?></td></tr>
                 <tr><th>Open reports</th><td><?php echo esc_html((string) $report_summary['open']); ?></td></tr>
                 <tr><th>Reports under review</th><td><?php echo esc_html((string) $report_summary['reviewing']); ?></td></tr>

@@ -1,0 +1,54 @@
+<?php
+/** Static contracts for File-17 canonical follow/profile actions. */
+declare(strict_types=1);
+$root=dirname(__DIR__);$failures=[];$checks=0;
+function rel_check(bool $c,string $m):void{global $failures,$checks;$checks++;if(!$c)$failures[]=$m;}
+function rel_content(string $f):string{global $root;$path=$root . '/' . $f;if(!is_file($path))throw new RuntimeException('Missing ' . $f);return (string)file_get_contents($path);}
+$db=rel_content('includes/class-sn-db.php');$policy=rel_content('includes/class-sn-policy.php');$relationships=rel_content('includes/class-sn-relationships.php');$rest=rel_content('includes/class-sn-rest.php');$privacy=rel_content('includes/class-sn-privacy.php');$admin=rel_content('includes/class-sn-admin.php');$main=rel_content('sabri-network.php');$js=rel_content('assets/js/network.js');$files=rel_content('includes/class-sn-private-files.php');
+rel_check(str_contains($db,'DB_VERSION = \'2.0.4\''),'Schema version must be 2.0.4.');
+rel_check(str_contains($db,'self::table(\'follows\')'),'Follow table must be installed.');
+rel_check(str_contains($db,'UNIQUE KEY follower_followed'),'Follow pair uniqueness must be database-enforced.');
+rel_check(str_contains($db,'KEY followed_status'),'Followed-status index must exist.');
+rel_check(str_contains($db,'KEY follower_status'),'Follower-status index must exist.');
+rel_check(str_contains($db,'follow_record'),'Follow record helper must exist.');
+rel_check(str_contains($db,'is_following'),'Follow-state helper must exist.');
+rel_check(str_contains($db,'follow_counts'),'Follow-count helper must exist.');
+rel_check(str_contains($policy,'unknown_age_follow_allowed'),'Unknown age must fail closed unless explicitly approved.');
+rel_check(str_contains($policy,'minor_follow_allowed'),'Minor follows must require explicit policy approval.');
+rel_check(str_contains($policy,'guardian_consent_required'),'Guardian consent must be enforced.');
+rel_check(str_contains($relationships,'final class SN_Relationships'),'Canonical relationship service must exist.');
+rel_check(str_contains($relationships,'[\'active\', \'pending\']'),'Follow submission must be retry-idempotent.');
+rel_check(str_contains($relationships,'follow_version_conflict'),'Follow mutations must reject stale versions.');
+rel_check(str_contains($relationships,'status=\'pending\' AND version=%d'),'Follow decisions must use optimistic concurrency.');
+rel_check(str_contains($relationships,'hash_hmac'),'Follow cursors must be signed.');
+rel_check(str_contains($relationships,'hash_equals'),'Cursor signatures must use timing-safe comparison.');
+rel_check(str_contains($relationships,'4 - $remainder'),'URL-safe cursor padding must be restored.');
+rel_check(str_contains($relationships,'[\'followers\', \'following\', \'requests\']'),'All follow list scopes must exist.');
+rel_check(str_contains($relationships,'MAX_PAGE = 50'),'Follow list page size must be bounded.');
+rel_check(str_contains($relationships,'SN_DB::is_blocked'),'Blocked relationships must be excluded.');
+rel_check(str_contains($rest,'/users/(?P<id>\\d+)/relationship'),'Relationship-state route must exist.');
+rel_check(str_contains($rest,'/users/(?P<id>\\d+)/follow'),'Follow mutation route must exist.');
+rel_check(str_contains($rest,'/follows/(?P<id>\\d+)'),'Follow decision route must exist.');
+rel_check(str_contains($rest,'consume_rate_limit(\'follow_change\''),'Follow mutations must be rate-limited.');
+rel_check(str_contains($rest,'consume_rate_limit(\'follow_list\''),'Follow lists must be rate-limited.');
+rel_check(str_contains($rest,'SN_DB::table(\'follows\')'),'Block cleanup must address follows.');
+rel_check(str_contains($rest,'status=\'inactive\''),'Block cleanup must deactivate follows.');
+rel_check(str_contains($rest,'SELECT * FROM $conversations WHERE id=%d FOR UPDATE'),'Member-cap decisions must lock conversation row.');
+rel_check(str_contains($rest,'SELECT COUNT(*) FROM $members WHERE conversation_id=%d AND left_at IS NULL'),'Member-cap count must run under lock.');
+rel_check(str_contains($privacy,'table(\'follows\')'),'Privacy lifecycle must include follows.');
+rel_check(str_contains($admin,'\'follows\''),'Admin schema health must include follows.');
+rel_check(str_contains($main,'class-sn-relationships.php'),'Main plugin must load relationship service.');
+rel_check(str_contains($main,'sn_network_profile_action_state'),'File 25 state integration must exist.');
+rel_check(str_contains($main,'\'contact_route\''),'File 25 contract must expose contact route.');
+rel_check(str_contains($main,'\'block_route\''),'File 25 contract must expose block route.');
+rel_check(str_contains($main,'\'conversation_route\''),'File 25 contract must expose conversation route.');
+rel_check(str_contains($js,'api(\'follows?scope=all&limit=25\')'),'Network UI must load follow state.');
+rel_check(str_contains($js,'sn-follow-decision'),'UI must expose follow decisions.');
+rel_check(str_contains($js,'sn-follow-change'),'UI must expose follow changes.');
+rel_check(str_contains($js,'\'follows\''),'Follow privacy must be configurable.');
+rel_check(str_contains($files,'sn_network_retry_private_delete'),'Failed byte deletion must schedule retry.');
+rel_check(str_contains($files,'retry_delete_bytes'),'Private-byte retry worker must exist.');
+$segment=substr($policy,strpos($policy,'function can_follow'),strpos($policy,'function follow_initial_status')-strpos($policy,'function can_follow'));
+rel_check(!str_contains($segment,'can_contact('),'Follow authorization must not collapse into contact authorization.');
+rel_check(strpos($rest,'START TRANSACTION',strpos($rest,'function add_member')) < strpos($rest,'member_limit_reached',strpos($rest,'function add_member')),'Member-cap check must occur inside a transaction.');
+if($failures){fwrite(STDERR,"Relationship static failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Relationship static contracts: PASS ($checks checks)\n";

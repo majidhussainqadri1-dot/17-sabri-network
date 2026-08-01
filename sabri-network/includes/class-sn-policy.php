@@ -38,20 +38,40 @@ final class SN_Policy {
             || in_array((string) get_user_meta($user_id, 'sn_account_status', true), ['suspended', 'blocked', 'deleted'], true);
     }
 
-    public static function is_minor(int $user_id): bool {
+    public static function age_state(int $user_id): string {
+        $state = apply_filters('sn_network_user_age_state', null, $user_id);
+        if (is_string($state) && in_array($state, ['adult', 'minor', 'unknown'], true)) {
+            return $state;
+        }
+
         $filtered = apply_filters('sn_network_user_is_minor', null, $user_id);
         if (is_bool($filtered)) {
-            return $filtered;
+            return $filtered ? 'minor' : 'adult';
         }
-        $dob = (string) get_user_meta($user_id, 'sn_date_of_birth', true);
-        if (!$dob) {
-            $dob = (string) get_user_meta($user_id, 'date_of_birth', true);
+
+        $dob = trim((string) get_user_meta($user_id, 'sn_date_of_birth', true));
+        if ($dob === '') {
+            $dob = trim((string) get_user_meta($user_id, 'date_of_birth', true));
         }
-        try {
-            return $dob !== '' && (new DateTimeImmutable($dob))->diff(new DateTimeImmutable('today'))->y < 18;
-        } catch (Throwable $e) {
-            return false;
+        if ($dob === '') {
+            return 'unknown';
         }
+
+        $date = substr($dob, 0, 10);
+        $birth = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+        $errors = DateTimeImmutable::getLastErrors();
+        if (!$birth || ($errors !== false && ((int) $errors['warning_count'] > 0 || (int) $errors['error_count'] > 0)) || $birth->format('Y-m-d') !== $date) {
+            return 'unknown';
+        }
+        $today = new DateTimeImmutable('today');
+        if ($birth > $today) {
+            return 'unknown';
+        }
+        return $birth->diff($today)->y < 18 ? 'minor' : 'adult';
+    }
+
+    public static function is_minor(int $user_id): bool {
+        return self::age_state($user_id) === 'minor';
     }
 
     public static function has_guardian_consent(int $user_id): bool {
@@ -72,8 +92,14 @@ final class SN_Policy {
         if (SN_DB::is_blocked($actor_id, $target_id)) {
             return new WP_Error('blocked', 'This Network connection is unavailable.', ['status' => 403]);
         }
-        $actor_is_minor = self::is_minor($actor_id);
-        $target_is_minor = self::is_minor($target_id);
+        $actor_age_state = self::age_state($actor_id);
+        $target_age_state = self::age_state($target_id);
+        if (($actor_age_state === 'unknown' || $target_age_state === 'unknown')
+            && !(bool) apply_filters('sn_network_unknown_age_contact_allowed', false, $actor_id, $target_id, $context)) {
+            return new WP_Error('age_verification_required', 'Verified age information is required before this contact can be used.', ['status' => 403]);
+        }
+        $actor_is_minor = $actor_age_state === 'minor';
+        $target_is_minor = $target_age_state === 'minor';
         if (($actor_is_minor && !self::has_guardian_consent($actor_id)) || ($target_is_minor && !self::has_guardian_consent($target_id))) {
             return new WP_Error('guardian_consent_required', 'Verified guardian consent is required for this contact.', ['status' => 403]);
         }
@@ -104,6 +130,45 @@ final class SN_Policy {
         return true;
     }
 
+    public static function can_follow(int $actor_id, int $target_id): true|WP_Error {
+        if (!$actor_id || !$target_id || $actor_id === $target_id || !get_user_by('id', $target_id)) {
+            return new WP_Error('invalid_follow', 'Select a valid Network member.', ['status' => 400]);
+        }
+        if (self::is_suspended($actor_id) || self::is_suspended($target_id)) {
+            return new WP_Error('follow_unavailable', 'This Network member is unavailable.', ['status' => 403]);
+        }
+        if (SN_DB::is_blocked($actor_id, $target_id)) {
+            return new WP_Error('blocked', 'This Network connection is unavailable.', ['status' => 403]);
+        }
+        $actor_age = self::age_state($actor_id);
+        $target_age = self::age_state($target_id);
+        if (($actor_age === 'unknown' || $target_age === 'unknown')
+            && !(bool) apply_filters('sn_network_unknown_age_follow_allowed', false, $actor_id, $target_id)) {
+            return new WP_Error('age_verification_required', 'Verified age information is required before following this member.', ['status' => 403]);
+        }
+        if (($actor_age === 'minor' && !self::has_guardian_consent($actor_id))
+            || ($target_age === 'minor' && !self::has_guardian_consent($target_id))) {
+            return new WP_Error('guardian_consent_required', 'Verified guardian consent is required for this follow relationship.', ['status' => 403]);
+        }
+        if (($actor_age === 'minor' || $target_age === 'minor')
+            && !(bool) apply_filters('sn_network_minor_follow_allowed', false, $actor_id, $target_id)) {
+            return new WP_Error('minor_follow_restricted', 'This follow relationship is not approved under the minor-safety policy.', ['status' => 403]);
+        }
+        $visibility = (string) (self::privacy_for($target_id)['follows'] ?? 'everyone');
+        if (!in_array($visibility, ['everyone', 'contacts', 'nobody'], true)) {
+            $visibility = 'contacts';
+        }
+        if ($visibility === 'nobody') {
+            return new WP_Error('follows_disabled', 'This member is not accepting followers.', ['status' => 403]);
+        }
+        return true;
+    }
+
+    public static function follow_initial_status(int $actor_id, int $target_id): string {
+        $visibility = (string) (self::privacy_for($target_id)['follows'] ?? 'everyone');
+        return $visibility === 'everyone' || SN_DB::are_contacts($actor_id, $target_id) ? 'active' : 'pending';
+    }
+
     public static function can_create_conversation(int $user_id, string $type): bool {
         if ($type === 'direct') {
             return true;
@@ -113,14 +178,14 @@ final class SN_Policy {
             'community' => 'sn_network_create_community',
             'channel' => 'sn_network_create_channel',
         ];
-        if (!isset($map[$type]) || self::is_minor($user_id) || self::is_suspended($user_id)) {
+        if (!isset($map[$type]) || self::age_state($user_id) !== 'adult' || self::is_suspended($user_id)) {
             return false;
         }
         return (bool) apply_filters('sn_network_can_create_conversation', user_can($user_id, $map[$type]), $user_id, $type);
     }
 
     public static function can_publish_public_update(int $user_id): bool {
-        if (self::is_minor($user_id) || self::is_suspended($user_id)) {
+        if (self::age_state($user_id) !== 'adult' || self::is_suspended($user_id)) {
             return false;
         }
         return (bool) apply_filters('sn_network_can_publish_public_update', user_can($user_id, 'sn_network_publish_public_update'), $user_id);
@@ -203,6 +268,7 @@ final class SN_Policy {
             'calls' => 'contacts',
             'messages' => 'contacts',
             'updates' => 'contacts',
+            'follows' => 'everyone',
         ];
         $stored = (array) get_user_meta($user_id, 'sn_privacy', true);
         $privacy = array_merge($defaults, array_intersect_key($stored, $defaults));

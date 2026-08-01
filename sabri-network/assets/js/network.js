@@ -468,22 +468,41 @@
   async function loadAndRenderContacts(container, search = '') {
     setLoading(container);
     try {
-      const data = await api(`contacts${search.length >= 3 ? `?search=${encodeURIComponent(search)}` : ''}`);
+      const [data, follows] = await Promise.all([
+        api(`contacts${search.length >= 3 ? `?search=${encodeURIComponent(search)}` : ''}`),
+        api('follows?scope=all&limit=25'),
+      ]);
       container.innerHTML = `<section class="sn-contact-section"><h3>Contacts</h3>${(data.contacts || []).map(userCard).join('') || '<p>No accepted contacts.</p>'}</section>
-        <section class="sn-contact-section"><h3>Incoming requests</h3>${(data.incoming || []).map(requestCard).join('') || '<p>No incoming requests.</p>'}</section>
+        <section class="sn-contact-section"><h3>Incoming contact requests</h3>${(data.incoming || []).map(requestCard).join('') || '<p>No incoming contact requests.</p>'}</section>
+        <section class="sn-contact-section"><h3>Follow requests</h3>${(follows.requests?.items || []).map(followRequestCard).join('') || '<p>No follow requests.</p>'}</section>
+        <section class="sn-contact-section"><h3>Followers</h3>${(follows.followers?.items || []).map(followListCard).join('') || '<p>No followers yet.</p>'}</section>
+        <section class="sn-contact-section"><h3>Following</h3>${(follows.following?.items || []).map(followListCard).join('') || '<p>You are not following anyone yet.</p>'}</section>
         <section class="sn-contact-section"><h3>Directory</h3>${(data.directory || []).map(directoryCard).join('') || '<p>Type at least three characters to search.</p>'}</section>`;
       $$('.sn-contact-message', container).forEach(button => button.addEventListener('click', () => createDirect(Number(button.dataset.id))));
       $$('.sn-contact-decision', container).forEach(button => button.addEventListener('click', () => decideContact(Number(button.dataset.request), button.dataset.decision)));
       $$('.sn-contact-request', container).forEach(button => button.addEventListener('click', () => requestContact(Number(button.dataset.id))));
+      $$('.sn-follow-change', container).forEach(button => button.addEventListener('click', () => changeFollow(Number(button.dataset.id), button.dataset.action, Number(button.dataset.version || 0))));
+      $$('.sn-follow-decision', container).forEach(button => button.addEventListener('click', () => decideFollow(Number(button.dataset.follow), button.dataset.decision, Number(button.dataset.version))));
     } catch (error) { container.innerHTML = `<div class="sn-error-state">${escapeHtml(error.message)}</div>`; }
   }
 
   const userCard = user => `<div class="sn-list-row"><img src="${escapeHtml(safeUrl(user.avatar))}" alt=""><span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.role_label || user.phone_masked || '')}</small></span><button type="button" class="sn-btn sn-contact-message" data-id="${user.id}">Message</button></div>`;
   const requestCard = item => `<div class="sn-list-row"><img src="${escapeHtml(safeUrl(item.user.avatar))}" alt=""><span><strong>${escapeHtml(item.user.name)}</strong><small>Contact request</small></span><button type="button" class="sn-btn sn-contact-decision" data-request="${item.request_id}" data-decision="accept">Accept</button><button type="button" class="sn-btn sn-btn-ghost sn-contact-decision" data-request="${item.request_id}" data-decision="decline">Decline</button></div>`;
-  const directoryCard = user => `<div class="sn-list-row"><img src="${escapeHtml(safeUrl(user.avatar))}" alt=""><span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.role_label || '')}</small></span><button type="button" class="sn-btn sn-contact-request" data-id="${user.id}">Connect</button></div>`;
+  const followListCard = item => `<div class="sn-list-row"><img src="${escapeHtml(safeUrl(item.user?.avatar || ''))}" alt=""><span><strong>${escapeHtml(item.user?.name || '')}</strong><small>${escapeHtml(item.user?.role_label || '')}</small></span>${item.follower_id === state.user?.id ? `<button type="button" class="sn-btn sn-btn-ghost sn-follow-change" data-id="${item.followed_id}" data-action="unfollow" data-version="${item.version}">Unfollow</button>` : ''}</div>`;
+  const followRequestCard = item => `<div class="sn-list-row"><img src="${escapeHtml(safeUrl(item.user?.avatar || ''))}" alt=""><span><strong>${escapeHtml(item.user?.name || '')}</strong><small>Follow request</small></span><button type="button" class="sn-btn sn-follow-decision" data-follow="${item.id}" data-version="${item.version}" data-decision="accept">Accept</button><button type="button" class="sn-btn sn-btn-ghost sn-follow-decision" data-follow="${item.id}" data-version="${item.version}" data-decision="reject">Decline</button></div>`;
+  const directoryCard = user => {
+    const relationship = user.relationship || {};
+    const actions = relationship.actions || {};
+    const follow = relationship.follow || {};
+    const connectButton = actions.connect ? `<button type="button" class="sn-btn sn-contact-request" data-id="${user.id}">Connect</button>` : '';
+    const followButton = actions.follow ? `<button type="button" class="sn-btn sn-follow-change" data-id="${user.id}" data-action="follow">Follow</button>` : actions.unfollow ? `<button type="button" class="sn-btn sn-btn-ghost sn-follow-change" data-id="${user.id}" data-action="unfollow" data-version="${follow.version || 0}">${follow.state === 'pending' ? 'Cancel request' : 'Unfollow'}</button>` : '';
+    return `<div class="sn-list-row"><img src="${escapeHtml(safeUrl(user.avatar))}" alt=""><span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.role_label || '')}</small></span>${connectButton}${followButton}</div>`;
+  };
 
   async function requestContact(userId) { try { await api('contacts', {method:'POST', body:{user_id:userId}}); toast('Contact request sent.', 'success'); renderSidebar(); } catch (error) { toast(error.message, 'error'); } }
   async function decideContact(id, decision) { try { await api(`contacts/${id}`, {method:'POST', body:{decision}}); toast(decision === 'accept' ? 'Request accepted.' : 'Request declined.', 'success'); renderSidebar(); } catch (error) { toast(error.message, 'error'); } }
+  async function changeFollow(userId, action, version = 0) { try { const result = await api(`users/${userId}/follow`, {method:'POST', body:{action, version}}); toast(action === 'follow' ? (result.status === 'pending' ? 'Follow request sent.' : 'Now following this member.') : 'Follow removed.', 'success'); renderSidebar(); } catch (error) { toast(error.message, 'error'); } }
+  async function decideFollow(id, decision, version) { try { await api(`follows/${id}`, {method:'POST', body:{decision, version}}); toast(decision === 'accept' ? 'Follow request accepted.' : 'Follow request declined.', 'success'); renderSidebar(); } catch (error) { toast(error.message, 'error'); } }
   async function createDirect(userId) { try { const data = await api('conversations', {method:'POST', body:{type:'direct', user_id:userId}}); await loadConversations(); await openConversation(data.conversation.id); } catch (error) { toast(error.message, 'error'); } }
 
   async function loadAndRenderUpdates(container) {
@@ -517,7 +536,7 @@
   });
 
   $('#sn-settings-button')?.addEventListener('click', () => {
-    const fields = ['phone_visibility','last_seen','profile_photo','groups','calls','messages','updates'];
+    const fields = ['phone_visibility','last_seen','profile_photo','groups','calls','messages','updates','follows'];
     const html = `<form id="sn-privacy-form" class="sn-form">${fields.map(key => `<label>${escapeHtml(key.replaceAll('_', ' '))}<select name="${key}">${['everyone','contacts','nobody'].map(value => `<option value="${value}"${state.privacy[key] === value ? ' selected' : ''}>${value}</option>`).join('')}</select></label>`).join('')}<button class="sn-btn sn-btn-primary" type="submit">Save privacy settings</button></form>`;
     openModal('Network privacy', html, body => $('#sn-privacy-form', body).addEventListener('submit', async event => {
       event.preventDefault(); const privacy = Object.fromEntries(new FormData(event.currentTarget));

@@ -100,6 +100,29 @@ final class SN_Privacy {
             ];
         }
 
+        $follows = $wpdb->get_results($wpdb->prepare(
+            'SELECT id,follower_id,followed_id,status,version,created_at,updated_at,decided_at FROM ' . SN_DB::table('follows') . ' WHERE follower_id=%d OR followed_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+            $user_id,
+            $user_id,
+            $limit,
+            $offset
+        ));
+        foreach ($follows as $follow) {
+            $data[] = [
+                'group_id' => 'sabri-network-follows',
+                'group_label' => __('Network follows', 'sabri-network'),
+                'item_id' => 'follow-' . (int) $follow->id,
+                'data' => [
+                    ['name' => __('Direction', 'sabri-network'), 'value' => (int) $follow->follower_id === $user_id ? __('Following', 'sabri-network') : __('Follower', 'sabri-network')],
+                    ['name' => __('Other member ID', 'sabri-network'), 'value' => (int) $follow->follower_id === $user_id ? (int) $follow->followed_id : (int) $follow->follower_id],
+                    ['name' => __('Status', 'sabri-network'), 'value' => (string) $follow->status],
+                    ['name' => __('Record version', 'sabri-network'), 'value' => (int) $follow->version],
+                    ['name' => __('Created', 'sabri-network'), 'value' => (string) $follow->created_at],
+                    ['name' => __('Updated', 'sabri-network'), 'value' => (string) $follow->updated_at],
+                ],
+            ];
+        }
+
         $memberships = $wpdb->get_results($wpdb->prepare(
             'SELECT conversation_id,role,last_read_message_id,is_muted,is_archived,joined_at,left_at FROM ' . SN_DB::table('members') . ' WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
             $user_id,
@@ -147,7 +170,7 @@ final class SN_Privacy {
         }
 
         $reports = $wpdb->get_results($wpdb->prepare(
-            'SELECT id,reported_user_id,conversation_id,message_id,category,details,evidence,status,legal_hold,retention_until,anonymized_at,version,created_at,updated_at FROM ' . SN_DB::table('reports') . ' WHERE reporter_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+            'SELECT id,reported_user_id,conversation_id,message_id,category,details,evidence,status,legal_hold,decision_reason,decision_by,decision_at,appeal_status,appeal_reason,appealed_at,appeal_decided_by,appeal_decision_reason,appeal_decided_at,retention_until,anonymized_at,version,created_at,updated_at FROM ' . SN_DB::table('reports') . ' WHERE reporter_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
             $user_id,
             $limit,
             $offset
@@ -166,10 +189,46 @@ final class SN_Privacy {
                     ['name' => __('Evidence', 'sabri-network'), 'value' => (string) $report->evidence],
                     ['name' => __('Status', 'sabri-network'), 'value' => (string) $report->status],
                     ['name' => __('Legal or safety hold', 'sabri-network'), 'value' => (int) $report->legal_hold ? __('Yes', 'sabri-network') : __('No', 'sabri-network')],
+                    ['name' => __('Decision reason', 'sabri-network'), 'value' => (string) $report->decision_reason],
+                    ['name' => __('Decision administrator ID', 'sabri-network'), 'value' => (int) $report->decision_by],
+                    ['name' => __('Decision date', 'sabri-network'), 'value' => (string) $report->decision_at],
+                    ['name' => __('Appeal status', 'sabri-network'), 'value' => (string) $report->appeal_status],
+                    ['name' => __('Appeal reason', 'sabri-network'), 'value' => (string) $report->appeal_reason],
+                    ['name' => __('Appealed date', 'sabri-network'), 'value' => (string) $report->appealed_at],
+                    ['name' => __('Appeal decision administrator ID', 'sabri-network'), 'value' => (int) $report->appeal_decided_by],
+                    ['name' => __('Appeal decision reason', 'sabri-network'), 'value' => (string) $report->appeal_decision_reason],
+                    ['name' => __('Appeal decision date', 'sabri-network'), 'value' => (string) $report->appeal_decided_at],
                     ['name' => __('Retention deadline', 'sabri-network'), 'value' => (string) $report->retention_until],
                     ['name' => __('Anonymized', 'sabri-network'), 'value' => (string) $report->anonymized_at],
                     ['name' => __('Record version', 'sabri-network'), 'value' => (int) $report->version],
                     ['name' => __('Created', 'sabri-network'), 'value' => (string) $report->created_at],
+                ],
+            ];
+        }
+
+        $reports_about = $wpdb->get_results($wpdb->prepare(
+            'SELECT id,category,status,decision_reason,decision_at,appeal_status,appealed_at,appeal_decision_reason,appeal_decided_at,version,created_at,updated_at FROM ' . SN_DB::table('reports') . ' WHERE reported_user_id=%d AND anonymized_at IS NULL ORDER BY id ASC LIMIT %d OFFSET %d',
+            $user_id,
+            $limit,
+            $offset
+        ));
+        foreach ($reports_about as $report) {
+            $data[] = [
+                'group_id' => 'sabri-network-report-decisions',
+                'group_label' => __('Network safety decisions about this account', 'sabri-network'),
+                'item_id' => 'report-decision-' . (int) $report->id,
+                'data' => [
+                    ['name' => __('Category', 'sabri-network'), 'value' => (string) $report->category],
+                    ['name' => __('Status', 'sabri-network'), 'value' => (string) $report->status],
+                    ['name' => __('Decision reason', 'sabri-network'), 'value' => (string) $report->decision_reason],
+                    ['name' => __('Decision date', 'sabri-network'), 'value' => (string) $report->decision_at],
+                    ['name' => __('Appeal status', 'sabri-network'), 'value' => (string) $report->appeal_status],
+                    ['name' => __('Appealed date', 'sabri-network'), 'value' => (string) $report->appealed_at],
+                    ['name' => __('Appeal decision reason', 'sabri-network'), 'value' => (string) $report->appeal_decision_reason],
+                    ['name' => __('Appeal decision date', 'sabri-network'), 'value' => (string) $report->appeal_decided_at],
+                    ['name' => __('Record version', 'sabri-network'), 'value' => (int) $report->version],
+                    ['name' => __('Created', 'sabri-network'), 'value' => (string) $report->created_at],
+                    ['name' => __('Updated', 'sabri-network'), 'value' => (string) $report->updated_at],
                 ],
             ];
         }
@@ -217,7 +276,7 @@ final class SN_Privacy {
                 'data' => $preference_data,
             ];
         }
-        $done = max(count($messages), count($updates), count($contacts), count($memberships), count($calls), count($reports), count($notifications)) < $limit;
+        $done = max(count($messages), count($updates), count($contacts), count($follows), count($memberships), count($calls), count($reports), count($reports_about), count($notifications)) < $limit;
         return ['data' => $data, 'done' => $done];
     }
 
@@ -238,7 +297,7 @@ final class SN_Privacy {
         }
 
         $limit = 100;
-        $report_erasure = ['redacted' => 0, 'retained' => 0];
+        $report_erasure = ['redacted' => 0, 'retained' => 0, 'failed' => false];
         $messages = $wpdb->get_results($wpdb->prepare(
             'SELECT id,attachment_id,attachment_source FROM ' . SN_DB::table('messages') . ' WHERE sender_id=%d ORDER BY id ASC LIMIT %d',
             $user_id,
@@ -302,6 +361,7 @@ final class SN_Privacy {
             $wpdb->update(SN_DB::table('calls'), ['initiator_id' => 0], ['initiator_id' => $user_id], ['%d'], ['%d']);
 
             $wpdb->query($wpdb->prepare('DELETE FROM ' . SN_DB::table('contacts') . ' WHERE user_id=%d OR contact_user_id=%d', $user_id, $user_id));
+            $wpdb->query($wpdb->prepare('DELETE FROM ' . SN_DB::table('follows') . ' WHERE follower_id=%d OR followed_id=%d', $user_id, $user_id));
             $wpdb->query($wpdb->prepare('DELETE FROM ' . SN_DB::table('blocks') . ' WHERE user_id=%d OR blocked_user_id=%d', $user_id, $user_id));
             $wpdb->delete(SN_DB::table('reactions'), ['user_id' => $user_id], ['%d']);
             $wpdb->delete(SN_DB::table('update_views'), ['viewer_id' => $user_id], ['%d']);
@@ -319,14 +379,20 @@ final class SN_Privacy {
             delete_user_meta($user_id, 'sn_about');
         }
 
-        SN_DB::audit('privacy_erasure', 'user', $user_id, 'success', ['batch' => $page], 0);
-        $items_retained = (int) $report_erasure['retained'] > 0;
+        $report_failed = !empty($report_erasure['failed']);
+        SN_DB::audit('privacy_erasure', 'user', $user_id, $report_failed ? 'partial' : 'success', ['batch' => $page, 'report_erasure_failed' => $report_failed], 0);
+        $items_retained = (int) $report_erasure['retained'] > 0 || $report_failed;
+        $erasure_messages = [];
+        if ((int) $report_erasure['retained'] > 0) {
+            $erasure_messages[] = __('Some abuse-report evidence is retained under an approved legal or safety hold; account identifiers were minimized where permitted.', 'sabri-network');
+        }
+        if ($report_failed) {
+            $erasure_messages[] = __('Some abuse-report data could not be minimized because the transactional erasure step failed. An administrator must retry the request.', 'sabri-network');
+        }
         return [
             'items_removed' => true,
             'items_retained' => $items_retained,
-            'messages' => $items_retained
-                ? [__('Some abuse-report evidence is retained under an approved legal or safety hold; account identifiers were minimized where permitted.', 'sabri-network')]
-                : [],
+            'messages' => $erasure_messages,
             'done' => count($messages) < $limit,
         ];
     }

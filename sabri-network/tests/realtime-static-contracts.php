@@ -18,7 +18,7 @@ $assert = static function (bool $condition, string $message) use (&$checks): voi
     }
 };
 
-$assert(str_contains($files['db'], "DB_VERSION = '2.0.2'"), 'schema version includes realtime and report-safety tables');
+$assert(str_contains($files['db'], "DB_VERSION = '2.0.4'"), 'schema version includes realtime, report safety, appeals and follow graph');
 $assert(str_contains($files['db'], "table('presence')"), 'presence table is declared');
 $assert(str_contains($files['db'], "PRIMARY KEY (user_id)"), 'one canonical presence row per user');
 $assert(str_contains($files['db'], "table('typing')"), 'typing table is declared');
