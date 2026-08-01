@@ -52,6 +52,10 @@ sabri-network/tests/realtime-static-contracts.php
 sabri-network/tests/relationships-adversarial-contracts.php
 sabri-network/tests/relationships-runtime-contracts.php
 sabri-network/tests/relationships-static-contracts.php
+sabri-network/tests/forensic-review-3-adversarial-contracts.php
+sabri-network/tests/forensic-review-3-static-contracts.php
+sabri-network/tests/rate-limit-runtime-contracts.php
+sabri-network/tests/retention-lock-empty-runtime-contracts.php
 sabri-network/tests/safety-adversarial-contracts.php
 sabri-network/tests/safety-runtime-contracts.php
 sabri-network/tests/safety-static-contracts.php

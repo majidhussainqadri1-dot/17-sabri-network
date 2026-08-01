@@ -92,10 +92,18 @@ final class Sabri_Network {
             'owner' => 'file-17',
             'version' => SN_VERSION,
             'state_route' => rest_url('sabri-network/v2/users/{user_id}/relationship'),
+            'state_method' => 'GET',
             'follow_route' => rest_url('sabri-network/v2/users/{user_id}/follow'),
-            'contact_route' => rest_url('sabri-network/v2/contacts/{user_id}'),
-            'block_route' => rest_url('sabri-network/v2/blocks/{user_id}'),
+            'follow_method' => 'POST',
+            'contact_route' => rest_url('sabri-network/v2/contacts'),
+            'contact_request_route' => rest_url('sabri-network/v2/contacts'),
+            'contact_request_method' => 'POST',
+            'contact_decision_route' => rest_url('sabri-network/v2/contacts/{request_id}'),
+            'contact_decision_method' => 'POST',
+            'block_route' => rest_url('sabri-network/v2/block'),
+            'block_method' => 'POST',
             'conversation_route' => rest_url('sabri-network/v2/conversations'),
+            'conversation_method' => 'POST',
         ]);
 
         do_action('sn_network_route_registered', [

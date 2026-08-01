@@ -3,10 +3,10 @@
 **Target:** File 17 — Sabri Network and Messages 2.0.0  
 **State:** coded, packaged and CI-green candidate under draft review  
 **Known failures in included suites:** 0  
-**Included contract checks:** 388/388 PASS  
+**Included contract checks:** 421/421 PASS  
 **Installable source checksum coverage:** 26/26 files verified  
 **Deterministic double-build byte comparison:** PASS  
-**Current installable ZIP SHA-256:** `d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65`  
+**Installable ZIP SHA-256:** maintained in Pull Request #2 after current-head CI.
 **Staging/live/operational:** not completed
 
 Exact current head, CI run and workflow artifact identifiers are maintained in Pull Request #2. They are intentionally not embedded here because every source edit creates a new head and a new CI run; embedding those future identifiers inside the commit would create a self-referential evidence loop.
@@ -35,3 +35,12 @@ The branch includes privacy-scoped presence, expiring typing state, native mute/
 - Founder approval, merge, live deployment and operational monitoring
 
 The included green suites are evidence for their defined contracts; they are not a claim that undiscovered defects are impossible or that production acceptance has occurred.
+## Third forensic review — integration and concurrency corrections
+
+- Corrected the published File-25 contact and block routes and added explicit HTTP-method metadata.
+- Replaced rate-limit read/replace accounting with atomic insert-once and conditional SQL mutation.
+- Made conversation last-message pointers monotonic under concurrent sends.
+- Made empty malformed retention-lock values recoverable without weakening exact-value takeover/release.
+- Routed public-update attachment minor checks through canonical `SN_Policy::is_minor`.
+- Added 33 fresh static, runtime and adversarial checks. Current configured total: **421 checks** (Round 1: **245**; Round 2: **176**).
+

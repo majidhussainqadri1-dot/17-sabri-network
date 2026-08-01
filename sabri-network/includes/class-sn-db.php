@@ -487,25 +487,44 @@ final class SN_DB {
         global $wpdb;
         $table = self::table('rate_limits');
         $bucket = sanitize_key($bucket);
+        $limit = max(1, $limit);
+        $window_seconds = max(1, $window_seconds);
         $subject_hash = hash_hmac('sha256', $subject, wp_salt('nonce'));
         $now_ts = time();
         $now = gmdate('Y-m-d H:i:s', $now_ts);
-        $expires = gmdate('Y-m-d H:i:s', $now_ts + max(1, $window_seconds));
-        $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . $table . ' WHERE bucket=%s AND subject_hash=%s', $bucket, $subject_hash));
-        if (!$row || strtotime((string) $row->expires_at . ' UTC') <= $now_ts) {
-            $created = $wpdb->replace($table, [
-                'bucket' => $bucket,
-                'subject_hash' => $subject_hash,
-                'hits' => 1,
-                'window_started_at' => $now,
-                'expires_at' => $expires,
-            ]);
-            return $created !== false;
-        }
-        if ((int) $row->hits >= $limit) {
+        $expires = gmdate('Y-m-d H:i:s', $now_ts + $window_seconds);
+
+        // Create the counter once with zero hits. Concurrent creators are collapsed by
+        // the unique bucket/subject key instead of replacing and resetting each other.
+        $created = $wpdb->query($wpdb->prepare(
+            "INSERT IGNORE INTO $table (bucket,subject_hash,hits,window_started_at,expires_at) VALUES (%s,%s,0,%s,%s)",
+            $bucket,
+            $subject_hash,
+            $now,
+            $expires
+        ));
+        if ($created === false) {
             return false;
         }
-        $updated = $wpdb->query($wpdb->prepare('UPDATE ' . $table . ' SET hits=hits+1 WHERE id=%d AND hits<%d AND expires_at>%s', (int) $row->id, $limit, $now));
+
+        // One conditional UPDATE either starts a new expired window at hit 1 or
+        // increments an active window below its ceiling. No read/replace race exists.
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET
+                hits=IF(expires_at<=%s,1,hits+1),
+                window_started_at=IF(expires_at<=%s,%s,window_started_at),
+                expires_at=IF(expires_at<=%s,%s,expires_at)
+             WHERE bucket=%s AND subject_hash=%s AND (expires_at<=%s OR hits<%d)",
+            $now,
+            $now,
+            $now,
+            $now,
+            $expires,
+            $bucket,
+            $subject_hash,
+            $now,
+            $limit
+        ));
         return $updated === 1;
     }
 
@@ -558,7 +577,7 @@ final class SN_DB {
             if ((int) $update->user_id === $user_id) {
                 return true;
             }
-            if ((string) $update->privacy === 'public' && !(bool) apply_filters('sn_network_user_is_minor', false, (int) $update->user_id)) {
+            if ((string) $update->privacy === 'public' && !SN_Policy::is_minor((int) $update->user_id)) {
                 return true;
             }
             if ((string) $update->privacy === 'contacts' && self::are_contacts($user_id, (int) $update->user_id) && !self::is_blocked($user_id, (int) $update->user_id)) {

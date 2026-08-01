@@ -27,10 +27,19 @@ Operational: ابھی نہیں
 - runtime tests stale takeover، competing takeover، release race، active lock اور malformed lock recovery کو جانچتے ہیں۔
 - committed CHECKSUMS.sha256 installable source tree کی مکمل coverage اور exact hashes کے ساتھ quality gate میں verify ہوتا ہے۔
 
+تیسری forensic نظرِ ثانی کی اصلاحات:
+- File 25 کے لیے published contact/block integration routes حقیقی REST routes اور HTTP methods کے مطابق درست کیے گئے۔
+- rate-limit counter کو read-then-REPLACE سے atomic INSERT IGNORE + conditional UPDATE میں منتقل کیا گیا، تاکہ concurrent first-hit یا expired-window requests counter reset نہ کرسکیں۔
+- concurrent message sends میں conversation کا last_message_id اور updated_at اب monotonic GREATEST updates سے محفوظ ہیں۔
+- موجود مگر empty retention-lock option اب malformed سمجھ کر compare-and-swap recovery سے درست ہوسکتا ہے۔
+- public update attachment access minor status کے لیے canonical SN_Policy::is_minor فیصلہ استعمال کرتا ہے۔
+
 نظرِ ثانی و QA evidence:
 - Review Round 1: static، runtime، realtime، package، safety اور relationships suites
 - Review Round 2: fresh/adversarial suites
-- موجود configured included contract checks: 388
+- Review Round 1: 245/245 PASS configured
+- Review Round 2: 176/176 PASS configured
+- موجود configured included contract checks: 421
 - PHP، JavaScript، shell syntax، CSS integrity، repository hygiene، source checksums اور deterministic double-build: لازمی gates
 - مفہوم: شامل suites میں معلوم failure صفر ہونے کی صورت automated-QA green ہوگی؛ مطلق بےنقصی یا staging acceptance کا دعویٰ نہیں۔
 

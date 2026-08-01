@@ -276,8 +276,9 @@ final class SN_Safety {
 
         $stored = (string) get_option(self::RETENTION_LOCK, '');
         $parts = explode('|', $stored, 2);
-        $expired_or_malformed = $stored !== ''
-            && (!isset($parts[1]) || !ctype_digit($parts[1]) || (int) $parts[1] <= time());
+        $expired_or_malformed = !isset($parts[1])
+            || !ctype_digit($parts[1])
+            || (int) $parts[1] <= time();
         if (!$expired_or_malformed) {
             return '';
         }

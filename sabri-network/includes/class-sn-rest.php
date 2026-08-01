@@ -861,7 +861,15 @@ final class SN_REST {
             return $existing ? rest_ensure_response(['message' => self::format_message($existing, $user_id), 'duplicate' => true]) : self::database_error();
         }
         $message_id = (int) $wpdb->insert_id;
-        $wpdb->update(SN_DB::table('conversations'), ['last_message_id' => $message_id, 'updated_at' => $now], ['id' => $conversation_id]);
+        $pointer_updated = $wpdb->query($wpdb->prepare(
+            'UPDATE ' . SN_DB::table('conversations') . ' SET last_message_id=GREATEST(last_message_id,%d),updated_at=GREATEST(updated_at,%s) WHERE id=%d',
+            $message_id,
+            $now,
+            $conversation_id
+        ));
+        if ($pointer_updated === false) {
+            SN_DB::audit('conversation_message_pointer_update_failed', 'conversation', $conversation_id, 'failure', ['message_id' => $message_id]);
+        }
         foreach (self::conversation_member_ids($conversation_id) as $member_id) {
             if ($member_id !== $user_id) {
                 SN_DB::add_notification($member_id, 'message_received', 'New Network message', '', 'conversation', $conversation_id);

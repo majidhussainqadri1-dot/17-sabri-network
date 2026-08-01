@@ -50,6 +50,15 @@
 - Added runtime race simulations for initial acquisition, stale takeover, competing takeover, release races, active locks and malformed-lock recovery.
 - Added complete installable-source checksum coverage and exact-hash verification to the quality gate.
 
+### Third forensic review and concurrency correction
+
+- Corrected the File-25 integration contract so contact creation, contact decisions, blocking, relationship state, follows and conversations advertise the actual REST paths and mutation methods.
+- Replaced rate-limit read-then-`REPLACE` accounting with atomic `INSERT IGNORE` initialization and a conditional SQL update, preventing concurrent first hits or expiry rollovers from resetting counters.
+- Made conversation `last_message_id` and `updated_at` monotonic under concurrent message sends.
+- Made an existing empty retention-lock option recoverable as malformed state without weakening exact-value takeover/release controls.
+- Routed public-update attachment minor decisions through canonical `SN_Policy::is_minor` handling.
+- Added 33 fresh static, runtime and adversarial checks for these defects.
+
 ### Status
 
-Code-reviewed candidate only. The current quality gate executes two independent review rounds with 388 included contract checks, PHP/JavaScript/shell syntax, CSS integrity, repository hygiene, complete installable-source checksum verification and deterministic byte-for-byte packaging. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, backup/restore, cross-file integration and live deployment remain separate gates.
+Code-reviewed candidate only. The current quality gate executes two independent review rounds with 421 included contract checks (245 in Round 1 and 176 in Round 2), PHP/JavaScript/shell syntax, CSS integrity, repository hygiene, complete installable-source checksum verification and deterministic byte-for-byte packaging. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, backup/restore, cross-file integration and live deployment remain separate gates.

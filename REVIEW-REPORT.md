@@ -79,7 +79,7 @@ Network and Messages remain distinct experiences over one shared backend and aut
 - Relationship static: **45/45 PASS**
 - Relationship runtime: **8/8 PASS**
 
-**Round 1: 220/220 PASS.**
+**Round 1: 245/245 PASS.**
 
 ## 5. QA Round 2 — fresh/adversarial
 
@@ -89,9 +89,9 @@ Network and Messages remain distinct experiences over one shared backend and aut
 - Safety adversarial: **31/31 PASS**
 - Relationship adversarial: **37/37 PASS**
 
-**Round 2: 168/168 PASS.**
+**Round 2: 176/176 PASS.**
 
-> **Total included contract checks: 388/388 PASS.**
+> **Total included contract checks: 421/421 PASS.**
 
 ## 6. Additional verification
 
@@ -107,7 +107,7 @@ Network and Messages remain distinct experiences over one shared backend and aut
 
 ## 7. Verified package
 
-**Installable ZIP SHA-256:**
+**Installable ZIP SHA-256:** maintained in Pull Request #2 after current-head CI.
 
 ```text
 d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65
@@ -130,3 +130,12 @@ This is evidence for the current installable payload. It is not evidence of stag
 ## 9. Truthful completion status
 
 The current deliverable is a reviewed, corrected, checksum-governed, deterministically packaged and CI-green 2.0.0 candidate with no known failure in its included suites. Production completion remains contingent on the external and staging gates above.
+## Third forensic review — integration and concurrency corrections
+
+- Corrected the published File-25 contact and block routes and added explicit HTTP-method metadata.
+- Replaced rate-limit read/replace accounting with atomic insert-once and conditional SQL mutation.
+- Made conversation last-message pointers monotonic under concurrent sends.
+- Made empty malformed retention-lock values recoverable without weakening exact-value takeover/release.
+- Routed public-update attachment minor checks through canonical `SN_Policy::is_minor`.
+- Added 33 fresh static, runtime and adversarial checks. Current configured total: **421 checks** (Round 1: **245**; Round 2: **176**).
+

@@ -43,7 +43,7 @@ Exact current head, CI run and artifact identifiers are maintained in Pull Reque
 - Relationship static contracts: **45/45 PASS**
 - Relationship runtime contracts: **8/8 PASS**
 
-**Round 1 total: 220/220 PASS.**
+**Round 1 total: 245/245 PASS.**
 
 ## Review Round 2 — fresh/adversarial
 
@@ -53,9 +53,9 @@ Exact current head, CI run and artifact identifiers are maintained in Pull Reque
 - Safety adversarial contracts: **31/31 PASS**
 - Relationship adversarial contracts: **37/37 PASS**
 
-**Round 2 total: 168/168 PASS.**
+**Round 2 total: 176/176 PASS.**
 
-> **Combined included contract checks: 388/388 PASS.**
+> **Combined included contract checks: 421/421 PASS.**
 
 Additional gates:
 
@@ -70,7 +70,7 @@ Additional gates:
 
 ## Verified package
 
-**Installable ZIP SHA-256:** `d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65`
+**Installable ZIP SHA-256:** maintained in Pull Request #2 after current-head CI.
 
 The included checks have no known unresolved failure. This does not assert that undiscovered defects are impossible.
 
@@ -84,3 +84,12 @@ The included checks have no known unresolved failure. This does not assert that 
 - Real WordPress/MySQL concurrency and privacy-erasure acceptance
 - Penetration, dependency, load/race, browser/device, RTL/LTR and accessibility acceptance
 - Founder approval, merge, live deployment and operational monitoring
+## Third forensic review — integration and concurrency corrections
+
+- Corrected the published File-25 contact and block routes and added explicit HTTP-method metadata.
+- Replaced rate-limit read/replace accounting with atomic insert-once and conditional SQL mutation.
+- Made conversation last-message pointers monotonic under concurrent sends.
+- Made empty malformed retention-lock values recoverable without weakening exact-value takeover/release.
+- Routed public-update attachment minor checks through canonical `SN_Policy::is_minor`.
+- Added 33 fresh static, runtime and adversarial checks. Current configured total: **421 checks** (Round 1: **245**; Round 2: **176**).
+
