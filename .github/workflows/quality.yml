@@ -18,10 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           fetch-depth: 0
       - name: Materialize verified safety batch when present
         id: materialize
-        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/file-17-review-2.0.0'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/codex/file-17-review-2.0.0') || (github.event_name == 'pull_request' && github.head_ref == 'codex/file-17-review-2.0.0')
         shell: bash
         run: |
           set -euo pipefail
