@@ -266,27 +266,50 @@ final class SN_Safety {
     }
 
     private static function acquire_retention_lock(): string {
+        global $wpdb;
         $token = wp_generate_uuid4();
         $expires = time() + 10 * MINUTE_IN_SECONDS;
         $value = $token . '|' . $expires;
         if (add_option(self::RETENTION_LOCK, $value, '', false)) {
             return $token;
         }
+
         $stored = (string) get_option(self::RETENTION_LOCK, '');
         $parts = explode('|', $stored, 2);
-        if (isset($parts[1]) && (int) $parts[1] < time()) {
-            delete_option(self::RETENTION_LOCK);
-            if (add_option(self::RETENTION_LOCK, $value, '', false)) {
-                return $token;
-            }
+        $expired_or_malformed = $stored !== ''
+            && (!isset($parts[1]) || !ctype_digit($parts[1]) || (int) $parts[1] <= time());
+        if (!$expired_or_malformed) {
+            return '';
+        }
+
+        $updated = $wpdb->update(
+            $wpdb->options,
+            ['option_value' => $value],
+            ['option_name' => self::RETENTION_LOCK, 'option_value' => $stored],
+            ['%s'],
+            ['%s', '%s']
+        );
+        if ($updated === 1) {
+            wp_cache_delete(self::RETENTION_LOCK, 'options');
+            return $token;
         }
         return '';
     }
 
     private static function release_retention_lock(string $token): void {
+        global $wpdb;
         $stored = (string) get_option(self::RETENTION_LOCK, '');
-        if (str_starts_with($stored, $token . '|')) {
-            delete_option(self::RETENTION_LOCK);
+        if (!str_starts_with($stored, $token . '|')) {
+            return;
+        }
+
+        $deleted = $wpdb->delete(
+            $wpdb->options,
+            ['option_name' => self::RETENTION_LOCK, 'option_value' => $stored],
+            ['%s', '%s']
+        );
+        if ($deleted === 1) {
+            wp_cache_delete(self::RETENTION_LOCK, 'options');
         }
     }
 }
