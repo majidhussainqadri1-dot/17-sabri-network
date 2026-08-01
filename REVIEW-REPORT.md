@@ -6,6 +6,8 @@
 **Review period:** 1–2 August 2026  
 **Result:** coded, packaged and CI-green candidate; not staging-accepted, merged, live-deployed, or operational
 
+Exact current head, CI run and workflow artifact identifiers are maintained in Pull Request #2. They are intentionally not embedded in this committed report because every source edit creates a new head and a new CI run.
+
 ## 1. Governing architecture
 
 File 17 is the single canonical communication owner for Network relationships, contacts, follows, communities, groups, channels, conversations, messages, private attachments, temporary updates, presence, calls, signaling, blocks, reports, appeals, native retention enforcement and related privacy/audit records.
