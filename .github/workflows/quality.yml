@@ -20,6 +20,27 @@ jobs:
       - name: Materialize reviewed corrections
         run: |
           cat .github/materialize-parts/part-* | base64 -d | gzip -d > /tmp/materialize-review-3.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/materialize-review-3.py')
+          s = p.read_text(encoding='utf-8')
+          replacements = {
+              'ROOT=Path.cwd()': "REPO=Path.cwd()\nROOT=REPO/'sabri-network'",
+              "ROOT/'sabri-network/tests/": "ROOT/'tests/",
+              'p=ROOT/rel': 'p=REPO/rel',
+              "manifest=ROOT/'MANIFEST.md'": "manifest=REPO/'MANIFEST.md'",
+              "for p in (ROOT/'sabri-network').rglob('*'):": "for p in ROOT.rglob('*'):",
+              'rel=p.relative_to(ROOT).as_posix()': 'rel=p.relative_to(REPO).as_posix()',
+              "hashlib.sha256((ROOT/r).read_bytes())": "hashlib.sha256((REPO/r).read_bytes())",
+              "(ROOT/'CHECKSUMS.sha256')": "(REPO/'CHECKSUMS.sha256')",
+              "(ROOT/'.github/workflows/quality.yml')": "(REPO/'.github/workflows/quality.yml')",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'Materializer patch anchor missing: {old}')
+              s = s.replace(old, new)
+          p.write_text(s, encoding='utf-8')
+          PY
           python /tmp/materialize-review-3.py
           rm -rf .github/materialize-parts
       - name: Commit corrected review batch
