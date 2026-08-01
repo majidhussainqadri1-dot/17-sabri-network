@@ -1,16 +1,16 @@
 name: File 17 Materialize Review 3
 
 on:
-  push:
+  pull_request:
     branches:
-      - codex/file-17-review-2.0.0
+      - main
 
 permissions:
   contents: write
 
 jobs:
   materialize:
-    if: github.event_name == 'push' && github.ref_name == 'codex/file-17-review-2.0.0'
+    if: github.event.pull_request.head.ref == 'codex/file-17-review-2.0.0'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
