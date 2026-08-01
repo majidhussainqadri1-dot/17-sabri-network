@@ -8,6 +8,13 @@ on:
       - 'source-packages/base64/**'
       - 'tools/reconstruct-source-package.sh'
       - '.github/workflows/materialize-source.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'source-packages/base64/**'
+      - 'tools/reconstruct-source-package.sh'
+      - '.github/workflows/materialize-source.yml'
 
 permissions:
   contents: write
