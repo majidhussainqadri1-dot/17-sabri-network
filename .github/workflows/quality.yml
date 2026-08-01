@@ -47,6 +47,10 @@ jobs:
           if helper_wrong not in s:
               raise SystemExit('Materializer helper repair anchor missing')
           s = s.replace(helper_wrong, helper_right, 1)
+          workflow_writer = "(REPO/'.github/workflows/quality.yml').write_text("
+          if workflow_writer not in s:
+              raise SystemExit('Materializer workflow suppression anchor missing')
+          s = s.replace(workflow_writer, "Path('/tmp/restored-quality.yml').write_text(", 1)
           p.write_text(s, encoding='utf-8')
           PY
           python /tmp/materialize-review-3.py
