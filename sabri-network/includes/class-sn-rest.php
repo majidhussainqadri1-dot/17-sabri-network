@@ -37,6 +37,11 @@ final class SN_REST {
         ]);
         self::route('/conversations/(?P<id>\d+)/owner', 'POST', 'transfer_conversation_owner');
         self::route('/conversations/(?P<id>\d+)/read', 'POST', 'mark_read');
+        self::route('/conversations/(?P<id>\d+)/preferences', 'POST', 'update_conversation_preferences');
+        register_rest_route(self::NS, '/conversations/(?P<id>\d+)/typing', [
+            ['methods' => 'GET', 'callback' => [self::class, 'get_typing'], 'permission_callback' => [self::class, 'access']],
+            ['methods' => 'POST', 'callback' => [self::class, 'set_typing'], 'permission_callback' => [self::class, 'access']],
+        ]);
 
         register_rest_route(self::NS, '/messages/(?P<id>\d+)', [
             ['methods' => 'POST', 'callback' => [self::class, 'edit_message'], 'permission_callback' => [self::class, 'access']],
@@ -52,6 +57,10 @@ final class SN_REST {
 
         self::route('/notifications', 'GET', 'get_notifications');
         self::route('/notifications/read', 'POST', 'read_notifications');
+        register_rest_route(self::NS, '/presence', [
+            ['methods' => 'GET', 'callback' => [self::class, 'get_presence'], 'permission_callback' => [self::class, 'access']],
+            ['methods' => 'POST', 'callback' => [self::class, 'heartbeat_presence'], 'permission_callback' => [self::class, 'access']],
+        ]);
 
         register_rest_route(self::NS, '/calls', [
             ['methods' => 'GET', 'callback' => [self::class, 'get_calls'], 'permission_callback' => [self::class, 'access']],
@@ -142,7 +151,7 @@ final class SN_REST {
             $clean[$key] = in_array($value, $allowed, true) ? $value : 'contacts';
         }
         if (SN_Policy::is_minor($user_id)) {
-            foreach (['phone_visibility', 'groups', 'calls', 'messages', 'updates'] as $key) {
+            foreach (['phone_visibility', 'last_seen', 'groups', 'calls', 'messages', 'updates'] as $key) {
                 $clean[$key] = 'contacts';
             }
         }
@@ -268,11 +277,11 @@ final class SN_REST {
         $m = SN_DB::table('members');
         $msg = SN_DB::table('messages');
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT c.*,lm.body last_body,lm.message_type last_type,lm.sender_id last_sender_id,lm.created_at last_message_at,
+            "SELECT c.*,m.is_muted,m.is_archived,lm.body last_body,lm.message_type last_type,lm.sender_id last_sender_id,lm.created_at last_message_at,
                 (SELECT COUNT(*) FROM $msg um WHERE um.conversation_id=c.id AND um.id>m.last_read_message_id AND um.sender_id<>%d AND um.deleted_at IS NULL) unread_count
              FROM $c c INNER JOIN $m m ON m.conversation_id=c.id AND m.user_id=%d AND m.left_at IS NULL
              LEFT JOIN $msg lm ON lm.id=c.last_message_id
-             WHERE c.status='active' ORDER BY COALESCE(lm.created_at,c.updated_at) DESC LIMIT 300",
+             WHERE c.status='active' ORDER BY m.is_archived ASC,COALESCE(lm.created_at,c.updated_at) DESC LIMIT 300",
             $user_id,
             $user_id
         ));
@@ -513,11 +522,146 @@ final class SN_REST {
         if (!$self_leave && $target_role === 'moderator' && $actor_role !== 'owner') {
             return new WP_Error('moderator_removal_forbidden', 'Only the conversation owner may remove a moderator.', ['status' => 403]);
         }
-        if ($wpdb->update(SN_DB::table('members'), ['left_at' => current_time('mysql', true)], ['conversation_id' => $conversation_id, 'user_id' => $target_id]) === false) {
+        $now = current_time('mysql', true);
+        $wpdb->query('START TRANSACTION');
+        try {
+            if ($wpdb->update(SN_DB::table('members'), ['left_at' => $now, 'is_muted' => 0, 'is_archived' => 0], ['conversation_id' => $conversation_id, 'user_id' => $target_id]) === false) {
+                throw new RuntimeException('member_leave_failed');
+            }
+            $active_call_ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+                "SELECT id FROM " . SN_DB::table('calls') . " WHERE conversation_id=%d AND status IN ('ringing','active') FOR UPDATE",
+                $conversation_id
+            )));
+            foreach ($active_call_ids as $call_id) {
+                if ($wpdb->update(SN_DB::table('call_members'), ['status' => 'left', 'left_at' => $now], ['call_id' => $call_id, 'user_id' => $target_id]) === false) {
+                    throw new RuntimeException('call_membership_revoke_failed');
+                }
+                $signal_delete = $wpdb->query($wpdb->prepare(
+                    'DELETE FROM ' . SN_DB::table('signals') . ' WHERE call_id=%d AND (from_user_id=%d OR to_user_id=%d)',
+                    $call_id,
+                    $target_id,
+                    $target_id
+                ));
+                if ($signal_delete === false) {
+                    throw new RuntimeException('call_signal_revoke_failed');
+                }
+                $remaining = (int) $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM " . SN_DB::table('call_members') . " WHERE call_id=%d AND status IN ('invited','joined')",
+                    $call_id
+                ));
+                if ($remaining < 2) {
+                    if ($wpdb->update(SN_DB::table('calls'), ['status' => 'ended', 'active_key' => null, 'ended_at' => $now], ['id' => $call_id]) === false) {
+                        throw new RuntimeException('call_end_after_member_removal_failed');
+                    }
+                    if ($wpdb->query($wpdb->prepare(
+                        "UPDATE " . SN_DB::table('call_members') . " SET status=CASE WHEN status='invited' THEN 'missed' ELSE 'left' END,left_at=%s WHERE call_id=%d AND status IN ('invited','joined')",
+                        $now,
+                        $call_id
+                    )) === false || $wpdb->delete(SN_DB::table('signals'), ['call_id' => $call_id], ['%d']) === false) {
+                        throw new RuntimeException('call_cleanup_after_member_removal_failed');
+                    }
+                }
+            }
+            $wpdb->delete(SN_DB::table('typing'), ['conversation_id' => $conversation_id, 'user_id' => $target_id], ['%d', '%d']);
+            $wpdb->query('COMMIT');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
             return self::database_error();
         }
-        SN_DB::audit('member_removed', 'conversation', $conversation_id, 'success', ['target_id' => $target_id]);
+        SN_DB::audit('member_removed', 'conversation', $conversation_id, 'success', ['target_id' => $target_id, 'calls_revoked' => count($active_call_ids)]);
         return rest_ensure_response(['removed' => true]);
+    }
+
+    public static function update_conversation_preferences(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $conversation_id = absint($request['id']);
+        $user_id = get_current_user_id();
+        if (!SN_DB::is_member($conversation_id, $user_id)) {
+            return self::not_found();
+        }
+        $data = [];
+        if ($request->has_param('muted')) {
+            $data['is_muted'] = rest_sanitize_boolean($request->get_param('muted')) ? 1 : 0;
+        }
+        if ($request->has_param('archived')) {
+            $data['is_archived'] = rest_sanitize_boolean($request->get_param('archived')) ? 1 : 0;
+        }
+        if (!$data) {
+            return new WP_Error('invalid_preferences', 'Select a conversation preference to update.', ['status' => 400]);
+        }
+        if ($wpdb->update(SN_DB::table('members'), $data, [
+            'conversation_id' => $conversation_id,
+            'user_id' => $user_id,
+            'left_at' => null,
+        ]) === false) {
+            return self::database_error();
+        }
+        SN_DB::audit('conversation_preferences_updated', 'conversation', $conversation_id, 'success', [
+            'muted' => $data['is_muted'] ?? null,
+            'archived' => $data['is_archived'] ?? null,
+        ]);
+        return rest_ensure_response(['preferences' => SN_DB::member_preferences($conversation_id, $user_id)]);
+    }
+
+    public static function set_typing(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $conversation_id = absint($request['id']);
+        $user_id = get_current_user_id();
+        $conversation = self::conversation_row($conversation_id);
+        if (!$conversation || !SN_DB::is_member($conversation_id, $user_id)) {
+            return self::not_found();
+        }
+        $post_policy = SN_Policy::can_post_to_conversation($conversation, $user_id);
+        if (is_wp_error($post_policy)) {
+            return $post_policy;
+        }
+        $contact = self::conversation_contact_check($conversation, $conversation_id, $user_id, 'message');
+        if (is_wp_error($contact)) {
+            return $contact;
+        }
+        if (!SN_Policy::consume_rate_limit('typing', $user_id . ':' . $conversation_id, 180, MINUTE_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $typing = rest_sanitize_boolean($request->get_param('typing'));
+        if (!$typing) {
+            $wpdb->delete(SN_DB::table('typing'), ['conversation_id' => $conversation_id, 'user_id' => $user_id], ['%d', '%d']);
+            return rest_ensure_response(['typing' => false]);
+        }
+        $now = current_time('mysql', true);
+        $expires = gmdate('Y-m-d H:i:s', time() + 8);
+        $ok = $wpdb->replace(SN_DB::table('typing'), [
+            'conversation_id' => $conversation_id,
+            'user_id' => $user_id,
+            'expires_at' => $expires,
+            'updated_at' => $now,
+        ], ['%d', '%d', '%s', '%s']);
+        return $ok === false ? self::database_error() : rest_ensure_response(['typing' => true, 'expires_at' => $expires]);
+    }
+
+    public static function get_typing(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $conversation_id = absint($request['id']);
+        $user_id = get_current_user_id();
+        if (!SN_DB::is_member($conversation_id, $user_id) || !self::conversation_row($conversation_id)) {
+            return self::not_found();
+        }
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT t.user_id,t.expires_at FROM ' . SN_DB::table('typing') . ' t INNER JOIN ' . SN_DB::table('members') . ' m ON m.conversation_id=t.conversation_id AND m.user_id=t.user_id AND m.left_at IS NULL WHERE t.conversation_id=%d AND t.user_id<>%d AND t.expires_at>%s ORDER BY t.updated_at DESC LIMIT 20',
+            $conversation_id,
+            $user_id,
+            current_time('mysql', true)
+        ));
+        $users = [];
+        foreach ($rows as $row) {
+            if (SN_DB::is_blocked($user_id, (int) $row->user_id)) {
+                continue;
+            }
+            $projection = SN_Auth::public_user((int) $row->user_id);
+            if ($projection) {
+                $users[] = $projection;
+            }
+        }
+        return rest_ensure_response(['typing' => $users]);
     }
 
     public static function get_messages(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -548,6 +692,10 @@ final class SN_REST {
         $conversation = self::conversation_row($conversation_id);
         if (!$conversation || !SN_DB::is_member($conversation_id, $user_id)) {
             return self::not_found();
+        }
+        $post_policy = SN_Policy::can_post_to_conversation($conversation, $user_id);
+        if (is_wp_error($post_policy)) {
+            return $post_policy;
         }
         $contact = self::conversation_contact_check($conversation, $conversation_id, $user_id, 'message');
         if (is_wp_error($contact)) {
@@ -823,11 +971,70 @@ final class SN_REST {
         return rest_ensure_response(['read' => true]);
     }
 
+    public static function heartbeat_presence(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $user_id = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('presence', (string) $user_id, 180, HOUR_IN_SECONDS)) {
+            return self::rate_limited();
+        }
+        $status = sanitize_key((string) $request->get_param('status'));
+        if (!in_array($status, ['online', 'away', 'offline'], true)) {
+            $status = 'online';
+        }
+        $now = current_time('mysql', true);
+        $expires = $status === 'offline' ? $now : gmdate('Y-m-d H:i:s', time() + 90);
+        $ok = $wpdb->replace(SN_DB::table('presence'), [
+            'user_id' => $user_id,
+            'status' => $status,
+            'last_seen_at' => $now,
+            'expires_at' => $expires,
+            'updated_at' => $now,
+        ], ['%d', '%s', '%s', '%s', '%s']);
+        return $ok === false ? self::database_error() : rest_ensure_response([
+            'presence' => ['user_id' => $user_id, 'status' => $status, 'last_seen_at' => $now, 'expires_at' => $expires],
+        ]);
+    }
+
+    public static function get_presence(WP_REST_Request $request): WP_REST_Response {
+        global $wpdb;
+        $viewer_id = get_current_user_id();
+        $raw = $request->get_param('user_ids');
+        if (is_string($raw)) {
+            $raw = preg_split('/[^0-9]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+        }
+        $ids = array_slice(array_values(array_unique(array_filter(array_map('absint', (array) $raw)))), 0, 100);
+        if (!$ids) {
+            return rest_ensure_response(['presence' => []]);
+        }
+        $allowed = array_values(array_filter($ids, static fn($id) => SN_Policy::can_view_presence($viewer_id, (int) $id)));
+        if (!$allowed) {
+            return rest_ensure_response(['presence' => []]);
+        }
+        $placeholders = implode(',', array_fill(0, count($allowed), '%d'));
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT user_id,status,last_seen_at,expires_at FROM ' . SN_DB::table('presence') . " WHERE user_id IN ($placeholders)",
+            ...$allowed
+        ));
+        $now = time();
+        $presence = [];
+        foreach ($rows as $row) {
+            $expires = strtotime((string) $row->expires_at . ' UTC');
+            $status = $expires > $now ? (string) $row->status : 'offline';
+            $presence[] = [
+                'user_id' => (int) $row->user_id,
+                'status' => in_array($status, ['online', 'away'], true) ? $status : 'offline',
+                'last_seen_at' => (string) $row->last_seen_at,
+            ];
+        }
+        return rest_ensure_response(['presence' => $presence]);
+    }
+
     public static function get_calls(): WP_REST_Response {
         global $wpdb;
         $user_id = get_current_user_id();
         $rows = $wpdb->get_results($wpdb->prepare(
-            'SELECT c.*,cm.status member_status FROM ' . SN_DB::table('calls') . ' c INNER JOIN ' . SN_DB::table('call_members') . ' cm ON cm.call_id=c.id AND cm.user_id=%d ORDER BY c.id DESC LIMIT 100',
+            'SELECT c.*,cm.status member_status FROM ' . SN_DB::table('calls') . ' c INNER JOIN ' . SN_DB::table('call_members') . ' cm ON cm.call_id=c.id AND cm.user_id=%d INNER JOIN ' . SN_DB::table('members') . ' m ON m.conversation_id=c.conversation_id AND m.user_id=%d AND m.left_at IS NULL ORDER BY c.id DESC LIMIT 100',
+            $user_id,
             $user_id
         ));
         return rest_ensure_response(['calls' => array_map(fn($row) => self::format_call($row), $rows)]);
@@ -840,6 +1047,9 @@ final class SN_REST {
         $conversation = self::conversation_row($conversation_id);
         if (!$conversation || !SN_DB::is_member($conversation_id, $user_id)) {
             return self::not_found();
+        }
+        if ((string) $conversation->type === 'channel') {
+            return new WP_Error('channel_calls_unavailable', 'Calls are not available in broadcast channels.', ['status' => 403]);
         }
         $members = self::conversation_member_ids($conversation_id);
         if (count($members) < 2) {
@@ -936,7 +1146,7 @@ final class SN_REST {
         $user_id = get_current_user_id();
         $call = self::call_row($call_id);
         $member = self::call_member_row($call_id, $user_id);
-        if (!$call || !$member) {
+        if (!$call || !$member || !SN_DB::is_member((int) $call->conversation_id, $user_id)) {
             return self::not_found();
         }
         if (!in_array((string) $call->status, ['ringing', 'active'], true)) {
@@ -1021,7 +1231,9 @@ final class SN_REST {
         $call = self::call_row($call_id);
         $from = self::call_member_row($call_id, $from_id);
         $to = self::call_member_row($call_id, $to_id);
-        if (!$call || !$from || !$to || $from_id === $to_id) {
+        if (!$call || !$from || !$to || $from_id === $to_id
+            || !SN_DB::is_member((int) $call->conversation_id, $from_id)
+            || !SN_DB::is_member((int) $call->conversation_id, $to_id)) {
             return self::not_found();
         }
         if (!in_array((string) $call->status, ['ringing', 'active'], true) || (string) $from->status !== 'joined' || !in_array((string) $to->status, ['invited', 'joined'], true)) {
@@ -1059,7 +1271,7 @@ final class SN_REST {
         $user_id = get_current_user_id();
         $call = self::call_row($call_id);
         $member = self::call_member_row($call_id, $user_id);
-        if (!$call || !$member) {
+        if (!$call || !$member || !SN_DB::is_member((int) $call->conversation_id, $user_id)) {
             return self::not_found();
         }
         if (!in_array((string) $call->status, ['ringing', 'active'], true) || !in_array((string) $member->status, ['invited', 'joined'], true)) {
@@ -1084,7 +1296,8 @@ final class SN_REST {
         global $wpdb;
         $call_id = absint($request['id']);
         $user_id = get_current_user_id();
-        if (!self::call_member_row($call_id, $user_id)) {
+        $call = self::call_row($call_id);
+        if (!$call || !self::call_member_row($call_id, $user_id) || !SN_DB::is_member((int) $call->conversation_id, $user_id)) {
             return self::not_found();
         }
         $ids = array_slice(array_values(array_unique(array_filter(array_map('absint', (array) $request->get_param('ids'))))), 0, 100);
@@ -1225,7 +1438,7 @@ final class SN_REST {
     }
 
     private static function required_tables(): array {
-        return ['conversations', 'members', 'messages', 'reactions', 'contacts', 'updates', 'update_views', 'calls', 'call_members', 'signals', 'notifications', 'blocks', 'reports', 'attachments', 'rate_limits', 'audit_log'];
+        return ['conversations', 'members', 'messages', 'reactions', 'contacts', 'updates', 'update_views', 'calls', 'call_members', 'signals', 'presence', 'typing', 'notifications', 'blocks', 'reports', 'attachments', 'rate_limits', 'audit_log'];
     }
 
     private static function identity_authority_ready(): bool {
@@ -1308,6 +1521,9 @@ final class SN_REST {
                 'created_at' => (string) $row->last_message_at,
             ] : null,
             'unread_count' => (int) ($row->unread_count ?? 0),
+            'muted' => (bool) ($row->is_muted ?? SN_DB::member_preferences((int) $row->id, $viewer_id)['muted']),
+            'archived' => (bool) ($row->is_archived ?? SN_DB::member_preferences((int) $row->id, $viewer_id)['archived']),
+            'can_post' => !is_wp_error(SN_Policy::can_post_to_conversation($row, $viewer_id)),
             'updated_at' => (string) $row->updated_at,
         ];
         if ($include_members) {

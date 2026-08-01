@@ -1031,3 +1031,39 @@ body.sn-modal-open {
     width: 100%;
   }
 }
+
+/* File 17 realtime and per-conversation state controls. */
+.sn-archive-toggle {
+  background: #ffffff;
+  border: 0;
+  border-bottom: 1px solid var(--sn-border);
+  color: var(--sn-muted);
+  cursor: pointer;
+  font: inherit;
+  min-height: 44px;
+  padding: 10px 14px;
+  text-align: start;
+  width: 100%;
+}
+
+.sn-archive-toggle:hover,
+.sn-archive-toggle:focus-visible {
+  background: var(--sn-primary-soft);
+  color: var(--sn-text);
+}
+
+.sn-conversation-preferences {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 14px;
+}
+
+.sn-composer textarea:disabled {
+  background: #eceff1;
+  color: var(--sn-muted);
+}
+
+.sn-chat-heading span {
+  overflow-wrap: anywhere;
+}

@@ -100,6 +100,29 @@ final class SN_Privacy {
             ];
         }
 
+        $memberships = $wpdb->get_results($wpdb->prepare(
+            'SELECT conversation_id,role,last_read_message_id,is_muted,is_archived,joined_at,left_at FROM ' . SN_DB::table('members') . ' WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+            $user_id,
+            $limit,
+            $offset
+        ));
+        foreach ($memberships as $membership) {
+            $data[] = [
+                'group_id' => 'sabri-network-memberships',
+                'group_label' => __('Network conversation memberships', 'sabri-network'),
+                'item_id' => 'membership-' . (int) $membership->conversation_id,
+                'data' => [
+                    ['name' => __('Conversation ID', 'sabri-network'), 'value' => (int) $membership->conversation_id],
+                    ['name' => __('Role', 'sabri-network'), 'value' => (string) $membership->role],
+                    ['name' => __('Last read message ID', 'sabri-network'), 'value' => (int) $membership->last_read_message_id],
+                    ['name' => __('Muted', 'sabri-network'), 'value' => (int) $membership->is_muted ? __('Yes', 'sabri-network') : __('No', 'sabri-network')],
+                    ['name' => __('Archived', 'sabri-network'), 'value' => (int) $membership->is_archived ? __('Yes', 'sabri-network') : __('No', 'sabri-network')],
+                    ['name' => __('Joined', 'sabri-network'), 'value' => (string) $membership->joined_at],
+                    ['name' => __('Left', 'sabri-network'), 'value' => (string) $membership->left_at],
+                ],
+            ];
+        }
+
         $calls = $wpdb->get_results($wpdb->prepare(
             'SELECT c.id,c.conversation_id,c.call_type,c.status,c.created_at,c.started_at,c.ended_at,cm.status member_status,cm.joined_at,cm.left_at FROM ' . SN_DB::table('calls') . ' c INNER JOIN ' . SN_DB::table('call_members') . ' cm ON cm.call_id=c.id WHERE cm.user_id=%d ORDER BY c.id ASC LIMIT %d OFFSET %d',
             $user_id,
@@ -171,14 +194,26 @@ final class SN_Privacy {
 
         if ($page === 1) {
             $privacy = SN_Policy::privacy_for($user_id);
+            $presence = $wpdb->get_row($wpdb->prepare(
+                'SELECT status,last_seen_at,expires_at,updated_at FROM ' . SN_DB::table('presence') . ' WHERE user_id=%d',
+                $user_id
+            ));
+            $preference_data = [
+                ['name' => __('Privacy preferences', 'sabri-network'), 'value' => wp_json_encode($privacy)],
+            ];
+            if ($presence) {
+                $preference_data[] = ['name' => __('Presence status', 'sabri-network'), 'value' => (string) $presence->status];
+                $preference_data[] = ['name' => __('Last seen', 'sabri-network'), 'value' => (string) $presence->last_seen_at];
+                $preference_data[] = ['name' => __('Presence expiry', 'sabri-network'), 'value' => (string) $presence->expires_at];
+            }
             $data[] = [
                 'group_id' => 'sabri-network-preferences',
-                'group_label' => __('Network preferences', 'sabri-network'),
+                'group_label' => __('Network preferences and presence', 'sabri-network'),
                 'item_id' => 'preferences-' . $user_id,
-                'data' => [['name' => __('Privacy preferences', 'sabri-network'), 'value' => wp_json_encode($privacy)]],
+                'data' => $preference_data,
             ];
         }
-        $done = max(count($messages), count($updates), count($contacts), count($calls), count($reports), count($notifications)) < $limit;
+        $done = max(count($messages), count($updates), count($contacts), count($memberships), count($calls), count($reports), count($notifications)) < $limit;
         return ['data' => $data, 'done' => $done];
     }
 
@@ -239,6 +274,8 @@ final class SN_Privacy {
                     ...$conversation_ids
                 ));
             }
+            $wpdb->delete(SN_DB::table('typing'), ['user_id' => $user_id], ['%d']);
+            $wpdb->delete(SN_DB::table('presence'), ['user_id' => $user_id], ['%d']);
             $wpdb->delete(SN_DB::table('members'), ['user_id' => $user_id], ['%d']);
             $wpdb->update(SN_DB::table('conversations'), ['owner_id' => 0, 'status' => 'archived', 'updated_at' => current_time('mysql', true)], ['owner_id' => $user_id], ['%d', '%s', '%s'], ['%d']);
 

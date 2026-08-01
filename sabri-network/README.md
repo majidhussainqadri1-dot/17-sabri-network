@@ -28,6 +28,8 @@ File 17 is the canonical communication owner for the Sabri Social Homeopathy Pla
 - Withheld legacy public-media attachments until controlled migration.
 - Removed global navigation injection and unsafe page overwriting.
 - Rebuilt the responsive, keyboard-operable, RTL-ready interface.
+- Added scoped presence, last-seen, typing indicators, mute/archive preferences, channel posting authority, and call-membership revocation.
+- Added privacy export/erasure coverage for presence, typing and conversation preferences.
 
 ## Required integrations
 
@@ -55,7 +57,7 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The package script creates `build/17-sabri-network-and-messages-2.0.0.zip` and its SHA-256 file.
+The package script creates `build/17-sabri-network-and-messages-2.0.0.zip` and its SHA-256 file. The quality command runs both original review suites and the added realtime static/adversarial suites.
 
 ## Explicit non-claims
 

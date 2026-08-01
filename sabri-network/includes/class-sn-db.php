@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 /** Canonical persistence and bounded operational helpers for File 17. */
 final class SN_DB {
-    public const DB_VERSION = '2.0.0';
+    public const DB_VERSION = '2.0.1';
 
     public static function table(string $name): string {
         global $wpdb;
@@ -181,6 +181,29 @@ final class SN_DB {
             KEY created_at (created_at)
         ) $charset;";
 
+        $sql[] = "CREATE TABLE " . self::table('presence') . " (
+            user_id BIGINT UNSIGNED NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'offline',
+            last_seen_at DATETIME NOT NULL,
+            expires_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (user_id),
+            KEY status_expires (status,expires_at),
+            KEY last_seen_at (last_seen_at)
+        ) $charset;";
+
+        $sql[] = "CREATE TABLE " . self::table('typing') . " (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            conversation_id BIGINT UNSIGNED NOT NULL,
+            user_id BIGINT UNSIGNED NOT NULL,
+            expires_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY conversation_user (conversation_id,user_id),
+            KEY conversation_expires (conversation_id,expires_at),
+            KEY expires_at (expires_at)
+        ) $charset;";
+
         $sql[] = "CREATE TABLE " . self::table('notifications') . " (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             user_id BIGINT UNSIGNED NOT NULL,
@@ -306,6 +329,40 @@ final class SN_DB {
         ));
     }
 
+    public static function member_preferences(int $conversation_id, int $user_id): array {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT is_muted,is_archived FROM ' . self::table('members') . ' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',
+            $conversation_id,
+            $user_id
+        ));
+        return [
+            'muted' => $row ? (bool) $row->is_muted : false,
+            'archived' => $row ? (bool) $row->is_archived : false,
+        ];
+    }
+
+    public static function is_conversation_muted(int $conversation_id, int $user_id): bool {
+        return (bool) (self::member_preferences($conversation_id, $user_id)['muted'] ?? false);
+    }
+
+    public static function share_active_conversation(int $a, int $b): bool {
+        global $wpdb;
+        if ($a <= 0 || $b <= 0 || $a === $b) {
+            return false;
+        }
+        $members = self::table('members');
+        $conversations = self::table('conversations');
+        return (bool) $wpdb->get_var($wpdb->prepare(
+            "SELECT m1.conversation_id FROM $members m1
+             INNER JOIN $members m2 ON m2.conversation_id=m1.conversation_id AND m2.user_id=%d AND m2.left_at IS NULL
+             INNER JOIN $conversations c ON c.id=m1.conversation_id AND c.status='active'
+             WHERE m1.user_id=%d AND m1.left_at IS NULL LIMIT 1",
+            $b,
+            $a
+        ));
+    }
+
     public static function contact_record(int $a, int $b): ?object {
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare(
@@ -341,10 +398,16 @@ final class SN_DB {
             'entity_id' => $entity_id,
             'created_at' => current_time('mysql', true),
         ];
+        $muted = $entity_type === 'conversation' && $entity_id > 0 && self::is_conversation_muted($entity_id, $user_id);
+        $event['muted'] = $muted;
         if ((bool) apply_filters('sn_network_notification_handled', false, $event)) {
             return;
         }
+        if ($muted && in_array($event['type'], ['message_received'], true)) {
+            return;
+        }
         global $wpdb;
+        unset($event['muted']);
         $wpdb->insert(self::table('notifications'), $event + ['is_read' => 0]);
     }
 
@@ -499,6 +562,9 @@ final class SN_DB {
             }
         }
         $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('signals') . ' WHERE created_at<%s OR consumed_at IS NOT NULL AND consumed_at<%s', gmdate('Y-m-d H:i:s', time() - DAY_IN_SECONDS), gmdate('Y-m-d H:i:s', time() - HOUR_IN_SECONDS)));
+        $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('typing') . ' WHERE expires_at<%s', $now));
+        $wpdb->query($wpdb->prepare("UPDATE " . self::table('presence') . " SET status='offline',updated_at=%s WHERE status<>'offline' AND expires_at<%s", $now, $now));
+        $wpdb->query($wpdb->prepare("DELETE FROM " . self::table('presence') . " WHERE status='offline' AND last_seen_at<%s", gmdate('Y-m-d H:i:s', time() - 180 * DAY_IN_SECONDS)));
         $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('rate_limits') . ' WHERE expires_at<%s', $now));
         $stale_calls = array_map('intval', $wpdb->get_col($wpdb->prepare(
             'SELECT id FROM ' . self::table('calls') . " WHERE (status='ringing' AND created_at<%s) OR (status='active' AND COALESCE(started_at,created_at)<%s) LIMIT 500",

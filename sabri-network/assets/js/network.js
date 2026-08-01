@@ -43,6 +43,12 @@
     replyTo: 0,
     busy: false,
     modalReturnFocus: null,
+    presence: new Map(),
+    typingUsers: [],
+    presenceTimer: null,
+    typingStopTimer: null,
+    lastTypingSentAt: 0,
+    showArchived: false,
   };
 
   async function api(path, options = {}) {
@@ -134,8 +140,9 @@
       state.privacy = me.privacy || {};
       state.capabilities = me.capabilities || {};
       state.iceServers = me.ice_servers || [];
-      await Promise.all([loadConversations(), loadCalls(), loadNotifications()]);
+      await Promise.all([loadConversations(), loadCalls(), loadNotifications(), sendPresence('online')]);
       renderSidebar();
+      startPresenceHeartbeat();
       startPolling();
     } catch (error) {
       toast(error.message, 'error');
@@ -148,7 +155,8 @@
     const data = await api('conversations');
     state.conversations = data.conversations || [];
     if (state.activeConversation) {
-      state.activeConversation = state.conversations.find(item => item.id === state.activeConversation.id) || state.activeConversation;
+      const summary = state.conversations.find(item => item.id === state.activeConversation.id);
+      if (summary) state.activeConversation = {...state.activeConversation, ...summary};
     }
   }
 
@@ -173,6 +181,70 @@
     }
   }
 
+  async function sendPresence(status = 'online') {
+    if (!navigator.onLine) return;
+    try { await api('presence', {method:'POST', body:{status}}); } catch (_) {}
+  }
+
+  function startPresenceHeartbeat() {
+    clearInterval(state.presenceTimer);
+    state.presenceTimer = setInterval(() => {
+      if (!document.hidden) sendPresence('online');
+    }, 45000);
+  }
+
+  async function loadConversationPresence() {
+    if (!state.activeConversation) return;
+    const ids = (state.activeConversation.member_ids || [])
+      .filter(id => Number(id) > 0 && Number(id) !== Number(state.user?.id));
+    if (!ids.length) {
+      state.presence = new Map();
+      updateConversationSubtitle();
+      return;
+    }
+    try {
+      const data = await api(`presence?user_ids=${encodeURIComponent(ids.join(','))}`);
+      state.presence = new Map((data.presence || []).map(item => [Number(item.user_id), item]));
+    } catch (_) { state.presence = new Map(); }
+    updateConversationSubtitle();
+  }
+
+  async function loadTyping() {
+    if (!state.activeConversation) return;
+    try {
+      const data = await api(`conversations/${state.activeConversation.id}/typing`);
+      state.typingUsers = data.typing || [];
+    } catch (_) { state.typingUsers = []; }
+    updateConversationSubtitle();
+  }
+
+  function updateConversationSubtitle() {
+    const subtitle = $('#sn-chat-subtitle');
+    const conversation = state.activeConversation;
+    if (!subtitle || !conversation) return;
+    if (state.typingUsers.length) {
+      const names = state.typingUsers.slice(0, 3).map(user => user.name).filter(Boolean);
+      subtitle.textContent = `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} typing…`;
+      return;
+    }
+    if (conversation.type === 'direct') {
+      const other = (conversation.members || []).find(member => Number(member.id) !== Number(state.user?.id));
+      const presence = other ? state.presence.get(Number(other.id)) : null;
+      if (presence?.status === 'online') { subtitle.textContent = 'Online'; return; }
+      if (presence?.status === 'away') { subtitle.textContent = 'Away'; return; }
+      if (presence?.last_seen_at) { subtitle.textContent = `Last seen ${formatTime(presence.last_seen_at)}`; return; }
+    }
+    subtitle.textContent = `${conversation.type} · ${conversation.members?.length || 0} members`;
+  }
+
+  async function setTyping(typing) {
+    if (!state.activeConversation?.can_post || !navigator.onLine) return;
+    const now = Date.now();
+    if (typing && now - state.lastTypingSentAt < 2500) return;
+    if (typing) state.lastTypingSentAt = now;
+    try { await api(`conversations/${state.activeConversation.id}/typing`, {method:'POST', body:{typing}}); } catch (_) {}
+  }
+
   function startPolling() {
     clearInterval(state.pollTimer);
     state.pollTimer = setInterval(async () => {
@@ -180,7 +252,9 @@
       try {
         await Promise.all([loadConversations(), loadCalls(), loadNotifications()]);
         renderSidebar();
-        if (state.activeConversation) await refreshMessages();
+        if (state.activeConversation) {
+          await Promise.all([refreshMessages(), loadConversationPresence(), loadTyping()]);
+        }
       } catch (_) {}
     }, 7000);
   }
@@ -191,8 +265,10 @@
     const query = ($('#sn-global-search')?.value || '').trim().toLowerCase();
     if (state.currentTab === 'chats' || state.currentTab === 'communities') {
       const types = state.currentTab === 'communities' ? ['group', 'community', 'channel'] : ['direct', 'group'];
-      const items = state.conversations.filter(item => types.includes(item.type) && (!query || `${item.title} ${item.description}`.toLowerCase().includes(query)));
-      content.innerHTML = items.length ? items.map(conversationCard).join('') : '<div class="sn-empty-list">No conversations found.</div>';
+      const items = state.conversations.filter(item => types.includes(item.type) && Boolean(item.archived) === state.showArchived && (!query || `${item.title} ${item.description}`.toLowerCase().includes(query)));
+      const archivedCount = state.conversations.filter(item => types.includes(item.type) && item.archived).length;
+      content.innerHTML = `<button type="button" class="sn-archive-toggle" aria-pressed="${state.showArchived ? 'true' : 'false'}">${state.showArchived ? 'Back to active' : `Archived${archivedCount ? ` (${archivedCount})` : ''}`}</button>${items.length ? items.map(conversationCard).join('') : `<div class="sn-empty-list">No ${state.showArchived ? 'archived' : 'active'} conversations found.</div>`}`;
+      $('.sn-archive-toggle', content)?.addEventListener('click', () => { state.showArchived = !state.showArchived; renderSidebar(); });
       $$('.sn-conversation-item', content).forEach(button => button.addEventListener('click', () => openConversation(Number(button.dataset.id))));
       return;
     }
@@ -214,7 +290,7 @@
     const preview = item.last_message ? (item.last_message.body || `[${item.last_message.type}]`) : item.description || 'No messages yet';
     return `<button type="button" class="sn-conversation-item${active}" data-id="${item.id}">
       <img src="${escapeHtml(safeUrl(item.avatar))}" alt="">
-      <span class="sn-list-copy"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(preview)}</small></span>
+      <span class="sn-list-copy"><strong>${item.muted ? '<span aria-label="Muted">🔕</span> ' : ''}${escapeHtml(item.title)}</strong><small>${escapeHtml(preview)}</small></span>
       <span class="sn-list-meta"><time>${escapeHtml(item.last_message?.created_at ? formatTime(item.last_message.created_at) : '')}</time>${item.unread_count ? `<b>${item.unread_count}</b>` : ''}</span>
     </button>`;
   }
@@ -232,16 +308,26 @@
       $('#sn-empty-state').hidden = true;
       $('#sn-chat-view').hidden = false;
       $('#sn-chat-title').textContent = state.activeConversation.title;
-      $('#sn-chat-subtitle').textContent = `${state.activeConversation.type} · ${state.activeConversation.members?.length || 0} members`;
       $('#sn-chat-avatar').src = safeUrl(state.activeConversation.avatar);
+      state.typingUsers = [];
+      updateConversationSubtitle();
+      const canPost = Boolean(state.activeConversation.can_post);
+      $('#sn-message-input').disabled = !canPost;
+      $('#sn-message-input').placeholder = canPost ? 'Write a message' : 'Only channel administrators may post';
+      $('#sn-attach-button').disabled = !canPost;
+      const sendButton = $('.sn-send-btn', $('#sn-composer'));
+      if (sendButton) sendButton.disabled = !canPost;
       const groupCallReady = Boolean(state.capabilities.group_calls);
       const builtInDirectCall = (state.activeConversation.members?.length || 0) === 2;
+      const callsAllowed = state.activeConversation.type !== 'channel' && (builtInDirectCall || groupCallReady);
       for (const button of [$('#sn-audio-call'), $('#sn-video-call')]) {
         if (!button) continue;
-        button.disabled = !builtInDirectCall && !groupCallReady;
-        button.title = button.disabled ? 'Group calls require an approved SFU interface.' : '';
+        button.disabled = !callsAllowed;
+        button.title = state.activeConversation.type === 'channel'
+          ? 'Calls are unavailable in broadcast channels.'
+          : (button.disabled ? 'Group calls require an approved SFU interface.' : '');
       }
-      await refreshMessages(true);
+      await Promise.all([refreshMessages(true), loadConversationPresence(), loadTyping()]);
       renderSidebar();
       root.classList.add('sn-chat-open');
     } catch (error) { toast(error.message, 'error'); }
@@ -303,7 +389,7 @@
 
   $('#sn-composer')?.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!state.activeConversation || state.busy) return;
+    if (!state.activeConversation || !state.activeConversation.can_post || state.busy) return;
     const input = $('#sn-message-input');
     const file = $('#sn-file-input').files?.[0];
     if (!input.value.trim() && !file) return;
@@ -315,6 +401,7 @@
     try {
       state.busy = true;
       await api(`conversations/${state.activeConversation.id}/messages`, {method:'POST', body:form});
+      await setTyping(false);
       input.value = '';
       $('#sn-file-input').value = '';
       state.replyTo = 0;
@@ -330,6 +417,16 @@
   $('#sn-file-input')?.addEventListener('change', () => {
     const file = $('#sn-file-input').files?.[0];
     if (file) toast(`Ready to send: ${file.name}`);
+  });
+
+  $('#sn-message-input')?.addEventListener('input', () => {
+    clearTimeout(state.typingStopTimer);
+    if ($('#sn-message-input').value.trim()) setTyping(true);
+    state.typingStopTimer = setTimeout(() => setTyping(false), 5000);
+  });
+  $('#sn-message-input')?.addEventListener('blur', () => {
+    clearTimeout(state.typingStopTimer);
+    setTyping(false);
   });
 
   $$('.sn-tab').forEach(button => button.addEventListener('click', () => {
@@ -429,8 +526,11 @@
       ? `<form id="sn-owner-transfer-form" class="sn-form sn-owner-transfer"><label for="sn-new-owner">Transfer ownership</label><select id="sn-new-owner" required>${eligibleOwners.map(member => `<option value="${Number(member.id)}">${escapeHtml(member.name)}</option>`).join('')}</select><button type="submit" class="sn-btn">Transfer ownership</button></form>`
       : '';
     const memberList = (conversation.members || []).map(member => `${escapeHtml(member.name)}${member.conversation_role ? ` (${escapeHtml(member.conversation_role)})` : ''}`).join(', ');
-    openModal('Conversation information', `<p><strong>${escapeHtml(conversation.title)}</strong></p><p>${escapeHtml(conversation.description || '')}</p><p>${memberList}</p>${transfer}<button type="button" id="sn-report-conversation" class="sn-btn">Report conversation</button>`, body => {
+    const preferences = `<div class="sn-conversation-preferences"><button type="button" id="sn-toggle-mute" class="sn-btn">${conversation.muted ? 'Unmute' : 'Mute'} conversation</button><button type="button" id="sn-toggle-archive" class="sn-btn">${conversation.archived ? 'Restore' : 'Archive'} conversation</button></div>`;
+    openModal('Conversation information', `<p><strong>${escapeHtml(conversation.title)}</strong></p><p>${escapeHtml(conversation.description || '')}</p><p>${memberList}</p>${preferences}${transfer}<button type="button" id="sn-report-conversation" class="sn-btn">Report conversation</button>`, body => {
       $('#sn-report-conversation', body)?.addEventListener('click', () => reportDialog({conversation_id:conversation.id}));
+      $('#sn-toggle-mute', body)?.addEventListener('click', () => updateConversationPreference('muted', !conversation.muted));
+      $('#sn-toggle-archive', body)?.addEventListener('click', () => updateConversationPreference('archived', !conversation.archived));
       $('#sn-owner-transfer-form', body)?.addEventListener('submit', async event => {
         event.preventDefault();
         const userId = Number($('#sn-new-owner', body)?.value || 0);
@@ -446,6 +546,26 @@
       });
     });
   });
+
+  async function updateConversationPreference(key, value) {
+    if (!state.activeConversation || !['muted', 'archived'].includes(key)) return;
+    const conversationId = state.activeConversation.id;
+    try {
+      const data = await api(`conversations/${conversationId}/preferences`, {method:'POST', body:{[key]:value}});
+      state.activeConversation = {...state.activeConversation, ...data.preferences};
+      closeModal();
+      await loadConversations();
+      if (key === 'archived' && value) {
+        state.activeConversation = null;
+        state.messages = [];
+        $('#sn-chat-view').hidden = true;
+        $('#sn-empty-state').hidden = false;
+        root.classList.remove('sn-chat-open');
+      }
+      renderSidebar();
+      toast(`${key === 'muted' ? 'Notification preference' : 'Archive preference'} updated.`, 'success');
+    } catch (error) { toast(error.message, 'error'); }
+  }
 
   function reportDialog(target) {
     openModal('Report', `<form id="sn-report-form" class="sn-form"><label for="sn-report-category">Category</label><select id="sn-report-category">${['spam','fraud','harassment','threat','hate','impersonation','fake_doctor','medical_misinformation','sexual_content','child_safety','illegal_products','malware','stolen_account','privacy'].map(item => `<option value="${item}">${item.replaceAll('_',' ')}</option>`).join('')}</select><label for="sn-report-details">Details</label><textarea id="sn-report-details" maxlength="4000"></textarea><button class="sn-btn sn-btn-primary" type="submit">Submit report</button></form>`, body => $('#sn-report-form', body).addEventListener('submit', async event => {
@@ -559,8 +679,13 @@
   $('#sn-call-mute')?.addEventListener('click', event => { const track = state.localStream?.getAudioTracks()[0]; if (track) { track.enabled = !track.enabled; event.currentTarget.textContent = track.enabled ? 'Mute' : 'Unmute'; } });
   $('#sn-call-camera')?.addEventListener('click', event => { const track = state.localStream?.getVideoTracks()[0]; if (track) { track.enabled = !track.enabled; event.currentTarget.textContent = track.enabled ? 'Camera' : 'Camera off'; } });
 
-  window.addEventListener('online', () => toast('Back online.', 'success'));
+  document.addEventListener('visibilitychange', () => sendPresence(document.hidden ? 'away' : 'online'));
+  window.addEventListener('online', () => { toast('Back online.', 'success'); sendPresence('online'); });
   window.addEventListener('offline', () => toast(cfg.strings?.offline || 'You are offline.', 'error'));
+  window.addEventListener('pagehide', () => {
+    clearInterval(state.presenceTimer);
+    clearTimeout(state.typingStopTimer);
+  });
 
   bootstrap();
 })();

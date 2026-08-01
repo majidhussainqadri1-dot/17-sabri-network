@@ -97,3 +97,26 @@ The following are intentionally not represented as completed:
 ## 7. Truthful completion status
 
 The code review, identified-defect correction, local syntax checks, two independent contract-review rounds, and reproducible packaging are the deliverables of this engineering pass. Production completion requires the remaining external and staging gates above.
+
+## 8. Continued coding batch — realtime state, channel authority and call revocation
+
+A further controlled coding batch was completed after the initial 2.0.0 review:
+
+- added privacy-scoped `online`, `away`, `offline`, and `last_seen_at` presence with 90-second expiry, bounded heartbeats, cleanup, and no IP/device fingerprint storage;
+- added expiring typing indicators limited to active conversation members, with block enforcement, posting-authority checks, and rate limits;
+- activated the existing native member mute/archive fields through REST and responsive UI controls, including an archived-conversation view;
+- made local fallback message notifications mute-aware while preserving mute context for the File-19 adapter;
+- enforced owner/moderator-only channel publishing by default and prohibited peer calls in broadcast channels;
+- required current conversation membership for call inventory, call-state changes, signaling reads/writes, and signal acknowledgements;
+- transactionally revoked active call membership and queued signals when a member leaves or is removed, ending under-populated calls safely;
+- corrected polling so list refreshes merge summary data instead of discarding detailed active-conversation membership and authority state;
+- extended WordPress privacy export/erasure to conversation preferences, presence, and typing state.
+
+### Added QA evidence
+
+- Realtime static contracts: **37/37 PASS** locally.
+- Realtime adversarial contracts: **33/33 PASS** locally.
+- Added checks: **70 PASS**.
+- Combined included contract checks after this batch: **189 PASS**, subject to GitHub Actions confirmation on the updated branch.
+
+The candidate remains a controlled review build. Staging, external adapters, penetration/load testing, Founder approval, merge, and live deployment remain separate gates.

@@ -131,6 +131,43 @@ final class SN_Policy {
             && (bool) apply_filters('sn_network_can_use_group_calls', user_can($user_id, 'sn_network_group_call'), $user_id, $conversation_id);
     }
 
+    public static function can_post_to_conversation(object $conversation, int $user_id): true|WP_Error {
+        $role = SN_DB::member_role((int) $conversation->id, $user_id);
+        if ($role === '') {
+            return new WP_Error('conversation_membership_required', 'An active conversation membership is required.', ['status' => 403]);
+        }
+        if ((string) $conversation->type === 'channel' && !in_array($role, ['owner', 'moderator'], true)) {
+            $allowed = (bool) apply_filters('sn_network_channel_member_can_post', false, $user_id, $conversation, $role);
+            if (!$allowed) {
+                return new WP_Error('channel_posting_restricted', 'Only channel administrators may publish messages here.', ['status' => 403]);
+            }
+        }
+        return true;
+    }
+
+    public static function can_view_presence(int $viewer_id, int $target_id): bool {
+        if ($viewer_id <= 0 || $target_id <= 0) {
+            return false;
+        }
+        if ($viewer_id === $target_id) {
+            return true;
+        }
+        if (self::is_suspended($target_id) || SN_DB::is_blocked($viewer_id, $target_id)) {
+            return false;
+        }
+        $contacts = SN_DB::are_contacts($viewer_id, $target_id);
+        $shared = SN_DB::share_active_conversation($viewer_id, $target_id);
+        if (!$contacts && !$shared) {
+            return false;
+        }
+        if (self::is_minor($target_id) && !$contacts) {
+            return false;
+        }
+        $visibility = (string) (self::privacy_for($target_id)['last_seen'] ?? 'contacts');
+        $allowed = $visibility === 'everyone' || ($visibility === 'contacts' && $contacts);
+        return (bool) apply_filters('sn_network_can_view_presence', $allowed, $viewer_id, $target_id, $visibility);
+    }
+
     public static function can_edit_message(object $message, int $user_id): bool {
         if ((int) $message->sender_id !== $user_id || $message->deleted_at) {
             return false;
@@ -170,7 +207,7 @@ final class SN_Policy {
         $stored = (array) get_user_meta($user_id, 'sn_privacy', true);
         $privacy = array_merge($defaults, array_intersect_key($stored, $defaults));
         if (self::is_minor($user_id)) {
-            foreach (['phone_visibility', 'groups', 'calls', 'messages', 'updates'] as $key) {
+            foreach (['phone_visibility', 'last_seen', 'groups', 'calls', 'messages', 'updates'] as $key) {
                 $privacy[$key] = 'contacts';
             }
         }

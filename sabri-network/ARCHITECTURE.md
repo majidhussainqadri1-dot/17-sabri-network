@@ -7,7 +7,7 @@ File 17 owns:
 - contact requests, accepted relationships, blocks, and relationship state;
 - direct, group, community, and channel conversation records;
 - conversation memberships and roles;
-- message records, reactions, read state, and private attachment references;
+- message records, reactions, read state, private attachment references, typing state, and presence projections;
 - temporary updates and their view state;
 - call records, call membership, and WebRTC signaling;
 - File-17 abuse reports and privacy-safe audit events.
@@ -82,6 +82,7 @@ Canonical tables use the WordPress prefix and `sn_` namespace. Important invaria
 - unique nullable call `active_key` for one ringing/active call per conversation;
 - unique message reaction per user;
 - unique call membership and conversation membership;
+- one presence row per user and one expiring typing row per user/conversation;
 - private attachment ledger with SHA-256 and scan status;
 - one active owner for each non-direct conversation, with a transactionally locked ownership-transfer route before the owner may leave.
 
@@ -93,3 +94,6 @@ Canonical tables use the WordPress prefix and `sn_` namespace. Important invaria
 - Missing optional notification adapter: bounded local fallback remains available.
 - Missing SFU: group calls are unavailable; direct calls are unaffected.
 - Missing optional module integration: File 17 remains isolated without creating a duplicate backend.
+- Expired presence becomes offline and expired typing state is deleted; neither stores IP addresses or device fingerprints.
+- Channel members are read-only by default unless an explicit policy adapter grants posting authority; channel calls remain unavailable.
+- Removing a conversation member revokes active call participation and queued signaling in the same transaction.
