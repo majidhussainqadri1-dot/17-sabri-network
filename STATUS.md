@@ -7,6 +7,9 @@
 **Installable source checksum coverage:** 26/26 files verified  
 **Deterministic double-build byte comparison:** PASS  
 **Current installable ZIP SHA-256:** `d12f3b94e6583ef716085bca5dc7fe95b1b85e7354cb429122f94ce8264cee65`  
+**Current final CI run:** `30717235534`  
+**Current workflow artifact:** `8823712761`  
+**Artifact container SHA-256:** `6d23ac7bc5ad4adffce3f63d045e6bc7c6c8a9db763345af63260be2f2ff2d49`  
 **Staging/live/operational:** not completed
 
 ## Latest corrective batch
