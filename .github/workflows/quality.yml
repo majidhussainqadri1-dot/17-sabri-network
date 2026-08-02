@@ -28,6 +28,16 @@ jobs:
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          cat <<'SUMS' | sha256sum -c -
+          716001fc76669b2df249e550b90b5f45ac3a35a22c60fdff09804f25f31a34d6  .github/sabri-meet-payload/chunk-00
+          b4a658a1126f13c79193e4bb073237bfb3501cf5cf6d130a273079d1738e0dd2  .github/sabri-meet-payload/chunk-01
+          9d96272ddab51386d974d2aed5079ac5174d2ee24ca0ab404e2ebe7cf979988f  .github/sabri-meet-payload/chunk-02
+          f35e0940f6586a1b7e772366d52eb20d468964d988acb91c02d5797ef4d50b8c  .github/sabri-meet-payload/chunk-03
+          8a898611ec5f7516869e9eb01c386db132142ad05ef032fc602efeb5ca7432f9  .github/sabri-meet-payload/chunk-04
+          e051fd09ce301e68b487e099f75f8913d50db01209ba05822f2b726d38f2fdbc  .github/sabri-meet-payload/chunk-05
+          afc4f2c1cc7d8d5039c0938518196f06470b74bff51e12cc772454b0649d18c1  .github/sabri-meet-payload/chunk-06
+          6f167f7425fa5a20af18e727677335e35abfced2b0ba232cc96754627fdc049f  .github/sabri-meet-payload/chunk-07
+          SUMS
           cat .github/sabri-meet-payload/chunk-* | base64 -d > /tmp/file17-meet-batch.tar.xz
           echo "d34d70f1255ba1b3471ab6c1f738e1aa8ca8b9e1be5746a3835e012d047b1756  /tmp/file17-meet-batch.tar.xz" | sha256sum -c -
           tar -xJf /tmp/file17-meet-batch.tar.xz -C .
