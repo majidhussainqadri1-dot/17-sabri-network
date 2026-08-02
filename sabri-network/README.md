@@ -3,60 +3,68 @@
 **Plugin version:** 2.0.0  
 **WordPress:** 6.5 or later  
 **PHP:** 8.1 or later  
-**Status:** reviewed code candidate; not yet staging-accepted or production-approved
+**Status:** substantial reviewed code candidate; not staging-accepted, live-deployed, or operational
 
-File 17 is the canonical communication owner for the Sabri Social Homeopathy Platform. It provides consent-based relationships, direct and group conversations, private messaging, updates, direct-call signaling, the Sabri Meet conference control plane, blocking, reporting, privacy operations, and integration contracts.
+File 17 is the canonical communication owner for the Sabri Social Homeopathy Platform. It owns Network relationships, conversations, messages, private attachments, presence, calls/signaling, Sabri Meet, reports, native privacy lifecycle, message receipts, indexed private message search, and communication-event evidence. It does not create a parallel identity, notification, public-profile, clinical, appointment, marketplace, or global-shell backend.
 
-## Governing architecture
+## Governing boundaries
 
-- **One communication domain:** Network relationships and Messages share one File-17 backend.
-- **No duplicate identity:** File 00/File 02 remain the identity and authentication authorities.
-- **No duplicate shell:** File 20 owns global navigation and application shell. File 17 publishes a route contract and does not inject another global menu.
-- **No duplicate notification service:** File 19 may consume `sn_network_notification_handled`; the local notification table is a bounded fallback.
-- **No duplicate public-profile system:** File 25 may present Follow/Connect/Message controls, but File 17 authorizes and executes those actions.
-- **Native security remains active:** File 24 receives assurance evidence; File 17 retains native authorization, privacy, file-delivery, rate-limit, and abuse controls.
+- File 00/File 02 remain identity and authentication authorities.
+- File 19 remains the notification center, preferences, channel transport, provider retry, and digest owner. File 17 emits metadata-minimized communication facts through the reliable event contract.
+- File 20 owns global navigation and application shell.
+- File 24 consumes assurance evidence but does not replace File 17 native enforcement.
+- File 25 may render Follow/Connect/Message actions; File 17 authorizes and executes them.
 
-## Major 2.0.0 corrections
+## Implemented 2.0.0 candidate scope
 
-- Removed the legacy File-17 OTP/account-creation pathway and retired stored SMS/TURN secrets.
-- Added fail-closed identity-authority integration.
-- Added accepted-contact consent before direct messages and calls.
-- Added server-side object authorization for conversations, messages, calls, signals, contacts, updates, files, and reports.
-- Added private attachment storage outside the public web root, MIME/signature checks, image normalization, malware-scanner contract, and authorization-gated delivery.
-- Added idempotent message submission, bounded rate limits, audit events, privacy export/erasure, signal acknowledgement, and call-state validation.
-- Added race-resistant active-call uniqueness and duplicate direct-conversation keys.
-- Withheld legacy public-media attachments until controlled migration.
-- Removed global navigation injection and unsafe page overwriting.
-- Rebuilt the responsive, keyboard-operable, RTL-ready interface.
-- Added scoped presence, last-seen, typing indicators, mute/archive preferences, channel posting authority, and call-membership revocation.
-- Added privacy export/erasure coverage for presence, typing and conversation preferences.
+- accepted-contact relationships, follows, blocks, direct/group-style conversations, messages, reactions, read state, edit/delete windows, private attachments, temporary updates, bounded presence/typing, direct calls, reports, appeals, legal/safety holds, privacy export/erasure, rate limits, and audit evidence;
+- dedicated `/messages/` and `/messages/{conversation_id}/` surfaces plus File-17-owned Communication Settings;
+- native recipient/device delivered/read receipts with bounded contiguous reconciliation and monotonic read-pointer advancement;
+- Sabri Meet control plane at `/calls/` and `/calls/{meeting_id}/` with opaque identifiers, schedule/live/end lifecycle, waiting room, host/co-host governance, participant/device ceilings, recipient-scoped signaling, accessible UI, and provider-gated media;
+- conversation-local indexed message search with HMAC-hashed tokens, signed viewer/conversation/filter/snapshot cursors, signed bounded context navigation, hidden-state exclusion, and no plaintext-query persistence;
+- transactional outbox/inbox delivery with outgoing and incoming idempotency, payload integrity, atomic claims, stale-lock recovery, bounded retry, dead-letter visibility, and optimistic manual retry;
+- atomic send/edit/delete/read-delivered mutation boundaries: canonical message/receipt truth, search-index change, and outbox event commit or roll back together.
 
-## Sabri Meet
+## Private message search
 
-Sabri Meet is the File-17 owned meeting and conference surface at `/calls/` and `/calls/{meeting_id}/`. The current coded batch includes opaque invitation links, scheduled/live/ended lifecycle, waiting room, host/co-host roles, admission, denial, removal, forced mute policy, raise/lower hand, meeting lock, host invitations, conversation-backed meeting chat, participant/session limits, bounded per-device sessions, recipient-scoped signaling, privacy export/erasure, no-cache/noindex delivery, responsive accessible controls, and File-20 route registration.
+Search is available only to an active conversation member. Query text is normalized in memory and converted to server-secret HMAC token hashes; the index has no message-body or plaintext-query column. Pagination cursors bind the viewer, conversation, filters, and snapshot and expire after a short interval. Context cursors bind the authorized target and snapshot. Quarantined, moderation-removed, removed, unsent, expired, rejected, and deleted states are excluded before response formatting.
 
-Conference audio/video transport is **provider-gated**. File 17 does not persist provider credentials and exposes a participant-scoped `sn_network_meet_media_config` adapter for short-lived room tokens. Without an approved and tested SFU/media adapter, Sabri Meet truthfully shows that conference media is unavailable; it does not simulate connectivity. Recording remains disabled, peer signaling is deny-by-default, and no audited end-to-end-encryption claim is made. Screen sharing and captions become usable only when the approved provider explicitly advertises those capabilities.
+Search is deliberately bounded: 160 query characters, 8 query terms, 128 indexed terms per message, 500-row scan budget, 50-result page ceiling, and 25 messages on either side of a context target.
 
-The meeting control plane is coded and automated-contract reviewed, but real SFU/TURN service, provider key governance, load/soak, browser/device, accessibility, staging and operational acceptance remain mandatory release gates.
+## Reliable event delivery
 
-## Required integrations
+File 17 records metadata-only communication events in its transactional outbox. Consumers receive canonical facts through:
 
-Production use requires a reviewed File 00/File 02 adapter that reports identity-authority availability **only after** the canonical identity service, suspension state, minor/guardian state, verification claims, capabilities, and public projections are actually reachable. A blanket `true` override is unsafe and is not an acceptable integration.
+```php
+do_action('sn_network_event_dispatched', $event);
+```
 
-Document uploads require an approved malware-scanning adapter for `sn_network_attachment_scan_result`. The adapter must invoke a real scanner, bind the result to the supplied file hash/context, and return a verified status such as `clean`, `infected`, `suspicious`, `rejected`, or `WP_Error`. An unconditional `clean` response is prohibited. Without scanner evidence, document uploads fail closed.
+and explicitly acknowledge them through:
 
-For production calls, provide approved STUN URLs in settings and short-lived TURN credentials through `sn_network_ephemeral_turn_credentials`. Group calls remain disabled until an approved SFU adapter passes policy, authorization, UI-availability, and provider-result contracts.
+```php
+apply_filters('sn_network_outbox_delivery_result', true, $event);
+```
+
+The outbox strips message bodies, generic content, credentials, tokens, ICE/SDP/candidates, and storage paths. File 19 remains the channel/provider delivery owner. Incoming companion events use producer plus UUIDv4 idempotency and execute their handler transactionally; failures remain operator-visible after rollback.
+
+## Sabri Meet boundary
+
+Conference media is provider-gated. File 17 does not persist provider credentials and exposes only participant-scoped, short-lived adapter output. Without an approved SFU/TURN/media adapter, the UI truthfully reports media unavailable. Recording remains disabled; peer signaling is deny-by-default; no audited end-to-end-encryption claim is made. Real provider governance, load/soak, browser/device, accessibility, staging, and operational acceptance remain release gates.
+
+## Private files and external controls
+
+Private attachment storage must remain outside the public web root. Document uploads require an approved malware-scanning adapter bound to the file hash/context; an unconditional `clean` response is prohibited. Production calls require approved STUN/TURN/SFU infrastructure, short-lived credentials, and provider-health evidence.
+
+Production use also requires HTTPS/security hardening, File 00/File 02 session and MFA controls, backup/restore proof, rollback rehearsal, penetration and load testing, browser/device/RTL/accessibility acceptance, monitoring, incident runbooks, and Founder approval.
 
 ## Installation
 
-1. Back up the database and files.
-2. Install the ZIP on staging only.
-3. Activate the plugin.
-4. Open **Network → System Check**.
-5. Connect File 00/File 02 and File 19 contracts.
-6. Configure private storage and the attachment scanner.
-7. Run role, privacy, migration, call, and rollback acceptance tests.
-8. Deploy live only after Founder approval.
+1. Back up database and files.
+2. Install the verified ZIP on staging only.
+3. Activate the plugin and run **Network → System Check**.
+4. Connect canonical identity, notification, private-storage, scanner, and approved call-provider contracts.
+5. Test fresh install, upgrade, migrations, real roles, minors/guardian policy, search, event retry/dead-letter, privacy, backup/restore, rollback, and Safe Mode.
+6. Deploy live only after the full Definition of Done and Founder approval.
 
 ## Quality commands
 
@@ -65,15 +73,12 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The package script creates `build/17-sabri-network-and-messages-2.0.0.zip` and its SHA-256 file. The quality command runs the original suites, realtime/safety/relationship suites, and four independent Sabri Meet review-and-correction contract suites.
+The quality workflow runs the inherited File-17 contract suites, Sabri Meet reviews, Messages/receipt reviews, and two independent indexed-search/outbox review-and-fix suites, followed by syntax, CSS, repository-hygiene, exact installable-source checksums, and deterministic byte-for-byte packaging.
+
+## Coding-completeness boundary
+
+This branch is not 100% complete against the full governing specification. Remaining major scope includes complete spaces governance, general per-device presence and revocation, advanced message organization, space abuse controls, File 08/18/21 context adapters, production conference-media infrastructure, high-risk step-up/dual approval, and full staging/operational acceptance. `CODING-COMPLETENESS.md` is the controlling gap record.
 
 ## Explicit non-claims
 
-Version 2.0.0 does **not** claim audited end-to-end encryption, a production TURN/SFU service, native mobile applications, completed penetration testing, completed load testing, staging acceptance, live deployment, or operational completion.
-
-### Report safety and retention
-Version 2.0.0 includes native report idempotency, target-scoped abuse controls, legal/safety holds, retention deadlines, privacy minimization, administrator triage with optimistic record versions, and automated two-stage retention cleanup. File 24 may receive assurance evidence through integration hooks but does not replace File 17's native enforcement.
-
-## Coding completeness
-
-The current 2.0.0 branch is a substantial coded candidate, but it is **not 100% coding-complete against the full File 17 governing specification**. Complete spaces governance and invitations, per-recipient/multi-device receipts, per-device presence, signed server-side message search, reliable outbox/dead-letter operations, advanced message organization, context-card adapters, provider-gated group-call features, high-risk dual approval, and operational/staging acceptance remain incomplete. The repository-level `CODING-COMPLETENESS.md` is the controlling gap record.
+Version 2.0.0 does not claim audited E2EE, an accepted production SFU/TURN service, completed penetration/load testing, staging acceptance, live deployment, or operational completion.
