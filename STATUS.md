@@ -3,14 +3,16 @@
 **Target:** File 17 — Sabri Network and Messages 2.0.0  
 **State:** substantial coded candidate under draft review  
 **Coding completion against governing specification:** **NOT 100%**  
-**Configured included contract checks:** **613**  
-**Installable source checksum coverage:** **36/36 files**  
+**Configured included contract checks:** **693**  
+**Installable source checksum coverage:** generated from the exact package source tree  
 **Staging/live/operational:** not completed
 
-Current implemented candidate scope includes the earlier Network, safety, relationship, realtime and Sabri Meet control-plane work, plus dedicated `/messages/` and `/messages/{conversation_id}/` surfaces, a File-17-owned Communication Settings surface, and native recipient/device delivered-read receipt reconciliation.
+Current implemented candidate scope includes the earlier Network, safety, relationship, realtime, Sabri Meet, dedicated Messages/settings and recipient/device receipt work, plus indexed conversation-local message search and reliable transactional event delivery.
 
-The Messages receipt domain is idempotent per message/recipient/device, hashes opaque device identifiers, advances in bounded contiguous batches from durable server progress, never advances the member read pointer beyond the actually reconciled range, deduplicates multiple devices in sender-visible counts, and participates in privacy export/erasure, retention cleanup, health and audit evidence.
+The search domain uses File-17-owned hashed tokens, active-member authorization, bounded query/term/scan/result/context limits, signed short-lived viewer/conversation/filter/snapshot cursors, hidden-state exclusion and no plaintext query persistence. The event domain uses metadata-only outbox/inbox records, payload integrity hashes, idempotency, atomic claims, stale-lock recovery, bounded retries, dead-letter visibility and optimistic manual retry.
 
-Two new independent review/fix suites contain 29 comprehensive checks and 35 fresh adversarial checks. Exact current head, GitHub Actions run, artifact and package hash are maintained in Pull Request #2 because embedding them in a source commit would create a self-referential evidence loop.
+Message send/edit/delete and delivered/read receipt mutations now commit their message/receipt truth, search-index change and outbox event together. Two independent review/fix suites add 41 comprehensive checks and 38 fresh adversarial checks; the earlier completion-truth suite was also updated to distinguish newly implemented search/event scope from genuine remaining gaps.
 
-The authoritative missing-scope record is `CODING-COMPLETENESS.md`. Major remaining areas include full spaces governance, general per-device presence, signed indexed message search, transactional outbox/dead-letter operations, advanced message organization, space abuse controls, File 08/18/21 context integrations, production conference-media infrastructure, high-risk dual approval, and operational/staging acceptance.
+Exact current head, GitHub Actions run, artifact and package hash must be maintained in Pull Request #2 after current-head CI, because embedding them in source would create a self-referential evidence loop.
+
+The authoritative remaining-scope record is `CODING-COMPLETENESS.md`. Major remaining areas are spaces governance, general per-device presence/revocation, advanced message organization, space abuse controls, File 08/18/21 context integrations, production conference-media infrastructure, high-risk dual approval and full staging/operational acceptance.
