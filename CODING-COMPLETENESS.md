@@ -3,7 +3,7 @@
 **Assessment target:** Sabri Network and Messages 2.0.0  
 **Governing specification:** File 17 — Sabri Communication Network — Network, Messages and Calls, Document Version 3.0  
 **Assessment date:** 2 August 2026  
-**Coding completion:** NOT 100%
+Coding completion: NOT 100%
 
 ## Implemented and reviewable candidate scope
 
