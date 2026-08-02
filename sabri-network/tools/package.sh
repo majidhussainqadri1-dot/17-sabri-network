@@ -35,6 +35,7 @@ find "$STAGE/sabri-network" -exec touch -h -t "$FIXED_TIMESTAMP" {} +
 find "$STAGE/sabri-network" -type f -name '*.php' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
 node --check "$STAGE/sabri-network/assets/js/network.js"
 node --check "$STAGE/sabri-network/assets/js/meet.js"
+node --check "$STAGE/sabri-network/assets/js/messages.js"
 grep -q 'Version: 2.0.0' "$STAGE/sabri-network/sabri-network.php"
 
 (
