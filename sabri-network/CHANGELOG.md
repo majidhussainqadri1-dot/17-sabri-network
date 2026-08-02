@@ -62,3 +62,12 @@
 ### Status
 
 Code-reviewed candidate only. The current quality gate executes two independent review rounds with 421 included contract checks (245 in Round 1 and 176 in Round 2), PHP/JavaScript/shell syntax, CSS integrity, repository hygiene, complete installable-source checksum verification and deterministic byte-for-byte packaging. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, backup/restore, cross-file integration and live deployment remain separate gates.
+## Fourth forensic review — fail-closed age and completeness truth
+
+- Unknown age now receives protective communication defaults and cannot be treated as adult through a not-minor shortcut.
+- Public update and update-attachment access require an explicit verified-adult age state.
+- Unknown-age directory and presence exposure fail closed.
+- Conversation ownership requires verified adult age.
+- Read-pointer database failure returns an error and is audited.
+- Added repository-level coding-completeness evidence and 42 new static/runtime/adversarial checks.
+

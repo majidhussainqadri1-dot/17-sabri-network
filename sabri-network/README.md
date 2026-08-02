@@ -65,3 +65,7 @@ Version 2.0.0 does **not** claim audited end-to-end encryption, a production TUR
 
 ### Report safety and retention
 Version 2.0.0 includes native report idempotency, target-scoped abuse controls, legal/safety holds, retention deadlines, privacy minimization, administrator triage with optimistic record versions, and automated two-stage retention cleanup. File 24 may receive assurance evidence through integration hooks but does not replace File 17's native enforcement.
+
+## Coding completeness
+
+The current 2.0.0 branch is a substantial coded candidate, but it is **not 100% coding-complete against the full File 17 governing specification**. Complete spaces governance and invitations, per-recipient/multi-device receipts, per-device presence, signed server-side message search, reliable outbox/dead-letter operations, advanced message organization, context-card adapters, provider-gated group-call features, high-risk dual approval, and operational/staging acceptance remain incomplete. The repository-level `CODING-COMPLETENESS.md` is the controlling gap record.

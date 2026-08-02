@@ -74,6 +74,16 @@ final class SN_Policy {
         return self::age_state($user_id) === 'minor';
     }
 
+    /** True only when the canonical identity authority has supplied verified adult age. */
+    public static function has_verified_adult_age(int $user_id): bool {
+        return self::age_state($user_id) === 'adult';
+    }
+
+    /** Unknown age receives the same protective defaults as a minor until verified. */
+    public static function requires_protective_age_defaults(int $user_id): bool {
+        return !self::has_verified_adult_age($user_id);
+    }
+
     public static function has_guardian_consent(int $user_id): bool {
         $filtered = apply_filters('sn_network_guardian_consent_valid', null, $user_id);
         if (is_bool($filtered)) {
@@ -225,7 +235,11 @@ final class SN_Policy {
         if (!$contacts && !$shared) {
             return false;
         }
-        if (self::is_minor($target_id) && !$contacts) {
+        $target_age_state = self::age_state($target_id);
+        if ($target_age_state === 'unknown') {
+            return false;
+        }
+        if ($target_age_state === 'minor' && !$contacts) {
             return false;
         }
         $visibility = (string) (self::privacy_for($target_id)['last_seen'] ?? 'contacts');
@@ -272,8 +286,8 @@ final class SN_Policy {
         ];
         $stored = (array) get_user_meta($user_id, 'sn_privacy', true);
         $privacy = array_merge($defaults, array_intersect_key($stored, $defaults));
-        if (self::is_minor($user_id)) {
-            foreach (['phone_visibility', 'last_seen', 'groups', 'calls', 'messages', 'updates'] as $key) {
+        if (self::requires_protective_age_defaults($user_id)) {
+            foreach (['phone_visibility', 'last_seen', 'profile_photo', 'groups', 'calls', 'messages', 'updates', 'follows'] as $key) {
                 $privacy[$key] = 'contacts';
             }
         }

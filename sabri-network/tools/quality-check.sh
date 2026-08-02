@@ -30,6 +30,8 @@ php tests/relationships-runtime-contracts.php
 php tests/forensic-review-3-static-contracts.php
 php tests/rate-limit-runtime-contracts.php
 php tests/retention-lock-empty-runtime-contracts.php
+php tests/fourth-review-static-contracts.php
+php tests/policy-age-runtime-contracts.php
 
 echo '== Review round 2: fresh/adversarial contracts =='
 php tests/adversarial-contracts.php
@@ -38,6 +40,7 @@ php tests/package-adversarial-contracts.php
 php tests/safety-adversarial-contracts.php
 php tests/relationships-adversarial-contracts.php
 php tests/forensic-review-3-adversarial-contracts.php
+php tests/fourth-review-adversarial-contracts.php
 
 echo '== CSS integrity =='
 python3 - <<'PY'

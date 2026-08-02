@@ -164,8 +164,8 @@ final class SN_REST {
             $value = sanitize_key((string) ($privacy[$key] ?? 'contacts'));
             $clean[$key] = in_array($value, $allowed, true) ? $value : 'contacts';
         }
-        if (SN_Policy::is_minor($user_id)) {
-            foreach (['phone_visibility', 'last_seen', 'groups', 'calls', 'messages', 'updates'] as $key) {
+        if (SN_Policy::requires_protective_age_defaults($user_id)) {
+            foreach (['phone_visibility', 'last_seen', 'profile_photo', 'groups', 'calls', 'messages', 'updates', 'follows'] as $key) {
                 $clean[$key] = 'contacts';
             }
         }
@@ -546,8 +546,8 @@ final class SN_REST {
         if ($target_id <= 0 || $target_id === $actor_id || !get_user_by('id', $target_id)) {
             return new WP_Error('invalid_owner', 'Select an active adult conversation member.', ['status' => 400]);
         }
-        if (SN_Policy::is_suspended($target_id) || SN_Policy::is_minor($target_id)) {
-            return new WP_Error('owner_ineligible', 'The selected member is not eligible to own this conversation.', ['status' => 403]);
+        if (SN_Policy::is_suspended($target_id) || !SN_Policy::has_verified_adult_age($target_id)) {
+            return new WP_Error('owner_ineligible', 'The selected member must have verified adult age and an active account.', ['status' => 403]);
         }
 
         $conversations = SN_DB::table('conversations');
@@ -893,12 +893,16 @@ final class SN_REST {
         if (!$message_id) {
             $message_id = (int) $wpdb->get_var($wpdb->prepare('SELECT MAX(id) FROM ' . SN_DB::table('messages') . ' WHERE conversation_id=%d', $conversation_id));
         }
-        $wpdb->query($wpdb->prepare(
+        $updated = $wpdb->query($wpdb->prepare(
             'UPDATE ' . SN_DB::table('members') . ' SET last_read_message_id=GREATEST(last_read_message_id,%d) WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',
             $message_id,
             $conversation_id,
             $user_id
         ));
+        if ($updated === false) {
+            SN_DB::audit('message_read_pointer_update_failed', 'conversation', $conversation_id, 'failure', ['message_id' => $message_id]);
+            return self::database_error();
+        }
         return rest_ensure_response(['read_through' => $message_id]);
     }
 
@@ -1999,7 +2003,11 @@ final class SN_REST {
         }
         $output = [];
         foreach (array_slice(array_values(array_unique(array_map('intval', $ids))), 0, 20) as $id) {
-            if (SN_Policy::is_minor($id) && !(bool) apply_filters('sn_network_minor_discoverable', false, $id, $viewer_id)) {
+            $age_state = SN_Policy::age_state($id);
+            if ($age_state === 'unknown') {
+                continue;
+            }
+            if ($age_state === 'minor' && !(bool) apply_filters('sn_network_minor_discoverable', false, $id, $viewer_id)) {
                 continue;
             }
             if (SN_DB::is_blocked($viewer_id, $id)) {
@@ -2137,7 +2145,7 @@ final class SN_REST {
             return true;
         }
         if ((string) $row->privacy === 'public') {
-            return !SN_Policy::is_minor((int) $row->user_id);
+            return SN_Policy::has_verified_adult_age((int) $row->user_id);
         }
         return (string) $row->privacy === 'contacts' && SN_DB::are_contacts($viewer_id, (int) $row->user_id) && !SN_DB::is_blocked($viewer_id, (int) $row->user_id);
     }

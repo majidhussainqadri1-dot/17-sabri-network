@@ -1,56 +1,46 @@
 File 17 — Sabri Network and Messages 2.0.0
 حقیقی حیثیت — 2 اگست 2026ء
 
-Specified: مکمل
-Coded: 2.0.0 reviewed candidate
+Specified: جامع حاکم specification موجود
+Coded Candidate: اہم communication foundation reviewable ہے
+Coding Completion: 100% نہیں
 Packaged: deterministic ZIP اور SHA-256 verification موجود
 Automated QA: دو الگ review rounds، runtime/adversarial concurrency checks اور checksum gate شامل
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-موجود اہم نظام:
-- accepted-contact relationships
-- direct/group/community/channel conversation model
-- private messages، read state، reactions، edit/delete windows
+موجود اہم coding:
+- accepted-contact relationships، follows اور blocks
+- direct/group-style conversation foundation
+- private messages، read pointer، reactions، edit/delete windows
 - private attachments، web-root/symlink protection اور controlled delivery
-- updates، calls، WebRTC signaling، signal acknowledgement
-- conversation ownership transfer before owner departure
-- blocks، reports، appeals، legal/safety holds، rate limits، audit، privacy export/erasure
+- updates، bounded presence/typing، direct calls اور WebRTC signaling
+- reports، appeals، legal/safety holds، rate limits، audit اور privacy export/erasure
 - File 00/02، 19، 20، 24 اور 25 integration boundaries
 
-تازہ retention اور integrity اصلاح:
-- stale report-retention lock takeover اب delete-then-add نہیں کرتا۔
-- takeover exact previously observed option value پر atomic compare-and-swap سے ہوتا ہے۔
-- release exact owner value پر compare-and-delete سے ہوتا ہے؛ سابق worker نئے owner کا lock حذف نہیں کرسکتا۔
-- کامیاب direct option mutation کے بعد WordPress option cache invalidate ہوتی ہے۔
-- runtime tests stale takeover، competing takeover، release race، active lock اور malformed lock recovery کو جانچتے ہیں۔
-- committed CHECKSUMS.sha256 installable source tree کی مکمل coverage اور exact hashes کے ساتھ quality gate میں verify ہوتا ہے۔
+چوتھی forensic نظرِ ثانی کی اصلاحات:
+- unknown age کو adult سمجھنے والا باقی bypass ختم کیا گیا؛ صرف explicit verified-adult state public update/public attachment access دیتی ہے۔
+- unknown-age users directory اور دوسروں کی presence سے fail-closed خارج رہتے ہیں۔
+- privacy save اور privacy read دونوں unknown/minor state پر protective contacts-only defaults نافذ کرتے ہیں۔
+- conversation ownership transfer اب صرف verified-adult active member کو دیا جاسکتا ہے۔
+- mark-read database write failure اب false success نہیں دیتا؛ failure audit کے بعد database error واپس ہوتی ہے۔
 
-تیسری forensic نظرِ ثانی کی اصلاحات:
-- File 25 کے لیے published contact/block integration routes حقیقی REST routes اور HTTP methods کے مطابق درست کیے گئے۔
-- rate-limit counter کو read-then-REPLACE سے atomic INSERT IGNORE + conditional UPDATE میں منتقل کیا گیا، تاکہ concurrent first-hit یا expired-window requests counter reset نہ کرسکیں۔
-- concurrent message sends میں conversation کا last_message_id اور updated_at اب monotonic GREATEST updates سے محفوظ ہیں۔
-- موجود مگر empty retention-lock option اب malformed سمجھ کر compare-and-swap recovery سے درست ہوسکتا ہے۔
-- public update attachment access minor status کے لیے canonical SN_Policy::is_minor فیصلہ استعمال کرتا ہے۔
+Coding کے باقی حاکم gaps:
+- الگ canonical Messages، conversation deep-link، call اور communication-settings surfaces
+- مکمل communities/groups/channels space governance، invitations/join requests، bans، succession اور lifecycle
+- per-recipient delivered/read receipts اور multi-device reconciliation
+- per-device presence sessions اور aggregate derivation
+- signed server-side message search/context windows
+- transactional outbox/inbox، retries اور dead-letter operator workflow
+- pin/star/folders/forward/mentions/advanced reply-context flows
+- slow mode، anti-raid اور مکمل space abuse controls
+- File 08/18/21 context-card integrations
+- SFU group calls، screen sharing اور captions
+- step-up/dual approval high-risk governance
+- staging، real MySQL races، backup/restore، rollback، penetration، load، browser/device، RTL/LTR اور accessibility acceptance
 
-نظرِ ثانی و QA evidence:
-- Review Round 1: static، runtime، realtime، package، safety اور relationships suites
-- Review Round 2: fresh/adversarial suites
-- Review Round 1: 245/245 PASS configured
-- Review Round 2: 176/176 PASS configured
-- موجود configured included contract checks: 421
-- PHP، JavaScript، shell syntax، CSS integrity، repository hygiene، source checksums اور deterministic double-build: لازمی gates
-- مفہوم: شامل suites میں معلوم failure صفر ہونے کی صورت automated-QA green ہوگی؛ مطلق بےنقصی یا staging acceptance کا دعویٰ نہیں۔
+درست درجہ:
+Substantial coded candidate + deterministic package + automated contract QA؛ مگر full governing specification کے مقابل coding ابھی 100% مکمل نہیں۔
 
-لازمی بیرونی gates:
-- File 00/File 02 identity authority adapter
-- File 19 notifications اور File 20/24/25 integration acceptance
-- approved malware scanner
-- approved STUN/TURN؛ group calls کے لیے SFU
-- staging fresh install، migration، rollback اور backup/restore rehearsal
-- real-role security/privacy/accessibility/UX acceptance
-- penetration، dependency، load اور حقیقی MySQL race testing
-- Founder approval before merge/live deployment
-
-یہ نظام audited end-to-end encryption کا دعویٰ نہیں کرتا۔
+یہ نظام audited end-to-end encryption، staging acceptance، production readiness یا operational completion کا دعویٰ نہیں کرتا۔

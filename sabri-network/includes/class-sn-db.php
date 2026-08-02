@@ -577,7 +577,7 @@ final class SN_DB {
             if ((int) $update->user_id === $user_id) {
                 return true;
             }
-            if ((string) $update->privacy === 'public' && !SN_Policy::is_minor((int) $update->user_id)) {
+            if ((string) $update->privacy === 'public' && SN_Policy::has_verified_adult_age((int) $update->user_id)) {
                 return true;
             }
             if ((string) $update->privacy === 'contacts' && self::are_contacts($user_id, (int) $update->user_id) && !self::is_blocked($user_id, (int) $update->user_id)) {
