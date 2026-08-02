@@ -4,52 +4,35 @@ File 17 — Sabri Network and Messages 2.0.0
 Specified: جامع حاکم specification موجود
 Coded Candidate: اہم communication foundation reviewable ہے
 Coding Completion: 100% نہیں
-Packaged: deterministic ZIP اور SHA-256 verification موجود
-Automated QA: دو الگ review rounds، runtime/adversarial concurrency checks اور checksum gate شامل
+Packaged: deterministic ZIP اور SHA-256 verification quality gate کا حصہ
+Automated QA: inherited، Sabri Meet، Messages/receipts، indexed-search/outbox اور adversarial suites شامل
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
 موجود اہم coding:
-- accepted-contact relationships، follows اور blocks
-- direct/group-style conversation foundation
-- private messages، read pointer، reactions، edit/delete windows
-- private attachments، web-root/symlink protection اور controlled delivery
-- updates، bounded presence/typing، direct calls، WebRTC signaling اور Sabri Meet conference control plane
+- accepted-contact relationships، follows، blocks اور conversation foundation
+- private messages، reactions، read state، edit/delete، attachments اور temporary updates
+- dedicated `/messages/`، conversation deep links اور Communication Settings
+- per-recipient/per-device delivered-read receipts اور bounded contiguous reconciliation
+- indexed conversation-local search، HMAC token index، signed snapshot pagination اور signed context windows
+- bounded presence/typing، direct calls، WebRTC signaling اور Sabri Meet control plane
+- transactional event outbox/inbox، idempotency، integrity hashes، retry، stale-lock recovery اور dead-letter operations
+- message/receipt truth، search index اور event record کے atomic commit/rollback boundaries
 - reports، appeals، legal/safety holds، rate limits، audit اور privacy export/erasure
-- File 00/02، 19، 20، 24 اور 25 integration boundaries
+- Files 00/02، 19، 20، 24 اور 25 کی canonical ownership boundaries
 
-چوتھی forensic نظرِ ثانی کی اصلاحات:
-- unknown age کو adult سمجھنے والا باقی bypass ختم کیا گیا؛ صرف explicit verified-adult state public update/public attachment access دیتی ہے۔
-- unknown-age users directory اور دوسروں کی presence سے fail-closed خارج رہتے ہیں۔
-- privacy save اور privacy read دونوں unknown/minor state پر protective contacts-only defaults نافذ کرتے ہیں۔
-- conversation ownership transfer اب صرف verified-adult active member کو دیا جاسکتا ہے۔
-- mark-read database write failure اب false success نہیں دیتا؛ failure audit کے بعد database error واپس ہوتی ہے۔
-
-Coding کے باقی حاکم gaps:
-- الگ canonical Messages، conversation deep-link، call اور communication-settings surfaces
-- مکمل communities/groups/channels space governance، invitations/join requests، bans، succession اور lifecycle
-- per-recipient delivered/read receipts اور multi-device reconciliation
-- per-device presence sessions اور aggregate derivation
-- signed server-side message search/context windows
-- transactional outbox/inbox، retries اور dead-letter operator workflow
-- pin/star/folders/forward/mentions/advanced reply-context flows
-- slow mode، anti-raid اور مکمل space abuse controls
-- File 08/18/21 context-card integrations
-- Sabri Meet کے حقیقی SFU/TURN provider، production screen sharing، captions، recording-consent workflow اور load acceptance
-- step-up/dual approval high-risk governance
-- staging، real MySQL races، backup/restore، rollback، penetration، load، browser/device، RTL/LTR اور accessibility acceptance
+موجودہ بڑے باقی gaps:
+- complete communities/groups/channels governance، join/invite، succession، bans، archive/closure lifecycle
+- general per-device presence sessions، revocation اور aggregate presence
+- pin/star/folders/labels، forwarding، mentions اور مکمل reply-context/organization workflows
+- slow mode، anti-raid، invitation throttling اور مکمل space abuse controls
+- File 08/18/21 context-card runtime integrations
+- حقیقی SFU/TURN provider، production screen sharing/captions، recording-consent/retention اور load/browser acceptance
+- high-risk step-up authentication اور dual approval
+- staging، real MySQL races، backup/restore، rollback، penetration، load، browser/device، RTL/LTR، accessibility، monitoring اور SLO acceptance
 
 درست درجہ:
 Substantial coded candidate + deterministic package + automated contract QA؛ مگر full governing specification کے مقابل coding ابھی 100% مکمل نہیں۔
 
 یہ نظام audited end-to-end encryption، staging acceptance، production readiness یا operational completion کا دعویٰ نہیں کرتا۔
-
-
-Sabri Meet نئی coding:
-- canonical `/calls/` dashboard اور `/calls/{meeting_id}/` deep link
-- opaque links، idempotent creation، scheduling، waiting room، host admission، invitations، raised hand اور conversation-backed meeting chat
-- host/co-host moderation، lock/end، remove/mute اور bounded participant/device sessions
-- privacy export/erasure، minor/guardian/block fail-closed policy، expiring signaling
-- provider-gated media؛ provider نہ ہو تو false connection یا fake participant نہیں
-- recording disabled، E2EE claim false؛ real SFU/TURN/staging ابھی باقی
