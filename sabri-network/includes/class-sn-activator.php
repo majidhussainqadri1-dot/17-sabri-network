@@ -8,10 +8,14 @@ final class SN_Activator {
         self::set_defaults();
         self::retire_legacy_secrets();
         SN_DB::install();
+        SN_Messages::install();
         SN_Meet::install();
+        SN_Messages::register_rewrites();
         SN_Meet::register_rewrites();
         SN_Private_Files::ensure_storage();
         self::ensure_network_page();
+        SN_Messages::ensure_pages();
+        SN_Messages::mark_routes_current();
         self::ensure_cleanup_schedule();
         update_option('sn_plugin_version', SN_VERSION, false);
         flush_rewrite_rules(false);
