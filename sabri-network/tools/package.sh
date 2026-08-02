@@ -36,6 +36,7 @@ find "$STAGE/sabri-network" -type f -name '*.php' -print0 | sort -z | xargs -0 -
 node --check "$STAGE/sabri-network/assets/js/network.js"
 node --check "$STAGE/sabri-network/assets/js/meet.js"
 node --check "$STAGE/sabri-network/assets/js/messages.js"
+node --check "$STAGE/sabri-network/assets/js/message-search.js"
 grep -q 'Version: 2.0.0' "$STAGE/sabri-network/sabri-network.php"
 
 (
