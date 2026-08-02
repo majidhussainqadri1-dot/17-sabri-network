@@ -8,6 +8,8 @@ final class SN_Activator {
         self::set_defaults();
         self::retire_legacy_secrets();
         SN_DB::install();
+        SN_Meet::install();
+        SN_Meet::register_rewrites();
         SN_Private_Files::ensure_storage();
         self::ensure_network_page();
         self::ensure_cleanup_schedule();

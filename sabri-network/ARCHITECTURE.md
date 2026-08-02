@@ -72,6 +72,14 @@ The default storage path is a sibling of the WordPress root. Storage inside the 
 
 TURN credentials must be short-lived. File 17 stores no long-lived TURN password. Direct calls use File-17 call state and signaling. Group calls remain unavailable unless the SFU is declared healthy, the user is authorized, a provider handles creation, and the provider explicitly declares the UI usable.
 
+### Sabri Meet conference control plane
+
+Sabri Meet remains inside File 17 and registers `/calls/` plus `/calls/{meeting_id}/` with File 20. It owns meeting identifiers, schedule/status, invitation-only or conversation-bound access, waiting-room admission, host/co-host authority, participant records, bounded device sessions, raised-hand/media-state aggregation, host invitations, conversation-backed meeting chat, moderation, short-lived signaling, privacy export/erasure and minimized event evidence. It does not create a second identity authority, global shell, notification transport or parallel chat database.
+
+The runtime tables use the `sn_meet_` prefix: `meetings`, `participants`, `sessions`, `signals`, and `events`. Meeting creation is idempotent per host/request key; joins serialize on the meeting row, revalidate identity/age/block/membership state, enforce participant and device-session ceilings, and use optimistic versions for high-risk mutations. Denied/removed identities and unauthorized meeting identifiers return a generic unavailable response.
+
+Media transport is an adapter boundary. `sn_network_meet_media_config` may return only an authorized participant's short-lived provider room token and capability flags. File 17 does not store that token. `sn_network_meet_peer_signaling_enabled` is false by default. Recording and E2EE claims remain false until separately governed, implemented and independently accepted.
+
 ## Data model
 
 Canonical tables use the WordPress prefix and `sn_` namespace. Important invariants include:

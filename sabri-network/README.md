@@ -5,7 +5,7 @@
 **PHP:** 8.1 or later  
 **Status:** reviewed code candidate; not yet staging-accepted or production-approved
 
-File 17 is the canonical communication owner for the Sabri Social Homeopathy Platform. It provides consent-based relationships, direct and group conversations, private messaging, updates, WebRTC call signaling, blocking, reporting, privacy operations, and integration contracts.
+File 17 is the canonical communication owner for the Sabri Social Homeopathy Platform. It provides consent-based relationships, direct and group conversations, private messaging, updates, direct-call signaling, the Sabri Meet conference control plane, blocking, reporting, privacy operations, and integration contracts.
 
 ## Governing architecture
 
@@ -30,6 +30,14 @@ File 17 is the canonical communication owner for the Sabri Social Homeopathy Pla
 - Rebuilt the responsive, keyboard-operable, RTL-ready interface.
 - Added scoped presence, last-seen, typing indicators, mute/archive preferences, channel posting authority, and call-membership revocation.
 - Added privacy export/erasure coverage for presence, typing and conversation preferences.
+
+## Sabri Meet
+
+Sabri Meet is the File-17 owned meeting and conference surface at `/calls/` and `/calls/{meeting_id}/`. The current coded batch includes opaque invitation links, scheduled/live/ended lifecycle, waiting room, host/co-host roles, admission, denial, removal, forced mute policy, raise/lower hand, meeting lock, host invitations, conversation-backed meeting chat, participant/session limits, bounded per-device sessions, recipient-scoped signaling, privacy export/erasure, no-cache/noindex delivery, responsive accessible controls, and File-20 route registration.
+
+Conference audio/video transport is **provider-gated**. File 17 does not persist provider credentials and exposes a participant-scoped `sn_network_meet_media_config` adapter for short-lived room tokens. Without an approved and tested SFU/media adapter, Sabri Meet truthfully shows that conference media is unavailable; it does not simulate connectivity. Recording remains disabled, peer signaling is deny-by-default, and no audited end-to-end-encryption claim is made. Screen sharing and captions become usable only when the approved provider explicitly advertises those capabilities.
+
+The meeting control plane is coded and automated-contract reviewed, but real SFU/TURN service, provider key governance, load/soak, browser/device, accessibility, staging and operational acceptance remain mandatory release gates.
 
 ## Required integrations
 
@@ -57,7 +65,7 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The package script creates `build/17-sabri-network-and-messages-2.0.0.zip` and its SHA-256 file. The quality command runs both original review suites and the added realtime static/adversarial suites.
+The package script creates `build/17-sabri-network-and-messages-2.0.0.zip` and its SHA-256 file. The quality command runs the original suites, realtime/safety/relationship suites, and four independent Sabri Meet review-and-correction contract suites.
 
 ## Explicit non-claims
 

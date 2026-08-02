@@ -35,3 +35,10 @@ Do not place patient data, message bodies, credentials, private file links, or e
 
 ## Abuse-report evidence and retention
 Reports use a client-generated UUIDv4 for idempotency, a one-way canonical target key, global and same-target throttles, bounded evidence, and a SHA-256 evidence-integrity value. Legal/safety holds may only be changed through the administrator-authorized triage contract. Expired, unheld evidence is first anonymized and later deleted by a bounded locked worker. Ordinary users cannot set a hold or force the internal `expired` state.
+
+
+## Sabri Meet security boundary
+
+Sabri Meet uses authenticated File-17 REST authorization, verified-adult hosting, fail-closed unknown-age handling, explicit guardian/minor policy, block checks, cryptographically random non-enumerable meeting identifiers, required creation idempotency, waiting-room admission, host-only high-risk controls, row locks, optimistic versions, participant/device ceilings, expiring recipient-scoped signals, checked privacy-erasure transactions, observable cleanup failures and no-cache/noindex meeting pages. Raw device session identifiers are HMAC-derived before storage.
+
+Provider media is unavailable by default. An approved adapter may issue a short-lived participant-bound token after admission; long-lived credentials, provider private keys and TURN passwords must never be returned by File 17 or stored in meeting tables. Recording is disabled until a separate consent, retention, access and audit workflow is approved. Captions and screen sharing are capability-gated. The current batch does not claim audited end-to-end encryption.

@@ -19,3 +19,5 @@ Install and test on staging. Connect the identity authority, private storage, ma
 == Changelog ==
 = 2.0.0 =
 Major reviewed architecture, security, privacy, reliability, and interface correction. See CHANGELOG.md.
+
+Sabri Meet: File-17 owned private meeting control plane with waiting-room admission, host invitations/moderation, raised hand, conversation-backed chat, bounded sessions and provider-gated conference media. Recording and E2EE are not claimed.

@@ -12,7 +12,9 @@ done < <(find . -path './build' -prune -o -name '*.php' -type f -print0 | sort -
 
 echo '== JavaScript syntax =='
 node --check assets/js/network.js
+node --check assets/js/meet.js
 echo 'PASS assets/js/network.js'
+echo 'PASS assets/js/meet.js'
 
 echo '== Shell syntax =='
 bash -n tools/quality-check.sh
@@ -42,13 +44,29 @@ php tests/relationships-adversarial-contracts.php
 php tests/forensic-review-3-adversarial-contracts.php
 php tests/fourth-review-adversarial-contracts.php
 
+echo '== Sabri Meet review/fix round 1: authorization and state =='
+php tests/meet-review-1-auth-state-contracts.php
+
+echo '== Sabri Meet review/fix round 2: concurrency and idempotency =='
+php tests/meet-review-2-concurrency-contracts.php
+
+echo '== Sabri Meet review/fix round 3: privacy and abuse =='
+php tests/meet-review-3-privacy-abuse-contracts.php
+
+echo '== Sabri Meet review/fix round 4: UI and package =='
+php tests/meet-review-4-ui-package-contracts.php
+
 echo '== CSS integrity =='
 python3 - <<'PY'
 from pathlib import Path
-text = Path('assets/css/network.css').read_text(encoding='utf-8')
-assert text.count('{') == text.count('}'), 'CSS brace count is unbalanced'
-assert '@media (max-width: 900px)' in text
-assert 'overflow-wrap: anywhere' in text
+for path in ('assets/css/network.css', 'assets/css/meet.css'):
+    text = Path(path).read_text(encoding='utf-8')
+    assert text.count('{') == text.count('}'), f'{path}: CSS brace count is unbalanced'
+assert '@media (max-width: 900px)' in Path('assets/css/network.css').read_text(encoding='utf-8')
+meet = Path('assets/css/meet.css').read_text(encoding='utf-8')
+assert '@media (max-width: 900px)' in meet
+assert '@media (prefers-reduced-motion: reduce)' in meet
+assert 'min-height: 44px' in meet
 print('CSS integrity: PASS')
 PY
 

@@ -15,7 +15,7 @@ Operational: ابھی نہیں
 - direct/group-style conversation foundation
 - private messages، read pointer، reactions، edit/delete windows
 - private attachments، web-root/symlink protection اور controlled delivery
-- updates، bounded presence/typing، direct calls اور WebRTC signaling
+- updates، bounded presence/typing، direct calls، WebRTC signaling اور Sabri Meet conference control plane
 - reports، appeals، legal/safety holds، rate limits، audit اور privacy export/erasure
 - File 00/02، 19، 20، 24 اور 25 integration boundaries
 
@@ -36,7 +36,7 @@ Coding کے باقی حاکم gaps:
 - pin/star/folders/forward/mentions/advanced reply-context flows
 - slow mode، anti-raid اور مکمل space abuse controls
 - File 08/18/21 context-card integrations
-- SFU group calls، screen sharing اور captions
+- Sabri Meet کے حقیقی SFU/TURN provider، production screen sharing، captions، recording-consent workflow اور load acceptance
 - step-up/dual approval high-risk governance
 - staging، real MySQL races، backup/restore، rollback، penetration، load، browser/device، RTL/LTR اور accessibility acceptance
 
@@ -44,3 +44,12 @@ Coding کے باقی حاکم gaps:
 Substantial coded candidate + deterministic package + automated contract QA؛ مگر full governing specification کے مقابل coding ابھی 100% مکمل نہیں۔
 
 یہ نظام audited end-to-end encryption، staging acceptance، production readiness یا operational completion کا دعویٰ نہیں کرتا۔
+
+
+Sabri Meet نئی coding:
+- canonical `/calls/` dashboard اور `/calls/{meeting_id}/` deep link
+- opaque links، idempotent creation، scheduling، waiting room، host admission، invitations، raised hand اور conversation-backed meeting chat
+- host/co-host moderation، lock/end، remove/mute اور bounded participant/device sessions
+- privacy export/erasure، minor/guardian/block fail-closed policy، expiring signaling
+- provider-gated media؛ provider نہ ہو تو false connection یا fake participant نہیں
+- recording disabled، E2EE claim false؛ real SFU/TURN/staging ابھی باقی

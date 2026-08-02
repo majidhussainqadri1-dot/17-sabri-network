@@ -59,9 +59,20 @@
 - Routed public-update attachment minor decisions through canonical `SN_Policy::is_minor` handling.
 - Added 33 fresh static, runtime and adversarial checks for these defects.
 
+### Sabri Meet coding and four-round corrective review
+
+- Added File-17 owned `/calls/` and `/calls/{meeting_id}/` Sabri Meet surfaces without introducing a parallel communication plugin or global navigation.
+- Added opaque meeting links, idempotent creation, scheduling, invitation/conversation access, lobby admission, host/co-host governance, lock/end/remove/mute controls, bounded participants and per-device sessions.
+- Added race-safe join/admission state, session expiry, recipient-scoped expiring signaling, privacy export/erasure, no-cache headers and a provider-gated media adapter.
+- Added accessible prejoin, participant, host and media-control UI with truthful provider-unavailable states, reduced-motion and responsive behavior.
+- Added host invitation UI, canonical conversation-backed meeting chat, raise/lower-hand state, active media indicators, idempotent leave handling and truthful partial-invitation failure reporting.
+- Hardened Meet health-table discovery, privacy-erasure rollback, cleanup observability, signal acknowledgements and leave-time row locking/CAS.
+- Completed four separate review-and-correction suites covering authorization/state, concurrency/idempotency, privacy/minor/abuse boundaries, and UI/package truthfulness.
+- Recording and E2EE claims remain disabled; SFU/TURN/provider, load, browser, staging and operational acceptance remain external gates.
+
 ### Status
 
-Code-reviewed candidate only. The current quality gate executes two independent review rounds with 421 included contract checks (245 in Round 1 and 176 in Round 2), PHP/JavaScript/shell syntax, CSS integrity, repository hygiene, complete installable-source checksum verification and deterministic byte-for-byte packaging. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, backup/restore, cross-file integration and live deployment remain separate gates.
+Code-reviewed candidate only. The current quality gate retains the previously verified 463 contract checks and adds four Sabri Meet review/fix suites with 86 checks, for 549 included checks in total, plus PHP/JavaScript/shell syntax, CSS integrity, repository hygiene, complete installable-source checksum verification and deterministic byte-for-byte packaging. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, backup/restore, cross-file integration and live deployment remain separate gates.
 ## Fourth forensic review — fail-closed age and completeness truth
 
 - Unknown age now receives protective communication defaults and cannot be treated as adult through a not-minor shortcut.

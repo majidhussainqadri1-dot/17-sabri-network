@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sabri Network and Messages
  * Plugin URI: https://www.sabrihomeopathy.com/
- * Description: Canonical File-17 relationship, conversation, private messaging, update, call and abuse-reporting system for the Sabri Social Homeopathy Platform.
+ * Description: Canonical File-17 relationship, messaging, Sabri Meet, call, private update and abuse-reporting system for the Sabri Social Homeopathy Platform.
  * Version: 2.0.0
  * Author: Sabri Homeopathy
  * Text Domain: sabri-network
@@ -29,6 +29,7 @@ require_once SN_DIR . 'includes/class-sn-admin.php';
 require_once SN_DIR . 'includes/class-sn-rest.php';
 require_once SN_DIR . 'includes/class-sn-ajax.php';
 require_once SN_DIR . 'includes/class-sn-shortcode.php';
+require_once SN_DIR . 'includes/class-sn-meet.php';
 
 register_activation_hook(__FILE__, ['SN_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['SN_Activator', 'deactivate']);
@@ -59,6 +60,7 @@ final class Sabri_Network {
         SN_Ajax::register();
         SN_Privacy::register();
         SN_Private_Files::register();
+        SN_Meet::register();
 
         add_filter('query_vars', [$this, 'query_vars']);
         add_filter('template_include', [$this, 'safe_template'], 99);
