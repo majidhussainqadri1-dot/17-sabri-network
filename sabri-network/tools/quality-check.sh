@@ -14,9 +14,11 @@ echo '== JavaScript syntax =='
 node --check assets/js/network.js
 node --check assets/js/meet.js
 node --check assets/js/messages.js
+node --check assets/js/message-search.js
 echo 'PASS assets/js/network.js'
 echo 'PASS assets/js/meet.js'
 echo 'PASS assets/js/messages.js'
+echo 'PASS assets/js/message-search.js'
 
 echo '== Shell syntax =='
 bash -n tools/quality-check.sh
@@ -64,10 +66,16 @@ php tests/messages-review-1-static-contracts.php
 echo '== Messages review/fix round 2: privacy, concurrency and accessibility =='
 php tests/messages-review-2-adversarial-contracts.php
 
+echo '== Search/outbox review/fix round 1: indexed search and transactional delivery =='
+php tests/search-outbox-review-1-static-contracts.php
+
+echo '== Search/outbox review/fix round 2: fresh privacy, replay and failure paths =='
+php tests/search-outbox-review-2-adversarial-contracts.php
+
 echo '== CSS integrity =='
 python3 - <<'PY'
 from pathlib import Path
-for path in ('assets/css/network.css', 'assets/css/meet.css', 'assets/css/messages.css'):
+for path in ('assets/css/network.css', 'assets/css/meet.css', 'assets/css/messages.css', 'assets/css/message-search.css'):
     text = Path(path).read_text(encoding='utf-8')
     assert text.count('{') == text.count('}'), f'{path}: CSS brace count is unbalanced'
 assert '@media (max-width: 900px)' in Path('assets/css/network.css').read_text(encoding='utf-8')
@@ -79,6 +87,12 @@ messages = Path('assets/css/messages.css').read_text(encoding='utf-8')
 assert '@media (max-width: 900px)' in messages
 assert '@media (prefers-reduced-motion: reduce)' in messages
 assert 'min-height: 44px' in messages
+search = Path('assets/css/message-search.css').read_text(encoding='utf-8')
+assert '@media(max-width:900px)' in search
+assert '@media(prefers-reduced-motion:reduce)' in search
+assert 'min-height:44px' in search
+assert '.snms-result' in search
+assert '.snms-context-message.is-target' in search
 print('CSS integrity: PASS')
 PY
 
