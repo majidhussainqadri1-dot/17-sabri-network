@@ -29,7 +29,12 @@ $assert(str_contains($rest, "START TRANSACTION") && str_contains($rest, "ROLLBAC
 $assert(str_contains($policy, 'SN_DB::is_blocked($viewer_id, $target_id)'), 'blocked users cannot observe presence');
 $assert(str_contains($policy, '$contacts = SN_DB::are_contacts'), 'presence evaluates accepted relationship state');
 $assert(str_contains($policy, '$shared = SN_DB::share_active_conversation'), 'presence requires a valid relationship context');
-$assert(str_contains($policy, 'self::is_minor($target_id) && !$contacts'), 'minor presence does not leak through incidental group membership');
+$assert(
+    str_contains($policy, "$target_age_state = self::age_state($target_id)")
+    && str_contains($policy, "$target_age_state === 'unknown'")
+    && str_contains($policy, "$target_age_state === 'minor' && !$contacts"),
+    'unknown-age presence is denied and minor presence does not leak through incidental group membership'
+);
 $assert(str_contains($policy, '$visibility === \'contacts\' && $contacts'), 'contacts-only last seen is enforced');
 $assert(str_contains($rest, 'array_slice(array_values(array_unique(array_filter(array_map(\'absint\''), 'presence input is normalized');
 $assert(str_contains($rest, '0, 100)'), 'presence fan-out is bounded');
