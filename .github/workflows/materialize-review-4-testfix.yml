@@ -1,0 +1,34 @@
+name: File 17 Materialize Review 4 Test Fix
+
+on:
+  push:
+    branches:
+      - codex/file-17-review-2.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/file-17-review-2.0.0
+          fetch-depth: 1
+      - name: Correct review contract literals
+        run: |
+          if [[ ! -f .github/review4-testfix.b64 ]]; then
+            exit 0
+          fi
+          base64 -d .github/review4-testfix.b64 | gzip -d > /tmp/review4-testfix.py
+          python /tmp/review4-testfix.py
+          rm -f .github/review4-testfix.b64
+      - name: Commit corrected review contracts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix File 17 fourth-review contract regressions"
+          git push origin HEAD:codex/file-17-review-2.0.0
