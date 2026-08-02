@@ -75,7 +75,7 @@ bash tools/package.sh
 
 The quality workflow runs the inherited File-17 contract suites, Sabri Meet reviews, Messages/receipt reviews, and two independent indexed-search/outbox review-and-fix suites, followed by syntax, CSS, repository-hygiene, exact installable-source checksums, and deterministic byte-for-byte packaging.
 
-## Coding-completeness boundary
+## Coding completeness
 
 This branch is not 100% complete against the full governing specification. Remaining major scope includes complete spaces governance, general per-device presence and revocation, advanced message organization, space abuse controls, File 08/18/21 context adapters, production conference-media infrastructure, high-risk step-up/dual approval, and full staging/operational acceptance. `CODING-COMPLETENESS.md` is the controlling gap record.
 
