@@ -21,3 +21,6 @@ Install and test on staging. Connect the identity authority, private storage, ma
 Major reviewed architecture, security, privacy, reliability, and interface correction. See CHANGELOG.md.
 
 Sabri Meet: File-17 owned private meeting control plane with waiting-room admission, host invitations/moderation, raised hand, conversation-backed chat, bounded sessions and provider-gated conference media. Recording and E2EE are not claimed.
+
+= Indexed message search and reliable events =
+Conversation-local search uses hashed tokens and signed viewer-scoped cursors. Message mutations, search index changes and metadata-only outbox events commit atomically. Notification delivery remains the responsibility of the platform notification module.
