@@ -35,8 +35,8 @@ $check(str_contains($rate, 'INSERT IGNORE INTO $table') && str_contains($rate, '
 $check(str_contains($rate, 'AND (expires_at<=%s OR hits<%d)'), 'The atomic rate update must enforce expiry reset or a below-limit ceiling in SQL.');
 $check(!str_contains($rate, 'get_row(') && !str_contains($rate, '->replace('), 'Rate limiting must not use the former read-then-replace counter reset path.');
 $check(str_contains($rest, 'last_message_id=GREATEST(last_message_id,%d)') && str_contains($rest, 'updated_at=GREATEST(updated_at,%s)'), 'Conversation message pointers and timestamps must be monotonic under concurrent sends.');
-$check(str_contains($db, "privacy === 'public' && !SN_Policy::is_minor"), 'Private attachment authorization must use the canonical minor decision for public updates.');
-$check(!str_contains($safety, "\$stored !== ''\n            &&"), 'An existing empty malformed retention lock must not become permanently unrecoverable.');
+$check(str_contains($db, "privacy === 'public' && SN_Policy::has_verified_adult_age"), 'Private attachment authorization must require an explicit verified-adult age state for public updates.');
+$check(!str_contains($safety, "$stored !== ''\n            &&"), 'An existing empty malformed retention lock must not become permanently unrecoverable.');
 
 if ($failures) {
     fwrite(STDERR, "Forensic review 3 static failures (" . count($failures) . "/$checks):\n");
