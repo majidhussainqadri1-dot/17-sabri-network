@@ -82,3 +82,10 @@ Code-reviewed candidate only. The current quality gate retains the previously ve
 - Read-pointer database failure returns an error and is audited.
 - Added repository-level coding-completeness evidence and 42 new static/runtime/adversarial checks.
 
+
+### 2.0.0 — indexed search and reliable delivery hardening
+- Added active-member-only indexed server-side message search with hashed tokens, signed snapshot pagination and signed bounded context navigation.
+- Added transactional event outbox/inbox, explicit delivery acknowledgements, bounded retry, stale-lock recovery and dead-letter operations.
+- Made send/edit/delete/receipt mutations atomic with search-index and event records.
+- Added responsive, RTL-ready and reduced-motion message-search UI.
+- Added two independent review/fix suites and completion-truth regression coverage.
