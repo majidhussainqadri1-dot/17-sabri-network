@@ -29,6 +29,7 @@ require_once SN_DIR . 'includes/class-sn-admin.php';
 require_once SN_DIR . 'includes/class-sn-rest.php';
 require_once SN_DIR . 'includes/class-sn-ajax.php';
 require_once SN_DIR . 'includes/class-sn-shortcode.php';
+require_once SN_DIR . 'includes/class-sn-messages.php';
 require_once SN_DIR . 'includes/class-sn-meet.php';
 
 register_activation_hook(__FILE__, ['SN_Activator', 'activate']);
@@ -60,6 +61,7 @@ final class Sabri_Network {
         SN_Ajax::register();
         SN_Privacy::register();
         SN_Private_Files::register();
+        SN_Messages::register();
         SN_Meet::register();
 
         add_filter('query_vars', [$this, 'query_vars']);
@@ -76,6 +78,7 @@ final class Sabri_Network {
 
     public function init(): void {
         SN_DB::maybe_upgrade();
+        SN_Messages::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
@@ -83,8 +86,10 @@ final class Sabri_Network {
         if ((string) get_option('sn_plugin_version', '') !== SN_VERSION) {
             SN_Activator::retire_legacy_secrets();
             SN_DB::install();
+            SN_Messages::install();
             SN_Private_Files::ensure_storage();
             SN_Activator::ensure_network_page(true);
+            SN_Messages::ensure_pages(true);
             update_option('sn_plugin_version', SN_VERSION, false);
             flush_rewrite_rules(false);
         }
@@ -106,6 +111,9 @@ final class Sabri_Network {
             'block_method' => 'POST',
             'conversation_route' => rest_url('sabri-network/v2/conversations'),
             'conversation_method' => 'POST',
+            'message_receipt_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/receipts'),
+            'messages_url' => SN_Messages::messages_url(),
+            'communication_settings_url' => SN_Messages::settings_url(),
         ]);
 
         do_action('sn_network_route_registered', [
@@ -174,6 +182,13 @@ final class Sabri_Network {
         $page_ok = $page_id && SN_Activator::is_owned_page($page_id) && get_post_status($page_id) === 'publish';
         if (!$page_ok) {
             echo '<div class="notice notice-error"><p><strong>Sabri Network:</strong> The owned Network page is missing. Open <a href="' . esc_url(admin_url('admin.php?page=sabri-network')) . '">Network</a> and run repair.</p></div>';
+        }
+        $messages_page_id = (int) get_option('sn_messages_page_id');
+        $settings_page_id = (int) get_option('sn_communication_settings_page_id');
+        $messages_ok = $messages_page_id > 0 && get_post_status($messages_page_id) === 'publish';
+        $settings_ok = $settings_page_id > 0 && get_post_status($settings_page_id) === 'publish';
+        if (!$messages_ok || !$settings_ok) {
+            echo '<div class="notice notice-warning"><p><strong>Sabri Messages:</strong> One or more File-17-owned Messages surfaces require repair. Reactivate the plugin or run the File 17 repair workflow before staging acceptance.</p></div>';
         }
     }
 }
