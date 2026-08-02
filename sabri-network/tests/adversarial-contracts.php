@@ -65,14 +65,14 @@ adv_check(str_contains($db, 'UNIQUE KEY pair_key (pair_key)'), 'Relationship rac
 // Messaging and conversation consistency.
 adv_check(str_contains($db, 'UNIQUE KEY direct_key (direct_key)') && str_contains($rest, 'restore_direct_conversation'), 'Direct conversation creation must be unique and safely recoverable.');
 adv_check(str_contains($db, 'UNIQUE KEY idempotency_key (idempotency_key)') && str_contains($rest, "'duplicate' => true"), 'Message retries must be database-idempotent.');
-adv_check(str_contains($rest, "'attachment_source' => \$attachment ? 'private' : 'none'"), 'New text messages must not be mislabeled as legacy public attachments.');
-adv_check(str_contains($rest, 'SN_Private_Files::delete((int) $attachment[\'id\'], $user_id);'), 'A failed or duplicate message write must not orphan a private upload.');
-adv_check(str_contains($conversationFormatSection, "\$item['member_ids'] = \$member_ids;") && strpos($conversationFormatSection, "\$item['member_ids'] = \$member_ids;") > strpos($conversationFormatSection, 'if ($include_members)'), 'Conversation-list projections must not expose the full member-ID list by default.');
+adv_check(str_contains($rest, "'attachment_source' => $attachment ? 'private' : 'none'"), 'New text messages must not be mislabeled as legacy public attachments.');
+adv_check(str_contains($rest, "SN_Private_Files::delete((int) $attachment['id'], $user_id);"), 'A failed or duplicate message write must not orphan a private upload.');
+adv_check(str_contains($conversationFormatSection, "$item['member_ids'] = $member_ids;") && strpos($conversationFormatSection, "$item['member_ids'] = $member_ids;") > strpos($conversationFormatSection, 'if ($include_members)'), 'Conversation-list projections must not expose the full member-ID list by default.');
 
 // Private-file and upload abuse review.
 adv_check(str_contains($files, 'dirname(untrailingslashit(ABSPATH))') && str_contains($files, 'self::is_inside_web_root($dir)'), 'Private storage must be outside and explicitly checked against the web root.');
 adv_check(!str_contains($files, 'allow_private_storage_inside') && !str_contains($files, 'allow_web_root_storage'), 'There must be no runtime bypass for storage inside the public web root.');
-adv_check(!preg_match('/owner_id\s*===\s*\$user_id.*return true/s', $db), 'Attachment ownership alone must not grant download access after the message/update reference is gone.');
+adv_check(!preg_match('/owner_id\s*===\s*$user_id.*return true/s', $db), 'Attachment ownership alone must not grant download access after the message/update reference is gone.');
 adv_check(str_contains($files, 'scanner_required') && str_contains($files, 'application/pdf'), 'Documents must fail closed without scanner evidence and PDF signature validation.');
 adv_check(str_contains($files, 'Content-Range: bytes */') && str_contains($files, 'status_header(416)'), 'Invalid range requests must fail with HTTP 416.');
 adv_check(str_contains($files, "filename*=UTF-8\\'\\''") && str_contains($files, 'Cache-Control: private, no-store'), 'Private delivery must use safe filenames and no-store caching.');
@@ -80,11 +80,11 @@ adv_check(str_contains($files, "filename*=UTF-8\\'\\''") && str_contains($files,
 // Call, TURN, signaling, and concurrency review.
 adv_check(!str_contains($meSection, 'ice_servers'), 'The general /me response must not disclose TURN credentials.');
 adv_check(str_contains($auth, 'SN_DB::is_member($conversation_id, $user_id)') && str_contains($auth, 'sn_network_ephemeral_turn_credentials'), 'ICE credentials must be short-lived and scoped to conversation membership.');
-adv_check(strpos($rest, 'conversation_contact_check($conversation, $conversation_id, $user_id, \'call\')') < strpos($rest, "sn_network_group_call_create_result"), 'Call policy checks must run before delegation to a group-call provider.');
+adv_check(strpos($rest, "conversation_contact_check($conversation, $conversation_id, $user_id, 'call')") < strpos($rest, "sn_network_group_call_create_result"), 'Call policy checks must run before delegation to a group-call provider.');
 adv_check(str_contains($rest, 'SN_Policy::can_use_group_calls($user_id, $conversation_id)') && str_contains($rest, 'group_call_forbidden'), 'Group-call delegation must be capability and SFU gated.');
 adv_check(str_contains($db, 'UNIQUE KEY active_key (active_key)') && str_contains($db, 'backfill_active_call_keys'), 'Only one ringing/active call may exist per conversation.');
-adv_check(str_contains($rest, 'if ($current === $status)') && str_contains($rest, '$response[\'ice_servers\'] = SN_Auth::ice_servers'), 'A retried join response must still return scoped ICE configuration.');
-adv_check(substr_count($rest, "START TRANSACTION") >= 4 && str_contains($rest, 'call_cleanup_failed'), 'Call status changes and cleanup must be transactionally guarded.');
+adv_check(str_contains($rest, 'if ($current === $status)') && str_contains($rest, "$response['ice_servers'] = SN_Auth::ice_servers"), 'A retried join response must still return scoped ICE configuration.');
+adv_check(substr_count($rest, 'START TRANSACTION') >= 4 && str_contains($rest, 'call_cleanup_failed'), 'Call status changes and cleanup must be transactionally guarded.');
 adv_check(str_contains($rest, 'active_call_block_cleanup_failed'), 'Blocking a user must end any active direct call and remove signaling state.');
 adv_check(str_contains($rest, 'sanitize_signal_payload') && str_contains($rest, 'call_signal_forbidden') && str_contains($rest, '/signals/ack'), 'WebRTC signaling must validate state and payloads and support acknowledgement.');
 adv_check(str_contains($db, "status='ringing' AND created_at<%s") && str_contains($db, "status='active' AND COALESCE(started_at,created_at)<%s"), 'Stale ringing and active calls must be bounded and cleaned.');
@@ -95,8 +95,8 @@ foreach (['sabri-network-messages', 'sabri-network-updates', 'sabri-network-cont
     adv_check(str_contains($privacy, $group), "Privacy export must include $group.");
 }
 adv_check(str_contains($privacy, "['owner_id' => 0, 'status' => 'archived'") , 'Erasure must not leave an active ownerless conversation.');
-adv_check(!str_contains($privacy, 'self::delete_ids(SN_DB::table(\'signals\'), \'call_id\', $call_ids)'), 'Erasing one group-call member must not indiscriminately delete every participant signal by call ID.');
-adv_check(str_contains($safety, "details='',evidence='[]'") && str_contains($safety, "reporter_id=%d AND legal_hold=0"), 'Reporter-authored free text and evidence must be erased when no hold applies.');
+adv_check(!str_contains($privacy, "self::delete_ids(SN_DB::table('signals'), 'call_id', $call_ids)"), 'Erasing one group-call member must not indiscriminately delete every participant signal by call ID.');
+adv_check(str_contains($safety, "details='',evidence='[]'") && str_contains($safety, 'reporter_id=%d AND legal_hold=0'), 'Reporter-authored free text and evidence must be erased when no hold applies.');
 
 // UI, route, and presentation boundaries.
 adv_check(str_contains($shortcode, 'SN_Activator::is_owned_page($page_id)'), 'Assets must load only on the File-17-owned Network page or safe route.');
@@ -111,10 +111,10 @@ adv_check(str_contains($quality, 'tests/static-contracts.php') && str_contains($
 adv_check(str_contains($package, "--exclude='.gitignore'") && str_contains($package, "--exclude='tests/'") && str_contains($package, "--exclude='tools/'"), 'The production ZIP must exclude development-only files.');
 adv_check(!str_contains($all, 'End-to-End Encrypted') && !str_contains($all, '100% Secure'), 'Unsupported E2EE or absolute-security claims must not appear.');
 adv_check(str_contains($rest, 'transfer_conversation_owner') && str_contains($rest, 'Only the current conversation owner may transfer ownership.'), 'Ownership transfer must be restricted to the current owner.');
-adv_check(str_contains($rest, 'SN_Policy::is_suspended($target_id) || SN_Policy::is_minor($target_id)') && str_contains($rest, 'The new owner must be an active conversation member.'), 'An ineligible or departed member must not become a conversation owner.');
+adv_check(str_contains($rest, '!SN_Policy::has_verified_adult_age($target_id)') && str_contains($rest, 'The new owner must be an active conversation member.'), 'An ineligible, unknown-age, minor, or departed member must not become a conversation owner.');
 adv_check(str_contains($rest, 'SELECT user_id,role,left_at FROM $members') && str_contains($rest, 'FOR UPDATE'), 'Ownership transfer must lock and revalidate membership inside the transaction.');
 adv_check(strpos($files, '// Revoke authorization before touching bytes') < strpos($files, '$bytes_deleted ='), 'Logical attachment revocation must precede destructive byte removal.');
-adv_check(str_contains($files, '$resolved = realpath($dir);') && str_contains($files, "\$chunk === false || \$chunk === ''"), 'Symlinked storage and zero-length stream reads must be handled safely.');
+adv_check(str_contains($files, '$resolved = realpath($dir);') && str_contains($files, "$chunk === false || $chunk === ''"), 'Symlinked storage and zero-length stream reads must be handled safely.');
 adv_check(str_contains($db, 'private_attachment_is_referenced') && str_contains($db, 'expired_update_cleanup_failed'), 'Expired-update cleanup must preserve shared attachments and fail safely on database errors.');
 adv_check(str_contains($main, 'SN_Activator::ensure_cleanup_schedule()') && str_contains($js, 'Number.isNaN(date.getTime())'), 'Upgrade cron and malformed client timestamps must degrade safely.');
 adv_check(str_contains($js, 'api(`conversations/${conversation.id}/owner`') && str_contains($js, "window.confirm('Transfer conversation ownership"), 'The owner-leave dead end must have an explicit, confirmed UI path.');
