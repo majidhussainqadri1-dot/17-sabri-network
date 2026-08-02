@@ -121,7 +121,11 @@ echo '== Installable source checksums =='
     diff -u <(printf '%s\n' "$expected_files") <(printf '%s\n' "$listed_files") >&2 || true
     exit 1
   fi
-  sha256sum -c CHECKSUMS.sha256
+  if ! sha256sum -c CHECKSUMS.sha256; then
+    echo 'Actual installable source digests:' >&2
+    while IFS= read -r path; do sha256sum "$path"; done < <(awk '{print $2}' CHECKSUMS.sha256) >&2
+    exit 1
+  fi
 )
 echo 'Installable source checksums: PASS'
 
