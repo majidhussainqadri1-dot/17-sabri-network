@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sabri Network and Messages
  * Plugin URI: https://www.sabrihomeopathy.com/
- * Description: Canonical File-17 relationship, messaging, Sabri Meet, call, private update and abuse-reporting system for the Sabri Social Homeopathy Platform.
+ * Description: Canonical File-17 relationship, messaging, indexed private search, reliable event delivery, Sabri Meet, call, private update and abuse-reporting system for the Sabri Social Homeopathy Platform.
  * Version: 2.0.0
  * Author: Sabri Homeopathy
  * Text Domain: sabri-network
@@ -18,6 +18,8 @@ define('SN_DIR', plugin_dir_path(__FILE__));
 define('SN_URL', plugin_dir_url(__FILE__));
 
 require_once SN_DIR . 'includes/class-sn-db.php';
+require_once SN_DIR . 'includes/class-sn-outbox.php';
+require_once SN_DIR . 'includes/class-sn-message-search.php';
 require_once SN_DIR . 'includes/class-sn-safety.php';
 require_once SN_DIR . 'includes/class-sn-policy.php';
 require_once SN_DIR . 'includes/class-sn-private-files.php';
@@ -30,10 +32,12 @@ require_once SN_DIR . 'includes/class-sn-rest.php';
 require_once SN_DIR . 'includes/class-sn-ajax.php';
 require_once SN_DIR . 'includes/class-sn-shortcode.php';
 require_once SN_DIR . 'includes/class-sn-messages.php';
+require_once SN_DIR . 'includes/class-sn-message-integrity.php';
 require_once SN_DIR . 'includes/class-sn-meet.php';
 
 register_activation_hook(__FILE__, ['SN_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['SN_Activator', 'deactivate']);
+register_deactivation_hook(__FILE__, ['SN_Outbox', 'deactivate']);
 
 final class Sabri_Network {
     private static ?Sabri_Network $instance = null;
@@ -62,6 +66,9 @@ final class Sabri_Network {
         SN_Privacy::register();
         SN_Private_Files::register();
         SN_Messages::register();
+        SN_Message_Search::register();
+        SN_Outbox::register();
+        SN_Message_Integrity::register();
         SN_Meet::register();
 
         add_filter('query_vars', [$this, 'query_vars']);
@@ -79,6 +86,8 @@ final class Sabri_Network {
     public function init(): void {
         SN_DB::maybe_upgrade();
         SN_Messages::maybe_upgrade();
+        SN_Message_Search::maybe_upgrade();
+        SN_Outbox::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
@@ -87,6 +96,8 @@ final class Sabri_Network {
             SN_Activator::retire_legacy_secrets();
             SN_DB::install();
             SN_Messages::install();
+            SN_Message_Search::install();
+            SN_Outbox::install();
             SN_Private_Files::ensure_storage();
             SN_Activator::ensure_network_page(true);
             SN_Messages::ensure_pages(true);
@@ -112,6 +123,9 @@ final class Sabri_Network {
             'conversation_route' => rest_url('sabri-network/v2/conversations'),
             'conversation_method' => 'POST',
             'message_receipt_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/receipts'),
+            'message_search_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search'),
+            'message_context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search/context'),
+            'event_delivery_contract' => 'sn_network_event_dispatched',
             'messages_url' => SN_Messages::messages_url(),
             'communication_settings_url' => SN_Messages::settings_url(),
         ]);
