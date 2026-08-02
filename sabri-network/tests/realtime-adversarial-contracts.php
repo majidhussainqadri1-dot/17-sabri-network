@@ -30,9 +30,9 @@ $assert(str_contains($policy, 'SN_DB::is_blocked($viewer_id, $target_id)'), 'blo
 $assert(str_contains($policy, '$contacts = SN_DB::are_contacts'), 'presence evaluates accepted relationship state');
 $assert(str_contains($policy, '$shared = SN_DB::share_active_conversation'), 'presence requires a valid relationship context');
 $assert(
-    str_contains($policy, "$target_age_state = self::age_state($target_id)")
-    && str_contains($policy, "$target_age_state === 'unknown'")
-    && str_contains($policy, "$target_age_state === 'minor' && !$contacts"),
+    str_contains($policy, "\$target_age_state = self::age_state(\$target_id)")
+    && str_contains($policy, "\$target_age_state === 'unknown'")
+    && str_contains($policy, "\$target_age_state === 'minor' && !\$contacts"),
     'unknown-age presence is denied and minor presence does not leak through incidental group membership'
 );
 $assert(str_contains($policy, '$visibility === \'contacts\' && $contacts'), 'contacts-only last seen is enforced');
