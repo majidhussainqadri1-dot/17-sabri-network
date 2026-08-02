@@ -17,7 +17,8 @@ fr4a_check(str_contains($policy, 'return !self::has_verified_adult_age($user_id)
 fr4a_check(str_contains($rest, "if (\$age_state === 'unknown')") && strpos($rest, "if (\$age_state === 'unknown')") < strpos($rest, "if (\$age_state === 'minor'"), 'Directory must reject unknown age before optional minor discovery.');
 fr4a_check(str_contains($rest, "return new WP_Error('owner_ineligible'") && str_contains($rest, '!SN_Policy::has_verified_adult_age($target_id)'), 'Unknown-age members must not receive conversation ownership.');
 fr4a_check(str_contains($rest, 'return self::database_error();') && str_contains($rest, 'message_read_pointer_update_failed'), 'A failed read-pointer write must not return a false success response.');
-foreach (['Spaces governance','Per-recipient message receipts','Multi-device presence','Server-side message search','Reliable event delivery','Operational completion'] as $requiredGap) {
+fr4a_check(str_contains($completeness, 'native recipient/device message-receipt persistence'), 'Completeness evidence must record per-recipient message receipts as implemented after the Messages batch.');
+foreach (['Spaces governance','General multi-device presence','Server-side message search','Reliable event delivery','Operational completion'] as $requiredGap) {
     fr4a_check(str_contains($completeness, $requiredGap), "Completeness evidence must disclose missing scope: $requiredGap");
 }
 fr4a_check(!str_contains($completeness, 'Coding completion: 100%'), 'Completeness evidence must not claim 100% coding.');
