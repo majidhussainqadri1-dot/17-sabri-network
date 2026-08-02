@@ -18,7 +18,7 @@ Four separate review/fix suites cover:
 3. privacy and abuse resistance — 22 checks;
 4. UI, accessibility and package truthfulness — 22 checks.
 
-The current clean GitHub Actions run passed all four Sabri Meet suites, the pre-existing 463 File-17 checks, syntax/integrity gates, all 30 installable-source checksums and deterministic package reproduction. The resulting installable ZIP SHA-256 is `1e6c80f49b5af7ea3fd73e974bece3a1ba09f20f1aaa666ac127235eaa0233e1`.
+The clean GitHub Actions verification on PR head `6d307d4777aa5c1d212b4a4fb31f01e94652d2a0` passed all four Sabri Meet suites, the pre-existing 463 File-17 checks, syntax/integrity gates, all 30 installable-source checksums and deterministic package reproduction. The installable ZIP SHA-256 is `1e6c80f49b5af7ea3fd73e974bece3a1ba09f20f1aaa666ac127235eaa0233e1`.
 
 ## Governing-specification scope not yet fully coded
 
