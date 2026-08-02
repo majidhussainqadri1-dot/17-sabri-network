@@ -18,11 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
           fetch-depth: 1
       - name: Materialize Sabri Meet coding batch
         id: materialize
-        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/file-17-review-2.0.0'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/codex/file-17-review-2.0.0') || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/file-17-review-2.0.0')
         run: |
           if [[ ! -d .github/sabri-meet-payload ]]; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
