@@ -1,0 +1,33 @@
+name: Baseline Integrity
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify transport checksums
+        run: sha256sum --check CHECKSUMS.sha256
+
+      - name: Reconstruct and verify original archive
+        run: bash tools/reconstruct-source-package.sh /tmp/17-sabri-network-1.1.0.zip
+
+      - name: Extract package for validation
+        run: unzip -q /tmp/17-sabri-network-1.1.0.zip -d /tmp/file17-source
+
+      - name: Validate PHP syntax
+        run: find /tmp/file17-source/sabri-network -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Validate JavaScript syntax
+        run: node --check /tmp/file17-source/sabri-network/assets/js/network.js
+
+      - name: Verify plugin header version
+        run: grep -q 'Version: 1.1.0' /tmp/file17-source/sabri-network/sabri-network.php
