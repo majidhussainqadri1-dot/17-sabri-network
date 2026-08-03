@@ -14,13 +14,18 @@ final class SN_CF01_Clinical_Context {
     public const CONTRACT_VERSION = '1.0.0';
     private const SCHEMA_VERSION = '1.0.0';
     private const ASSERTION_TTL = 60;
-    private const DEFAULT_REFERENCE_TTL = 2592000; // 30 days.
-    private const MAX_REFERENCE_TTL = 15552000; // 180 days.
+    private const DEFAULT_REFERENCE_TTL = 2592000;
+    private const MAX_REFERENCE_TTL = 15552000;
     private const PURPOSES = [
         'care_coordination',
         'follow_up_reference',
         'patient_requested_context',
         'clinician_authored_summary_source',
+    ];
+    private const RETENTION_CLASSES = [
+        'communication_standard',
+        'communication_extended',
+        'legal_hold',
     ];
 
     public static function register(): void {
@@ -64,65 +69,45 @@ final class SN_CF01_Clinical_Context {
         }
     }
 
-    /**
-     * Create or return an idempotent File 17-owned opaque reference.
-     *
-     * External professional and consent owners must explicitly authorize the
-     * request through the two fail-closed filters documented below.
-     *
-     * @return array<string,mixed>|WP_Error
-     */
+    /** @return array<string,mixed>|WP_Error */
     public static function issue_reference(int $conversation_id, int $actor_id, array $context): array|WP_Error {
         global $wpdb;
         if ($conversation_id <= 0 || $actor_id <= 0 || !SN_DB::is_member($conversation_id, $actor_id)) {
             return self::not_found();
         }
         $conversation = self::conversation($conversation_id);
-        if (!$conversation || (string) $conversation->status !== 'active') {
+        if (!$conversation || (string) $conversation->status !== 'active' || self::direct_conversation_blocked($conversation, $actor_id)) {
             return self::not_found();
         }
-
         $purpose = sanitize_key((string) ($context['purpose'] ?? ''));
         if (!in_array($purpose, self::PURPOSES, true)) {
             return self::error('sn_cf01_purpose_invalid', 'Select an approved clinical-context reference purpose.', 400);
         }
         $consent_reference = self::opaque_value((string) ($context['consent_reference'] ?? ''));
+        $idempotency = self::opaque_value((string) ($context['idempotency_key'] ?? ''));
         if ($consent_reference === '') {
             return self::error('sn_cf01_consent_reference_required', 'An opaque consent reference is required.', 400);
         }
-        $idempotency = self::opaque_value((string) ($context['idempotency_key'] ?? ''));
         if ($idempotency === '') {
             return self::error('sn_cf01_idempotency_required', 'An idempotency key is required.', 400);
         }
-
-        $issuer_authorized = apply_filters(
-            'sn_cf01_clinical_context_issuer_authorized',
-            false,
-            $actor_id,
-            $conversation_id,
-            $purpose,
-            $context
-        );
-        if ($issuer_authorized !== true) {
+        if (apply_filters('sn_cf01_clinical_context_issuer_authorized', false, $actor_id, $conversation_id, $purpose, $context) !== true) {
             return self::error('sn_cf01_issuer_not_authorized', 'The clinical-context issuer is not authorized.', 403);
         }
-        $consent_authorized = apply_filters(
-            'sn_cf01_clinical_context_consent_authorized',
-            false,
-            $actor_id,
-            $conversation_id,
-            $purpose,
-            $consent_reference,
-            $context
-        );
-        if ($consent_authorized !== true) {
+        if (apply_filters('sn_cf01_clinical_context_consent_authorized', false, $actor_id, $conversation_id, $purpose, $consent_reference, $context) !== true) {
             return self::error('sn_cf01_consent_not_authorized', 'The clinical-context consent could not be verified.', 403);
         }
 
-        $ttl = absint($context['ttl_seconds'] ?? self::DEFAULT_REFERENCE_TTL);
-        $ttl = max(300, min(self::MAX_REFERENCE_TTL, $ttl));
+        $ttl = max(300, min(self::MAX_REFERENCE_TTL, absint($context['ttl_seconds'] ?? self::DEFAULT_REFERENCE_TTL)));
         $expires_at = gmdate('Y-m-d H:i:s', time() + $ttl);
-        $retention_class = self::retention_class((string) ($context['retention_class'] ?? 'communication_standard'));
+        $retention_class = self::retention_class((string) apply_filters(
+            'sn_cf01_clinical_context_retention_class',
+            'communication_standard',
+            $actor_id,
+            $conversation_id,
+            $purpose,
+            $context
+        ));
         $idempotency_hash = self::keyed_hash($actor_id . '|' . $idempotency, 'idempotency');
         $consent_hash = self::keyed_hash($consent_reference, 'consent');
         $now = self::now();
@@ -140,13 +125,13 @@ final class SN_CF01_Clinical_Context {
                     || (string) $existing->purpose !== $purpose) {
                     throw new RuntimeException('idempotency_scope_mismatch');
                 }
-                if ((string) $existing->status !== 'active' || strtotime((string) $existing->expires_at . ' UTC') <= time()) {
+                if ((string) $existing->status !== 'active' || self::timestamp((string) $existing->expires_at) <= time()) {
                     throw new RuntimeException('idempotent_reference_inactive');
                 }
                 if ($wpdb->query('COMMIT') === false) {
                     throw new RuntimeException('reference_read_commit_failed');
                 }
-                return self::assertion((string) $existing->reference_uuid, $actor_id, ['purpose' => $purpose]);
+                return self::issuance_receipt($existing);
             }
 
             $reference_uuid = strtolower(wp_generate_uuid4());
@@ -193,33 +178,32 @@ final class SN_CF01_Clinical_Context {
             if ($wpdb->query('COMMIT') === false) {
                 throw new RuntimeException('reference_commit_failed');
             }
-            return self::assertion($reference_uuid, $actor_id, ['purpose' => $purpose]);
+            return self::issuance_receipt((object) [
+                'reference_uuid' => $reference_uuid,
+                'version' => 1,
+                'purpose' => $purpose,
+                'status' => 'active',
+                'expires_at' => $expires_at,
+                'retention_class' => $retention_class,
+            ]);
         } catch (Throwable $exception) {
             $wpdb->query('ROLLBACK');
             $code = $exception->getMessage() === 'idempotency_scope_mismatch'
                 ? 'sn_cf01_idempotency_scope_mismatch'
                 : 'sn_cf01_reference_issue_failed';
-            $status = $code === 'sn_cf01_idempotency_scope_mismatch' ? 409 : 500;
-            return self::error($code, 'The opaque clinical-context reference could not be issued.', $status);
+            return self::error($code, 'The opaque clinical-context reference could not be issued.', $code === 'sn_cf01_idempotency_scope_mismatch' ? 409 : 500);
         }
     }
 
-    /**
-     * Read a short-lived, non-authorizing communication-context assertion.
-     *
-     * @return array<string,mixed>|WP_Error
-     */
+    /** @return array<string,mixed>|WP_Error */
     public static function assertion(string $reference_uuid, int $actor_id, array $context = []): array|WP_Error {
         global $wpdb;
         $reference_uuid = strtolower(trim($reference_uuid));
         if (!self::valid_uuid($reference_uuid) || $actor_id <= 0) {
             return self::not_found();
         }
-        $row = $wpdb->get_row($wpdb->prepare(
-            'SELECT * FROM ' . self::table() . ' WHERE reference_uuid=%s',
-            $reference_uuid
-        ));
-        if (!$row || (string) $row->status !== 'active' || strtotime((string) $row->expires_at . ' UTC') <= time()) {
+        $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::table() . ' WHERE reference_uuid=%s', $reference_uuid));
+        if (!$row || (string) $row->status !== 'active' || self::timestamp((string) $row->expires_at) <= time()) {
             return self::not_found();
         }
         $conversation_id = (int) $row->conversation_id;
@@ -227,27 +211,14 @@ final class SN_CF01_Clinical_Context {
             return self::not_found();
         }
         $conversation = self::conversation($conversation_id);
-        if (!$conversation || (string) $conversation->status !== 'active') {
+        if (!$conversation || (string) $conversation->status !== 'active' || self::direct_conversation_blocked($conversation, $actor_id)) {
             return self::not_found();
         }
-        if (self::direct_conversation_blocked($conversation, $actor_id)) {
-            return self::not_found();
-        }
-
         $requested_purpose = sanitize_key((string) ($context['purpose'] ?? (string) $row->purpose));
         if ($requested_purpose !== (string) $row->purpose) {
             return self::error('sn_cf01_reference_purpose_mismatch', 'The reference purpose does not match.', 403);
         }
-        $read_authorized = apply_filters(
-            'sn_cf01_clinical_context_read_authorized',
-            false,
-            $actor_id,
-            $conversation_id,
-            $reference_uuid,
-            $requested_purpose,
-            $context
-        );
-        if ($read_authorized !== true) {
+        if (apply_filters('sn_cf01_clinical_context_read_authorized', false, $actor_id, $conversation_id, $reference_uuid, $requested_purpose, $context) !== true) {
             return self::error('sn_cf01_reference_read_not_authorized', 'The clinical-context reference is not authorized for this request.', 403);
         }
 
@@ -264,7 +235,7 @@ final class SN_CF01_Clinical_Context {
                 'reference_version' => (int) $row->version,
                 'purpose' => (string) $row->purpose,
                 'status' => (string) $row->status,
-                'reference_expires_at' => gmdate('c', strtotime((string) $row->expires_at . ' UTC')),
+                'reference_expires_at' => self::iso_time((string) $row->expires_at),
                 'retention_class' => (string) $row->retention_class,
                 'consent_verified' => true,
             ],
@@ -277,45 +248,17 @@ final class SN_CF01_Clinical_Context {
                 'participant_count' => $participants,
                 'actor_participant_class' => self::participant_class($conversation_id, $actor_id),
                 'owner_reference' => self::subject_reference((int) $conversation->owner_id),
-                'updated_at' => gmdate('c', strtotime((string) $conversation->updated_at . ' UTC')),
+                'updated_at' => self::iso_time((string) $conversation->updated_at),
             ],
-            'destination_intent' => [
-                'route_key' => 'messages-conversation',
-                'reference_uuid' => $reference_uuid,
-                'requires_click_time_authentication' => true,
-                'requires_click_time_file17_authorization' => true,
-                'contains_bearer_authorization' => false,
-            ],
-            'content_boundary' => [
-                'message_body_included' => false,
-                'attachment_included' => false,
-                'call_payload_included' => false,
-                'call_transcript_included' => false,
-                'message_search_result_included' => false,
-                'participant_contact_included' => false,
-                'automatic_chart_write' => false,
-                'clinician_authored_summary_required_separately' => true,
-            ],
-            'authorization_boundary' => [
-                'treating_relationship' => false,
-                'clinical_read_authority' => false,
-                'clinical_write_authority' => false,
-                'prescription_authority' => false,
-                'break_glass_authority' => false,
-                'chat_membership_is_not_treating_relationship' => true,
-                'requires_cf01_action_time_authorization' => true,
-            ],
+            'destination_intent' => self::destination_intent($reference_uuid),
+            'content_boundary' => self::content_boundary(),
+            'authorization_boundary' => self::authorization_boundary(),
             'result' => 'valid',
             'reason_code' => 'communication_context_reference_current',
         ];
     }
 
-    /**
-     * Resolve a destination only after the same authorization checks used by
-     * assertion(). The returned URL is navigational, never a bearer credential.
-     *
-     * @return array<string,mixed>|WP_Error
-     */
+    /** @return array<string,mixed>|WP_Error */
     public static function resolve_destination(string $reference_uuid, int $actor_id, array $context = []): array|WP_Error {
         global $wpdb;
         $assertion = self::assertion($reference_uuid, $actor_id, $context);
@@ -330,8 +273,7 @@ final class SN_CF01_Clinical_Context {
         if (!$row || !SN_DB::is_member((int) $row->conversation_id, $actor_id)) {
             return self::not_found();
         }
-        $base = SN_Messages::messages_url();
-        $url = add_query_arg('conversation', (int) $row->conversation_id, $base);
+        $url = add_query_arg('conversation', (int) $row->conversation_id, SN_Messages::messages_url());
         if (!self::same_origin_https($url)) {
             return self::error('sn_cf01_destination_invalid', 'The File 17 destination is unavailable.', 503);
         }
@@ -354,14 +296,8 @@ final class SN_CF01_Clinical_Context {
         if (!$row || $actor_id <= 0) {
             return self::not_found();
         }
-        $authorized = $actor_id === (int) $row->issued_by || apply_filters(
-            'sn_cf01_clinical_context_revoke_authorized',
-            false,
-            $actor_id,
-            (int) $row->conversation_id,
-            $reference_uuid,
-            $reason
-        ) === true;
+        $authorized = $actor_id === (int) $row->issued_by
+            || apply_filters('sn_cf01_clinical_context_revoke_authorized', false, $actor_id, (int) $row->conversation_id, $reference_uuid, $reason) === true;
         if (!$authorized) {
             return self::not_found();
         }
@@ -444,12 +380,11 @@ final class SN_CF01_Clinical_Context {
             return ['data' => [], 'done' => true];
         }
         $limit = 100;
-        $offset = max(0, $page - 1) * $limit;
         $rows = $wpdb->get_results($wpdb->prepare(
-            'SELECT reference_uuid,purpose,retention_class,status,expires_at,created_at,updated_at FROM ' . self::table() . ' WHERE issued_by=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+            'SELECT reference_uuid,purpose,retention_class,status,expires_at,created_at FROM ' . self::table() . ' WHERE issued_by=%d ORDER BY id ASC LIMIT %d OFFSET %d',
             (int) $user->ID,
             $limit,
-            $offset
+            max(0, $page - 1) * $limit
         ));
         $data = [];
         foreach (is_array($rows) ? $rows : [] as $row) {
@@ -491,6 +426,63 @@ final class SN_CF01_Clinical_Context {
         ];
     }
 
+    private static function issuance_receipt(object $row): array {
+        return [
+            'contract' => self::CONTRACT_NAME,
+            'contract_version' => self::CONTRACT_VERSION,
+            'producer_version' => defined('SN_VERSION') ? SN_VERSION : '',
+            'reference' => [
+                'reference_uuid' => (string) $row->reference_uuid,
+                'reference_version' => (int) $row->version,
+                'purpose' => (string) $row->purpose,
+                'status' => (string) $row->status,
+                'reference_expires_at' => self::iso_time((string) $row->expires_at),
+                'retention_class' => (string) $row->retention_class,
+                'consent_verified' => true,
+            ],
+            'destination_intent' => self::destination_intent((string) $row->reference_uuid),
+            'content_boundary' => self::content_boundary(),
+            'authorization_boundary' => self::authorization_boundary(),
+            'result' => 'valid',
+            'reason_code' => 'communication_context_reference_issued',
+        ];
+    }
+
+    private static function destination_intent(string $reference_uuid): array {
+        return [
+            'route_key' => 'messages-conversation',
+            'reference_uuid' => $reference_uuid,
+            'requires_click_time_authentication' => true,
+            'requires_click_time_file17_authorization' => true,
+            'contains_bearer_authorization' => false,
+        ];
+    }
+
+    private static function content_boundary(): array {
+        return [
+            'message_body_included' => false,
+            'attachment_included' => false,
+            'call_payload_included' => false,
+            'call_transcript_included' => false,
+            'message_search_result_included' => false,
+            'participant_contact_included' => false,
+            'automatic_chart_write' => false,
+            'clinician_authored_summary_required_separately' => true,
+        ];
+    }
+
+    private static function authorization_boundary(): array {
+        return [
+            'treating_relationship' => false,
+            'clinical_read_authority' => false,
+            'clinical_write_authority' => false,
+            'prescription_authority' => false,
+            'break_glass_authority' => false,
+            'chat_membership_is_not_treating_relationship' => true,
+            'requires_cf01_action_time_authorization' => true,
+        ];
+    }
+
     private static function conversation(int $conversation_id): ?object {
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare(
@@ -510,9 +502,7 @@ final class SN_CF01_Clinical_Context {
 
     private static function participant_class(int $conversation_id, int $actor_id): string {
         $role = sanitize_key(SN_DB::member_role($conversation_id, $actor_id));
-        return in_array($role, ['owner', 'administrator', 'moderator', 'editor', 'member', 'observer'], true)
-            ? $role
-            : 'member';
+        return in_array($role, ['owner', 'administrator', 'moderator', 'editor', 'member', 'observer'], true) ? $role : 'member';
     }
 
     private static function direct_conversation_blocked(object $conversation, int $actor_id): bool {
@@ -529,7 +519,7 @@ final class SN_CF01_Clinical_Context {
     }
 
     private static function conversation_state_hash(object $conversation, int $participant_count): string {
-        $state = implode('|', [
+        return hash_hmac('sha256', implode('|', [
             (int) $conversation->id,
             sanitize_key((string) $conversation->type),
             (int) $conversation->owner_id,
@@ -537,8 +527,7 @@ final class SN_CF01_Clinical_Context {
             sanitize_key((string) $conversation->status),
             (string) $conversation->updated_at,
             $participant_count,
-        ]);
-        return hash_hmac('sha256', $state, wp_salt('auth'));
+        ]), wp_salt('auth'));
     }
 
     private static function subject_reference(int $user_id): string {
@@ -547,9 +536,7 @@ final class SN_CF01_Clinical_Context {
 
     private static function retention_class(string $value): string {
         $value = sanitize_key($value);
-        return in_array($value, ['communication_standard', 'communication_extended', 'legal_hold'], true)
-            ? $value
-            : 'communication_standard';
+        return in_array($value, self::RETENTION_CLASSES, true) ? $value : 'communication_standard';
     }
 
     private static function opaque_value(string $value): string {
@@ -572,7 +559,18 @@ final class SN_CF01_Clinical_Context {
             && is_array($home)
             && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
             && strcasecmp((string) ($parts['host'] ?? ''), (string) ($home['host'] ?? '')) === 0
-            && !isset($parts['user'], $parts['pass']);
+            && !isset($parts['user'])
+            && !isset($parts['pass']);
+    }
+
+    private static function timestamp(string $value): int {
+        $timestamp = strtotime($value . ' UTC');
+        return $timestamp === false ? 0 : $timestamp;
+    }
+
+    private static function iso_time(string $value): string {
+        $timestamp = self::timestamp($value);
+        return $timestamp > 0 ? gmdate('c', $timestamp) : '';
     }
 
     private static function table(): string {
@@ -595,19 +593,15 @@ final class SN_CF01_Clinical_Context {
 function sn_cf01_issue_communication_context(int $conversation_id, int $actor_id, array $context): array|WP_Error {
     return SN_CF01_Clinical_Context::issue_reference($conversation_id, $actor_id, $context);
 }
-
 function sn_cf01_communication_context_assertion(string $reference_uuid, int $actor_id, array $context = []): array|WP_Error {
     return SN_CF01_Clinical_Context::assertion($reference_uuid, $actor_id, $context);
 }
-
 function sn_cf01_resolve_communication_destination(string $reference_uuid, int $actor_id, array $context = []): array|WP_Error {
     return SN_CF01_Clinical_Context::resolve_destination($reference_uuid, $actor_id, $context);
 }
-
 function sn_cf01_revoke_communication_context(string $reference_uuid, int $actor_id, string $reason = ''): array|WP_Error {
     return SN_CF01_Clinical_Context::revoke_reference($reference_uuid, $actor_id, $reason);
 }
-
 function sn_cf01_communication_context_contract(): array {
     return SN_CF01_Clinical_Context::contract();
 }
