@@ -23,13 +23,14 @@ package_check(str_contains($package, 'FIXED_TIMESTAMP="198001010000.00"'), 'Rele
 package_check(str_contains($package, 'find "$STAGE/sabri-network" -type f -exec chmod 0644'), 'Release file modes must be normalized.');
 package_check(str_contains($package, 'find "$STAGE/sabri-network" -type d -exec chmod 0755'), 'Release directory modes must be normalized.');
 package_check(str_contains($package, 'find sabri-network -type f -print | sort | zip -X -q'), 'ZIP input ordering and extra metadata must be deterministic.');
+package_check(str_contains($package, "find sabri-network -type f ! -name 'MANIFEST.sha256'"), 'The staged source manifest must cover every installable file except itself.');
+package_check(str_contains($package, 'sha256sum -c sabri-network/MANIFEST.sha256'), 'The staged source manifest must be verified before packaging.');
+package_check(str_contains($package, 'cp "$STAGE/sabri-network/MANIFEST.sha256" "$SOURCE_MANIFEST"'), 'A detached source manifest must match the embedded manifest.');
 package_check(substr_count($quality, 'bash tools/package.sh') >= 2, 'The quality gate must build the package twice.');
 package_check(str_contains($quality, 'cmp -s /tmp/file17-package-first.zip'), 'The quality gate must compare release bytes, not only filenames.');
-package_check(
-    str_contains($quality, 'Installable source checksum manifest does not match the package source tree.')
-        && str_contains($quality, 'sha256sum -c CHECKSUMS.sha256'),
-    'The quality gate must verify both checksum coverage and exact installable source hashes.'
-);
+package_check(str_contains($quality, 'cmp -s /tmp/file17-package-first.manifest.sha256'), 'The quality gate must compare detached source manifests across builds.');
+package_check(str_contains($quality, 'sha256sum -c sabri-network/MANIFEST.sha256'), 'The extracted package must verify every embedded source digest.');
+package_check(!str_contains($quality, 'sha256sum -c CHECKSUMS.sha256'), 'Historical root checksums must not be silently relabeled as the 2.0.1 manifest.');
 
 if ($failures) {
     fwrite(STDERR, "Package static contract failures (" . count($failures) . "/$checks):\n");
