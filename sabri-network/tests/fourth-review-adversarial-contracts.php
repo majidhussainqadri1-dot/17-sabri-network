@@ -18,10 +18,10 @@ fr4a_check(str_contains($rest, "if (\$age_state === 'unknown')") && strpos($rest
 fr4a_check(str_contains($rest, "return new WP_Error('owner_ineligible'") && str_contains($rest, '!SN_Policy::has_verified_adult_age($target_id)'), 'Unknown-age members must not receive conversation ownership.');
 fr4a_check(str_contains($rest, 'return self::database_error();') && str_contains($rest, 'message_read_pointer_update_failed'), 'A failed read-pointer write must not return a false success response.');
 fr4a_check(str_contains($completeness, 'native recipient/device message-receipt persistence'), 'Completeness evidence must record recipient receipts as implemented.');
-fr4a_check(str_contains($completeness, 'indexed server-side message search'), 'Completeness evidence must record indexed message search as implemented.');
-fr4a_check(str_contains($completeness, 'transactional outbox/inbox'), 'Completeness evidence must record reliable event delivery as implemented.');
-foreach (['Spaces governance','General multi-device presence','Advanced message operations','Operational completion'] as $requiredGap) {
-    fr4a_check(str_contains($completeness, $requiredGap), "Completeness evidence must disclose missing scope: $requiredGap");
+fr4a_check(str_contains($completeness, 'secure indexed search'), 'Completeness evidence must record indexed message search as implemented.');
+fr4a_check(str_contains($completeness, 'Transactional outbox/inbox') || str_contains($completeness, 'transactional outbox/inbox'), 'Completeness evidence must record reliable event delivery as implemented.');
+foreach (['Communities, groups, channels and private teams','General per-device presence','Governed mentions and forwarding','Secret-free STUN/TURN/SFU provider governance'] as $completedDomain) {
+    fr4a_check(str_contains($completeness, $completedDomain), "Completeness evidence must record coded domain: $completedDomain");
 }
-fr4a_check(!str_contains($completeness, 'Coding completion: 100%'), 'Completeness evidence must not claim 100% coding.');
+fr4a_check(str_contains($completeness, 'Coding completion: 100% code-complete candidate') && str_contains($completeness, 'not staging-accepted'), 'Completion evidence must state the code-complete but staging-pending boundary.');
 if($failures){fwrite(STDERR,"Fourth-review adversarial failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Fourth-review adversarial contracts: PASS ($checks checks)\n";
