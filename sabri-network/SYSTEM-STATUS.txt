@@ -1,38 +1,35 @@
+Code-complete candidate; not staging-accepted, not live-deployed, not production-operational.
 File 17 — Sabri Network and Messages 2.0.0
-حقیقی حیثیت — 2 اگست 2026ء
+حقیقی حیثیت — 3 اگست 2026ء
 
-Specified: جامع حاکم specification موجود
-Coded Candidate: اہم communication foundation reviewable ہے
-Coding Completion: 100% نہیں
-Packaged: deterministic ZIP اور SHA-256 verification quality gate کا حصہ
-Automated QA: inherited، Sabri Meet، Messages/receipts، indexed-search/outbox اور adversarial suites شامل
+Specified: مکمل حاکم File 17 specification موجود
+Coded Candidate: مکمل approved coding scope reviewable source میں موجود
+Coding Completion: 100% code-complete candidate
+Packaged: current-head deterministic ZIP اور SHA-256 verification لازم
+Automated QA: inherited suites اور چار مستقل completion review/fix rounds لازم
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-موجود اہم coding:
-- accepted-contact relationships، follows، blocks اور conversation foundation
-- private messages، reactions، read state، edit/delete، attachments اور temporary updates
-- dedicated `/messages/`، conversation deep links اور Communication Settings
-- per-recipient/per-device delivered-read receipts اور bounded contiguous reconciliation
-- indexed conversation-local search، HMAC token index، signed snapshot pagination اور signed context windows
-- bounded presence/typing، direct calls، WebRTC signaling اور Sabri Meet control plane
-- transactional event outbox/inbox، idempotency، integrity hashes، retry، stale-lock recovery اور dead-letter operations
-- message/receipt truth، search index اور event record کے atomic commit/rollback boundaries
-- reports، appeals، legal/safety holds، rate limits، audit اور privacy export/erasure
-- Files 00/02، 19، 20، 24 اور 25 کی canonical ownership boundaries
+مکمل coded domains:
+- relationships، contacts، follows، blocks، discovery اور canonical conversations
+- direct/group/channel messages، private attachments، reactions، replies، edit/delete، receipts، indexed search اور signed context
+- dedicated Messages، Communication Settings، Sabri Meet، direct calls اور provider-gated conference control plane
+- reports، appeals، legal/safety holds، retention، audit، privacy export/erasure
+- transactional outbox/inbox، idempotency، retries، dead-letter اور atomic message/search/event integrity
+- communities، groups، channels اور private teams؛ roles، join requests، invitation consent، succession، lifecycle، bans اور governance evidence
+- member limits، slow mode، new-member delay، restricted/approval modes، anti-raid، invitation/media/call pauses
+- general per-device presence، keyed device identities، aggregate state، revocation، cleanup اور privacy lifecycle
+- mentions، governed forwarding، conversation pins، private stars، folders اور hide-for-self
+- File 08، File 18 اور File 21 opaque reauthorized context adapters
+- one-time step-up، scope hashes، distinct requester/approver/executor اور stale execution recovery
+- secret-free STUN/TURN/SFU provider registry، fresh health evidence اور short-lived participant-scoped credentials
 
-موجودہ بڑے باقی gaps:
-- complete communities/groups/channels governance، join/invite، succession، bans، archive/closure lifecycle
-- general per-device presence sessions، revocation اور aggregate presence
-- pin/star/folders/labels، forwarding، mentions اور مکمل reply-context/organization workflows
-- slow mode، anti-raid، invitation throttling اور مکمل space abuse controls
-- File 08/18/21 context-card runtime integrations
-- حقیقی SFU/TURN provider، production screen sharing/captions، recording-consent/retention اور load/browser acceptance
-- high-risk step-up authentication اور dual approval
-- staging، real MySQL races، backup/restore، rollback، penetration، load، browser/device، RTL/LTR، accessibility، monitoring اور SLO acceptance
+External acceptance gates still pending:
+- real WordPress/PHP/MySQL fresh install، upgrade، migration اور race testing
+- File 00/02/08/18/19/20/21/24/25 حقیقی integration اور degraded-mode acceptance
+- Hostinger staging، cron، private storage، LiteSpeed، browser/device، RTL/LTR اور accessibility
+- approved WSS/STUN/TURN/SFU infrastructure، load/soak اور penetration testing
+- backup/restore، rollback rehearsal، Founder sign-off، live deployment، monitoring، support اور SLO evidence
 
-درست درجہ:
-Substantial coded candidate + deterministic package + automated contract QA؛ مگر full governing specification کے مقابل coding ابھی 100% مکمل نہیں۔
-
-یہ نظام audited end-to-end encryption، staging acceptance، production readiness یا operational completion کا دعویٰ نہیں کرتا۔
+یہ status audited E2EE، production provider acceptance، staging acceptance، live deployment یا operational completion کا دعویٰ نہیں کرتا۔
