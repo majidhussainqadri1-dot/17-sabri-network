@@ -111,3 +111,7 @@ Canonical tables use the WordPress prefix and `sn_` namespace. Important invaria
 File 17 owns a hashed-token message index in `sn_message_search_tokens`. Search is restricted to active conversation members and uses bounded term/result/context budgets plus HMAC-signed viewer/conversation/filter/snapshot cursors. Plaintext search queries are not persisted. Hidden, removed, expired and deleted message states are excluded before response formatting.
 
 Canonical message send, edit, delete and delivered/read receipt mutations are wrapped by `SN_Message_Integrity`. Their message record, search-index change and metadata-only event outbox record commit or roll back as one database unit. `SN_Outbox` provides idempotent outgoing events, transactional incoming-event consumption, atomic worker claims, bounded retry, stale-lock recovery, dead-letter visibility and optimistic manual retry. File 19 remains the notification transport owner and consumes dispatched event facts through the published hook contract.
+
+## Completion domains added to the canonical File-17 architecture
+
+The runtime now includes `SN_Spaces`, `SN_Presence_Devices`, `SN_Message_Operations`, `SN_Context_Adapters`, `SN_High_Risk` and `SN_Conference_Provider`. These services preserve the single communication owner: spaces synchronize to File-17 conversations; context adapters retain only opaque pointers; File 19 remains notification transport owner; provider credentials remain external and short-lived; protected changes use step-up plus distinct approval and execution.
