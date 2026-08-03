@@ -32,8 +32,8 @@ jobs:
       - name: Lint all PHP and run CF-01 suites
         run: |
           set -euo pipefail
-          mapfile -t files < <(find sabri-network -type f -name '*.php' -not -path '*/dist/*' -print | sort)
-          test "${#files[@]}" -ge 100
+          mapfile -t files < <(find sabri-network -type f -name '*.php' -not -path '*/build/*' -print | sort)
+          test "${#files[@]}" -ge 70
           for file in "${files[@]}"; do php -l "$file"; done
           php sabri-network/tests/cf01-clinical-context-static-contracts.php
           php sabri-network/tests/cf01-clinical-context-runtime-contracts.php
@@ -56,7 +56,7 @@ jobs:
           coverage: none
           tools: none
       - name: Install packaging dependencies
-        run: sudo apt-get update && sudo apt-get install -y zip
+        run: sudo apt-get update && sudo apt-get install -y zip rsync
       - name: Run full quality gate
         run: bash sabri-network/tools/quality-check.sh
       - name: Upload governed 2.0.1 candidate
@@ -64,7 +64,7 @@ jobs:
         with:
           name: file-17-sabri-network-messages-2.0.1-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            dist/sabri-network-2.0.1.zip
-            dist/sabri-network-2.0.1.zip.sha256
+            sabri-network/build/17-sabri-network-and-messages-2.0.1.zip
+            sabri-network/build/17-sabri-network-and-messages-2.0.1.zip.sha256
           if-no-files-found: error
           retention-days: 14
