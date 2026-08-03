@@ -1,0 +1,32 @@
+<?php
+/** Completion review 3: context adapters, conference governance and privacy. */
+declare(strict_types=1);
+$root=dirname(__DIR__);$failures=[];$checks=0;
+$read=static function(string $path):string{$v=file_get_contents($path);if($v===false)throw new RuntimeException('Missing '.$path);return $v;};
+$check=static function(bool $ok,string $message)use(&$checks,&$failures):void{$checks++;if(!$ok)$failures[]=$message;};
+$contexts=$read($root.'/includes/class-sn-context-adapters.php');$conference=$read($root.'/includes/class-sn-conference-provider.php');$risk=$read($root.'/includes/class-sn-high-risk.php');
+$check(str_contains($contexts,'conversation_contexts')&&str_contains($contexts,'UNIQUE KEY conversation_provider_object'),'Context links must be unique opaque pointers.');
+$check(str_contains($contexts,"['file08_appointment','file18_marketplace','file21_content']"),'Only File 08/18/21 context adapters may attach.');
+$check(str_contains($contexts,'sn_network_context_authorize')&&str_contains($contexts,"'attach'")&&str_contains($contexts,"'read'")&&str_contains($contexts,"'detach'"),'Provider authorization must be rechecked for every context operation.');
+$check(str_contains($contexts,'provider_object_hash')&&!str_contains($contexts,"'provider_object_id'=>\$object,'purpose'"),'Events must use provider-object hashes rather than copied domain truth.');
+$check(str_contains($contexts,'already-expired context cannot be attached')||str_contains($contexts,'An already-expired context cannot be attached'),'Already-expired contexts must be rejected.');
+$check(str_contains($contexts,'same_origin_https')&&str_contains($contexts,"\$scheme==='https'"),'Projection URLs must be same-origin HTTPS.');
+$check(str_contains($contexts,"\$wpdb->query('START TRANSACTION')")&&str_contains($contexts,'conversation.context_attached'),'Context attachment and event evidence must be transactional.');
+$check(str_contains($contexts,'conversation.context_detached')&&str_contains($contexts,"\$wpdb->query('ROLLBACK')"),'Context detachment and event evidence must roll back together.');
+$check(str_contains($contexts,'wp_privacy_personal_data_exporters')&&str_contains($contexts,'wp_privacy_personal_data_erasers'),'Context attribution must support privacy export and erasure.');
+$check(str_contains($conference,'conference_providers')&&str_contains($conference,'UNIQUE KEY provider_key'),'Conference provider registry must be canonical and unique.');
+$check(str_contains($conference,"private const TYPES = ['stun','turn','sfu']"),'STUN, TURN and SFU provider types must be explicit.');
+$check(str_contains($conference,"delete_option('sn_turn_secret')")&&str_contains($conference,"delete_option('sn_sfu_secret')"),'Legacy static provider secrets must be retired.');
+$check(str_contains($conference,'sn_network_issue_conference_credentials'),'Credentials must be issued by a provider adapter, not stored in File 17.');
+$check(str_contains($conference,'MAX_CREDENTIAL_TTL = 10 * MINUTE_IN_SECONDS'),'Provider credentials must be short-lived.');
+$check(str_contains($conference,"'audience'??''")||str_contains($conference,"\$value['audience']??''"),'Credential audience must be validated.');
+$check(str_contains($conference,'health_checked_at')&&str_contains($conference,'sn_conference_provider_health_stale'),'Credential issuance must require fresh health evidence.');
+$check(str_contains($conference,"status='healthy'")&&str_contains($conference,'sn_conference_provider_unavailable'),'Conference media must fail closed without a healthy provider.');
+$check(str_contains($conference,"'end_to_end_encryption'=>false")&&str_contains($conference,"'recording'=>false"),'Unsupported E2EE and recording claims must remain false.');
+$check(str_contains($conference,"SN_High_Risk::claim(\$action_id,\$actor,'provider_configuration'")&&str_contains($conference,'SN_High_Risk::complete'),'Provider configuration must use protected high-risk execution.');
+$check(str_contains($conference,"\$wpdb->query('START TRANSACTION')")&&str_contains($conference,'conference.provider_configured'),'Provider configuration, outbox evidence and high-risk completion must be atomic.');
+$check(str_contains($risk,"['password','secret','token','credential'")&&str_contains($risk,'sanitize_payload'),'High-risk scope evidence must strip sensitive fields.');
+$check(!preg_match('/(?:password|secret|credential|api_key)\s*[=:]\s*[\'\"][^\'\"]{8,}/i',$conference),'Conference source must not contain embedded credentials.');
+$check(str_contains($conference,"isset(\$parts['user'],\$parts['pass'],\$parts['query'],\$parts['fragment'])"),'Provider origins must reject user info, query strings and fragments.');
+if($checks!==23)$failures[]='Review contract count changed: expected 23, got '.$checks;
+if($failures){fwrite(STDERR,"Completion review 3 failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Completion review 3 context/conference/privacy: PASS ($checks checks)\n";

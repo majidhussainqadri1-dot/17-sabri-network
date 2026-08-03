@@ -1,0 +1,35 @@
+Code-complete candidate; not staging-accepted, not live-deployed, not production-operational.
+File 17 — Sabri Network and Messages 2.0.0
+حقیقی حیثیت — 3 اگست 2026ء
+
+Specified: مکمل حاکم File 17 specification موجود
+Coded Candidate: مکمل approved coding scope reviewable source میں موجود
+Coding Completion: 100% code-complete candidate
+Packaged: current-head deterministic ZIP اور SHA-256 verification لازم
+Automated QA: inherited suites اور چار مستقل completion review/fix rounds لازم
+Staging Accepted: ابھی نہیں
+Live Deployed: ابھی نہیں
+Operational: ابھی نہیں
+
+مکمل coded domains:
+- relationships، contacts، follows، blocks، discovery اور canonical conversations
+- direct/group/channel messages، private attachments، reactions، replies، edit/delete، receipts، indexed search اور signed context
+- dedicated Messages، Communication Settings، Sabri Meet، direct calls اور provider-gated conference control plane
+- reports، appeals، legal/safety holds، retention، audit، privacy export/erasure
+- transactional outbox/inbox، idempotency، retries، dead-letter اور atomic message/search/event integrity
+- communities، groups، channels اور private teams؛ roles، join requests، invitation consent، succession، lifecycle، bans اور governance evidence
+- member limits، slow mode، new-member delay، restricted/approval modes، anti-raid، invitation/media/call pauses
+- general per-device presence، keyed device identities، aggregate state، revocation، cleanup اور privacy lifecycle
+- mentions، governed forwarding، conversation pins، private stars، folders اور hide-for-self
+- File 08، File 18 اور File 21 opaque reauthorized context adapters
+- one-time step-up، scope hashes، distinct requester/approver/executor اور stale execution recovery
+- secret-free STUN/TURN/SFU provider registry، fresh health evidence اور short-lived participant-scoped credentials
+
+External acceptance gates still pending:
+- real WordPress/PHP/MySQL fresh install، upgrade، migration اور race testing
+- File 00/02/08/18/19/20/21/24/25 حقیقی integration اور degraded-mode acceptance
+- Hostinger staging، cron، private storage، LiteSpeed، browser/device، RTL/LTR اور accessibility
+- approved WSS/STUN/TURN/SFU infrastructure، load/soak اور penetration testing
+- backup/restore، rollback rehearsal، Founder sign-off، live deployment، monitoring، support اور SLO evidence
+
+یہ status audited E2EE، production provider acceptance، staging acceptance، live deployment یا operational completion کا دعویٰ نہیں کرتا۔

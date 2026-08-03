@@ -1,0 +1,35 @@
+File 17 کو 1.1.0 سے 2.0.0 پر Upgrade کرنے کا دستور
+
+قبل از Upgrade
+
+1۔ Database، wp-content اور configuration کا verified backup بنائیں۔
+2۔ موجودہ File 17 package، version، checksums اور active integrations درج کریں۔
+3۔ Legacy OTP/SMS/TURN settings کی موجودگی note کریں؛ 2.0.0 انہیں delete کرے گا۔
+4۔ Legacy Media Library attachments کی فہرست بنائیں۔ 2.0 API انہیں public URL نہیں دے گی؛ controlled private migration الگ عمل ہے۔
+5۔ Staging clone پر upgrade کریں۔
+
+Upgrade کے دوران
+
+- Schema 2.0.0 نئی integrity keys، attachment ledger، rate limits اور audit tables بنائے گا۔
+- Direct conversations اور contact pairs کی keys backfill ہوں گی۔
+- ناقص direct conversations archive ہوسکتی ہیں؛ reconciliation report دیکھیں۔
+- Legacy OTP table ختم ہوگا۔
+- Network page صرف File-17-owned page ہونے پر repair ہوگا؛ کسی غیر متعلق /network page کو overwrite نہیں کیا جائے گا۔
+
+Upgrade کے بعد
+
+1۔ Network → System Check میں تمام tables، private storage اور identity authority دیکھیں۔
+2۔ Contact request → accept → direct message → read → reaction → report workflow آزمائیں۔
+3۔ Block/unblock، minor/guardian، suspension اور unauthorized IDOR tests کریں۔
+4۔ Image، audio، video، PDF/DOCX/XLSX upload policies آزمائیں۔ Scanner کے بغیر documents fail-closed ہونے چاہییں۔
+5۔ Direct call create/join/decline/end اور duplicate-call race آزمائیں۔
+6۔ Privacy export/erasure اور attachment deletion آزمائیں۔
+7۔ File 20 route، File 19 notification اور File 25 action integrations آزمائیں۔
+
+Rollback
+
+- نئی writes روکیں۔
+- 2.0.0 deactivate کریں۔
+- verified pre-upgrade database/files restore کریں۔
+- restore کے بعد identity، messages، attachments، cron اور page routes کی smoke testing کریں۔
+- 1.1.0 کو نئے 2.0 data پر براہِ راست چلانا محفوظ rollback نہیں؛ database restore لازم ہے۔

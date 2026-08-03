@@ -1,0 +1,33 @@
+<?php
+/** Completion review 1: architecture, canonical ownership and high-risk governance. */
+declare(strict_types=1);
+$root=dirname(__DIR__);$failures=[];$checks=0;
+$read=static function(string $path):string{$v=file_get_contents($path);if($v===false)throw new RuntimeException('Missing '.$path);return $v;};
+$check=static function(bool $ok,string $message)use(&$checks,&$failures):void{$checks++;if(!$ok)$failures[]=$message;};
+$main=$read($root.'/sabri-network.php');$spaces='';foreach(glob($root.'/includes/class-sn-spaces*.php')?:[] as $space_file)$spaces.=$read($space_file);$risk=$read($root.'/includes/class-sn-high-risk.php');$presence=$read($root.'/includes/class-sn-presence-devices.php');$ops=$read($root.'/includes/class-sn-message-operations.php');$contexts=$read($root.'/includes/class-sn-context-adapters.php');$conference=$read($root.'/includes/class-sn-conference-provider.php');
+foreach(['class-sn-high-risk.php','class-sn-spaces.php','class-sn-presence-devices.php','class-sn-message-operations.php','class-sn-context-adapters.php','class-sn-conference-provider.php'] as $file)$check(str_contains($main,"require_once SN_DIR . 'includes/$file'"),"Main runtime must load $file.");
+foreach(['SN_High_Risk','SN_Spaces','SN_Presence_Devices','SN_Message_Operations','SN_Context_Adapters','SN_Conference_Provider'] as $class)$check(str_contains($main,$class.'::register()'),"Main runtime must register $class.");
+$check(str_contains($main,'SN_High_Risk::maybe_upgrade()')&&str_contains($main,'SN_High_Risk::install()'),'High-risk schema lifecycle must be integrated.');
+$check(str_contains($main,'SN_Spaces::maybe_upgrade()')&&str_contains($main,'SN_Spaces::install()'),'Spaces schema lifecycle must be integrated.');
+$check(str_contains($main,'SN_Presence_Devices::maybe_upgrade()')&&str_contains($main,'SN_Presence_Devices::install()'),'Presence schema lifecycle must be integrated.');
+$check(str_contains($main,'SN_Message_Operations::maybe_upgrade()')&&str_contains($main,'SN_Message_Operations::install()'),'Message operations schema lifecycle must be integrated.');
+$check(str_contains($main,'SN_Context_Adapters::maybe_upgrade()')&&str_contains($main,'SN_Context_Adapters::install()'),'Context schema lifecycle must be integrated.');
+$check(str_contains($main,'SN_Conference_Provider::maybe_upgrade()')&&str_contains($main,'SN_Conference_Provider::install()'),'Conference schema lifecycle must be integrated.');
+$check(str_contains($risk,"hash_hmac('sha256', \$raw, wp_salt('auth'))"),'Step-up tokens must be stored only as keyed hashes.');
+$check(str_contains($risk,"\$wpdb->query('START TRANSACTION')")&&str_contains($risk,'consume_grant'),'One-time grant consumption and request creation must be transactional.');
+$check(str_contains($risk,"\$row->requester_id === \$approver"),'Requester and approver must be distinct.');
+$check(str_contains($risk,'sn_high_risk_executor_separation'),'Requester/approver/executor separation must be enforced.');
+$check(str_contains($risk,"status' => 'executing'")&&str_contains($risk,"['executed', 'released']"),'Approved actions must enter executing then executed/released states.');
+$check(str_contains($risk,'payload_hash')&&str_contains($risk,'hash_equals'),'High-risk execution must be scope-hash bound.');
+$check(str_contains($risk,"status='approved',executor_id=0,claim_token_hash=NULL"),'Stale executing claims must recover safely.');
+$check(str_contains($risk,'sn_network_step_up_verified'),'Step-up verification must fail closed behind the identity/security adapter.');
+$check(str_contains($spaces,"private const TYPES = ['community','group','channel','private_team']"),'All governed space types must exist.');
+$check(str_contains($spaces,"private const ROLES = ['owner','administrator','moderator','editor','member','observer']"),'Complete space role hierarchy must exist.');
+$check(str_contains($spaces,'space_join_requests')&&str_contains($spaces,'space_governance'),'Join requests and governance evidence must be native domains.');
+$check(str_contains($spaces,'create_space_conversation')&&str_contains($spaces,'sync_conversation_member'),'Spaces must synchronize with canonical conversations without a parallel chat backend.');
+$check(str_contains($spaces,"SN_High_Risk::claim(\$action_id,\$actor,'space_ownership_transfer'")&&str_contains($spaces,'SN_High_Risk::complete'),'Ownership transfer must use protected claim and completion.');
+$check(str_contains($spaces,'SN_Outbox::enqueue')&&str_contains($spaces,'SN_DB::audit'),'Governance writes must emit reliable event and audit evidence.');
+$check(str_contains($contexts,"private const PROVIDERS = ['file08_appointment','file18_marketplace','file21_content']"),'Only approved File 08/18/21 context providers may register.');
+$check(str_contains($conference,"private const TYPES = ['stun','turn','sfu']")&&str_contains($conference,"'end_to_end_encryption'=>false"),'Conference provider governance must preserve truthful capability claims.');
+if($checks!==34)$failures[]='Review contract count changed: expected 34, got '.$checks;
+if($failures){fwrite(STDERR,"Completion review 1 failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Completion review 1 architecture/governance: PASS ($checks checks)\n";
