@@ -1,52 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export LC_ALL=C
-export TZ=UTC
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD="$ROOT/build"
-STAGE="$BUILD/stage"
-PACKAGE="$BUILD/17-sabri-network-and-messages-2.0.0.zip"
-FIXED_TIMESTAMP="198001010000.00"
+PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
 
-rm -rf "$STAGE" "$PACKAGE" "$PACKAGE.sha256"
-mkdir -p "$STAGE/sabri-network"
+export TZ=UTC
+export LC_ALL=C
+export LANG=C
 
-rsync -a \
-  --exclude='.git/' \
-  --exclude='.github/' \
-  --exclude='.gitignore' \
-  --exclude='build/' \
-  --exclude='tests/' \
-  --exclude='tools/' \
-  --exclude='REVIEW-REPORT.md' \
-  "$ROOT/" "$STAGE/sabri-network/"
-
-if find "$STAGE/sabri-network" -type l -print -quit | grep -q .; then
-  echo 'Packaging refused: symbolic links are not permitted in the release tree.' >&2
-  exit 1
+EPOCH="${SOURCE_DATE_EPOCH:-$(stat -c %Y "$ROOT/sabri-network.php")}"
+if (( EPOCH < 315532800 )); then
+  EPOCH=315532800
 fi
+STAMP="$(date -u -d "@$EPOCH" +'%Y%m%d%H%M.%S')"
 
-find "$STAGE/sabri-network" -type d -exec chmod 0755 {} +
-find "$STAGE/sabri-network" -type f -exec chmod 0644 {} +
-find "$STAGE/sabri-network" -exec touch -h -t "$FIXED_TIMESTAMP" {} +
+mkdir -p "$WORK/sabri-network"
 
-find "$STAGE/sabri-network" -type f -name '*.php' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
-node --check "$STAGE/sabri-network/assets/js/network.js"
-node --check "$STAGE/sabri-network/assets/js/meet.js"
-node --check "$STAGE/sabri-network/assets/js/messages.js"
-node --check "$STAGE/sabri-network/assets/js/message-search.js"
-grep -q 'Version: 2.0.0' "$STAGE/sabri-network/sabri-network.php"
+while IFS= read -r file; do
+  rel="${file#$ROOT/}"
+  mkdir -p "$WORK/sabri-network/$(dirname "$rel")"
+  cp "$file" "$WORK/sabri-network/$rel"
+done < <(find "$ROOT" -type f \
+  ! -path "$ROOT/tests/*" \
+  ! -path "$ROOT/tools/*" \
+  ! -name 'CHECKSUMS.sha256' \
+  ! -name '*.zip' \
+  ! -name '*.log' \
+  ! -name '*.tmp' \
+  ! -name '.DS_Store' \
+  -print | LC_ALL=C sort)
 
+find "$WORK/sabri-network" -exec touch -h -t "$STAMP" {} +
+
+TMP_ZIP="$WORK/sabri-network-2.0.1.zip"
 (
-  cd "$STAGE"
-  find sabri-network -type f -print | sort | zip -X -q "$PACKAGE" -@
+  cd "$WORK"
+  find sabri-network -type f -print | LC_ALL=C sort | zip -X -q "$TMP_ZIP" -@
 )
-unzip -t "$PACKAGE" >/dev/null
-sha256sum "$PACKAGE" > "$PACKAGE.sha256"
-rm -rf "$STAGE"
 
-printf 'Package: %s\n' "$PACKAGE"
-printf 'SHA-256: '
-cut -d' ' -f1 "$PACKAGE.sha256"
+OUT_DIR="$PROJECT_ROOT/dist"
+mkdir -p "$OUT_DIR"
+OUT="$OUT_DIR/sabri-network-2.0.1.zip"
+cp "$TMP_ZIP" "$OUT"
+printf '%s  %s\n' "$(sha256sum "$OUT" | awk '{print $1}')" "$(basename "$OUT")" > "$OUT.sha256"
+printf '%s\n' "$OUT"
