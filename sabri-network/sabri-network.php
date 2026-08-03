@@ -61,7 +61,9 @@ final class Sabri_Network {
     private static ?Sabri_Network $instance = null;
 
     public static function instance(): Sabri_Network {
-        if (self::$instance === null) self::$instance = new self();
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
         return self::$instance;
     }
 
@@ -140,51 +142,111 @@ final class Sabri_Network {
             flush_rewrite_rules(false);
         }
 
+        /** File 20 consumes this route contract; File 17 does not inject a second global menu. */
         do_action('sn_network_relationship_contract_registered', [
-            'owner'=>'file-17','version'=>SN_VERSION,
-            'state_route'=>rest_url('sabri-network/v2/users/{user_id}/relationship'),'state_method'=>'GET',
-            'follow_route'=>rest_url('sabri-network/v2/users/{user_id}/follow'),'follow_method'=>'POST',
-            'contact_route'=>rest_url('sabri-network/v2/contacts'),'contact_request_route'=>rest_url('sabri-network/v2/contacts'),'contact_request_method'=>'POST',
-            'contact_decision_route'=>rest_url('sabri-network/v2/contacts/{request_id}'),'contact_decision_method'=>'POST',
-            'block_route'=>rest_url('sabri-network/v2/block'),'block_method'=>'POST',
-            'conversation_route'=>rest_url('sabri-network/v2/conversations'),'conversation_method'=>'POST',
-            'message_receipt_route'=>rest_url('sabri-network/v2/conversations/{conversation_id}/receipts'),
-            'message_search_route'=>rest_url('sabri-network/v2/conversations/{conversation_id}/search'),
-            'message_context_route'=>rest_url('sabri-network/v2/conversations/{conversation_id}/search/context'),
-            'event_delivery_contract'=>'sn_network_event_dispatched',
-            'spaces_route'=>rest_url('sabri-network/v2/spaces'),
-            'presence_devices_route'=>rest_url('sabri-network/v2/presence/devices'),
-            'message_folders_route'=>rest_url('sabri-network/v2/message-folders'),
-            'context_route'=>rest_url('sabri-network/v2/conversations/{conversation_id}/contexts'),
-            'conference_credentials_route'=>rest_url('sabri-network/v2/calls/{call_id}/media-credentials'),
-            'high_risk_contract'=>'step-up + distinct approval + distinct execution',
-            'messages_url'=>SN_Messages::messages_url(),
-            'communication_settings_url'=>SN_Messages::settings_url(),
+            'owner' => 'file-17',
+            'version' => SN_VERSION,
+            'state_route' => rest_url('sabri-network/v2/users/{user_id}/relationship'),
+            'state_method' => 'GET',
+            'follow_route' => rest_url('sabri-network/v2/users/{user_id}/follow'),
+            'follow_method' => 'POST',
+            'contact_route' => rest_url('sabri-network/v2/contacts'),
+            'contact_request_route' => rest_url('sabri-network/v2/contacts'),
+            'contact_request_method' => 'POST',
+            'contact_decision_route' => rest_url('sabri-network/v2/contacts/{request_id}'),
+            'contact_decision_method' => 'POST',
+            'block_route' => rest_url('sabri-network/v2/block'),
+            'block_method' => 'POST',
+            'conversation_route' => rest_url('sabri-network/v2/conversations'),
+            'conversation_method' => 'POST',
+            'message_receipt_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/receipts'),
+            'message_search_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search'),
+            'message_context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search/context'),
+            'event_delivery_contract' => 'sn_network_event_dispatched',
+            'spaces_route' => rest_url('sabri-network/v2/spaces'),
+            'presence_devices_route' => rest_url('sabri-network/v2/presence/devices'),
+            'message_folders_route' => rest_url('sabri-network/v2/message-folders'),
+            'context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/contexts'),
+            'conference_credentials_route' => rest_url('sabri-network/v2/calls/{call_id}/media-credentials'),
+            'high_risk_contract' => 'step-up + distinct approval + distinct execution',
+            'messages_url' => SN_Messages::messages_url(),
+            'communication_settings_url' => SN_Messages::settings_url(),
         ]);
 
         do_action('sn_network_route_registered', [
-            'key'=>'network','label'=>(string)get_option('sn_menu_label','Network'),
-            'url'=>SN_Activator::network_url(),'owner'=>'file-17','version'=>SN_VERSION,
+            'key' => 'network',
+            'label' => (string) get_option('sn_menu_label', 'Network'),
+            'url' => SN_Activator::network_url(),
+            'owner' => 'file-17',
+            'version' => SN_VERSION,
         ]);
     }
 
-    public function query_vars(array $vars): array {$vars[]='sn_network_app';return $vars;}
-    public function disable_safe_canonical($redirect_url,$requested_url){return ((int)get_query_var('sn_network_app')===1||isset($_GET['sn-network-safe']))?false:$redirect_url;}
-    public function safe_template(string $template): string {if((int)get_query_var('sn_network_app')===1||isset($_GET['sn-network-safe'])){status_header(200);return SN_DIR.'templates/network-standalone.php';}return $template;}
-    public function force_network_content(string $content): string {$page_id=(int)get_option('sn_network_page_id');return ($page_id&&SN_Activator::is_owned_page($page_id)&&is_page($page_id)&&in_the_loop()&&is_main_query())?do_shortcode('[sabri_network]'):$content;}
+    public function query_vars(array $vars): array {
+        $vars[] = 'sn_network_app';
+        return $vars;
+    }
+
+    public function disable_safe_canonical($redirect_url, $requested_url) {
+        return ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) ? false : $redirect_url;
+    }
+
+    public function safe_template(string $template): string {
+        if ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) {
+            status_header(200);
+            return SN_DIR . 'templates/network-standalone.php';
+        }
+        return $template;
+    }
+
+    public function force_network_content(string $content): string {
+        $page_id = (int) get_option('sn_network_page_id');
+        if ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id) && in_the_loop() && is_main_query()) {
+            return do_shortcode('[sabri_network]');
+        }
+        return $content;
+    }
 
     public function disable_network_cache(): void {
-        $page_id=(int)get_option('sn_network_page_id');$is_network=($page_id&&SN_Activator::is_owned_page($page_id)&&is_page($page_id))||(int)get_query_var('sn_network_app')===1||isset($_GET['sn-network-safe']);
-        if(!$is_network)return;if(!defined('DONOTCACHEPAGE'))define('DONOTCACHEPAGE',true);if(!defined('DONOTCACHEOBJECT'))define('DONOTCACHEOBJECT',true);
-        nocache_headers();header('X-Robots-Tag: noindex, noarchive',true);header('X-Content-Type-Options: nosniff',true);header('Referrer-Policy: strict-origin-when-cross-origin',true);header('X-LiteSpeed-Cache-Control: no-cache',true);do_action('litespeed_control_set_nocache','Sabri Network is an authenticated dynamic page.');
+        $page_id = (int) get_option('sn_network_page_id');
+        $is_network = ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id)) || (int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe']);
+        if (!$is_network) {
+            return;
+        }
+        if (!defined('DONOTCACHEPAGE')) {
+            define('DONOTCACHEPAGE', true);
+        }
+        if (!defined('DONOTCACHEOBJECT')) {
+            define('DONOTCACHEOBJECT', true);
+        }
+        nocache_headers();
+        header('X-Robots-Tag: noindex, noarchive', true);
+        header('X-Content-Type-Options: nosniff', true);
+        header('Referrer-Policy: strict-origin-when-cross-origin', true);
+        header('X-LiteSpeed-Cache-Control: no-cache', true);
+        do_action('litespeed_control_set_nocache', 'Sabri Network is an authenticated dynamic page.');
     }
 
     public function admin_notices(): void {
-        if(!current_user_can('manage_options'))return;$screen=function_exists('get_current_screen')?get_current_screen():null;if($screen&&$screen->id==='toplevel_page_sabri-network')return;
-        $page_id=(int)get_option('sn_network_page_id');$page_ok=$page_id&&SN_Activator::is_owned_page($page_id)&&get_post_status($page_id)==='publish';
-        if(!$page_ok)echo '<div class="notice notice-error"><p><strong>Sabri Network:</strong> The owned Network page is missing. Open <a href="'.esc_url(admin_url('admin.php?page=sabri-network')).'">Network</a> and run repair.</p></div>';
-        $messages_page_id=(int)get_option('sn_messages_page_id');$settings_page_id=(int)get_option('sn_communication_settings_page_id');$messages_ok=$messages_page_id>0&&get_post_status($messages_page_id)==='publish';$settings_ok=$settings_page_id>0&&get_post_status($settings_page_id)==='publish';
-        if(!$messages_ok||!$settings_ok)echo '<div class="notice notice-warning"><p><strong>Sabri Messages:</strong> One or more File-17-owned Messages surfaces require repair. Reactivate the plugin or run the File 17 repair workflow before staging acceptance.</p></div>';
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if ($screen && $screen->id === 'toplevel_page_sabri-network') {
+            return;
+        }
+        $page_id = (int) get_option('sn_network_page_id');
+        $page_ok = $page_id && SN_Activator::is_owned_page($page_id) && get_post_status($page_id) === 'publish';
+        if (!$page_ok) {
+            echo '<div class="notice notice-error"><p><strong>Sabri Network:</strong> The owned Network page is missing. Open <a href="' . esc_url(admin_url('admin.php?page=sabri-network')) . '">Network</a> and run repair.</p></div>';
+        }
+        $messages_page_id = (int) get_option('sn_messages_page_id');
+        $settings_page_id = (int) get_option('sn_communication_settings_page_id');
+        $messages_ok = $messages_page_id > 0 && get_post_status($messages_page_id) === 'publish';
+        $settings_ok = $settings_page_id > 0 && get_post_status($settings_page_id) === 'publish';
+        if (!$messages_ok || !$settings_ok) {
+            echo '<div class="notice notice-warning"><p><strong>Sabri Messages:</strong> One or more File-17-owned Messages surfaces require repair. Reactivate the plugin or run the File 17 repair workflow before staging acceptance.</p></div>';
+        }
     }
 }
 
