@@ -58,21 +58,72 @@ php tests/static-contracts.php
 echo '== Inherited independent review round 2 =='
 php tests/adversarial-contracts.php
 
-echo '== Remaining inherited File 17 review and correction suites =='
-for test_file in $(find tests -maxdepth 1 -type f -name '*.php' \
-  ! -name 'static-contracts.php' \
-  ! -name 'adversarial-contracts.php' \
-  ! -name 'cf01-clinical-context-static-contracts.php' \
-  ! -name 'cf01-clinical-context-runtime-contracts.php' \
-  -print | LC_ALL=C sort); do
-  php "$test_file"
-done
+echo '== Realtime review and correction suites =='
+php tests/realtime-static-contracts.php
+php tests/realtime-adversarial-contracts.php
+
+echo '== Package review and correction suites =='
+php tests/package-static-contracts.php
+php tests/package-adversarial-contracts.php
+
+echo '== Safety review and correction suites =='
+php tests/safety-static-contracts.php
+php tests/safety-runtime-contracts.php
+php tests/safety-adversarial-contracts.php
+
+echo '== Relationship review and correction suites =='
+php tests/relationships-static-contracts.php
+php tests/relationships-runtime-contracts.php
+php tests/relationships-adversarial-contracts.php
+
+echo '== Forensic review round 3 =='
+php tests/forensic-review-3-static-contracts.php
+php tests/forensic-review-3-adversarial-contracts.php
+
+echo '== Rate-limit and retention-lock runtime reviews =='
+php tests/rate-limit-runtime-contracts.php
+php tests/retention-lock-empty-runtime-contracts.php
+
+echo '== Fourth forensic review =='
+php tests/fourth-review-static-contracts.php
+php tests/fourth-review-adversarial-contracts.php
+php tests/policy-age-runtime-contracts.php
+
+echo '== Sabri Meet four review/fix rounds =='
+php tests/meet-review-1-auth-state-contracts.php
+php tests/meet-review-2-concurrency-contracts.php
+php tests/meet-review-3-privacy-abuse-contracts.php
+php tests/meet-review-4-ui-package-contracts.php
+
+echo '== Messages two review/fix rounds =='
+php tests/messages-review-1-static-contracts.php
+php tests/messages-review-2-adversarial-contracts.php
+
+echo '== Search/outbox two review/fix rounds =='
+php tests/search-outbox-review-1-static-contracts.php
+php tests/search-outbox-review-2-adversarial-contracts.php
+
+echo '== Completion four review/fix rounds =='
+php tests/completion-review-1-architecture-governance-contracts.php
+php tests/completion-review-2-spaces-presence-message-contracts.php
+php tests/completion-review-3-context-conference-privacy-contracts.php
+php tests/completion-review-4-fresh-adversarial-release-contracts.php
 
 echo '== CF-01 review round 1: static ownership and no-copy contracts =='
 php tests/cf01-clinical-context-static-contracts.php
 
 echo '== CF-01 review round 2: fresh/adversarial runtime contracts =='
 php tests/cf01-clinical-context-runtime-contracts.php
+
+echo '== Review-suite inventory completeness =='
+mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)
+mapfile -t invoked_tests < <(grep -oE 'php tests/[A-Za-z0-9._-]+\.php' tools/quality-check.sh | sed 's#php tests/##' | LC_ALL=C sort -u)
+if [[ "$(printf '%s\n' "${expected_tests[@]}")" != "$(printf '%s\n' "${invoked_tests[@]}")" ]]; then
+  echo 'The explicit quality gate does not invoke every PHP review suite exactly by name.' >&2
+  diff -u <(printf '%s\n' "${expected_tests[@]}") <(printf '%s\n' "${invoked_tests[@]}") >&2 || true
+  exit 1
+fi
+echo "Review-suite inventory: PASS (${#expected_tests[@]} suites)"
 
 echo '== CSS integrity =='
 python3 - <<'PY'
@@ -165,4 +216,4 @@ cmp -s "build/${BASE}.manifest.sha256" "$VERIFY/sabri-network/MANIFEST.sha256"
 
 echo "Exact staged source manifest: PASS"
 echo "Reproducible package: PASS ($first_hash)"
-printf 'QUALITY CHECK: PASS (%d PHP files, %d JS files)\n' "$php_count" "${#js_files[@]}"
+printf 'QUALITY CHECK: PASS (%d PHP files, %d JS files, %d review suites)\n' "$php_count" "${#js_files[@]}" "${#expected_tests[@]}"
