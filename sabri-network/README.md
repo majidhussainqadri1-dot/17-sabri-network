@@ -23,8 +23,7 @@ File 17 is the canonical communication owner for the Sabri Social Homeopathy Pla
 - Sabri Meet control plane at `/calls/` and `/calls/{meeting_id}/` with opaque identifiers, schedule/live/end lifecycle, waiting room, host/co-host governance, participant/device ceilings, recipient-scoped signaling, accessible UI, and provider-gated media;
 - conversation-local indexed message search with HMAC-hashed tokens, signed viewer/conversation/filter/snapshot cursors, signed bounded context navigation, hidden-state exclusion, and no plaintext-query persistence;
 - transactional outbox/inbox delivery with outgoing and incoming idempotency, payload integrity, atomic claims, stale-lock recovery, bounded retry, dead-letter visibility, and optimistic manual retry;
-- atomic send/edit/delete/read-delivered mutation boundaries: canonical message/receipt truth, search-index change, and outbox event commit or roll back together;
-- complete communities/groups/channels/private-team governance, multi-device presence and revocation, governed mentions/forwarding, pins/stars/folders/hide-for-self, File 08/18/21 context adapters, high-risk step-up/dual control and secret-free STUN/TURN/SFU provider governance.
+- atomic send/edit/delete/read-delivered mutation boundaries: canonical message/receipt truth, search-index change, and outbox event commit or roll back together.
 
 ## Private message search
 
@@ -34,33 +33,37 @@ Search is deliberately bounded: 160 query characters, 8 query terms, 128 indexed
 
 ## Reliable event delivery
 
-File 17 records metadata-only communication events in its transactional outbox. Consumers receive canonical facts through `sn_network_event_dispatched` and explicitly acknowledge them through `sn_network_outbox_delivery_result`.
+File 17 records metadata-only communication events in its transactional outbox. Consumers receive canonical facts through:
+
+```php
+do_action('sn_network_event_dispatched', $event);
+```
+
+and explicitly acknowledge them through:
+
+```php
+apply_filters('sn_network_outbox_delivery_result', true, $event);
+```
 
 The outbox strips message bodies, generic content, credentials, tokens, ICE/SDP/candidates, and storage paths. File 19 remains the channel/provider delivery owner. Incoming companion events use producer plus UUIDv4 idempotency and execute their handler transactionally; failures remain operator-visible after rollback.
 
-## Spaces, presence and advanced messages
+## Sabri Meet boundary
 
-Communities, groups, channels and private teams use one File-17-owned domain with explicit roles, join requests, invitation consent, succession, lifecycle, bans, slow mode, new-member delay, anti-raid restrictions and conversation synchronization. General presence uses bounded user-scoped keyed device records, short heartbeat TTLs, signed revocation references and privacy-aware aggregate state. Message operations add governed mentions and forwarding, conversation pins, private stars/folders and hide-for-self projections without duplicating message truth.
-
-## Context and conference boundaries
-
-File 08 appointment, File 18 marketplace and File 21 content contexts are opaque, reauthorized pointers. File 17 does not copy companion-domain truth. Conference providers are configured through protected step-up, distinct approval and distinct execution. Provider records contain no credentials; short-lived participant-scoped credentials come only from an approved adapter with fresh health evidence.
-
-Conference media is provider-gated. Recording remains disabled and no audited end-to-end-encryption claim is made. Real provider governance, load/soak, browser/device, accessibility, staging and operational acceptance remain release gates.
+Conference media is provider-gated. File 17 does not persist provider credentials and exposes only participant-scoped, short-lived adapter output. Without an approved SFU/TURN/media adapter, the UI truthfully reports media unavailable. Recording remains disabled; peer signaling is deny-by-default; no audited end-to-end-encryption claim is made. Real provider governance, load/soak, browser/device, accessibility, staging, and operational acceptance remain release gates.
 
 ## Private files and external controls
 
-Private attachment storage must remain outside the public web root. Document uploads require an approved malware-scanning adapter bound to the file hash/context; an unconditional `clean` response is prohibited. Production calls require approved STUN/TURN/SFU infrastructure, short-lived credentials and provider-health evidence.
+Private attachment storage must remain outside the public web root. Document uploads require an approved malware-scanning adapter bound to the file hash/context; an unconditional `clean` response is prohibited. Production calls require approved STUN/TURN/SFU infrastructure, short-lived credentials, and provider-health evidence.
 
-Production use also requires HTTPS/security hardening, File 00/File 02 session and MFA controls, backup/restore proof, rollback rehearsal, penetration and load testing, browser/device/RTL/accessibility acceptance, monitoring, incident runbooks and Founder approval.
+Production use also requires HTTPS/security hardening, File 00/File 02 session and MFA controls, backup/restore proof, rollback rehearsal, penetration and load testing, browser/device/RTL/accessibility acceptance, monitoring, incident runbooks, and Founder approval.
 
 ## Installation
 
 1. Back up database and files.
 2. Install the verified ZIP on staging only.
 3. Activate the plugin and run **Network → System Check**.
-4. Connect canonical identity, notification, private-storage, scanner and approved call-provider contracts.
-5. Test fresh install, upgrade, migrations, real roles, minors/guardian policy, search, event retry/dead-letter, privacy, backup/restore, rollback and Safe Mode.
+4. Connect canonical identity, notification, private-storage, scanner, and approved call-provider contracts.
+5. Test fresh install, upgrade, migrations, real roles, minors/guardian policy, search, event retry/dead-letter, privacy, backup/restore, rollback, and Safe Mode.
 6. Deploy live only after the full Definition of Done and Founder approval.
 
 ## Quality commands
@@ -70,7 +73,7 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The quality workflow runs inherited File-17 contracts plus four independent completion review-and-fix rounds, followed by syntax, CSS, repository hygiene, exact installable-source checksums and deterministic byte-for-byte packaging.
+The quality workflow runs the inherited File-17 contract suites, Sabri Meet reviews, Messages/receipt reviews, and two independent indexed-search/outbox review-and-fix suites, followed by syntax, CSS, repository-hygiene, exact installable-source checksums, and deterministic byte-for-byte packaging.
 
 ## Coding completeness
 
@@ -80,4 +83,4 @@ Coding completion is not operational completion. Real WordPress/MySQL staging, c
 
 ## Explicit non-claims
 
-Version 2.0.0 does not claim audited E2EE, an accepted production SFU/TURN service, completed penetration/load testing, staging acceptance, live deployment or operational completion.
+Version 2.0.0 does not claim audited E2EE, an accepted production SFU/TURN service, completed penetration/load testing, staging acceptance, live deployment, or operational completion.
