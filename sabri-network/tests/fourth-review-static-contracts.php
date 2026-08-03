@@ -23,7 +23,7 @@ fr4_check(str_contains($rest, '!SN_Policy::has_verified_adult_age($target_id)'),
 fr4_check(str_contains($rest, "\$age_state === 'unknown'"), 'Directory discovery must exclude unknown-age users.');
 fr4_check(str_contains($rest, 'return SN_Policy::has_verified_adult_age((int) $row->user_id);'), 'Public updates must be visible only for verified-adult authors.');
 fr4_check(str_contains($rest, 'message_read_pointer_update_failed') && str_contains($rest, '$updated === false'), 'Read-pointer database failure must be detected and audited.');
-fr4_check(str_contains($completeness, 'Coding completion: NOT 100%'), 'Repository evidence must truthfully state coding is not 100% complete.');
-fr4_check(str_contains($status, 'Coding Completion: 100% نہیں') && str_contains($readme, 'Coding completeness'), 'Installable documentation must preserve the non-100% completion boundary.');
+fr4_check(str_contains($completeness, 'Coding completion: 100% code-complete candidate'), 'Repository evidence must state coding completion without claiming operational completion.');
+fr4_check(str_contains($status, 'Coding Completion: 100% code-complete candidate') && str_contains($readme, '100% coded candidate'), 'Installable documentation must preserve the code-complete/staging-pending boundary.');
 if ($failures) { fwrite(STDERR, "Fourth-review static failures (" . count($failures) . "/$checks):\n - " . implode("\n - ", $failures) . "\n"); exit(1); }
 echo "Fourth-review static contracts: PASS ($checks checks)\n";

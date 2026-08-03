@@ -3,7 +3,7 @@
 **Plugin version:** 2.0.0  
 **WordPress:** 6.5 or later  
 **PHP:** 8.1 or later  
-**Status:** substantial reviewed code candidate; not staging-accepted, live-deployed, or operational
+**Status:** 100% coded candidate against the current File 17 specification; not staging-accepted, live-deployed, and not production-operational
 
 File 17 is the canonical communication owner for the Sabri Social Homeopathy Platform. It owns Network relationships, conversations, messages, private attachments, presence, calls/signaling, Sabri Meet, reports, native privacy lifecycle, message receipts, indexed private message search, and communication-event evidence. It does not create a parallel identity, notification, public-profile, clinical, appointment, marketplace, or global-shell backend.
 
@@ -77,7 +77,9 @@ The quality workflow runs the inherited File-17 contract suites, Sabri Meet revi
 
 ## Coding completeness
 
-This branch is not 100% complete against the full governing specification. Remaining major scope includes complete spaces governance, general per-device presence and revocation, advanced message organization, space abuse controls, File 08/18/21 context adapters, production conference-media infrastructure, high-risk step-up/dual approval, and full staging/operational acceptance. `CODING-COMPLETENESS.md` is the controlling gap record.
+This branch is a **100% coded candidate against the currently approved File 17 specification**. Communities/groups/channels governance, anti-raid controls, general per-device presence and revocation, advanced message organization and governed forwarding/mentions, File 08/18/21 context adapters, high-risk step-up/dual approval and secret-free conference-provider governance are included in the reviewable source.
+
+Coding completion is not operational completion. Real WordPress/MySQL staging, companion contracts, provider credentials and infrastructure, load/soak, penetration, browser/device, accessibility, backup/restore, rollback and Founder acceptance remain external release gates. The repository-level `CODING-COMPLETENESS.md` is the controlling truth record.
 
 ## Explicit non-claims
 

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sabri Network and Messages
  * Plugin URI: https://www.sabrihomeopathy.com/
- * Description: Canonical File-17 relationship, spaces, messaging, indexed private search, reliable event delivery, Sabri Meet, call, private update and abuse-reporting system for the Sabri Social Homeopathy Platform.
+ * Description: Canonical File-17 relationships, spaces, messaging, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
  * Version: 2.0.0
  * Author: Sabri Homeopathy
  * Text Domain: sabri-network
@@ -18,6 +18,24 @@ define('SN_DIR', plugin_dir_path(__FILE__));
 define('SN_URL', plugin_dir_url(__FILE__));
 
 require_once SN_DIR . 'includes/class-sn-db.php';
+require_once SN_DIR . 'includes/class-sn-high-risk.php';
+require_once SN_DIR . 'includes/class-sn-spaces-schema.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-1.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-2.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-3.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-4.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-5.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-6.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-7.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-8.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-9.php';
+require_once SN_DIR . 'includes/class-sn-spaces-part-10.php';
+require_once SN_DIR . 'includes/class-sn-spaces.php';
+require_once SN_DIR . 'includes/class-sn-presence-devices.php';
+require_once SN_DIR . 'includes/class-sn-message-operations.php';
+require_once SN_DIR . 'includes/class-sn-message-visibility.php';
+require_once SN_DIR . 'includes/class-sn-context-adapters.php';
+require_once SN_DIR . 'includes/class-sn-conference-provider.php';
 require_once SN_DIR . 'includes/class-sn-outbox.php';
 require_once SN_DIR . 'includes/class-sn-message-search.php';
 require_once SN_DIR . 'includes/class-sn-safety.php';
@@ -27,7 +45,6 @@ require_once SN_DIR . 'includes/class-sn-privacy.php';
 require_once SN_DIR . 'includes/class-sn-activator.php';
 require_once SN_DIR . 'includes/class-sn-auth.php';
 require_once SN_DIR . 'includes/class-sn-relationships.php';
-require_once SN_DIR . 'includes/class-sn-spaces.php';
 require_once SN_DIR . 'includes/class-sn-admin.php';
 require_once SN_DIR . 'includes/class-sn-rest.php';
 require_once SN_DIR . 'includes/class-sn-ajax.php';
@@ -44,7 +61,9 @@ final class Sabri_Network {
     private static ?Sabri_Network $instance = null;
 
     public static function instance(): Sabri_Network {
-        if (self::$instance === null) self::$instance = new self();
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
         return self::$instance;
     }
 
@@ -62,14 +81,20 @@ final class Sabri_Network {
         add_filter('sn_network_profile_action_state', ['SN_Relationships', 'filter_profile_action_state'], 10, 3);
 
         SN_Ajax::register();
+        SN_High_Risk::register();
+        SN_Spaces::register();
+        SN_Presence_Devices::register();
+        SN_Message_Operations::register();
+        SN_Context_Adapters::register();
+        SN_Conference_Provider::register();
         SN_Privacy::register();
         SN_Private_Files::register();
         SN_Messages::register();
         SN_Message_Search::register();
         SN_Outbox::register();
         SN_Message_Integrity::register();
+        SN_Message_Visibility::register();
         SN_Meet::register();
-        SN_Spaces::register();
 
         add_filter('query_vars', [$this, 'query_vars']);
         add_filter('template_include', [$this, 'safe_template'], 99);
@@ -85,10 +110,15 @@ final class Sabri_Network {
 
     public function init(): void {
         SN_DB::maybe_upgrade();
+        SN_High_Risk::maybe_upgrade();
+        SN_Spaces::maybe_upgrade();
+        SN_Presence_Devices::maybe_upgrade();
+        SN_Message_Operations::maybe_upgrade();
+        SN_Context_Adapters::maybe_upgrade();
+        SN_Conference_Provider::maybe_upgrade();
         SN_Messages::maybe_upgrade();
         SN_Message_Search::maybe_upgrade();
         SN_Outbox::maybe_upgrade();
-        SN_Spaces::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
@@ -96,10 +126,15 @@ final class Sabri_Network {
         if ((string) get_option('sn_plugin_version', '') !== SN_VERSION) {
             SN_Activator::retire_legacy_secrets();
             SN_DB::install();
+            SN_High_Risk::install();
+            SN_Spaces::install();
+            SN_Presence_Devices::install();
+            SN_Message_Operations::install();
+            SN_Context_Adapters::install();
+            SN_Conference_Provider::install();
             SN_Messages::install();
             SN_Message_Search::install();
             SN_Outbox::install();
-            SN_Spaces::install();
             SN_Private_Files::ensure_storage();
             SN_Activator::ensure_network_page(true);
             SN_Messages::ensure_pages(true);
@@ -107,6 +142,7 @@ final class Sabri_Network {
             flush_rewrite_rules(false);
         }
 
+        /** File 20 consumes this route contract; File 17 does not inject a second global menu. */
         do_action('sn_network_relationship_contract_registered', [
             'owner' => 'file-17',
             'version' => SN_VERSION,
@@ -126,8 +162,13 @@ final class Sabri_Network {
             'message_receipt_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/receipts'),
             'message_search_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search'),
             'message_context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search/context'),
-            'spaces_route' => rest_url('sabri-network/v2/spaces'),
             'event_delivery_contract' => 'sn_network_event_dispatched',
+            'spaces_route' => rest_url('sabri-network/v2/spaces'),
+            'presence_devices_route' => rest_url('sabri-network/v2/presence/devices'),
+            'message_folders_route' => rest_url('sabri-network/v2/message-folders'),
+            'context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/contexts'),
+            'conference_credentials_route' => rest_url('sabri-network/v2/calls/{call_id}/media-credentials'),
+            'high_risk_contract' => 'step-up + distinct approval + distinct execution',
             'messages_url' => SN_Messages::messages_url(),
             'communication_settings_url' => SN_Messages::settings_url(),
         ]);
@@ -141,22 +182,43 @@ final class Sabri_Network {
         ]);
     }
 
-    public function query_vars(array $vars): array { $vars[] = 'sn_network_app'; return $vars; }
-    public function disable_safe_canonical($redirect_url, $requested_url) { return ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) ? false : $redirect_url; }
-    public function safe_template(string $template): string { if ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) { status_header(200); return SN_DIR . 'templates/network-standalone.php'; } return $template; }
+    public function query_vars(array $vars): array {
+        $vars[] = 'sn_network_app';
+        return $vars;
+    }
+
+    public function disable_safe_canonical($redirect_url, $requested_url) {
+        return ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) ? false : $redirect_url;
+    }
+
+    public function safe_template(string $template): string {
+        if ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) {
+            status_header(200);
+            return SN_DIR . 'templates/network-standalone.php';
+        }
+        return $template;
+    }
 
     public function force_network_content(string $content): string {
         $page_id = (int) get_option('sn_network_page_id');
-        if ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id) && in_the_loop() && is_main_query()) return do_shortcode('[sabri_network]');
+        if ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id) && in_the_loop() && is_main_query()) {
+            return do_shortcode('[sabri_network]');
+        }
         return $content;
     }
 
     public function disable_network_cache(): void {
         $page_id = (int) get_option('sn_network_page_id');
         $is_network = ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id)) || (int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe']);
-        if (!$is_network) return;
-        if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true);
-        if (!defined('DONOTCACHEOBJECT')) define('DONOTCACHEOBJECT', true);
+        if (!$is_network) {
+            return;
+        }
+        if (!defined('DONOTCACHEPAGE')) {
+            define('DONOTCACHEPAGE', true);
+        }
+        if (!defined('DONOTCACHEOBJECT')) {
+            define('DONOTCACHEOBJECT', true);
+        }
         nocache_headers();
         header('X-Robots-Tag: noindex, noarchive', true);
         header('X-Content-Type-Options: nosniff', true);
@@ -166,17 +228,25 @@ final class Sabri_Network {
     }
 
     public function admin_notices(): void {
-        if (!current_user_can('manage_options')) return;
+        if (!current_user_can('manage_options')) {
+            return;
+        }
         $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-        if ($screen && $screen->id === 'toplevel_page_sabri-network') return;
+        if ($screen && $screen->id === 'toplevel_page_sabri-network') {
+            return;
+        }
         $page_id = (int) get_option('sn_network_page_id');
         $page_ok = $page_id && SN_Activator::is_owned_page($page_id) && get_post_status($page_id) === 'publish';
-        if (!$page_ok) echo '<div class="notice notice-error"><p><strong>Sabri Network:</strong> The owned Network page is missing. Open <a href="' . esc_url(admin_url('admin.php?page=sabri-network')) . '">Network</a> and run repair.</p></div>';
+        if (!$page_ok) {
+            echo '<div class="notice notice-error"><p><strong>Sabri Network:</strong> The owned Network page is missing. Open <a href="' . esc_url(admin_url('admin.php?page=sabri-network')) . '">Network</a> and run repair.</p></div>';
+        }
         $messages_page_id = (int) get_option('sn_messages_page_id');
         $settings_page_id = (int) get_option('sn_communication_settings_page_id');
         $messages_ok = $messages_page_id > 0 && get_post_status($messages_page_id) === 'publish';
         $settings_ok = $settings_page_id > 0 && get_post_status($settings_page_id) === 'publish';
-        if (!$messages_ok || !$settings_ok) echo '<div class="notice notice-warning"><p><strong>Sabri Messages:</strong> One or more File-17-owned Messages surfaces require repair. Reactivate the plugin or run the File 17 repair workflow before staging acceptance.</p></div>';
+        if (!$messages_ok || !$settings_ok) {
+            echo '<div class="notice notice-warning"><p><strong>Sabri Messages:</strong> One or more File-17-owned Messages surfaces require repair. Reactivate the plugin or run the File 17 repair workflow before staging acceptance.</p></div>';
+        }
     }
 }
 
