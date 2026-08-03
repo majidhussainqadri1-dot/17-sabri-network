@@ -72,6 +72,18 @@ php tests/search-outbox-review-1-static-contracts.php
 echo '== Search/outbox review/fix round 2: fresh privacy, replay and failure paths =='
 php tests/search-outbox-review-2-adversarial-contracts.php
 
+echo '== Completion review/fix round 1: architecture and governance =='
+php tests/completion-review-1-architecture-governance-contracts.php
+
+echo '== Completion review/fix round 2: spaces, presence and message operations =='
+php tests/completion-review-2-spaces-presence-message-contracts.php
+
+echo '== Completion review/fix round 3: context, conference and privacy =='
+php tests/completion-review-3-context-conference-privacy-contracts.php
+
+echo '== Completion review/fix round 4: fresh adversarial release review =='
+php tests/completion-review-4-fresh-adversarial-release-contracts.php
+
 echo '== CSS integrity =='
 python3 - <<'PY'
 from pathlib import Path
