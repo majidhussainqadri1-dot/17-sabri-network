@@ -23,10 +23,14 @@ sn_cf01_static_assert(str_contains($main, 'SN_CF01_Clinical_Context::register()'
 sn_cf01_static_assert(str_contains($main, 'SN_CF01_Clinical_Context::install()'), 'provider schema is installed');
 sn_cf01_static_assert(str_contains($source, "public const CONTRACT_NAME = 'sn.cf01.communication-context'"), 'contract name is exact');
 sn_cf01_static_assert(str_contains($source, "public const CONTRACT_VERSION = '1.0.0'"), 'contract version is exact');
-sn_cf01_static_assert(str_contains($source, "SN_DB::table('cf01_context_refs')"), 'File 17 owns a separate minimal reference registry');
-sn_cf01_static_assert(!str_contains($source, "SN_DB::table('messages')"), 'provider never reads the messages table');
-sn_cf01_static_assert(!str_contains($source, "SN_DB::table('attachments')"), 'provider never reads the attachments table');
-sn_cf01_static_assert(!str_contains($source, "SN_DB::table('calls')"), 'provider never reads the calls table');
+
+preg_match_all("/SN_DB::table\('([^']+)'\)/", $source, $table_matches);
+$used_tables = array_values(array_unique($table_matches[1] ?? []));
+sort($used_tables);
+$allowed_tables = ['cf01_context_refs', 'conversations', 'members'];
+sort($allowed_tables);
+sn_cf01_static_assert($used_tables === $allowed_tables, 'provider uses only conversations, members and its minimal reference registry');
+
 sn_cf01_static_assert(!str_contains($source, 'SELECT body'), 'provider never selects message bodies');
 sn_cf01_static_assert(!str_contains($source, 'attachment_id BIGINT'), 'reference schema stores no attachment identifier');
 sn_cf01_static_assert(!str_contains($source, 'message_id BIGINT'), 'reference schema stores no message identifier');
