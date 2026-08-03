@@ -52,8 +52,16 @@ bash -n tools/quality-check.sh
 bash -n tools/package.sh
 echo 'PASS shell scripts'
 
-echo '== Inherited File 17 review and correction suites =='
+echo '== Inherited independent review round 1 =='
+php tests/static-contracts.php
+
+echo '== Inherited independent review round 2 =='
+php tests/adversarial-contracts.php
+
+echo '== Remaining inherited File 17 review and correction suites =='
 for test_file in $(find tests -maxdepth 1 -type f -name '*.php' \
+  ! -name 'static-contracts.php' \
+  ! -name 'adversarial-contracts.php' \
   ! -name 'cf01-clinical-context-static-contracts.php' \
   ! -name 'cf01-clinical-context-runtime-contracts.php' \
   -print | LC_ALL=C sort); do
@@ -120,41 +128,41 @@ for forbidden in ("SN_DB::table('messages')", "SN_DB::table('attachments')", "SN
 print('Repository and CF-01 public-safety checks: PASS')
 PY
 
-echo '== Installable source checksums =='
-(
-  cd "$ROOT/.."
-  expected_files="$(find sabri-network -type f \
-    ! -path 'sabri-network/build/*' \
-    ! -path 'sabri-network/tests/*' \
-    ! -path 'sabri-network/tools/*' \
-    ! -name 'REVIEW-REPORT.md' \
-    -print | LC_ALL=C sort)"
-  listed_files="$(awk '{print $2}' CHECKSUMS.sha256 | sed 's#^\./##' | LC_ALL=C sort)"
-  if [[ "$expected_files" != "$listed_files" ]]; then
-    echo 'Installable source checksum manifest does not match the package source tree.' >&2
-    diff -u <(printf '%s\n' "$expected_files") <(printf '%s\n' "$listed_files") >&2 || true
-    exit 1
-  fi
-  if ! sha256sum -c CHECKSUMS.sha256; then
-    echo 'Actual installable source digests:' >&2
-    while IFS= read -r path; do sha256sum "$path"; done < <(awk '{print $2}' CHECKSUMS.sha256) >&2
-    exit 1
-  fi
-)
-echo 'Installable source checksums: PASS'
-
-echo '== Reproducible package =='
+echo '== Exact staged source manifest and reproducible package =='
+BASE='17-sabri-network-and-messages-2.0.1'
+rm -rf build
 bash tools/package.sh >/tmp/file17-package-first.log
-first_hash="$(sha256sum build/17-sabri-network-and-messages-2.0.1.zip | cut -d' ' -f1)"
-cp build/17-sabri-network-and-messages-2.0.1.zip /tmp/file17-package-first.zip
+for suffix in zip zip.sha256 manifest.sha256; do
+  test -f "build/${BASE}.${suffix}" || { echo "Missing build artifact: ${BASE}.${suffix}" >&2; exit 1; }
+done
+first_hash="$(sha256sum "build/${BASE}.zip" | cut -d' ' -f1)"
+cp "build/${BASE}.zip" /tmp/file17-package-first.zip
+cp "build/${BASE}.zip.sha256" /tmp/file17-package-first.zip.sha256
+cp "build/${BASE}.manifest.sha256" /tmp/file17-package-first.manifest.sha256
+
+rm -rf build
 bash tools/package.sh >/tmp/file17-package-second.log
-second_hash="$(sha256sum build/17-sabri-network-and-messages-2.0.1.zip | cut -d' ' -f1)"
+second_hash="$(sha256sum "build/${BASE}.zip" | cut -d' ' -f1)"
 if [[ "$first_hash" != "$second_hash" ]]; then
   echo "Reproducible packaging failed: $first_hash != $second_hash" >&2
   exit 1
 fi
-cmp -s /tmp/file17-package-first.zip build/17-sabri-network-and-messages-2.0.1.zip
-rm -f /tmp/file17-package-first.zip /tmp/file17-package-first.log /tmp/file17-package-second.log
-echo "Reproducible package: PASS ($first_hash)"
+cmp -s /tmp/file17-package-first.zip "build/${BASE}.zip"
+cmp -s /tmp/file17-package-first.zip.sha256 "build/${BASE}.zip.sha256"
+cmp -s /tmp/file17-package-first.manifest.sha256 "build/${BASE}.manifest.sha256"
+(
+  cd build
+  sha256sum -c "${BASE}.zip.sha256" >/dev/null
+)
+VERIFY="$(mktemp -d)"
+trap 'rm -rf "$VERIFY" /tmp/file17-package-first.zip /tmp/file17-package-first.zip.sha256 /tmp/file17-package-first.manifest.sha256 /tmp/file17-package-first.log /tmp/file17-package-second.log' EXIT
+unzip -q "build/${BASE}.zip" -d "$VERIFY"
+cmp -s "build/${BASE}.manifest.sha256" "$VERIFY/sabri-network/MANIFEST.sha256"
+(
+  cd "$VERIFY"
+  sha256sum -c sabri-network/MANIFEST.sha256 >/dev/null
+)
 
+echo "Exact staged source manifest: PASS"
+echo "Reproducible package: PASS ($first_hash)"
 printf 'QUALITY CHECK: PASS (%d PHP files, %d JS files)\n' "$php_count" "${#js_files[@]}"
