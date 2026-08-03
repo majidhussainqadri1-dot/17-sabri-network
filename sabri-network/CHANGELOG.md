@@ -89,3 +89,14 @@ Code-reviewed candidate only. The current quality gate retains the previously ve
 - Made send/edit/delete/receipt mutations atomic with search-index and event records.
 - Added responsive, RTL-ready and reduced-motion message-search UI.
 - Added two independent review/fix suites and completion-truth regression coverage.
+
+## 2.0.0 — Code-complete candidate completion batch
+
+- Added canonical communities, groups, channels and private-team governance with consent-aware joins/invitations, hierarchy, succession, lifecycle, bans and abuse controls.
+- Added general keyed per-device presence, aggregate state, revocation, cleanup and privacy lifecycle.
+- Added governed mentions/forwarding, pins, stars, private folders and hide-for-self projections.
+- Added opaque reauthorized File 08/18/21 conversation contexts with transactional event evidence.
+- Added one-time step-up grants, distinct dual control, payload-scope hashes and stale execution recovery.
+- Added secret-free conference provider governance with fresh health evidence and short-lived scoped credential contracts.
+- Added four independent completion review/fix suites totaling 120 checks.
+- Classification: code-complete candidate only; staging/live/production-operational acceptance remains pending.
