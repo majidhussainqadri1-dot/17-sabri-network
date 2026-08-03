@@ -202,11 +202,11 @@ final class SN_Meet {
         ]);
     }
 
-    public static function access(): true|WP_Error {
+    public static function access(): bool|WP_Error {
         return SN_Policy::access();
     }
 
-    public static function admin_access(): true|WP_Error {
+    public static function admin_access(): bool|WP_Error {
         $access = SN_Policy::access();
         if (is_wp_error($access)) {
             return $access;

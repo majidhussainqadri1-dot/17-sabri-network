@@ -244,7 +244,7 @@ final class SN_Message_Integrity {
         return $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('conversations') . ' WHERE id=%d AND status=%s', $conversation_id, 'active')) ?: null;
     }
 
-    private static function conversation_contact_check(object $conversation, int $conversation_id, int $actor_id, string $context): true|WP_Error {
+    private static function conversation_contact_check(object $conversation, int $conversation_id, int $actor_id, string $context): bool|WP_Error {
         $others = self::recipient_ids($conversation_id, $actor_id);
         if ((string) $conversation->type !== 'direct') {
             foreach ($others as $target_id) if (SN_DB::is_blocked($actor_id, $target_id)) return new WP_Error('blocked', 'A conversation member is unavailable.', ['status' => 403]);

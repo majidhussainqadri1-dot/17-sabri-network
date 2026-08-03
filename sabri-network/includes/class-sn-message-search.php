@@ -71,7 +71,7 @@ final class SN_Message_Search {
         ]);
     }
 
-    public static function index_message(int $message_id): true|WP_Error {
+    public static function index_message(int $message_id): bool|WP_Error {
         global $wpdb;
         $message = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $message_id));
         if (!$message) return new WP_Error('message_not_found', 'The message is unavailable.');
@@ -90,7 +90,7 @@ final class SN_Message_Search {
         return true;
     }
 
-    public static function remove_message(int $message_id): true|WP_Error {
+    public static function remove_message(int $message_id): bool|WP_Error {
         global $wpdb;
         return $wpdb->delete(self::table(), ['message_id' => $message_id], ['%d']) === false
             ? new WP_Error('search_index_delete_failed', 'The message search index could not be removed.') : true;
