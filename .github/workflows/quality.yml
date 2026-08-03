@@ -66,5 +66,6 @@ jobs:
           path: |
             sabri-network/build/17-sabri-network-and-messages-2.0.1.zip
             sabri-network/build/17-sabri-network-and-messages-2.0.1.zip.sha256
+            sabri-network/build/17-sabri-network-and-messages-2.0.1.manifest.sha256
           if-no-files-found: error
           retention-days: 14
