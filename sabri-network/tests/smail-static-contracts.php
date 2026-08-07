@@ -4,7 +4,8 @@ $root = dirname(__DIR__); $main = file_get_contents($root.'/sabri-network.php');
 function smc(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 smc(str_contains($main,'class-sn-smail.php')&&str_contains($main,'SN_Smail::register()')&&str_contains($main,'SN_Smail::install()'),'Smail lifecycle is loaded, registered and installed.');
 foreach(['inbox','sent','drafts','starred','archive','spam','trash'] as $box){smc(str_contains($src,"'$box'"),"Mailbox $box is implemented.");}
-smc(str_contains($src,"SN_REST::create_conversation")&&str_contains($src,"SN_REST::send_message"),'Smail reuses canonical conversation and message services.');
+smc(str_contains($src,'SN_Central_Plan_Hardening::resolve_smail_conversation')&&str_contains($src,'SN_Message_Integrity::send_message'),'Smail reuses retry-safe canonical conversation resolution and the atomic canonical message service.');
+smc(!str_contains($src,'SN_REST::send_message'),'Smail cannot bypass the canonical message-integrity route.');
 smc(!str_contains($src,'CREATE TABLE')||str_contains($src,'message_id BIGINT UNSIGNED NOT NULL'),'Smail stores message references rather than a second message body truth.');
 smc(str_contains($src,'encrypted_payload LONGTEXT'),'Draft payload is encrypted at rest.');
 smc(str_contains($src,'SN_Communication_Crypto::encrypt')&&str_contains($src,'SN_Communication_Crypto::decrypt'),'Draft encryption and decryption are explicit.');
