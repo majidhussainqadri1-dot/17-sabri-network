@@ -106,8 +106,9 @@ adv_check(!preg_match('/console\.(?:log|warn|error|debug)\s*\(/', $js), 'Product
 adv_check(!str_contains($js, 'sendBeacon') && !preg_match('/\beval\s*\(|new Function/', $js), 'Client code must not use unauthenticated beacon writes or dynamic execution.');
 adv_check(str_contains($js, 'modalReturnFocus') && str_contains($js, "event.key === 'Tab'"), 'Modal focus must be trapped and restored.');
 
-// Release reproducibility.
-adv_check(str_contains($quality, 'tests/static-contracts.php') && str_contains($quality, 'tests/adversarial-contracts.php'), 'Both independent review suites must run in the quality gate.');
+// Release reproducibility. The quality runner now uses an explicit array and invokes
+// each file as tests/$test_file, so literal suite filenames are the authoritative inventory.
+adv_check(str_contains($quality, 'static-contracts.php') && str_contains($quality, 'adversarial-contracts.php') && str_contains($quality, 'php "tests/$test_file"'), 'Both independent review suites must run in the explicit quality gate.');
 adv_check(str_contains($package, "--exclude='.gitignore'") && str_contains($package, "--exclude='tests/'") && str_contains($package, "--exclude='tools/'"), 'The production ZIP must exclude development-only files.');
 adv_check(!str_contains($all, 'End-to-End Encrypted') && !str_contains($all, '100% Secure'), 'Unsupported E2EE or absolute-security claims must not appear.');
 adv_check(str_contains($rest, 'transfer_conversation_owner') && str_contains($rest, 'Only the current conversation owner may transfer ownership.'), 'Ownership transfer must be restricted to the current owner.');
