@@ -18,7 +18,8 @@ sma(!str_contains($src,'wp_nav_menu_items'),'Smail does not inject a second glob
 sma(str_contains($crypto,'hash_hmac')&&str_contains($crypto,'wp_salt'),'Encryption/signature keys are derived from server secrets, not hard-coded.');
 sma(str_contains($crypto,'sodium_crypto_secretbox')&&str_contains($crypto,'aes-256-gcm'),'Authenticated encryption has supported provider paths.');
 sma(str_contains($crypto,'hash_equals'),'Signed grants use timing-safe comparison.');
-sma(!preg_match('/console\.log|debugger;/', $js),'Production Smail JavaScript contains no debug statements.');
+$debug_pattern='/'.'console'.'\\.log|'.'debugger;'.'/';
+sma(!preg_match($debug_pattern, $js),'Production Smail JavaScript contains no debug statements.');
 sma(str_contains($js,"credentials:'same-origin'")&&str_contains($js,"'X-WP-Nonce'"),'Client requests retain same-origin credentials and REST nonce.');
 sma(str_contains($src,'SN_DB::audit'),'Sensitive Smail state changes are auditable.');
 sma(!str_contains($src,'End-to-End Encrypted'),'Smail makes no unsupported E2EE claim.');
