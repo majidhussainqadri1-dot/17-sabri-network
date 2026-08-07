@@ -107,7 +107,9 @@ final class SN_Presence_Devices {
         $state='offline';$last=null;$rank=['offline'=>0,'away'=>1,'online'=>2,'dnd'=>3];
         foreach(is_array($rows)?$rows:[] as $row){$effective=self::effective_state($row,$now);if($rank[$effective]>$rank[$state])$state=$effective;if($last===null||strcmp((string)$row->last_seen_at,$last)>0)$last=(string)$row->last_seen_at;}
         $privacy=SN_Policy::privacy_for($target);$show_last=((string)($privacy['last_seen']??'contacts'))!=='nobody';
-        return rest_ensure_response(['user_id'=>$target,'state'=>$state,'last_seen_at'=>$show_last?$last:null,'active_devices'=>count($rows)]);
+        $response=['user_id'=>$target,'state'=>$state,'last_seen_at'=>$show_last?$last:null];
+        if($viewer===$target)$response['active_devices']=count($rows);
+        return rest_ensure_response($response);
     }
 
     public static function cleanup(): void {
