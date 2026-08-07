@@ -1,5 +1,5 @@
 Code-complete corrective candidate; not staging-accepted, not live-deployed, not production-operational.
-File 17 — Sabri Network and Messages 2.0.2
+File 17 — Sabri Network and Messages 2.0.3
 حقیقی حیثیت — 7 اگست 2026ء
 
 حاکم audit basis:
@@ -9,45 +9,52 @@ File 17 — Sabri Network and Messages 2.0.2
 4) File 17 Final Harmonized Master Plan
 
 Specified: چاروں منصوبوں کے repository-owned/current-wave File-17 scope کی traceable specification
-Coded Candidate: چار independent review/fix rounds کے بعد 2.0.2 corrective source
-Coding Completion: 100% code-complete candidate for current-wave repository scope; Top-20 NEXT/SCALE remain their expressly governed later-wave gates
-Packaged: deterministic 2.0.2 ZIP، exact staged manifest اور SHA-256 workflow defined; exact-head CI evidence required
-Automated QA: 41 explicit review suites، PHP 8.1/8.3 jobs، 6 JavaScript syntax checks، shell/CSS/hygiene اور deterministic package gates
+Coded Candidate: 40 مسلسل review/fix rounds کے بعد 2.0.3 corrective source
+Coding Completion: 100% code-complete candidate for current-wave repository scope; Top-20 NEXT/SCALE اپنی الگ future gates ہیں
+Packaged: deterministic 2.0.3 ZIP، exact staged manifest اور SHA-256 workflow؛ exact-head CI evidence لازم
+Automated QA: 45 explicit PHP review suites، PHP 8.1/8.3 jobs، 6 JavaScript syntax checks، shell/CSS/hygiene، source-manifest اور deterministic double-build gates
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-چار نظرِ ثانیوں میں اصلاح شدہ مرکزی نقائص:
-Round 1 — File 19 single-notification ownership کے خلاف File-17 fallback notification center/bell اور stale ownership docs۔
-Round 2 — concurrent same-index resumable transfer retry میں winner encrypted bytes delete ہونے کا race defect۔
-Round 3 — canonical message body plaintext-at-rest، Smail کا atomic message-integrity path bypass، multi-recipient retry duplicate-conversation risk، اور encrypted-forwarding gap۔
-Round 4 — 2.0.1 identity کے بعد substantive changes کے باوجود version/docs/package/QA inventory mismatch؛ 2.0.2 immutable candidate میں reconcile کیا۔
+40 نظرِ ثانیوں کا شمار:
+- کل rounds: 40
+- defects والے rounds: 18
+- نئے defect کے بغیر rounds: 22
+- round 40 کے بعد known unresolved repository/current-wave coding defects: 0، exact-head automated gate اور نئی evidence کے تابع
+
+2.0.3 میں اضافی اصلاحات:
+- File 26 global Search/Discovery/Ranking owner صریح؛ private messages/contacts global corpus سے خارج
+- block-safe phone/avatar projections
+- versioned rotatable communication keyring؛ message/private-file/Smail-draft lazy re-encryption
+- verified transfer صرف current File 00 verified assertion سے
+- scanner plaintext lease cleanup اور entropy failure fail-closed
+- legacy presence کو canonical per-device backend پر bridge؛ cross-user device count ختم
+- private-transfer storage realpath containment
+- Smail mailbox اور privacy exports authorized plaintext میں user-readable
+- Smail draft plaintext fingerprint keyed HMAC blind hash
+- forwarding defense-in-depth اور behavioral QA strengthening
+- 45-suite full quality gate اور immutable 2.0.3 package/workflow identity
 
 مکمل coded domains:
-- relationships، contacts، follows، blocks، discovery اور canonical conversations
-- communities، groups، channels اور private teams؛ roles، join/invitation، moderation، succession اور lifecycle
-- direct/group/channel messages، private attachments، reactions، replies، edit/delete، native recipient/device receipts، indexed search، folders، pins، stars اور hide-for-self
-- authenticated at-rest canonical message-body encryption `SNE1`، bounded legacy migration اور authorized hashed-token search
-- dedicated Messages، Communication Settings اور internal Smail
-- Smail Inbox، Sent، Drafts، Starred، Archive، Spam اور Trash؛ encrypted/versioned drafts، canonical atomic sends اور retry-safe group reservation
-- verified-user private transfer: زیادہ سے زیادہ 1 GiB/file، resumable encrypted chunks، chunk/file SHA-256، collision-safe concurrent attempts، MIME/magic/archive safety، fail-closed malware quarantine، signed ten-minute grants، range resume، revoke، retention، privacy اور audit
-- general per-device presence، keyed device identities، aggregate state، revocation، cleanup اور privacy lifecycle
-- Sabri Meet، direct calls اور provider-gated STUN/TURN/SFU conference control plane
-- reports، appeals، legal/safety holds، retention، audit، privacy export/erasure
-- transactional outbox/inbox، idempotency، retries، dead-letter اور atomic message/search/event integrity
-- File 08، File 18، File 21 اور CF-01 opaque reauthorized context adapters
-- one-time step-up، scope hashes، distinct requester/approver/executor اور stale execution recovery
-- File 19 single notification owner؛ File 17 metadata-only facts، no active second center/bell
-- سبز primary visual identity؛ نارنجی صرف secondary accent
-
-Top-20 status law:
-NOW=current/current-wave؛ NEXT=اگلی ضروری توسیع؛ SCALE=maturity/operations/load wave۔ 2.0.2 provider- یا maturity-dependent NEXT/SCALE items کو جھوٹا live/coded-current claim نہیں کرتا؛ ان کی change-controlled gates برقرار ہیں۔
+- relationships، contacts، follows، blocks، discovery، communities/groups/channels، canonical conversations/messages
+- private attachments، reactions/replies، receipts، private indexed search، folders/pins/stars/hide-for-self
+- authenticated at-rest message encryption، bounded migration، key rotation and authorized search
+- Messages، Communication Settings، internal Smail seven mailboxes
+- verified-user private transfer ≤1 GiB/file، resumability، SHA-256، MIME/archive/scanner/quarantine، signed grants، range resume، revoke/retention/audit
+- multi-device presence، calls/Sabri Meet، STUN/TURN/SFU provider governance
+- reports/appeals/legal-safety holds، retention، privacy export/erasure، audit
+- transactional outbox/inbox، retries/dead-letter/idempotency
+- File 08/18/21 and CF-01 opaque reauthorized contexts
+- high-risk step-up/dual-control
+- File 19 single notification owner؛ File 20 single shell؛ File 26 global search/ranking owner
+- green primary visual identity؛ orange secondary only
 
 External acceptance gates still pending:
-- real WordPress/PHP/MySQL fresh install، supported upgrade/migration اور race testing
-- File 00/02/08/18/19/20/21/24/25/26، CF-01 اور CF-04 حقیقی integration/degraded-mode acceptance
-- Hostinger staging، cron، private storage، approved malware scanner، LiteSpeed، browser/device، RTL/LTR اور accessibility
-- approved WSS/STUN/TURN/SFU infrastructure، load/soak اور penetration testing
-- backup/restore، rollback rehearsal، Founder sign-off، live deployment، monitoring، support اور SLO evidence
+- real WordPress/PHP/MySQL fresh install، upgrade/migration/race tests
+- File 00/02/08/18/19/20/21/24/25/26، CF-01، CF-04 integration/degraded acceptance
+- Hostinger staging، cron، approved scanner/private storage، LiteSpeed، browser/device، RTL/LTR/accessibility
+- approved WSS/STUN/TURN/SFU، load/soak، penetration testing
+- backup/restore، rollback rehearsal، Founder sign-off، live deployment، monitoring/support/SLO evidence
 
-یہ status audited E2EE، production provider acceptance، staging acceptance، live deployment یا operational completion کا دعویٰ نہیں کرتا۔
+یہ status E2EE certification، staging acceptance، live deployment، production readiness یا operational completion کا دعویٰ نہیں کرتا۔
