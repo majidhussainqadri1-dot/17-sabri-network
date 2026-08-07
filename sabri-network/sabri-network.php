@@ -59,6 +59,7 @@ require_once SN_DIR . 'includes/class-sn-smail.php';
 require_once SN_DIR . 'includes/class-sn-message-integrity.php';
 require_once SN_DIR . 'includes/class-sn-meet.php';
 require_once SN_DIR . 'includes/class-sn-central-plan-hardening.php';
+require_once SN_DIR . 'includes/class-sn-compatibility-hardening.php';
 
 register_activation_hook(__FILE__, ['SN_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['SN_Activator', 'deactivate']);
@@ -106,6 +107,7 @@ final class Sabri_Network {
         SN_Message_Visibility::register();
         SN_Meet::register();
         SN_Central_Plan_Hardening::register();
+        SN_Compatibility_Hardening::register();
 
         add_filter('query_vars', [$this, 'query_vars']);
         add_filter('template_include', [$this, 'safe_template'], 99);
@@ -163,7 +165,6 @@ final class Sabri_Network {
             flush_rewrite_rules(false);
         }
 
-        /** File 20 consumes this route contract; File 17 does not inject a second global menu. */
         do_action('sn_network_relationship_contract_registered', [
             'owner' => 'file-17',
             'version' => SN_VERSION,
@@ -209,7 +210,6 @@ final class Sabri_Network {
             'file_transfer_max_bytes' => SN_File_Transfer::MAX_FILE_BYTES,
         ]);
 
-        /** File 26 owns global/federated search and ranking; File 17 publishes no private communication corpus. */
         do_action('sn_network_search_projection_contract_registered', [
             'owner' => 'file-17',
             'consumer_owner' => 'file-26',
