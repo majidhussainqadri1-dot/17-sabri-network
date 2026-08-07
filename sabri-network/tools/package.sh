@@ -11,7 +11,12 @@ if find "$STAGE/sabri-network" -type l -print -quit | grep -q .; then echo 'Pack
 find "$STAGE/sabri-network" -type d -exec chmod 0755 {} +
 find "$STAGE/sabri-network" -type f -exec chmod 0644 {} +
 find "$STAGE/sabri-network" -type f -name '*.php' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
-for file in network meet messages message-search smail file-transfer; do node --check "$STAGE/sabri-network/assets/js/$file.js"; done
+node --check "$STAGE/sabri-network/assets/js/network.js"
+node --check "$STAGE/sabri-network/assets/js/meet.js"
+node --check "$STAGE/sabri-network/assets/js/messages.js"
+node --check "$STAGE/sabri-network/assets/js/message-search.js"
+node --check "$STAGE/sabri-network/assets/js/smail.js"
+node --check "$STAGE/sabri-network/assets/js/file-transfer.js"
 grep -q 'Version: 2.0.1' "$STAGE/sabri-network/sabri-network.php"
 grep -q "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')" "$STAGE/sabri-network/sabri-network.php"
 for file in includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md includes/class-sn-smail.php includes/class-sn-file-transfer.php includes/class-sn-communication-crypto.php templates/smail-app.php templates/file-transfer-app.php; do test -f "$STAGE/sabri-network/$file"; done
