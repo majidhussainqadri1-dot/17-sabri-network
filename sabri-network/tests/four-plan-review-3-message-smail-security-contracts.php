@@ -10,7 +10,7 @@ fpr3(str_contains($integrity,'SN_Message_Body::encrypt($body, (int) $message->co
 fpr3(str_contains($search,'SN_Message_Body::decrypt_row($message)')&&str_contains($search,'self::terms($plain'),'Private search tokenizes plaintext only after authorized in-memory decryption.');
 fpr3(str_contains($smail,'SN_Message_Integrity::send_message')&&!str_contains($smail,'SN_REST::send_message'),'Smail cannot bypass the atomic canonical message path.');
 fpr3(str_contains($smail,'resolve_smail_conversation'),'Smail retries use an idempotent canonical conversation resolver.');
-fpr3(str_contains($hard,"'recipient_hash' => $recipient_hash")&&str_contains($hard,'smail_idempotency_conflict'),'Multi-recipient Smail retries bind the same key to the same audience.');
+fpr3(str_contains($hard,"'recipient_hash' => \$recipient_hash")&&str_contains($hard,'smail_idempotency_conflict'),'Multi-recipient Smail retries bind the same key to the same audience.');
 fpr3(str_contains($hard,'SN_Message_Body::decrypt_row($source)')&&str_contains($hard,'SN_Message_Body::encrypt($plain, $target_conversation, $actor)'),'Forwarding decrypts only authorized source content in memory and re-encrypts target content.');
 fpr3(str_contains($hard,"'source_visible' => false"),'Forwarded metadata does not disclose source message identity across audience boundaries.');
 fpr3(str_contains($hard,'MIGRATION_BATCH = 100'),'At-rest migration is bounded per pass.');
