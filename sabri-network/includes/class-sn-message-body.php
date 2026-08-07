@@ -50,9 +50,11 @@ final class SN_Message_Body {
 
     /**
      * Encrypt a legacy plaintext row with an optimistic compare-and-swap write.
-     * Returns a refreshed/enriched row on success.
+     * Returns either the refreshed/enriched row or a WP_Error. `mixed` is used
+     * deliberately for PHP 8.1 compatibility: `object|WP_Error` is redundant
+     * because WP_Error is itself an object and PHP rejects that union type.
      */
-    public static function ensure_encrypted_row(object $row): object|WP_Error {
+    public static function ensure_encrypted_row(object $row): mixed {
         global $wpdb;
         $stored = (string) ($row->body ?? '');
         if ($stored === '' || !empty($row->deleted_at) || self::is_encrypted($stored)) {
