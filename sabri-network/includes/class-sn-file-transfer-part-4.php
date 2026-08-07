@@ -15,7 +15,9 @@ trait SN_File_Transfer_Part_4 {
         $hash = hash_init('sha256'); $first = '';
         foreach ($chunks as $position => $chunk) {
             if ((int) $chunk->chunk_index !== $position) { return new WP_Error('transfer_chunk_gap', 'The transfer chunk sequence is incomplete.', ['status' => 409]); }
-            $plain = SN_Communication_Crypto::read_encrypted_file(self::storage_root() . '/' . $chunk->storage_key, self::chunk_context($row, (int) $chunk->chunk_index));
+            $path = self::existing_storage_path((string) $chunk->storage_key);
+            if (is_wp_error($path)) { return $path; }
+            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
             if (is_wp_error($plain)) { return $plain; }
             if (!hash_equals((string) $chunk->sha256, hash('sha256', $plain)) || strlen($plain) !== (int) $chunk->byte_count) { return self::reject_corrupt($row, 'chunk_revalidation_failed'); }
             if ($position === 0) { $first = substr($plain, 0, 1048576); }
@@ -29,7 +31,6 @@ trait SN_File_Transfer_Part_4 {
             $archive = self::inspect_archive($row, $chunks); if (is_wp_error($archive)) { return self::reject_corrupt($row, $archive->get_error_code()); }
         }
 
-        /** Scanner plaintext is a synchronous, leased temporary object and is always destroyed after the adapter returns. */
         $scan_paths = [];
         $materialize = static function () use ($row, &$scan_paths): string|WP_Error {
             $path = self::materialize_for_scan((int) $row->id);
