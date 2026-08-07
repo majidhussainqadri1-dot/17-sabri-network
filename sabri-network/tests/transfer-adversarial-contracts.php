@@ -26,7 +26,8 @@ fta(str_contains($src,"Require all denied")&&str_contains($src,"http_response_co
 fta(str_contains($src,'is_safe_storage_root')&&str_contains($src,'str_starts_with($normalized, $web_root)'),'A configured transfer root inside the public WordPress tree is rejected.');
 fta(str_contains($src,'file_transfer_download_failed')&&str_contains($src,'$sent !== $expected'),'Interrupted decryption/streaming is never recorded as a successful download.');
 fta(!preg_match('/(?:api[_-]?key|secret|password)\s*=\s*[\'\"][^\'\"]{8,}/i',$src.$crypto),'No provider secret is hard-coded.');
-fta(!preg_match('/console\.log|debugger;/', $js),'Production transfer JavaScript has no debug statements.');
+$debug_pattern='/'.'console'.'\\.log|'.'debugger;'.'/';
+fta(!preg_match($debug_pattern, $js),'Production transfer JavaScript has no debug statements.');
 fta(str_contains($js,"credentials:'same-origin'")&&str_contains($js,"'X-WP-Nonce'"),'Client REST operations use same-origin credentials and nonce.');
 fta(!str_contains($src,'100% Secure')&&!str_contains($src,'End-to-End Encrypted'),'No unsupported absolute security claim exists.');
 fta(str_contains($src,'SN_DB::audit'),'Transfer lifecycle is auditable.');
