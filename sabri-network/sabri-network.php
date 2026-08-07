@@ -268,6 +268,18 @@ final class Sabri_Network {
         if ($screen && $screen->id === 'toplevel_page_sabri-network') {
             return;
         }
+        $page_id = (int) get_option('sn_network_page_id');
+        $page_ok = $page_id && SN_Activator::is_owned_page($page_id) && get_post_status($page_id) === 'publish';
+        if (!$page_ok) {
+            echo '<div class="notice notice-error"><p><strong>Sabri Network:</strong> The owned Network page is missing. Open <a href="' . esc_url(admin_url('admin.php?page=sabri-network')) . '">Network</a> and run repair.</p></div>';
+        }
+        $messages_page_id = (int) get_option('sn_messages_page_id');
+        $settings_page_id = (int) get_option('sn_communication_settings_page_id');
+        $messages_ok = $messages_page_id > 0 && get_post_status($messages_page_id) === 'publish';
+        $settings_ok = $settings_page_id > 0 && get_post_status($settings_page_id) === 'publish';
+        if (!$messages_ok || !$settings_ok) {
+            echo '<div class="notice notice-warning"><p><strong>Sabri Messages:</strong> One or more File-17-owned Messages surfaces require repair. Reactivate the plugin or run the File 17 repair workflow before staging acceptance.</p></div>';
+        }
     }
 }
 
