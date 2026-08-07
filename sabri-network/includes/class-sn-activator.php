@@ -21,6 +21,7 @@ final class SN_Activator {
         SN_Message_Search::install();
         SN_Outbox::install();
         SN_Meet::install();
+        SN_Top20_Communication::install();
         SN_Messages::register_rewrites();
         SN_Meet::register_rewrites();
         SN_Private_Files::ensure_storage();
