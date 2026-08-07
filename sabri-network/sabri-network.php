@@ -187,6 +187,10 @@ final class Sabri_Network {
             'event_delivery_contract' => 'sn_network_event_dispatched',
             'notification_owner' => 'file-19',
             'legacy_file17_notification_center' => false,
+            'global_search_owner' => 'file-26',
+            'global_search_contract' => 'public-and-consented-people-space-projections-only',
+            'global_search_private_messages_exported' => false,
+            'global_search_private_contacts_exported' => false,
             'spaces_route' => rest_url('sabri-network/v2/spaces'),
             'presence_devices_route' => rest_url('sabri-network/v2/presence/devices'),
             'message_folders_route' => rest_url('sabri-network/v2/message-folders'),
@@ -203,6 +207,19 @@ final class Sabri_Network {
             'smail_mailboxes' => ['inbox', 'sent', 'drafts', 'starred', 'archive', 'spam', 'trash'],
             'file_transfer_url' => SN_File_Transfer::url(),
             'file_transfer_max_bytes' => SN_File_Transfer::MAX_FILE_BYTES,
+        ]);
+
+        /** File 26 owns global/federated search and ranking; File 17 publishes no private communication corpus. */
+        do_action('sn_network_search_projection_contract_registered', [
+            'owner' => 'file-17',
+            'consumer_owner' => 'file-26',
+            'version' => SN_VERSION,
+            'people_projection' => 'public-or-explicitly-consented',
+            'space_projection' => 'public-or-explicitly-consented',
+            'private_contacts' => 'excluded',
+            'private_messages' => 'excluded',
+            'private_message_search_owner' => 'file-17',
+            'ranking_owner' => 'file-26',
         ]);
 
         do_action('sn_network_route_registered', [
