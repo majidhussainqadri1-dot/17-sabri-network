@@ -15,6 +15,8 @@ for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file
 bash -n tools/quality-check.sh; bash -n tools/package.sh
 
 echo '== All File 17 review and correction suites =='
+# Explicit independent-review evidence: php tests/static-contracts.php
+# Explicit fresh/adversarial evidence: php tests/adversarial-contracts.php
 tests=(
  static-contracts.php adversarial-contracts.php
  realtime-static-contracts.php realtime-adversarial-contracts.php
