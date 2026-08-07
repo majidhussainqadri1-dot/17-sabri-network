@@ -1,34 +1,51 @@
-Code-complete candidate; not staging-accepted, not live-deployed, not production-operational.
-File 17 — Sabri Network and Messages 2.0.1
+Code-complete corrective candidate; not staging-accepted, not live-deployed, not production-operational.
+File 17 — Sabri Network and Messages 2.0.2
 حقیقی حیثیت — 7 اگست 2026ء
 
-Specified: موجودہ حاکم File 17 اور بازیافت شدہ directives کی مکمل specification
-Coded Candidate: مکمل معلوم approved coding scope reviewable source میں موجود
-Coding Completion: 100% code-complete candidate
-Packaged: deterministic ZIP، exact staged manifest اور SHA-256 workflow موجود؛ exact-head CI evidence لازم
-Automated QA: 37 صریح review suites، PHP 8.1/8.3، JavaScript/shell/CSS، hygiene اور deterministic package gates
+حاکم audit basis:
+1) Definitive Integrated Master Plan v3.0
+2) Consolidated All-Chats Recovered Directives
+3) Continuous Value / Top-20 Superset Master Plan
+4) File 17 Final Harmonized Master Plan
+
+Specified: چاروں منصوبوں کے repository-owned/current-wave File-17 scope کی traceable specification
+Coded Candidate: چار independent review/fix rounds کے بعد 2.0.2 corrective source
+Coding Completion: 100% code-complete candidate for current-wave repository scope; Top-20 NEXT/SCALE remain their expressly governed later-wave gates
+Packaged: deterministic 2.0.2 ZIP، exact staged manifest اور SHA-256 workflow defined; exact-head CI evidence required
+Automated QA: 41 explicit review suites، PHP 8.1/8.3 jobs، 6 JavaScript syntax checks، shell/CSS/hygiene اور deterministic package gates
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
+
+چار نظرِ ثانیوں میں اصلاح شدہ مرکزی نقائص:
+Round 1 — File 19 single-notification ownership کے خلاف File-17 fallback notification center/bell اور stale ownership docs۔
+Round 2 — concurrent same-index resumable transfer retry میں winner encrypted bytes delete ہونے کا race defect۔
+Round 3 — canonical message body plaintext-at-rest، Smail کا atomic message-integrity path bypass، multi-recipient retry duplicate-conversation risk، اور encrypted-forwarding gap۔
+Round 4 — 2.0.1 identity کے بعد substantive changes کے باوجود version/docs/package/QA inventory mismatch؛ 2.0.2 immutable candidate میں reconcile کیا۔
 
 مکمل coded domains:
 - relationships، contacts، follows، blocks، discovery اور canonical conversations
 - communities، groups، channels اور private teams؛ roles، join/invitation، moderation، succession اور lifecycle
 - direct/group/channel messages، private attachments، reactions، replies، edit/delete، native recipient/device receipts، indexed search، folders، pins، stars اور hide-for-self
+- authenticated at-rest canonical message-body encryption `SNE1`، bounded legacy migration اور authorized hashed-token search
 - dedicated Messages، Communication Settings اور internal Smail
-- Smail Inbox، Sent، Drafts، Starred، Archive، Spam اور Trash؛ encrypted/versioned drafts اور canonical idempotent sends
-- verified-user private transfer: زیادہ سے زیادہ 1 GiB/file، resumable encrypted chunks، chunk/file SHA-256، MIME/magic/archive safety، fail-closed malware quarantine، signed ten-minute grants، range resume، revoke، retention، privacy اور audit
+- Smail Inbox، Sent، Drafts، Starred، Archive، Spam اور Trash؛ encrypted/versioned drafts، canonical atomic sends اور retry-safe group reservation
+- verified-user private transfer: زیادہ سے زیادہ 1 GiB/file، resumable encrypted chunks، chunk/file SHA-256، collision-safe concurrent attempts، MIME/magic/archive safety، fail-closed malware quarantine، signed ten-minute grants، range resume، revoke، retention، privacy اور audit
 - general per-device presence، keyed device identities، aggregate state، revocation، cleanup اور privacy lifecycle
 - Sabri Meet، direct calls اور provider-gated STUN/TURN/SFU conference control plane
 - reports، appeals، legal/safety holds، retention، audit، privacy export/erasure
 - transactional outbox/inbox، idempotency، retries، dead-letter اور atomic message/search/event integrity
 - File 08، File 18، File 21 اور CF-01 opaque reauthorized context adapters
 - one-time step-up، scope hashes، distinct requester/approver/executor اور stale execution recovery
+- File 19 single notification owner؛ File 17 metadata-only facts، no active second center/bell
 - سبز primary visual identity؛ نارنجی صرف secondary accent
+
+Top-20 status law:
+NOW=current/current-wave؛ NEXT=اگلی ضروری توسیع؛ SCALE=maturity/operations/load wave۔ 2.0.2 provider- یا maturity-dependent NEXT/SCALE items کو جھوٹا live/coded-current claim نہیں کرتا؛ ان کی change-controlled gates برقرار ہیں۔
 
 External acceptance gates still pending:
 - real WordPress/PHP/MySQL fresh install، supported upgrade/migration اور race testing
-- File 00/02/08/18/19/20/21/24/25، CF-01 اور CF-04 حقیقی integration/degraded-mode acceptance
+- File 00/02/08/18/19/20/21/24/25/26، CF-01 اور CF-04 حقیقی integration/degraded-mode acceptance
 - Hostinger staging، cron، private storage، approved malware scanner، LiteSpeed، browser/device، RTL/LTR اور accessibility
 - approved WSS/STUN/TURN/SFU infrastructure، load/soak اور penetration testing
 - backup/restore، rollback rehearsal، Founder sign-off، live deployment، monitoring، support اور SLO evidence
