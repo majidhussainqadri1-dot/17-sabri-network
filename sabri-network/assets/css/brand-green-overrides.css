@@ -41,6 +41,11 @@ body.sn-meet-page {
   --sn-primary: var(--sn-brand-green);
 }
 
+/* File 19 owns the single notification center; File 20 owns its global bell slot. */
+#sn-notifications-button {
+  display: none !important;
+}
+
 /* Orange remains available only as a secondary semantic accent. */
 .sn-file17-secondary-accent {
   color: var(--sn-secondary-orange);
