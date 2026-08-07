@@ -44,7 +44,24 @@ The exact round ledger is `FORTY-ROUND-AUDIT-2026-08-07.md`. A failed exact-head
 
 ## Coded domains
 
-Canonical relationships/contacts/follows/blocks; communities/groups/channels; conversations/messages/reactions/replies/receipts; private attachments and indexed private search; folders/stars/pins/hide-for-self; internal Smail; verified-user private transfer up to 1 GiB/file; multi-device presence; direct calls/Sabri Meet/provider-gated conference controls; reports/appeals/holds; privacy export/erasure; transactional outbox/inbox; opaque File 08/18/21 and CF-01 contexts; step-up/dual-control governance; File 19 single-notification boundary; File 20 shell boundary; File 26 global-search boundary; green-primary responsive/RTL/accessibility baselines.
+- Canonical relationships, contacts, follows, blocks, restrictions and discovery policy.
+- **Communities, groups, channels and private teams**, including roles, joins/invitations, moderation, succession and lifecycle.
+- Direct/group/channel conversations and canonical messages with reactions, replies, edits/deletes and **native recipient/device message receipts**.
+- Authenticated server-side encryption at rest for canonical message bodies with bounded plaintext/old-key migration; no unsupported E2EE claim.
+- Private attachments and **secure indexed search**, with authorized transient decryption and keyed search tokens.
+- Private message folders, stars, pins and hide-for-self projections.
+- Internal Smail with Inbox, Sent, Drafts, Starred, Archive, Spam and Trash over canonical messages.
+- Verified-user private transfer up to 1 GiB/file with resumability, SHA-256, MIME/magic/archive validation, scanner quarantine, signed grants, range resume, revocation, retention and audit.
+- **General per-device presence**, revocation, aggregate privacy and compatibility projection through the same canonical backend.
+- Direct calls, Sabri Meet and provider-gated conference controls.
+- **Secret-free STUN/TURN/SFU provider governance** with short-lived scoped credentials and truthful capability claims.
+- **Governed mentions and audience-minimized forwarding**, including transient source decrypt and target re-encryption.
+- Reports, appeals, legal/safety holds, retention and privacy export/erasure.
+- **Transactional outbox/inbox** with idempotent delivery, retry and dead-letter behavior.
+- Opaque File 08/18/21 and CF-01 contexts without copied native-domain truth.
+- Step-up/dual-control high-risk governance.
+- File 19 single-notification boundary, File 20 shell boundary and File 26 global-search boundary.
+- Green-primary responsive/RTL/accessibility baselines.
 
 ## External acceptance gates
 
