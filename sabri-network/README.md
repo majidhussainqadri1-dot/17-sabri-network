@@ -42,6 +42,10 @@ See `../FORTY-ROUND-AUDIT-2026-08-07.md`.
 - Smail draft fingerprints are keyed HMAC blind hashes.
 - Forwarding remains decrypt-in-memory/re-encrypt-to-target, idempotent and audience-minimized.
 
+## Calls and external media-provider limitation
+
+Sabri Meet and direct call state/signaling are File-17 canonical capabilities, but real media transport remains **provider-gated**. STUN/TURN/SFU use approved external media-provider adapters with short-lived scoped credentials and health/capability checks. When an approved provider is unavailable or not accepted in staging, the affected media feature must be unavailable/degraded rather than simulated. This source does not claim an external provider is configured, staging-accepted or operational.
+
 ## Internal Smail
 
 Smail is an internal communication center, not Internet email/SMTP. Inbox, Sent, Drafts, Starred, Archive, Spam and Trash reuse the canonical File-17 message backend. Sends use `SN_Message_Integrity`; multi-recipient retries reuse an idempotent canonical conversation reservation.
