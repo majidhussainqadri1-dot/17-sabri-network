@@ -6,8 +6,8 @@ fpr4(str_contains($main,'Version: 2.0.2')&&str_contains($main,"define('SN_VERSIO
 fpr4(str_contains($readme,'Stable tag: 2.0.2')&&str_contains($readme,'= 2.0.2 ='),'Installable readme is version/changelog aligned.');
 fpr4(str_contains($package,'17-sabri-network-and-messages-2.0.2')&&str_contains($package,"grep -q 'Version: 2.0.2'"),'Deterministic package contract targets immutable 2.0.2.');
 foreach(['four-plan-review-1-governance-contracts.php','four-plan-review-2-transfer-concurrency-contracts.php','four-plan-review-3-message-smail-security-contracts.php','four-plan-review-4-fresh-release-contracts.php'] as $suite){fpr4(str_contains($quality,$suite),"Quality gate invokes $suite.");}
-fpr4(str_contains($repo,'Four review rounds')&&str_contains($audit,'Rounds in which defects were found: **4**'),'Root evidence records four independent defect-bearing rounds.');
-fpr4(str_contains($status,'Configured review suites:** **41**')||str_contains($status,'Configured review suites:** **41**'),'Repository status records the expanded 41-suite gate.');
+fpr4(str_contains($repo,'Four review rounds')&&str_contains($audit,'**Rounds in which defects were found:** **4**'),'Root evidence records four independent defect-bearing rounds.');
+fpr4(str_contains($status,'Configured review suites:** **41**'),'Repository status records the expanded 41-suite gate.');
 fpr4(str_contains($arch,'File 19 is the only notification-center')&&str_contains($arch,'SNE1'),'Architecture reflects latest notification ownership and message confidentiality.');
 fpr4(str_contains($repo,'Staging-Accepted:** pending')&&str_contains($repo,'Live-Deployed:** not claimed')&&str_contains($repo,'Operational:** not claimed'),'Repository documentation preserves the seven-status truth boundary.');
 fpr4(str_contains($readme,'NEXT/SCALE')&&str_contains($arch,'`NOW`, `NEXT`, and `SCALE`'),'Top-20 roadmap statuses remain explicit rather than falsely promoted to current live scope.');
