@@ -18,14 +18,12 @@ trait SN_File_Transfer_Part_6 {
         $zip->close(); @unlink($tmp); return true;
     }
 
-
     private static function reject_corrupt(object $row, string $code): WP_Error {
         global $wpdb; $now = current_time('mysql', true);
         $wpdb->update(self::sessions_table(), ['status' => 'rejected', 'scan_status' => 'rejected', 'failure_code' => sanitize_key($code), 'revoked_at' => $now, 'version' => (int) $row->version + 1, 'updated_at' => $now], ['id' => (int) $row->id]);
         self::delete_chunks((int) $row->id); SN_DB::audit('file_transfer_rejected', 'file_transfer', (int) $row->id, 'failure', ['reason' => $code]);
         return new WP_Error($code, 'The private transfer failed integrity, file-type, archive or malware policy validation.', ['status' => 422]);
     }
-
 
     private static function resolve_recipients(WP_REST_Request $request, int $sender_id): array|WP_Error {
         global $wpdb; $conversation_id = absint($request->get_param('conversation_id'));
@@ -42,33 +40,34 @@ trait SN_File_Transfer_Part_6 {
         return $ids;
     }
 
-
     private static function revalidate(object $row, int $user_id, bool $sender): bool|WP_Error {
         if (!self::is_verified_user($user_id) || SN_Policy::is_suspended($user_id)) { return new WP_Error('transfer_account_unavailable', 'The verified transfer account is no longer eligible.', ['status' => 403]); }
         if ($sender) {
             $recipient_ids = self::recipient_ids((int) $row->id);
             foreach ($recipient_ids as $recipient_id) { if (!self::is_verified_user($recipient_id) || SN_Policy::is_suspended($recipient_id) || SN_DB::is_blocked($user_id, $recipient_id)) { return new WP_Error('transfer_relationship_changed', 'Recipient verification, relationship, consent or safety state changed.', ['status' => 403]); } }
         } else {
-            if (SN_DB::is_blocked((int) $row->sender_id, $user_id) || SN_Policy::is_suspended((int) $row->sender_id)) { return new WP_Error('transfer_relationship_changed', 'Sender verification, relationship, consent or safety state changed.', ['status' => 403]); }
+            if (!self::is_verified_user((int) $row->sender_id) || SN_DB::is_blocked((int) $row->sender_id, $user_id) || SN_Policy::is_suspended((int) $row->sender_id)) { return new WP_Error('transfer_relationship_changed', 'Sender verification, relationship, consent or safety state changed.', ['status' => 403]); }
         }
         $allowed = apply_filters('sn_network_transfer_policy_allowed', true, $row, $user_id, $sender ? 'sender' : 'recipient');
         return $allowed === true ? true : (is_wp_error($allowed) ? $allowed : new WP_Error('transfer_policy_denied', 'The transfer is not permitted by the current copyright, clinical-confidentiality or abuse policy.', ['status' => 403]));
     }
 
-
     private static function is_verified_user(int $user_id): bool {
-        $filtered = apply_filters('sn_network_verified_transfer_user', null, $user_id);
-        if (is_bool($filtered)) { return $filtered; }
-        foreach (['sn_account_verified', 'sabri_verified', 'sn_identity_verified', 'sn_phone_verified'] as $key) { if ((bool) get_user_meta($user_id, $key, true)) { return true; } }
-        return false;
+        if ($user_id <= 0 || !get_user_by('id', $user_id) || !SN_Policy::identity_authority_available()) {
+            return false;
+        }
+        /**
+         * File 00 is the sole verification authority. File 17 intentionally has no
+         * user-meta fallback: phone verification or legacy badges are not equivalent
+         * to a current Membership-Core verified-account assertion.
+         */
+        return apply_filters('sn_network_verified_transfer_user', null, $user_id) === true;
     }
-
 
     private static function can_access(object $row, int $user_id): bool {
         if ((int) $row->sender_id === $user_id) { return true; }
         global $wpdb; return (bool) $wpdb->get_var($wpdb->prepare('SELECT id FROM ' . self::recipients_table() . ' WHERE transfer_id=%d AND user_id=%d AND revoked_at IS NULL', (int) $row->id, $user_id));
     }
-
 
     private static function allowed_type(string $name, string $mime): bool {
         $ext = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
@@ -85,7 +84,6 @@ trait SN_File_Transfer_Part_6 {
         return isset($allowed[$ext]) && in_array($mime, (array) $allowed[$ext], true);
     }
 
-
     private static function detect_mime(string $bytes, string $name): string {
         $mime = '';
         if (class_exists('finfo')) { $f = new finfo(FILEINFO_MIME_TYPE); $mime = (string) $f->buffer($bytes); }
@@ -93,11 +91,9 @@ trait SN_File_Transfer_Part_6 {
         return strtolower($mime ?: 'application/octet-stream');
     }
 
-
     private static function looks_like_archive(string $name, string $mime): bool { return preg_match('/\.(zip|docx|xlsx|pptx)$/i', $name) === 1 || in_array($mime, ['application/zip', 'application/x-zip-compressed'], true); }
 
     private static function chunk_context(object $row, int $index): string { return 'file-transfer|' . $row->public_id . '|' . $row->sender_id . '|' . $index; }
-
 
     private static function session(string $public_id): ?object { global $wpdb; $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE public_id=%s', sanitize_text_field($public_id))); return $row ?: null; }
 
