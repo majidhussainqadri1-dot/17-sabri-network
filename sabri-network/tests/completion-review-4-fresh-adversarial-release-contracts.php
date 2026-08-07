@@ -25,8 +25,8 @@ $check(str_contains($spaces,'sn_invite_recipient_required')&&str_contains($space
 $check(str_contains($conference,'sn_conference_credentials_audience_invalid')&&str_contains($conference,'sn_conference_credentials_expiry_invalid'),'Credential replay/scope and lifetime attacks must be rejected.');
 $check(str_contains($risk,'sn_high_risk_payload_mismatch')&&str_contains($risk,'hash_equals'),'High-risk payload substitution must be rejected.');
 $check(str_contains($main,"'high_risk_contract'=>'step-up + distinct approval + distinct execution'")||str_contains($main,"'high_risk_contract' => 'step-up + distinct approval + distinct execution'"),'Published integration contract must disclose high-risk governance.');
-$check(str_contains($status,'Code-complete candidate')&&str_contains($status,'not staging-accepted'),'System status must distinguish coding from staging acceptance.');
-$check(str_contains($readme,'100% coded candidate')&&str_contains($readme,'not production-operational'),'README must state the truthful completion boundary.');
+$check(str_contains($status,'Code-complete corrective candidate')&&str_contains($status,'not staging-accepted'),'System status must distinguish coding from staging acceptance.');
+$check(str_contains($readme,'four-plan/four-round code-complete candidate')&&str_contains($readme,'**Staging-Accepted:** pending')&&str_contains($readme,'**Operational:** not claimed'),'README must state the truthful completion boundary.');
 $check(!preg_match('/(?:100% secure|unhackable|E2EE enabled|production-ready)/i',$status.$readme),'Release documentation must not make unsupported security or production claims.');
 if($checks!==22)$failures[]='Review contract count changed: expected 22, got '.$checks;
 if($failures){fwrite(STDERR,"Completion review 4 failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Completion review 4 fresh adversarial/release: PASS ($checks checks)\n";
