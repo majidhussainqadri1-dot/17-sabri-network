@@ -5,7 +5,7 @@
 **Assessment date:** 7 August 2026  
 **Coding classification:** **100% code-complete candidate**
 
-Coding completion: 100% code-complete candidate.
+Coding completion: 100% code-complete candidate. The source candidate is not staging-accepted, live-deployed or operationally accepted.
 
 ## Meaning of this classification
 
@@ -24,16 +24,19 @@ The current known File-17 software scope is present, reviewable and integrated i
 ## Coded domains
 
 - Canonical relationships, contacts, follows, blocks and discovery policy.
-- Communities, groups, channels/private teams, roles, joins/invitations, moderation and lifecycle.
-- Direct/group/channel conversations, messages, reactions, replies, private attachments, receipts, indexed search, folders/stars/pins and hide-for-self.
+- Communities, groups, channels and private teams; roles, joins/invitations, moderation and lifecycle.
+- Direct/group/channel conversations, messages, reactions, replies, private attachments, native recipient/device message-receipt persistence, secure indexed search, folders/stars/pins and hide-for-self.
 - Dedicated Messages and Communication Settings surfaces.
 - **Internal Smail:** Inbox, Sent, Drafts, Starred, Archive, Spam and Trash; encrypted/versioned drafts; canonical sends; user-scoped state; privacy and event contracts.
 - **Verified-user private transfer:** maximum 1 GiB/file; individual or authorized-group recipients; resumable encrypted chunks; SHA-256; MIME/magic and archive safeguards; fail-closed scanning/quarantine; signed expiring grants; byte ranges; revocation, retention and audit.
-- Presence/device lifecycle, direct calls, provider-gated conference architecture and Sabri Meet.
+- General per-device presence, device lifecycle and revocation.
+- Governed mentions and forwarding, conversation pins, private stars, folders and hide-for-self.
+- Direct calls, provider-gated conference architecture and Sabri Meet.
+- Secret-free STUN/TURN/SFU provider governance with short-lived scoped credentials and truthful capability claims.
 - Reports, appeals, legal/safety holds, retention, privacy export/erasure and audit evidence.
 - Transactional outbox/inbox, idempotent delivery, retries and dead-letter operations.
 - Opaque File 08/18/21 contexts and CF-01 communication-context contract without clinical authority or copied communication content.
-- Step-up, dual-control and secret-free provider governance.
+- Step-up, dual-control and secret-free high-risk governance.
 - Green primary design token, mobile/RTL/reduced-motion and 44-pixel control baselines.
 
 ## External acceptance gates
