@@ -32,28 +32,21 @@ trait SN_Smail_Part_2 {
         $existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::messages_table() . ' WHERE client_key=%s', $client_key));
         if ($existing) { return rest_ensure_response(['smail' => self::format_smail($existing), 'duplicate' => true]); }
 
-        $conversation_request = new WP_REST_Request('POST', '/sabri-network/v2/conversations');
-        if (count($recipients) === 1) {
-            $conversation_request->set_param('type', 'direct');
-            $conversation_request->set_param('user_id', $recipients[0]);
-        } else {
-            $conversation_request->set_param('type', 'group');
-            $conversation_request->set_param('member_ids', $recipients);
-            $conversation_request->set_param('title', 'Smail: ' . $subject);
-            $conversation_request->set_param('privacy', 'private');
-        }
-        $conversation_response = SN_REST::create_conversation($conversation_request);
-        if (is_wp_error($conversation_response)) { return $conversation_response; }
-        $conversation_data = $conversation_response->get_data();
-        $conversation_id = (int) ($conversation_data['conversation']['id'] ?? 0);
+        // The Smail idempotency key reserves/reuses the same canonical conversation,
+        // including multi-recipient mail after an interrupted projection attempt.
+        $conversation_id = SN_Central_Plan_Hardening::resolve_smail_conversation($sender_id, $recipients, $subject, $client_key);
+        if (is_wp_error($conversation_id)) { return $conversation_id; }
+        $conversation_id = (int) $conversation_id;
         if (!$conversation_id) { return new WP_Error('smail_conversation_failed', 'The Smail conversation could not be resolved.', ['status' => 500]); }
 
+        // Smail is a mailbox projection over the canonical File-17 message. Do not
+        // bypass the atomic search/outbox/encryption path by calling SN_REST directly.
         $message_request = new WP_REST_Request('POST', '/sabri-network/v2/conversations/' . $conversation_id . '/messages');
         $message_request->set_param('id', $conversation_id);
         $message_request->set_param('body', $body);
         $message_request->set_param('message_type', 'text');
         $message_request->set_param('client_id', 'smail:' . substr($client_key, 0, 40));
-        $message_response = SN_REST::send_message($message_request);
+        $message_response = SN_Message_Integrity::send_message($message_request);
         if (is_wp_error($message_response)) { return $message_response; }
         $message_data = $message_response->get_data();
         $message_id = (int) ($message_data['message']['id'] ?? 0);
