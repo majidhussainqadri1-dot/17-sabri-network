@@ -1,18 +1,27 @@
 # Repository Status
 
-**Target:** File 17 — Sabri Network and Messages 2.0.0  
-**State:** substantial coded candidate under draft review  
-**Coding completion against governing specification:** **NOT 100%**  
-**Configured included contract checks:** **693**  
-**Installable source checksum coverage:** generated from the exact package source tree  
-**Staging/live/operational:** not completed
+**Target:** File 17 — Sabri Network and Messages 2.0.1  
+**State:** consolidated code-complete candidate  
+**Coding completion against current File-17 + recovered directives:** **100% candidate**  
+**Configured review suites:** **37**  
+**Installable source integrity:** exact staged manifest + deterministic double-build  
+**Staging/live/operational:** pending
 
-Current implemented candidate scope includes the earlier Network, safety, relationship, realtime, Sabri Meet, dedicated Messages/settings and recipient/device receipt work, plus indexed conversation-local message search and reliable transactional event delivery.
+## Included engineering scope
 
-The search domain uses File-17-owned hashed tokens, active-member authorization, bounded query/term/scan/result/context limits, signed short-lived viewer/conversation/filter/snapshot cursors, hidden-state exclusion and no plaintext query persistence. The event domain uses metadata-only outbox/inbox records, payload integrity hashes, idempotency, atomic claims, stale-lock recovery, bounded retries, dead-letter visibility and optimistic manual retry.
+The candidate includes canonical Network, spaces, Messages, receipts, indexed private search, reliable outbox/inbox, presence, calls, Sabri Meet, reports/privacy/safety, CF-01 communication context, internal Smail, and verified-user private transfer up to 1 GiB per file.
 
-Message send/edit/delete and delivered/read receipt mutations now commit their message/receipt truth, search-index change and outbox event together. Two independent review/fix suites add 41 comprehensive checks and 38 fresh adversarial checks; the earlier completion-truth suite was also updated to distinguish newly implemented search/event scope from genuine remaining gaps.
+Smail provides Inbox, Sent, Drafts, Starred, Archive, Spam and Trash without a parallel chat/email backend. Drafts are authenticated-encrypted; sends reuse canonical conversation/message commands; File 19 remains notification transport owner.
 
-Exact current head, GitHub Actions run, artifact and package hash must be maintained in Pull Request #2 after current-head CI, because embedding them in source would create a self-referential evidence loop.
+Private transfer uses bounded resumable chunks, per-chunk and full-file SHA-256, authenticated encryption outside the web root, MIME/magic and archive-safety checks, fail-closed malware quarantine, signed recipient/version-bound ten-minute grants, byte ranges, revocation, retention, audit, export and erasure.
 
-The authoritative remaining-scope record is `CODING-COMPLETENESS.md`. Major remaining areas are spaces governance, general per-device presence/revocation, advanced message organization, space abuse controls, File 08/18/21 context integrations, production conference-media infrastructure, high-risk dual approval and full staging/operational acceptance.
+## Remaining release evidence—not coding omissions
+
+- exact-head GitHub Actions and immutable artifact evidence;
+- real WordPress/PHP/MySQL fresh install and supported upgrade/migration;
+- File 00/02/19/20/24/25, CF-01 and CF-04 adapter acceptance;
+- approved scanner, private storage, cron, LiteSpeed and degraded-mode verification;
+- browser/device, RTL/LTR, accessibility, load/soak and penetration testing;
+- backup/restore, rollback rehearsal, Founder staging sign-off, live deployment and operations.
+
+No staging, live, operational or audited-E2EE claim is made.
