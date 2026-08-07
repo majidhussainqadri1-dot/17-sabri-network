@@ -1,0 +1,47 @@
+:root {
+  --sn-brand-green: var(--sabri-primary, #137a46);
+  --sn-brand-green-strong: #0d5933;
+  --sn-brand-green-soft: #e9f6ee;
+  --sn-secondary-orange: #ff8a1f;
+}
+
+.sn-network-root {
+  --sn-primary: var(--sn-brand-green);
+  --sn-primary-strong: var(--sn-brand-green-strong);
+  --sn-primary-soft: var(--sn-brand-green-soft);
+}
+
+.sn-network-root .sn-btn-primary,
+.sn-network-root .sn-send-btn,
+.sn-network-root .sn-brand-mark,
+.sn-network-root .sn-list-meta b,
+.sn-network-root .sn-spinner {
+  --sn-primary: var(--sn-brand-green);
+}
+
+.sn-messages-root,
+.sn-communication-settings-root {
+  --snm-orange: var(--sn-brand-green);
+  --snm-orange-dark: var(--sn-brand-green-strong);
+  --snm-primary: var(--sn-brand-green);
+}
+
+.snms-panel {
+  --snm-primary: var(--sn-brand-green);
+}
+
+.sn-meet,
+body.sn-meet-page {
+  --sn-meet-orange: var(--sn-brand-green);
+  --sn-meet-orange-strong: var(--sn-brand-green-strong);
+}
+
+.sn-sm,
+.sn-ft {
+  --sn-primary: var(--sn-brand-green);
+}
+
+/* Orange remains available only as a secondary semantic accent. */
+.sn-file17-secondary-accent {
+  color: var(--sn-secondary-orange);
+}

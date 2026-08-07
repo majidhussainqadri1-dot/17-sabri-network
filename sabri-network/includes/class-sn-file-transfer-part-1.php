@@ -7,6 +7,7 @@ trait SN_File_Transfer_Part_1 {
         add_action('init', [self::class, 'init'], 7);
         add_action('rest_api_init', [self::class, 'register_routes']);
         add_action('wp_enqueue_scripts', [self::class, 'register_assets'], 5);
+        add_action('wp_enqueue_scripts', [self::class, 'enqueue_brand_overrides'], 100);
         add_action('template_redirect', [self::class, 'maybe_download'], -10);
         add_action('template_redirect', [self::class, 'disable_cache'], 0);
         add_action('sn_cleanup_hourly', [self::class, 'cleanup']);
@@ -14,6 +15,20 @@ trait SN_File_Transfer_Part_1 {
         add_filter('the_content', [self::class, 'force_content'], 9996);
         add_filter('wp_privacy_personal_data_exporters', [self::class, 'register_exporter']);
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'register_eraser']);
+    }
+
+
+    public static function enqueue_brand_overrides(): void {
+        $path = SN_DIR . 'assets/css/brand-green-overrides.css';
+        if (!is_file($path)) {
+            return;
+        }
+        wp_enqueue_style(
+            'sabri-file17-green-brand',
+            SN_URL . 'assets/css/brand-green-overrides.css',
+            [],
+            (string) filemtime($path)
+        );
     }
 
 
