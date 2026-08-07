@@ -78,7 +78,9 @@ final class SN_Message_Search {
         $table = self::table();
         if ($wpdb->delete($table, ['message_id' => $message_id], ['%d']) === false) return new WP_Error('search_index_delete_failed', 'The previous search index could not be removed.');
         if (!self::indexable($message)) return true;
-        $terms = array_slice(self::terms((string) $message->body, self::MAX_INDEX_TERMS), 0, self::MAX_INDEX_TERMS);
+        $plain = SN_Message_Body::decrypt_row($message);
+        if (is_wp_error($plain)) return new WP_Error('search_index_decrypt_failed', 'The private message could not be indexed safely.');
+        $terms = array_slice(self::terms($plain, self::MAX_INDEX_TERMS), 0, self::MAX_INDEX_TERMS);
         $now = current_time('mysql', true);
         foreach ($terms as $term) {
             $ok = $wpdb->query($wpdb->prepare(
@@ -262,9 +264,11 @@ final class SN_Message_Search {
         if (!$sender) $sender = ['id' => 0, 'name' => 'Unavailable account', 'avatar' => SN_URL . 'assets/network-default-avatar.svg'];
         $attachment = null;
         if ((int) $row->attachment_id > 0 && (string) $row->attachment_source === 'private') $attachment = SN_Private_Files::formatted((int) $row->attachment_id, $viewer_id);
+        $plain = SN_Message_Body::decrypt_row($row);
+        $unavailable = is_wp_error($plain);
         return [
             'id' => (int) $row->id, 'conversation_id' => (int) $row->conversation_id, 'sender' => $sender,
-            'message_type' => (string) $row->message_type, 'body' => (string) $row->body, 'attachment' => $attachment,
+            'message_type' => (string) $row->message_type, 'body' => $unavailable ? '' : (string) $plain, 'body_unavailable' => $unavailable, 'attachment' => $attachment,
             'reply_to' => (int) $row->reply_to, 'edited' => (bool) $row->edited_at, 'deleted' => false,
             'created_at' => (string) $row->created_at,
             'context_cursor' => self::context_cursor($viewer_id, (int) $row->conversation_id, (int) $row->id, $snapshot),
