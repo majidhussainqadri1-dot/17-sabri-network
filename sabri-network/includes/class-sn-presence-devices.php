@@ -62,9 +62,9 @@ final class SN_Presence_Devices {
         $raw = strtolower(trim(wp_unslash((string) $request->get_param('device_id'))));
         if (!preg_match('/^[a-z0-9][a-z0-9._:-]{15,127}$/', $raw)) return self::error('sn_presence_device_invalid','A valid bounded device identifier is required.',400);
         $state = sanitize_key((string) $request->get_param('state'));
-        if (!in_array($state,['online','away','dnd'],true)) $state='online';
+        if (!in_array($state,['online','away','dnd','offline'],true)) $state='online';
         $ttl=max(self::MIN_TTL,min(self::MAX_TTL,absint($request->get_param('ttl'))?:120));
-        $device_key=self::key($user,$raw);$now=self::now();$expires=gmdate('Y-m-d H:i:s',time()+$ttl);
+        $device_key=self::key($user,$raw);$now=self::now();$expires=$state==='offline'?$now:gmdate('Y-m-d H:i:s',time()+$ttl);
         $capabilities=self::capabilities($request->get_param('capabilities'));
         $label=self::label((string)$request->get_param('label'));
         $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE user_id=%d AND device_key=%s',$user,$device_key));
@@ -73,12 +73,12 @@ final class SN_Presence_Devices {
             if($count>=self::MAX_DEVICES)return self::error('sn_presence_device_limit','Revoke an old device before adding another.',409);
             $ok=$wpdb->insert(self::table(),['user_id'=>$user,'device_key'=>$device_key,'device_label'=>$label,'state'=>$state,'capabilities'=>(string)wp_json_encode($capabilities),'last_seen_at'=>$now,'expires_at'=>$expires,'created_at'=>$now,'updated_at'=>$now]);
             if($ok===false)return self::error('sn_presence_write_failed','The presence heartbeat could not be stored.',500);
-            $id=(int)$wpdb->insert_id;$version=1;
+            $version=1;
         }else{
             if($existing->revoked_at)return self::error('sn_presence_device_revoked','This device session was revoked.',403);
             $changed=$wpdb->update(self::table(),['device_label'=>$label,'state'=>$state,'capabilities'=>(string)wp_json_encode($capabilities),'last_seen_at'=>$now,'expires_at'=>$expires,'updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'version'=>(int)$existing->version,'revoked_at'=>null]);
             if($changed!==1)return self::error('sn_presence_conflict','A concurrent heartbeat was detected.',409);
-            $id=(int)$existing->id;$version=(int)$existing->version+1;
+            $version=(int)$existing->version+1;
         }
         return rest_ensure_response(['device_ref'=>self::sign_ref($user,$device_key),'state'=>$state,'expires_at'=>$expires,'version'=>$version]);
     }
@@ -129,7 +129,7 @@ final class SN_Presence_Devices {
     public static function erase_data(string $email,int $page=1): array {global $wpdb;$user=get_user_by('email',$email);if(!$user)return['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$deleted=$wpdb->delete(self::table(),['user_id'=>(int)$user->ID]);return['items_removed'=>$deleted>0,'items_retained'=>false,'messages'=>[],'done'=>true];}
 
     private static function effective_state(object $row,string $now): string {
-        if($row->revoked_at||strcmp((string)$row->expires_at,$now)<=0)return'offline';$seen=strtotime((string)$row->last_seen_at.' UTC');if(!$seen||$seen>time()+self::FUTURE_SKEW)return'offline';$state=(string)$row->state;return in_array($state,['online','away','dnd'],true)?$state:'offline';
+        if($row->revoked_at||strcmp((string)$row->expires_at,$now)<=0)return'offline';$seen=strtotime((string)$row->last_seen_at.' UTC');if(!$seen||$seen>time()+self::FUTURE_SKEW)return'offline';$state=(string)$row->state;return in_array($state,['online','away','dnd','offline'],true)?$state:'offline';
     }
     private static function capabilities(mixed $value): array {$allowed=['audio','video','push','realtime'];$out=[];foreach(is_array($value)?$value:[] as $item){$key=sanitize_key((string)$item);if(in_array($key,$allowed,true)&&!in_array($key,$out,true))$out[]=$key;}return$out;}
     private static function label(string $value): string {$value=mb_substr(sanitize_text_field(wp_unslash($value)),0,80);return$value!==''?$value:'This device';}
