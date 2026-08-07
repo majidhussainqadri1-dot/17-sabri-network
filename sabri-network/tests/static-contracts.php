@@ -36,10 +36,11 @@ $ajax = content('includes/class-sn-ajax.php');
 $template = content('templates/network-app.php');
 $js = content('assets/js/network.js');
 $css = content('assets/css/network.css');
-$allRuntime = implode("\n", [$main, $db, $policy, $rest, $auth, $files, $privacy, $activator, $ajax, $template, $js]);
+$top20 = content('includes/class-sn-top20-communication.php');
+$allRuntime = implode("\n", [$main, $db, $policy, $rest, $auth, $files, $privacy, $activator, $ajax, $template, $js, $top20]);
 
-check(str_contains($main, 'Version: 2.0.1'), 'Plugin header must declare version 2.0.1.');
-check(str_contains($main, "define('SN_VERSION', '2.0.1')"), 'SN_VERSION must be 2.0.1.');
+check(str_contains($main, 'Version: 2.1.0'), 'Plugin header must declare version 2.1.0.');
+check(str_contains($main, "define('SN_VERSION', '2.1.0')"), 'SN_VERSION must be 2.1.0.');
 check(str_contains($rest, "private const NS = 'sabri-network/v2'"), 'REST API must use the v2 namespace.');
 check(!str_contains($allRuntime, 'wp_ajax_nopriv_'), 'Authenticated Network actions must not register nopriv AJAX routes.');
 check(!preg_match('/register_rest_route\s*\([^\n]+otp/i', $rest), 'File 17 must not expose OTP REST routes.');
@@ -83,7 +84,7 @@ check(!str_contains($js, 'sendBeacon'), 'Call state must not use unauthenticated
 check(str_contains($js, "endLocalCall(false)"), 'Remote bye must still close and update the local call state.');
 check(str_contains($js, 'modalReturnFocus') && str_contains($js, "event.key === 'Tab'"), 'Modal focus must be contained and restored.');
 check(str_contains($js, "item.classList.add('is-visible')"), 'Toast visibility state must be applied.');
-check(str_contains($css, '#ff8a1f'), 'Sabri Orange design token must be present.');
+check(str_contains($css, '#ff8a1f'), 'Sabri Orange secondary design token may remain present.');
 check(str_contains($css, ':focus-visible'), 'Keyboard focus indicator must be present.');
 check(str_contains($css, 'prefers-reduced-motion'), 'Reduced-motion support must be present.');
 check(str_contains($css, '[dir="rtl"]'), 'RTL support must be present.');
@@ -98,13 +99,12 @@ check(str_contains($files, "\$chunk === false || \$chunk === ''"), 'Private-file
 check(str_contains($files, '$resolved = realpath($dir);'), 'Private storage validation must resolve an existing directory symlink itself.');
 check(str_contains($db, 'private_attachment_is_referenced') && strpos($db, "DELETE FROM ' . self::table('updates')") < strpos($db, 'SN_Private_Files::delete($attachment_id'), 'Expired updates must be deleted before unreferenced private bytes.');
 check(str_contains($js, 'Number.isNaN(date.getTime())') && str_contains($js, 'sn-owner-transfer-form'), 'Client date formatting and ownership-transfer UI must handle failure paths safely.');
+check(str_contains($main, 'SN_Top20_Communication::register()') && str_contains($activator, 'SN_Top20_Communication::install()'), 'Top-20 communication extensions must be registered and installed canonically.');
+check(str_contains($top20, 'sn_network_translate_message') && str_contains($top20, 'sn_translation_provider_unavailable'), 'Translation must be adapter-based and fail closed.');
 
 if ($failures) {
     fwrite(STDERR, "Static contract failures (" . count($failures) . "/$checks):\n");
-    foreach ($failures as $failure) {
-        fwrite(STDERR, " - $failure\n");
-    }
+    foreach ($failures as $failure) fwrite(STDERR, " - $failure\n");
     exit(1);
 }
-
 echo "Static contracts: PASS ($checks checks)\n";

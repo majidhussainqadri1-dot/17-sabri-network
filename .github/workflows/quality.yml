@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   minimum-php-contract:
-    name: PHP 8.1 syntax, CF-01, Smail and transfer contracts
+    name: PHP 8.1 syntax, governance, Smail, transfer and Top-20 contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -29,18 +29,23 @@ jobs:
           php-version: '8.1'
           coverage: none
           tools: none
-      - name: Lint all PHP and run new boundary suites
+      - name: Lint all PHP and run critical boundary suites
         run: |
           set -euo pipefail
           mapfile -t files < <(find sabri-network -type f -name '*.php' -not -path '*/build/*' -print | sort)
           test "${#files[@]}" -ge 80
           for file in "${files[@]}"; do php -l "$file"; done
+          php sabri-network/tests/static-contracts.php
           php sabri-network/tests/cf01-clinical-context-static-contracts.php
           php sabri-network/tests/cf01-clinical-context-runtime-contracts.php
           php sabri-network/tests/smail-static-contracts.php
           php sabri-network/tests/smail-adversarial-contracts.php
           php sabri-network/tests/transfer-static-contracts.php
           php sabri-network/tests/transfer-adversarial-contracts.php
+          php sabri-network/tests/four-plan-review-1-governance-contracts.php
+          php sabri-network/tests/four-plan-review-2-top20-functional-contracts.php
+          php sabri-network/tests/four-plan-review-3-security-adversarial-contracts.php
+          php sabri-network/tests/four-plan-review-4-release-truth-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -63,13 +68,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zip rsync
       - name: Run full quality gate
         run: bash sabri-network/tools/quality-check.sh
-      - name: Upload governed 2.0.1 candidate
+      - name: Upload governed 2.1.0 candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: file-17-complete-2.0.1-${{ github.event.pull_request.head.sha || github.sha }}
+          name: file-17-complete-2.1.0-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            sabri-network/build/17-sabri-network-and-messages-2.0.1.zip
-            sabri-network/build/17-sabri-network-and-messages-2.0.1.zip.sha256
-            sabri-network/build/17-sabri-network-and-messages-2.0.1.manifest.sha256
+            sabri-network/build/17-sabri-network-and-messages-2.1.0.zip
+            sabri-network/build/17-sabri-network-and-messages-2.1.0.zip.sha256
+            sabri-network/build/17-sabri-network-and-messages-2.1.0.manifest.sha256
           if-no-files-found: error
           retention-days: 14

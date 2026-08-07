@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Sabri Network and Messages
  * Plugin URI: https://www.sabrihomeopathy.com/
- * Description: Canonical File-17 relationships, spaces, Messages, internal Smail, encrypted resumable verified-user file transfer, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
- * Version: 2.0.1
+ * Description: Canonical File-17 relationships, spaces, Messages, internal Smail, encrypted resumable verified-user file transfer, governed Top-20 communication capabilities, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
+ * Version: 2.1.0
  * Author: Sabri Homeopathy
  * Text Domain: sabri-network
  * Requires at least: 6.5
@@ -12,7 +12,7 @@
 
 defined('ABSPATH') || exit;
 
-define('SN_VERSION', '2.0.1');
+define('SN_VERSION', '2.1.0');
 define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0');
 define('SN_FILE', __FILE__);
 define('SN_DIR', plugin_dir_path(__FILE__));
@@ -57,6 +57,7 @@ require_once SN_DIR . 'includes/class-sn-file-transfer.php';
 require_once SN_DIR . 'includes/class-sn-smail.php';
 require_once SN_DIR . 'includes/class-sn-message-integrity.php';
 require_once SN_DIR . 'includes/class-sn-meet.php';
+require_once SN_DIR . 'includes/class-sn-top20-communication.php';
 
 register_activation_hook(__FILE__, ['SN_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['SN_Activator', 'deactivate']);
@@ -103,6 +104,7 @@ final class Sabri_Network {
         SN_Message_Integrity::register();
         SN_Message_Visibility::register();
         SN_Meet::register();
+        SN_Top20_Communication::register();
 
         add_filter('query_vars', [$this, 'query_vars']);
         add_filter('template_include', [$this, 'safe_template'], 99);
@@ -130,6 +132,7 @@ final class Sabri_Network {
         SN_Smail::maybe_upgrade();
         SN_Message_Search::maybe_upgrade();
         SN_Outbox::maybe_upgrade();
+        SN_Top20_Communication::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
@@ -149,6 +152,7 @@ final class Sabri_Network {
             SN_Smail::install();
             SN_Message_Search::install();
             SN_Outbox::install();
+            SN_Top20_Communication::install();
             SN_Private_Files::ensure_storage();
             SN_Activator::ensure_network_page(true);
             SN_Messages::ensure_pages(true);
@@ -158,7 +162,6 @@ final class Sabri_Network {
             flush_rewrite_rules(false);
         }
 
-        /** File 20 consumes this route contract; File 17 does not inject a second global menu. */
         do_action('sn_network_relationship_contract_registered', [
             'owner' => 'file-17',
             'version' => SN_VERSION,
@@ -195,6 +198,12 @@ final class Sabri_Network {
             'smail_mailboxes' => ['inbox', 'sent', 'drafts', 'starred', 'archive', 'spam', 'trash'],
             'file_transfer_url' => SN_File_Transfer::url(),
             'file_transfer_max_bytes' => SN_File_Transfer::MAX_FILE_BYTES,
+            'scheduled_messages_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/scheduled-messages'),
+            'polls_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/polls'),
+            'checklists_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/checklists'),
+            'message_expiry_route' => rest_url('sabri-network/v2/messages/{message_id}/expiry'),
+            'message_translation_route' => rest_url('sabri-network/v2/messages/{message_id}/translate'),
+            'translation_provider_contract' => 'sn_network_translate_message',
         ]);
 
         do_action('sn_network_route_registered', [
