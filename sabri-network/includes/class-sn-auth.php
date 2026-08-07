@@ -42,10 +42,11 @@ final class SN_Auth {
         }
         $viewer_id = get_current_user_id();
         $privacy = SN_Policy::privacy_for($user_id);
+        $blocked = !$self && $viewer_id > 0 && $viewer_id !== $user_id && SN_DB::is_blocked($viewer_id, $user_id);
         $phone = (string) get_user_meta($user_id, 'sn_phone_e164', true);
-        $can_see_phone = $self || self::can_view_phone($viewer_id, $user_id, $privacy);
+        $can_see_phone = !$blocked && ($self || self::can_view_phone($viewer_id, $user_id, $privacy));
         $avatar_visibility = (string) ($privacy['profile_photo'] ?? 'everyone');
-        $can_see_avatar = $self || $avatar_visibility === 'everyone' || ($avatar_visibility === 'contacts' && SN_DB::are_contacts($viewer_id, $user_id));
+        $can_see_avatar = !$blocked && ($self || $avatar_visibility === 'everyone' || ($avatar_visibility === 'contacts' && SN_DB::are_contacts($viewer_id, $user_id)));
         $projection = [
             'id' => $user_id,
             'name' => sanitize_text_field($user->display_name),
@@ -61,7 +62,7 @@ final class SN_Auth {
         return [
             'id' => $user_id,
             'name' => mb_substr(sanitize_text_field((string) ($filtered['name'] ?? $projection['name'])), 0, 191),
-            'avatar' => $avatar ?: SN_URL . 'assets/network-default-avatar.svg',
+            'avatar' => $can_see_avatar ? ($avatar ?: SN_URL . 'assets/network-default-avatar.svg') : SN_URL . 'assets/network-default-avatar.svg',
             'phone' => $can_see_phone ? mb_substr(sanitize_text_field((string) ($filtered['phone'] ?? $projection['phone'])), 0, 32) : '',
             'phone_masked' => $can_see_phone ? mb_substr(sanitize_text_field((string) ($filtered['phone_masked'] ?? $projection['phone_masked'])), 0, 32) : '',
             'verified' => (bool) ($filtered['verified'] ?? $projection['verified']),
@@ -73,6 +74,9 @@ final class SN_Auth {
     public static function can_view_phone(int $viewer_id, int $target_id, array $privacy = []): bool {
         if ($viewer_id === $target_id && $viewer_id > 0) {
             return true;
+        }
+        if ($viewer_id > 0 && SN_DB::is_blocked($viewer_id, $target_id)) {
+            return false;
         }
         if (SN_Policy::age_state($target_id) !== 'adult') {
             return false;
