@@ -3,9 +3,7 @@ defined('ABSPATH') || exit;
 
 /**
  * Authenticated at-rest envelope for File-17 canonical message bodies.
- *
- * This is server-side storage encryption, not E2EE. Legacy plaintext remains
- * readable only so the bounded migration can encrypt it without data loss.
+ * This is server-side storage encryption, not E2EE.
  */
 final class SN_Message_Body {
     public const PREFIX = 'SNE1:';
@@ -16,6 +14,13 @@ final class SN_Message_Body {
 
     public static function is_encrypted(string $stored): bool {
         return str_starts_with($stored, self::PREFIX);
+    }
+
+    private static function raw_cipher(string $stored): string|WP_Error {
+        $raw = base64_decode(substr($stored, strlen(self::PREFIX)), true);
+        return is_string($raw) && $raw !== ''
+            ? $raw
+            : new WP_Error('message_cipher_invalid', 'The private message body has an invalid encrypted envelope.', ['status' => 500]);
     }
 
     public static function encrypt(string $plaintext, int $conversation_id, int $sender_id): string|WP_Error {
@@ -31,12 +36,11 @@ final class SN_Message_Body {
 
     public static function decrypt_value(string $stored, int $conversation_id, int $sender_id): string|WP_Error {
         if ($stored === '' || !self::is_encrypted($stored)) {
-            // Transitional compatibility for pre-2.0.2 rows. New writes never use this path.
             return $stored;
         }
-        $raw = base64_decode(substr($stored, strlen(self::PREFIX)), true);
-        if (!is_string($raw) || $raw === '') {
-            return new WP_Error('message_cipher_invalid', 'The private message body has an invalid encrypted envelope.', ['status' => 500]);
+        $raw = self::raw_cipher($stored);
+        if (is_wp_error($raw)) {
+            return $raw;
         }
         return SN_Communication_Crypto::decrypt($raw, self::context($conversation_id, $sender_id));
     }
@@ -45,22 +49,45 @@ final class SN_Message_Body {
         if (!empty($row->deleted_at)) {
             return '';
         }
-        return self::decrypt_value((string) ($row->body ?? ''), (int) ($row->conversation_id ?? 0), (int) ($row->sender_id ?? 0));
+        $stored = (string) ($row->body ?? '');
+        $plain = self::decrypt_value($stored, (int) ($row->conversation_id ?? 0), (int) ($row->sender_id ?? 0));
+        if (!is_wp_error($plain) && self::is_encrypted($stored)) {
+            $raw = self::raw_cipher($stored);
+            if (!is_wp_error($raw) && SN_Communication_Crypto::needs_rotation($raw)) {
+                self::rotate_row($row, $plain);
+            }
+        }
+        return $plain;
     }
 
-    /**
-     * Encrypt a legacy plaintext row with an optimistic compare-and-swap write.
-     * Returns either the refreshed/enriched row or a WP_Error. `mixed` is used
-     * deliberately for PHP 8.1 compatibility: `object|WP_Error` is redundant
-     * because WP_Error is itself an object and PHP rejects that union type.
-     */
+    /** Encrypt plaintext or re-encrypt a legacy-key envelope with optimistic CAS. */
     public static function ensure_encrypted_row(object $row): mixed {
-        global $wpdb;
         $stored = (string) ($row->body ?? '');
-        if ($stored === '' || !empty($row->deleted_at) || self::is_encrypted($stored)) {
+        if ($stored === '' || !empty($row->deleted_at)) {
             return $row;
         }
-        $encrypted = self::encrypt($stored, (int) $row->conversation_id, (int) $row->sender_id);
+        if (self::is_encrypted($stored)) {
+            $raw = self::raw_cipher($stored);
+            if (is_wp_error($raw)) {
+                return $raw;
+            }
+            if (!SN_Communication_Crypto::needs_rotation($raw)) {
+                return $row;
+            }
+            $plain = SN_Communication_Crypto::decrypt($raw, self::context((int) $row->conversation_id, (int) $row->sender_id));
+            return is_wp_error($plain) ? $plain : self::rotate_row($row, $plain);
+        }
+        return self::write_cas($row, $stored, $stored);
+    }
+
+    private static function rotate_row(object $row, string $plain): mixed {
+        $stored = (string) ($row->body ?? '');
+        return self::write_cas($row, $stored, $plain);
+    }
+
+    private static function write_cas(object $row, string $expected_stored, string $plain): mixed {
+        global $wpdb;
+        $encrypted = self::encrypt($plain, (int) $row->conversation_id, (int) $row->sender_id);
         if (is_wp_error($encrypted)) {
             return $encrypted;
         }
@@ -68,7 +95,7 @@ final class SN_Message_Body {
             'UPDATE ' . SN_DB::table('messages') . ' SET body=%s WHERE id=%d AND body=%s AND deleted_at IS NULL',
             $encrypted,
             (int) $row->id,
-            $stored
+            $expected_stored
         ));
         if ($updated === false) {
             return new WP_Error('message_encryption_write_failed', 'The private message could not be encrypted at rest.', ['status' => 500]);

@@ -6,7 +6,6 @@ trait SN_File_Transfer_Part_7 {
 
     private static function not_found(): WP_Error { return new WP_Error('transfer_not_found', 'The private transfer is unavailable.', ['status' => 404]); }
 
-
     public static function ensure_storage(): bool {
         $root = self::storage_root();
         if (!self::is_safe_storage_root($root) || (!is_dir($root) && !wp_mkdir_p($root)) || !self::is_safe_storage_root($root)) { return false; }
@@ -31,12 +30,37 @@ trait SN_File_Transfer_Part_7 {
         return true;
     }
 
-
-    private static function delete_chunks(int $transfer_id): void {
-        global $wpdb; $rows = $wpdb->get_results($wpdb->prepare('SELECT storage_key FROM ' . self::chunks_table() . ' WHERE transfer_id=%d', $transfer_id));
-        foreach ($rows as $row) { @unlink(self::storage_root() . '/' . $row->storage_key); } $wpdb->delete(self::chunks_table(), ['transfer_id' => $transfer_id], ['%d']);
+    private static function existing_storage_path(string $storage_key): string|WP_Error {
+        $storage_key = str_replace('\\', '/', trim($storage_key));
+        if ($storage_key === '' || str_contains($storage_key, "\0") || str_starts_with($storage_key, '/') || preg_match('~(^|/)\.\.(/|$)~', $storage_key)) {
+            return new WP_Error('transfer_storage_key_invalid', 'The private transfer storage reference is invalid.', ['status' => 500]);
+        }
+        $root = realpath(self::storage_root());
+        $candidate = realpath(self::storage_root() . '/' . $storage_key);
+        if ($root === false || $candidate === false) {
+            return new WP_Error('private_chunk_unavailable', 'The private encrypted object is unavailable.', ['status' => 404]);
+        }
+        $root = trailingslashit(wp_normalize_path($root));
+        $candidate_normalized = wp_normalize_path($candidate);
+        if (!str_starts_with($candidate_normalized, $root)) {
+            return new WP_Error('transfer_storage_path_escape', 'The private transfer storage reference failed containment validation.', ['status' => 500]);
+        }
+        return $candidate;
     }
 
+    private static function delete_chunks(int $transfer_id): void {
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare('SELECT storage_key FROM ' . self::chunks_table() . ' WHERE transfer_id=%d', $transfer_id));
+        foreach ($rows as $row) {
+            $path = self::existing_storage_path((string) $row->storage_key);
+            if (is_wp_error($path)) {
+                SN_DB::audit('file_transfer_chunk_delete_path_rejected', 'file_transfer', $transfer_id, 'failure', ['storage_key_hash' => hash('sha256', (string) $row->storage_key)]);
+                continue;
+            }
+            @unlink($path);
+        }
+        $wpdb->delete(self::chunks_table(), ['transfer_id' => $transfer_id], ['%d']);
+    }
 
     public static function cleanup(): void {
         global $wpdb; $now = current_time('mysql', true);
@@ -44,13 +68,11 @@ trait SN_File_Transfer_Part_7 {
         foreach ($rows as $row) { self::delete_chunks((int) $row->id); $wpdb->query($wpdb->prepare('UPDATE ' . self::sessions_table() . " SET status='expired',version=version+1,updated_at=%s WHERE id=%d", $now, (int) $row->id)); }
     }
 
-
     public static function health(): WP_REST_Response {
         global $wpdb; $missing = [];
         foreach ([self::sessions_table(), self::chunks_table(), self::recipients_table()] as $table) { if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) { $missing[] = $table; } }
         return rest_ensure_response(['ok' => !$missing && self::ensure_storage(), 'schema_version' => self::SCHEMA_VERSION, 'missing_tables' => $missing, 'max_file_bytes' => self::MAX_FILE_BYTES, 'storage_ready' => self::ensure_storage(), 'scanner_connected' => has_filter('sn_network_transfer_scan_result')]);
     }
-
 
     public static function register_assets(): void { wp_register_style('sabri-file-transfer', SN_URL . 'assets/css/file-transfer.css', [], SN_VERSION); wp_register_script('sabri-file-transfer', SN_URL . 'assets/js/file-transfer.js', [], SN_VERSION, true); }
 
@@ -75,7 +97,6 @@ trait SN_File_Transfer_Part_7 {
     }
 
     public static function url(): string { $id = (int) get_option('sn_file_transfer_page_id'); $url = $id ? get_permalink($id) : false; return $url ? (string) $url : home_url('/file-transfer/'); }
-
 
     public static function register_exporter(array $exporters): array { $exporters['sabri-network-transfers'] = ['exporter_friendly_name' => 'Sabri private file transfers', 'callback' => [self::class, 'export_personal_data']]; return $exporters; }
 

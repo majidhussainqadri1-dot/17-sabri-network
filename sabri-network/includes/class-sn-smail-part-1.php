@@ -14,15 +14,10 @@ trait SN_Smail_Part_1 {
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'register_eraser']);
     }
 
-
     public static function init(): void {
         self::maybe_upgrade();
-        if (!(int) get_option('sn_smail_page_id')) {
-            self::ensure_page(false);
-        }
-        do_action('sn_network_route_registered', [
-            'key' => 'smail', 'label' => 'Smail', 'url' => self::url(), 'owner' => 'file-17', 'version' => SN_VERSION,
-        ]);
+        if (!(int) get_option('sn_smail_page_id')) self::ensure_page(false);
+        do_action('sn_network_route_registered', ['key' => 'smail', 'label' => 'Smail', 'url' => self::url(), 'owner' => 'file-17', 'version' => SN_VERSION]);
         do_action('sn_network_smail_contract_registered', [
             'owner' => 'file-17', 'version' => '1.0.0',
             'mailboxes' => ['inbox', 'sent', 'drafts', 'starred', 'archive', 'spam', 'trash'],
@@ -31,14 +26,11 @@ trait SN_Smail_Part_1 {
         ]);
     }
 
-
     public static function install(): void {
         global $wpdb;
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         $charset = $wpdb->get_charset_collate();
-        $messages = self::messages_table();
-        $states = self::states_table();
-        $drafts = self::drafts_table();
+        $messages = self::messages_table(); $states = self::states_table(); $drafts = self::drafts_table();
         dbDelta("CREATE TABLE $messages (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             message_id BIGINT UNSIGNED NOT NULL,
@@ -85,24 +77,14 @@ trait SN_Smail_Part_1 {
         update_option('sn_smail_schema_version', self::SCHEMA_VERSION, false);
     }
 
-
     public static function maybe_upgrade(): void {
-        if ((string) get_option('sn_smail_schema_version', '') !== self::SCHEMA_VERSION) {
-            self::install();
-        }
+        if ((string) get_option('sn_smail_schema_version', '') !== self::SCHEMA_VERSION) self::install();
     }
 
-
     public static function register_routes(): void {
-        register_rest_route('sabri-network/v2', '/smail/mailbox', [
-            'methods' => 'GET', 'callback' => [self::class, 'mailbox'], 'permission_callback' => [SN_REST::class, 'access'],
-        ]);
-        register_rest_route('sabri-network/v2', '/smail/send', [
-            'methods' => 'POST', 'callback' => [self::class, 'send'], 'permission_callback' => [SN_REST::class, 'access'],
-        ]);
-        register_rest_route('sabri-network/v2', '/smail/messages/(?P<id>\d+)/state', [
-            'methods' => 'POST', 'callback' => [self::class, 'update_state'], 'permission_callback' => [SN_REST::class, 'access'],
-        ]);
+        register_rest_route('sabri-network/v2', '/smail/mailbox', ['methods' => 'GET', 'callback' => [self::class, 'mailbox'], 'permission_callback' => [SN_REST::class, 'access']]);
+        register_rest_route('sabri-network/v2', '/smail/send', ['methods' => 'POST', 'callback' => [self::class, 'send'], 'permission_callback' => [SN_REST::class, 'access']]);
+        register_rest_route('sabri-network/v2', '/smail/messages/(?P<id>\d+)/state', ['methods' => 'POST', 'callback' => [self::class, 'update_state'], 'permission_callback' => [SN_REST::class, 'access']]);
         register_rest_route('sabri-network/v2', '/smail/drafts', [
             ['methods' => 'GET', 'callback' => [self::class, 'list_drafts'], 'permission_callback' => [SN_REST::class, 'access']],
             ['methods' => 'POST', 'callback' => [self::class, 'save_draft'], 'permission_callback' => [SN_REST::class, 'access']],
@@ -112,28 +94,19 @@ trait SN_Smail_Part_1 {
             ['methods' => 'POST', 'callback' => [self::class, 'save_draft'], 'permission_callback' => [SN_REST::class, 'access']],
             ['methods' => 'DELETE', 'callback' => [self::class, 'delete_draft'], 'permission_callback' => [SN_REST::class, 'access']],
         ]);
-        register_rest_route('sabri-network/v2', '/smail/health', [
-            'methods' => 'GET', 'callback' => [self::class, 'health'], 'permission_callback' => [SN_REST::class, 'admin_access'],
-        ]);
+        register_rest_route('sabri-network/v2', '/smail/health', ['methods' => 'GET', 'callback' => [self::class, 'health'], 'permission_callback' => [SN_REST::class, 'admin_access']]);
     }
-
 
     public static function mailbox(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $user_id = get_current_user_id();
         $box = sanitize_key((string) $request->get_param('box')) ?: 'inbox';
-        if ($box === 'drafts') {
-            return self::list_drafts($request);
-        }
-        if (!in_array($box, ['inbox', 'sent', 'starred', 'archive', 'spam', 'trash'], true)) {
-            return new WP_Error('invalid_mailbox', 'Select a valid Smail mailbox.', ['status' => 400]);
-        }
+        if ($box === 'drafts') return self::list_drafts($request);
+        if (!in_array($box, ['inbox', 'sent', 'starred', 'archive', 'spam', 'trash'], true)) return new WP_Error('invalid_mailbox', 'Select a valid Smail mailbox.', ['status' => 400]);
         $limit = min(100, max(1, absint($request->get_param('limit')) ?: 30));
         $before = absint($request->get_param('before'));
-        $sm = self::messages_table(); $st = self::states_table();
-        $m = SN_DB::table('messages'); $cm = SN_DB::table('members');
-        $where = ['cm.user_id=%d', 'cm.left_at IS NULL', 'msg.deleted_at IS NULL'];
-        $args = [$user_id];
+        $sm = self::messages_table(); $st = self::states_table(); $m = SN_DB::table('messages'); $cm = SN_DB::table('members');
+        $where = ['cm.user_id=%d', 'cm.left_at IS NULL', 'msg.deleted_at IS NULL']; $args = [$user_id];
         if ($before) { $where[] = 'sm.id<%d'; $args[] = $before; }
         if ($box === 'sent') { $where[] = 'sm.sender_id=%d'; $args[] = $user_id; $where[] = 'state.trashed_at IS NULL'; }
         elseif ($box === 'starred') { $where[] = 'state.is_starred=1'; $where[] = 'state.trashed_at IS NULL'; }
@@ -142,17 +115,20 @@ trait SN_Smail_Part_1 {
         elseif ($box === 'trash') { $where[] = 'state.trashed_at IS NOT NULL'; }
         else { $where[] = 'sm.sender_id<>%d'; $args[] = $user_id; $where[] = 'state.is_archived=0'; $where[] = 'state.is_spam=0'; $where[] = 'state.trashed_at IS NULL'; }
         $args[] = $limit;
-        $sql = "SELECT sm.*,msg.body,msg.message_type,msg.created_at message_created,state.is_starred,state.is_archived,state.is_spam,state.trashed_at,state.read_at
+        $sql = "SELECT sm.*,msg.body,msg.message_type,msg.deleted_at,msg.created_at message_created,state.is_starred,state.is_archived,state.is_spam,state.trashed_at,state.read_at
             FROM $sm sm INNER JOIN $m msg ON msg.id=sm.message_id
             INNER JOIN $cm cm ON cm.conversation_id=sm.conversation_id
             INNER JOIN $st state ON state.smail_message_id=sm.id AND state.user_id=cm.user_id
             WHERE " . implode(' AND ', $where) . " ORDER BY sm.id DESC LIMIT %d";
         $rows = $wpdb->get_results($wpdb->prepare($sql, ...$args));
         $items = array_map(static function ($row) use ($user_id): array {
+            $plain = SN_Message_Body::decrypt_row($row);
+            $unavailable = is_wp_error($plain);
             return [
                 'id' => (int) $row->id, 'message_id' => (int) $row->message_id,
                 'conversation_id' => (int) $row->conversation_id, 'subject' => (string) $row->subject,
-                'body' => (string) $row->body, 'sender' => SN_Auth::public_user((int) $row->sender_id),
+                'body' => $unavailable ? '' : (string) $plain, 'body_unavailable' => $unavailable,
+                'sender' => SN_Auth::public_user((int) $row->sender_id),
                 'is_sent' => (int) $row->sender_id === $user_id, 'starred' => (bool) $row->is_starred,
                 'archived' => (bool) $row->is_archived, 'spam' => (bool) $row->is_spam,
                 'trashed' => (bool) $row->trashed_at, 'read' => (bool) $row->read_at,
@@ -161,5 +137,4 @@ trait SN_Smail_Part_1 {
         }, $rows ?: []);
         return rest_ensure_response(['box' => $box, 'messages' => $items, 'next_before' => $items ? (int) end($items)['id'] : 0]);
     }
-
 }

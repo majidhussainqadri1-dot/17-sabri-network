@@ -20,7 +20,6 @@ trait SN_File_Transfer_Part_5 {
         return rest_ensure_response(['revoked' => true]);
     }
 
-
     public static function maybe_download(): void {
         if (!isset($_GET['sn_file17_transfer_download'], $_GET['grant'])) { return; }
         $public_id = sanitize_text_field(wp_unslash($_GET['sn_file17_transfer_download']));
@@ -28,11 +27,10 @@ trait SN_File_Transfer_Part_5 {
         $claims = SN_Communication_Crypto::verify($token, 'file-transfer-download');
         if (is_wp_error($claims) || !is_user_logged_in() || (int) ($claims['user'] ?? 0) !== get_current_user_id() || !hash_equals((string) ($claims['transfer'] ?? ''), $public_id)) { status_header(403); exit('Private transfer access denied.'); }
         $row = self::session($public_id); $user_id = get_current_user_id();
-        if (!$row || (int) ($claims['version'] ?? 0) !== (int) $row->version || !self::can_access($row, $user_id) || (string) $row->status !== 'ready' || (string) $row->scan_status !== 'clean' || $row->revoked_at || strtotime((string) $row->expires_at) < time()) { status_header(404); exit('Private transfer unavailable.'); }
+        if (!$row || (int) ($claims['version'] ?? 0) !== (int) $row->version || !self::can_access($row, $user_id) || (string) $row->status !== 'ready' || (string) $row->scan_status !== 'clean' || $row->revoked_at || strtotime((string) $row->expires_at) <= time()) { status_header(404); exit('Private transfer unavailable.'); }
         $policy = self::revalidate($row, $user_id, (int) $row->sender_id === $user_id); if (is_wp_error($policy)) { $data = $policy->get_error_data(); status_header(is_array($data) ? (int) ($data['status'] ?? 403) : 403); exit('Private transfer access denied.'); }
         self::stream_download($row, $user_id); exit;
     }
-
 
     private static function stream_download(object $row, int $user_id): void {
         global $wpdb;
@@ -55,7 +53,9 @@ trait SN_File_Transfer_Part_5 {
         foreach ($chunks as $chunk) {
             $chunk_start = $offset; $chunk_end = $offset + (int) $chunk->byte_count - 1; $offset = $chunk_end + 1;
             if ($chunk_end < $start || $chunk_start > $end) { continue; }
-            $plain = SN_Communication_Crypto::read_encrypted_file(self::storage_root() . '/' . $chunk->storage_key, self::chunk_context($row, (int) $chunk->chunk_index));
+            $path = self::existing_storage_path((string) $chunk->storage_key);
+            if (is_wp_error($path)) { $failed = true; break; }
+            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
             if (is_wp_error($plain)) { $failed = true; break; }
             $slice_start = max(0, $start - $chunk_start); $slice_end = min((int) $chunk->byte_count - 1, $end - $chunk_start);
             $slice = substr($plain, $slice_start, ($slice_end - $slice_start) + 1);
@@ -71,16 +71,22 @@ trait SN_File_Transfer_Part_5 {
         SN_DB::audit('file_transfer_downloaded', 'file_transfer', (int) $row->id, 'success', ['range' => $status === 206, 'bytes' => $sent]);
     }
 
-
     public static function materialize_for_scan(int $transfer_id): string|WP_Error {
         global $wpdb; $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE id=%d', $transfer_id));
         if (!$row || ((int) $row->sender_id !== get_current_user_id() && !(bool) apply_filters('sn_network_transfer_scanner_authorized', false, $transfer_id, get_current_user_id()))) { return self::not_found(); }
-        $tmp = self::storage_root() . '/' . $row->public_id . '/scan-' . bin2hex(random_bytes(8)) . '.tmp';
+        try {
+            $suffix = bin2hex(random_bytes(8));
+        } catch (Throwable $e) {
+            return new WP_Error('secure_random_unavailable', 'Secure scan materialization is unavailable.', ['status' => 503]);
+        }
+        $tmp = self::storage_root() . '/' . $row->public_id . '/scan-' . $suffix . '.tmp';
         $handle = @fopen($tmp, 'xb'); if (!$handle) { return new WP_Error('scan_materialization_failed', 'A private scan file could not be created.', ['status' => 500]); }
         @chmod($tmp, 0600);
         $chunks = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . self::chunks_table() . ' WHERE transfer_id=%d ORDER BY chunk_index ASC', $transfer_id));
         foreach ($chunks as $chunk) {
-            $plain = SN_Communication_Crypto::read_encrypted_file(self::storage_root() . '/' . $chunk->storage_key, self::chunk_context($row, (int) $chunk->chunk_index));
+            $path = self::existing_storage_path((string) $chunk->storage_key);
+            if (is_wp_error($path)) { fclose($handle); @unlink($tmp); return $path; }
+            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
             if (is_wp_error($plain) || fwrite($handle, is_wp_error($plain) ? '' : $plain) === false) { fclose($handle); @unlink($tmp); return is_wp_error($plain) ? $plain : new WP_Error('scan_materialization_failed', 'The private scan file could not be completed.', ['status' => 500]); }
         }
         fclose($handle); return $tmp;

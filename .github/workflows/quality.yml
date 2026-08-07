@@ -46,6 +46,10 @@ jobs:
           php sabri-network/tests/four-plan-review-2-transfer-concurrency-contracts.php
           php sabri-network/tests/four-plan-review-3-message-smail-security-contracts.php
           php sabri-network/tests/four-plan-review-4-fresh-release-contracts.php
+          php sabri-network/tests/forty-round-review-1-governance-identity-crypto-contracts.php
+          php sabri-network/tests/forty-round-review-2-transfer-smail-privacy-contracts.php
+          php sabri-network/tests/forty-round-review-3-canonical-safety-resilience-contracts.php
+          php sabri-network/tests/forty-round-review-4-release-truth-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -68,13 +72,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zip rsync
       - name: Run full quality gate
         run: bash sabri-network/tools/quality-check.sh
-      - name: Upload governed 2.0.2 candidate
+      - name: Upload governed 2.0.3 candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: file-17-complete-2.0.2-${{ github.event.pull_request.head.sha || github.sha }}
+          name: file-17-complete-2.0.3-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            sabri-network/build/17-sabri-network-and-messages-2.0.2.zip
-            sabri-network/build/17-sabri-network-and-messages-2.0.2.zip.sha256
-            sabri-network/build/17-sabri-network-and-messages-2.0.2.manifest.sha256
+            sabri-network/build/17-sabri-network-and-messages-2.0.3.zip
+            sabri-network/build/17-sabri-network-and-messages-2.0.3.zip.sha256
+            sabri-network/build/17-sabri-network-and-messages-2.0.3.manifest.sha256
           if-no-files-found: error
           retention-days: 14

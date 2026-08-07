@@ -3,7 +3,7 @@ set -euo pipefail
 export LC_ALL=C
 export TZ=UTC
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD="$ROOT/build"; STAGE="$BUILD/stage"; BASE="17-sabri-network-and-messages-2.0.2"
+BUILD="$ROOT/build"; STAGE="$BUILD/stage"; BASE="17-sabri-network-and-messages-2.0.3"
 PACKAGE="$BUILD/$BASE.zip"; PACKAGE_SHA="$BUILD/$BASE.zip.sha256"; SOURCE_MANIFEST="$BUILD/$BASE.manifest.sha256"; FIXED_TIMESTAMP="198001010000.00"
 rm -rf "$STAGE" "$PACKAGE" "$PACKAGE_SHA" "$SOURCE_MANIFEST"; mkdir -p "$STAGE/sabri-network"
 rsync -a --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='build/' --exclude='tests/' --exclude='tools/' --exclude='REVIEW-REPORT.md' "$ROOT/" "$STAGE/sabri-network/"
@@ -17,9 +17,9 @@ node --check "$STAGE/sabri-network/assets/js/messages.js"
 node --check "$STAGE/sabri-network/assets/js/message-search.js"
 node --check "$STAGE/sabri-network/assets/js/smail.js"
 node --check "$STAGE/sabri-network/assets/js/file-transfer.js"
-grep -q 'Version: 2.0.2' "$STAGE/sabri-network/sabri-network.php"
+grep -q 'Version: 2.0.3' "$STAGE/sabri-network/sabri-network.php"
 grep -q "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')" "$STAGE/sabri-network/sabri-network.php"
-for file in includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md includes/class-sn-smail.php includes/class-sn-file-transfer.php includes/class-sn-communication-crypto.php includes/class-sn-message-body.php includes/class-sn-central-plan-hardening.php templates/smail-app.php templates/file-transfer-app.php; do test -f "$STAGE/sabri-network/$file"; done
+for file in includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md includes/class-sn-smail.php includes/class-sn-file-transfer.php includes/class-sn-communication-crypto.php includes/class-sn-message-body.php includes/class-sn-central-plan-hardening.php includes/class-sn-compatibility-hardening.php templates/smail-app.php templates/file-transfer-app.php; do test -f "$STAGE/sabri-network/$file"; done
 (
  cd "$STAGE"
  find sabri-network -type f ! -name 'MANIFEST.sha256' -print | sort | while IFS= read -r file; do sha256sum "$file"; done > sabri-network/MANIFEST.sha256

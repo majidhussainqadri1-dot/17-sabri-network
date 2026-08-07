@@ -1,42 +1,39 @@
-# File 17 — Sabri Network and Messages 2.0.2
+# File 17 — Sabri Network and Messages 2.0.3
 
-This branch is the four-plan/four-round corrective File-17 candidate for the Sabri Social Homeopathy Platform. The audit basis is: Definitive Master Plan v3.0, Consolidated Recovered Directives, Continuous Value / Top-20 Superset Master Plan, and the File 17 Final Harmonized Master Plan.
+This is the forty-round corrective File-17 candidate for the Sabri Social Homeopathy Platform. Governing basis: Definitive Master Plan v3.0, Consolidated Recovered Directives, Continuous Value / Top-20 Superset Master Plan, and the File 17 Final Harmonized Master Plan.
 
 ## Canonical scope
 
-File 17 owns consent-based Network relationships, communities/groups/channels, conversations, private messages and attachments, **internal Smail**, **verified-user private file transfer up to 1 GiB per file**, temporary updates, presence, direct-call state/signaling, Sabri Meet, blocks, reports, appeals, native retention enforcement, privacy operations, and communication audit/event records.
+File 17 is the sole communication/realtime owner for relationships, contacts/follows, communities/groups/channels, conversations/messages, private attachments, internal Smail, verified-user private transfer up to 1 GiB/file, temporary updates, presence, calls/signaling/Sabri Meet, blocks/reports, native retention/privacy and communication audit/events.
 
-It does not duplicate File 00/02 identity and verification, File 19 notification center/delivery, File 20 global shell/navigation, File 24 assurance governance, File 25 public-profile presentation, CF-01 clinical records, or CF-04 secure binary-processing ownership.
+It does not duplicate File 00/02 identity/verification, File 19 notification center/delivery, File 20 global shell/navigation, File 24 assurance governance, File 25 presentation, File 26 global search/ranking, CF-01 clinical truth or CF-04 secure-processing ownership. File 26 may consume only public/explicitly-consented people/space projections; File 17 private messages and contacts are excluded from the federated corpus.
 
-## 2.0.2 corrective scope
+## 2.0.3 forty-round corrections
 
-- File 19 is now enforced as the single notification-center/delivery owner: File 17 emits metadata-only facts, does not create new local notification rows, exposes compatibility-only historical notification routes and suppresses its old local bell.
-- Canonical message bodies are authenticated-encrypted at rest with the `SNE1` envelope. Legacy plaintext migrates in bounded batches; authorized search indexes transient plaintext into server-secret HMAC hashes only.
-- Smail Inbox, Sent, Drafts, Starred, Archive, Spam and Trash use the same canonical message backend; sends now pass through `SN_Message_Integrity` and multi-recipient retries reuse the same idempotent conversation reservation.
-- Verified transfers retain the exact 1 GiB/file ceiling, resumable encrypted chunks, checksum/MIME/archive/scanner/quarantine/grant/revocation/privacy controls; a newly corrected concurrent same-index race prevents a losing retry from deleting the winner's bytes.
-- Forwarding now decrypts authorized source content only in memory, re-encrypts for the target audience and avoids cross-audience source-identifier disclosure.
-- Green remains the primary File-17 visual identity; orange is a secondary accent only.
+The forty-round cycle retained the 2.0.2 notification/concurrency/message/Smail corrections and additionally hardened: block-safe identity projections; File-26 ownership; File-00-only transfer verification; versioned rotatable communication keys; lazy re-encryption of messages/private files/Smail drafts; scanner plaintext cleanup and entropy failure; canonical legacy presence; self-only device count; private-transfer filesystem containment; readable encrypted-message/Smail privacy exports; keyed Smail draft fingerprints; and behavioral rather than comment-text QA assertions.
 
-## Four review rounds
+The explicit repository quality inventory is now **45 PHP review suites**, plus PHP 8.1/8.3, six JavaScript syntax checks, shell syntax, CSS/accessibility integrity, repository hygiene, exact installable-source manifest verification and deterministic byte-for-byte packaging.
 
-1. **Governance/ownership:** notification duplication and stale ownership documentation found and corrected.
-2. **Transfer concurrency:** destructive same-index retry race found and corrected.
-3. **Message/Smail privacy-integrity:** plaintext canonical message bodies, Smail integrity bypass, retry duplication exposure and forward-path encryption gap found and corrected.
-4. **Fresh release/packaging truth:** version, documentation, explicit QA inventory and deterministic package contract reconciled to 2.0.2.
+## Forty-round result
 
-The explicit repository quality inventory is **41 PHP review suites**, plus PHP/JavaScript/shell syntax, CSS/accessibility integrity, repository hygiene, complete installable-source manifest verification and deterministic byte-for-byte packaging.
+- Review rounds: **40**
+- Rounds with defects found and corrected: **18**
+- Rounds with no new defect found: **22**
+- Known unresolved repository/current-wave coding defects after round 40: **0**, subject to exact-head automated QA and later evidence.
+
+See `FORTY-ROUND-AUDIT-2026-08-07.md` for the round-by-round ledger.
 
 ## Top-20 status law
 
-The Top-20 plan itself distinguishes `NOW`, `NEXT` and `SCALE`. Version 2.0.2 treats current-wave File-17 requirements as release requirements and keeps later provider-/maturity-dependent capabilities behind their declared gates; it does not label future-wave media/provider functionality as already live.
+`NOW`, `NEXT`, and `SCALE` remain distinct. Version 2.0.3 closes known repository-owned current-wave obligations; provider-/maturity-dependent later-wave items are not falsely described as live/current.
 
 ## Truthful status
 
-- **Specified:** complete for the reviewed repository-owned/current-wave File-17 scope.
-- **Coded:** 2.0.2 code-complete candidate after correction.
-- **Packaged / Automated-QA Green:** established only by the exact-head workflow and deterministic artifact from this branch/head.
+- **Specified:** complete for reviewed repository-owned/current-wave File-17 scope.
+- **Coded:** 2.0.3 code-complete corrective candidate.
+- **Packaged / Automated-QA Green:** established only by the exact 2.0.3 head workflow and deterministic artifact.
 - **Staging-Accepted:** pending real Hostinger/WordPress/MySQL/roles/companions/providers/security/rollback evidence.
 - **Live-Deployed:** not claimed.
 - **Operational:** not claimed.
 
-See `FOUR-PLAN-FOUR-ROUND-AUDIT-2026-08-07.md`, `CODING-COMPLETENESS.md`, `STATUS.md`, and `sabri-network/SYSTEM-STATUS.txt`.
+No audited-E2EE, production-ready, staging, live or operational claim is made by source presence alone.

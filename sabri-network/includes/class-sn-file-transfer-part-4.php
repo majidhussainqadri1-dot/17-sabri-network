@@ -15,7 +15,9 @@ trait SN_File_Transfer_Part_4 {
         $hash = hash_init('sha256'); $first = '';
         foreach ($chunks as $position => $chunk) {
             if ((int) $chunk->chunk_index !== $position) { return new WP_Error('transfer_chunk_gap', 'The transfer chunk sequence is incomplete.', ['status' => 409]); }
-            $plain = SN_Communication_Crypto::read_encrypted_file(self::storage_root() . '/' . $chunk->storage_key, self::chunk_context($row, (int) $chunk->chunk_index));
+            $path = self::existing_storage_path((string) $chunk->storage_key);
+            if (is_wp_error($path)) { return $path; }
+            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
             if (is_wp_error($plain)) { return $plain; }
             if (!hash_equals((string) $chunk->sha256, hash('sha256', $plain)) || strlen($plain) !== (int) $chunk->byte_count) { return self::reject_corrupt($row, 'chunk_revalidation_failed'); }
             if ($position === 0) { $first = substr($plain, 0, 1048576); }
@@ -28,11 +30,28 @@ trait SN_File_Transfer_Part_4 {
         if (self::looks_like_archive((string) $row->safe_name, $mime)) {
             $archive = self::inspect_archive($row, $chunks); if (is_wp_error($archive)) { return self::reject_corrupt($row, $archive->get_error_code()); }
         }
-        $scan = apply_filters('sn_network_transfer_scan_result', null, [
-            'transfer_id' => (int) $row->id, 'public_id' => (string) $row->public_id, 'sender_id' => $sender_id,
-            'name' => (string) $row->safe_name, 'bytes' => (int) $row->total_bytes, 'sha256' => $actual,
-            'mime' => $mime, 'materialize_callback' => [self::class, 'materialize_for_scan'],
-        ]);
+
+        $scan_paths = [];
+        $materialize = static function () use ($row, &$scan_paths): string|WP_Error {
+            $path = self::materialize_for_scan((int) $row->id);
+            if (is_string($path) && $path !== '') { $scan_paths[] = $path; }
+            return $path;
+        };
+        $cleanup = static function () use (&$scan_paths): void {
+            foreach (array_unique($scan_paths) as $path) {
+                if (is_string($path) && $path !== '') { @unlink($path); }
+            }
+            $scan_paths = [];
+        };
+        try {
+            $scan = apply_filters('sn_network_transfer_scan_result', null, [
+                'transfer_id' => (int) $row->id, 'public_id' => (string) $row->public_id, 'sender_id' => $sender_id,
+                'name' => (string) $row->safe_name, 'bytes' => (int) $row->total_bytes, 'sha256' => $actual,
+                'mime' => $mime, 'materialize_callback' => $materialize, 'cleanup_callback' => $cleanup,
+            ]);
+        } finally {
+            $cleanup();
+        }
         $scan_status = is_array($scan) ? sanitize_key((string) ($scan['status'] ?? '')) : sanitize_key((string) $scan);
         if (!in_array($scan_status, ['clean', 'malware', 'rejected'], true)) {
             $wpdb->update(self::sessions_table(), ['actual_sha256' => $actual, 'detected_mime' => $mime, 'status' => 'quarantined', 'scan_status' => 'scanner_unavailable', 'failure_code' => 'scanner_required', 'version' => (int) $row->version + 1, 'updated_at' => current_time('mysql', true)], ['id' => (int) $row->id]);
@@ -56,14 +75,12 @@ trait SN_File_Transfer_Part_4 {
         return rest_ensure_response(['transfer' => self::format(self::session((string) $row->public_id), $sender_id)]);
     }
 
-
     public static function list_transfers(WP_REST_Request $request): WP_REST_Response {
         global $wpdb; $user_id = get_current_user_id(); $box = sanitize_key((string) $request->get_param('box')) === 'sent' ? 'sent' : 'inbox';
         if ($box === 'sent') { $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE sender_id=%d ORDER BY id DESC LIMIT 100', $user_id)); }
         else { $rows = $wpdb->get_results($wpdb->prepare('SELECT s.* FROM ' . self::sessions_table() . ' s INNER JOIN ' . self::recipients_table() . ' r ON r.transfer_id=s.id AND r.user_id=%d AND r.revoked_at IS NULL ORDER BY s.id DESC LIMIT 100', $user_id)); }
         return rest_ensure_response(['box' => $box, 'transfers' => array_map(fn($r): array => self::format($r, $user_id), $rows ?: [])]);
     }
-
 
     public static function status(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $row = self::session((string) $request['public_id']); $user_id = get_current_user_id();
@@ -72,12 +89,11 @@ trait SN_File_Transfer_Part_4 {
         return rest_ensure_response(['transfer' => self::format($row, $user_id)]);
     }
 
-
     public static function grant(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $row = self::session((string) $request['public_id']); $user_id = get_current_user_id();
         if (!$row || !self::can_access($row, $user_id)) { return self::not_found(); }
         $policy = self::revalidate($row, $user_id, (int) $row->sender_id === $user_id); if (is_wp_error($policy)) { return $policy; }
-        if ((string) $row->status !== 'ready' || (string) $row->scan_status !== 'clean' || $row->revoked_at || strtotime((string) $row->expires_at) < time()) { return new WP_Error('transfer_not_ready', 'The private transfer is not available for download.', ['status' => 409]); }
+        if ((string) $row->status !== 'ready' || (string) $row->scan_status !== 'clean' || $row->revoked_at || strtotime((string) $row->expires_at) <= time()) { return new WP_Error('transfer_not_ready', 'The private transfer is not available for download.', ['status' => 409]); }
         $exp = time() + self::GRANT_TTL;
         $token = SN_Communication_Crypto::sign(['transfer' => (string) $row->public_id, 'user' => $user_id, 'version' => (int) $row->version, 'exp' => $exp], 'file-transfer-download');
         $url = add_query_arg(['sn_file17_transfer_download' => (string) $row->public_id, 'grant' => $token], home_url('/'));
