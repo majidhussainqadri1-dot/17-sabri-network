@@ -15,8 +15,8 @@ function sn_cf01_static_assert(bool $condition, string $message): void {
     echo "PASS: $message\n";
 }
 
-sn_cf01_static_assert(str_contains($main, 'Version: 2.0.1'), 'plugin header is File 17 2.0.1');
-sn_cf01_static_assert(str_contains($main, "define('SN_VERSION', '2.0.1')"), 'runtime version is File 17 2.0.1');
+sn_cf01_static_assert(str_contains($main, 'Version: 2.0.2'), 'plugin header is File 17 2.0.2');
+sn_cf01_static_assert(str_contains($main, "define('SN_VERSION', '2.0.2')"), 'runtime version is File 17 2.0.2');
 sn_cf01_static_assert(str_contains($main, "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')"), 'CF-01 contract version is explicit');
 sn_cf01_static_assert(str_contains($main, 'class-sn-cf01-clinical-context.php'), 'provider loads from bootstrap');
 sn_cf01_static_assert(str_contains($main, 'SN_CF01_Clinical_Context::register()'), 'provider lifecycle is registered');
@@ -60,6 +60,6 @@ sn_cf01_static_assert(str_contains($source, 'register_exporter'), 'reference pri
 sn_cf01_static_assert(str_contains($source, 'register_eraser'), 'reference privacy erasure/revocation is implemented');
 sn_cf01_static_assert(str_contains($source, 'sn_cf01_communication_context_assertion'), 'owner-executed assertion function exists');
 sn_cf01_static_assert(str_contains($source, 'sn_cf01_resolve_communication_destination'), 'owner-executed destination resolver exists');
-sn_cf01_static_assert(str_contains($readme, 'Stable tag: 2.0.1'), 'readme stable tag is File 17 2.0.1');
+sn_cf01_static_assert(str_contains($readme, 'Stable tag: 2.0.2'), 'readme stable tag is File 17 2.0.2');
 
 echo "File 17 CF-01 static contracts: $tests PASS, 0 FAIL\n";
