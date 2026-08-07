@@ -53,7 +53,9 @@ trait SN_File_Transfer_Part_5 {
         foreach ($chunks as $chunk) {
             $chunk_start = $offset; $chunk_end = $offset + (int) $chunk->byte_count - 1; $offset = $chunk_end + 1;
             if ($chunk_end < $start || $chunk_start > $end) { continue; }
-            $plain = SN_Communication_Crypto::read_encrypted_file(self::storage_root() . '/' . $chunk->storage_key, self::chunk_context($row, (int) $chunk->chunk_index));
+            $path = self::existing_storage_path((string) $chunk->storage_key);
+            if (is_wp_error($path)) { $failed = true; break; }
+            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
             if (is_wp_error($plain)) { $failed = true; break; }
             $slice_start = max(0, $start - $chunk_start); $slice_end = min((int) $chunk->byte_count - 1, $end - $chunk_start);
             $slice = substr($plain, $slice_start, ($slice_end - $slice_start) + 1);
@@ -82,7 +84,9 @@ trait SN_File_Transfer_Part_5 {
         @chmod($tmp, 0600);
         $chunks = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . self::chunks_table() . ' WHERE transfer_id=%d ORDER BY chunk_index ASC', $transfer_id));
         foreach ($chunks as $chunk) {
-            $plain = SN_Communication_Crypto::read_encrypted_file(self::storage_root() . '/' . $chunk->storage_key, self::chunk_context($row, (int) $chunk->chunk_index));
+            $path = self::existing_storage_path((string) $chunk->storage_key);
+            if (is_wp_error($path)) { fclose($handle); @unlink($tmp); return $path; }
+            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
             if (is_wp_error($plain) || fwrite($handle, is_wp_error($plain) ? '' : $plain) === false) { fclose($handle); @unlink($tmp); return is_wp_error($plain) ? $plain : new WP_Error('scan_materialization_failed', 'The private scan file could not be completed.', ['status' => 500]); }
         }
         fclose($handle); return $tmp;
