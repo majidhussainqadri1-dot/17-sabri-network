@@ -1,86 +1,84 @@
 # File 17 — Sabri Network and Messages
 
-**Plugin version:** 2.0.0  
+**Plugin version:** 2.0.2  
 **WordPress:** 6.5 or later  
 **PHP:** 8.1 or later  
-**Status:** 100% coded candidate against the current File 17 specification; not staging-accepted, live-deployed, and not production-operational
+**Repository status:** four-plan/four-round code-complete candidate; staging/live/operational acceptance remains separate
 
-File 17 is the canonical communication owner for the Sabri Social Homeopathy Platform. It owns Network relationships, conversations, messages, private attachments, presence, calls/signaling, Sabri Meet, reports, native privacy lifecycle, message receipts, indexed private message search, and communication-event evidence. It does not create a parallel identity, notification, public-profile, clinical, appointment, marketplace, or global-shell backend.
+File 17 is the Sabri Social Homeopathy Platform's single canonical communication/realtime owner. It owns relationships, contacts/follows, communities/groups/channels, conversations, messages, private attachments, internal Smail, verified-user file transfer, presence/typing, calls/signaling/Sabri Meet, blocks/reports, native privacy lifecycle, receipts, private search and communication-event evidence. Network and Messages are distinct experiences over the same backend.
 
-## Governing boundaries
+## Four governing plans reviewed for 2.0.2
 
-- File 00/File 02 remain identity and authentication authorities.
-- File 19 remains the notification center, preferences, channel transport, provider retry, and digest owner. File 17 emits metadata-minimized communication facts through the reliable event contract.
-- File 20 owns global navigation and application shell.
-- File 24 consumes assurance evidence but does not replace File 17 native enforcement.
-- File 25 may render Follow/Connect/Message actions; File 17 authorizes and executes them.
+1. Definitive Integrated Master Plan v3.0.
+2. Consolidated All-Chats Recovered Directives.
+3. Continuous Value / Top-20 Superset Master Plan.
+4. File 17 — Final Harmonized Master Plan.
 
-## Implemented 2.0.0 candidate scope
+The Top-20 plan itself distinguishes `NOW`, `NEXT` and `SCALE`. Runtime 2.0.2 treats the repository-owned current-wave obligations as release requirements and keeps provider-/maturity-dependent later-wave capabilities behind their declared gates rather than falsely advertising them as live.
 
-- accepted-contact relationships, follows, blocks, direct/group-style conversations, messages, reactions, read state, edit/delete windows, private attachments, temporary updates, bounded presence/typing, direct calls, reports, appeals, legal/safety holds, privacy export/erasure, rate limits, and audit evidence;
-- dedicated `/messages/` and `/messages/{conversation_id}/` surfaces plus File-17-owned Communication Settings;
-- native recipient/device delivered/read receipts with bounded contiguous reconciliation and monotonic read-pointer advancement;
-- Sabri Meet control plane at `/calls/` and `/calls/{meeting_id}/` with opaque identifiers, schedule/live/end lifecycle, waiting room, host/co-host governance, participant/device ceilings, recipient-scoped signaling, accessible UI, and provider-gated media;
-- conversation-local indexed message search with HMAC-hashed tokens, signed viewer/conversation/filter/snapshot cursors, signed bounded context navigation, hidden-state exclusion, and no plaintext-query persistence;
-- transactional outbox/inbox delivery with outgoing and incoming idempotency, payload integrity, atomic claims, stale-lock recovery, bounded retry, dead-letter visibility, and optimistic manual retry;
-- atomic send/edit/delete/read-delivered mutation boundaries: canonical message/receipt truth, search-index change, and outbox event commit or roll back together.
+## Canonical boundaries
 
-## Private message search
+- File 00/File 02: identity/authentication/verified-account authority.
+- File 09: doctor professional verification where relevant.
+- File 19: **single** notification center, preferences and delivery fabric. File 17 emits metadata-only notification facts and has no second active notification center/bell.
+- File 20: one global shell/navigation.
+- File 24: assurance evidence consumer; File 17 still enforces its native controls.
+- File 25: visual/public action presentation; File 17 authorizes relationship/message mutations.
+- File 08/CF-01: appointment/clinical truth; File 17 retains only governed communication-context references.
+- CF-04: optional approved secure media/malware-processing adapter after its own activation.
 
-Search is available only to an active conversation member. Query text is normalized in memory and converted to server-secret HMAC token hashes; the index has no message-body or plaintext-query column. Pagination cursors bind the viewer, conversation, filters, and snapshot and expire after a short interval. Context cursors bind the authorized target and snapshot. Quarantined, moderation-removed, removed, unsent, expired, rejected, and deleted states are excluded before response formatting.
+## Core implemented scope
 
-Search is deliberately bounded: 160 query characters, 8 query terms, 128 indexed terms per message, 500-row scan budget, 50-result page ceiling, and 25 messages on either side of a context target.
+- Relationships, contact requests, follows, blocks and policy-aware discovery projections.
+- Communities, groups, channels, roles, invitations, bans, lifecycle and anti-abuse governance.
+- Direct/group/channel conversations, replies, reactions, mentions, pins/stars/folders, bounded edit/delete, private media and authorized forwarding.
+- Dedicated `/messages/`, `/messages/{id}/`, `/network/`, `/smail/`, `/file-transfer/`, `/calls/` and communication-settings surfaces without a second global shell.
+- Privacy-minimized presence, typing and per-device delivered/read receipt reconciliation.
+- Sabri Meet/control-plane meetings with waiting room, host/co-host governance, participant/device ceilings, signaling, conversation-backed chat, raised hands and provider-gated media.
+- Reports, appeals, holds, bounded retention, privacy export/erasure, rate limits and audit evidence.
+- Transactional outbox/inbox with idempotency, bounded retry, stale-lock recovery and dead-letter visibility.
 
-## Reliable event delivery
+## Internal Smail
 
-File 17 records metadata-only communication events in its transactional outbox. Consumers receive canonical facts through:
+Smail is a Gmail-like **internal** communication center, not Internet email or SMTP hosting. It provides Inbox, Sent, Drafts, Starred, Archive, Spam and Trash over canonical File-17 message references. Drafts are encrypted/versioned. Sends use `SN_Message_Integrity`; multi-recipient retry keys reserve the same canonical conversation so interrupted retries do not create duplicate groups.
 
-```php
-do_action('sn_network_event_dispatched', $event);
-```
+## Canonical message confidentiality and search
 
-and explicitly acknowledge them through:
+Runtime 2.0.2 stores new/edited canonical message bodies in authenticated server-side `SNE1` encryption envelopes via `SN_Communication_Crypto`. It makes no audited E2EE claim. Legacy plaintext rows are migrated in bounded batches. Search decrypts authorized content only transiently in memory and stores only server-secret HMAC token hashes; queries/message plaintext are not persisted in the search index.
 
-```php
-apply_filters('sn_network_outbox_delivery_result', true, $event);
-```
+Search is bounded: 160 query characters, 8 query terms, 128 indexed terms/message, 500-row scan budget, 50-result ceiling and 25 context messages on either side. Signed cursors bind viewer, conversation, filters and snapshot.
 
-The outbox strips message bodies, generic content, credentials, tokens, ICE/SDP/candidates, and storage paths. File 19 remains the channel/provider delivery owner. Incoming companion events use producer plus UUIDv4 idempotency and execute their handler transactionally; failures remain operator-visible after rollback.
+## Verified private transfer — hard limit 1 GiB/file
 
-## Sabri Meet boundary
+- exact maximum: 1,073,741,824 bytes;
+- resumable 1–16 MiB chunks, 8 MiB default, SHA-256 per chunk and recomputed whole-file SHA-256;
+- independent encrypted storage path for every concurrent upload attempt, so a losing same-index retry cannot delete winner bytes;
+- authenticated encryption outside the public WordPress tree; no WordPress Media Library insertion and no permanent public URL;
+- server MIME/magic/archive checks, zip traversal/bomb bounds and fail-closed malware quarantine;
+- fresh verified sender/recipient, block/suspension/relationship/policy revalidation;
+- recipient/version-bound signed grants, ten-minute validity, byte-range resume and revocation invalidation;
+- retention, cleanup, privacy export/erasure and audit.
 
-Conference media is provider-gated. File 17 does not persist provider credentials and exposes only participant-scoped, short-lived adapter output. Without an approved SFU/TURN/media adapter, the UI truthfully reports media unavailable. Recording remains disabled; peer signaling is deny-by-default; no audited end-to-end-encryption claim is made. Real provider governance, load/soak, browser/device, accessibility, staging, and operational acceptance remain release gates.
+## File 19 notification rule
 
-## Private files and external controls
+Historical File-17 notification schema/routes remain only for non-destructive compatibility/rollback. New File-17 notification calls are intercepted after approved adapters, emit only metadata-safe File-19 integration facts when needed, and never create a second local center. The historic Network bell is suppressed; File 20/File 19 own the single global notification experience.
 
-Private attachment storage must remain outside the public web root. Document uploads require an approved malware-scanning adapter bound to the file hash/context; an unconditional `clean` response is prohibited. Production calls require approved STUN/TURN/SFU infrastructure, short-lived credentials, and provider-health evidence.
-
-Production use also requires HTTPS/security hardening, File 00/File 02 session and MFA controls, backup/restore proof, rollback rehearsal, penetration and load testing, browser/device/RTL/accessibility acceptance, monitoring, incident runbooks, and Founder approval.
-
-## Installation
-
-1. Back up database and files.
-2. Install the verified ZIP on staging only.
-3. Activate the plugin and run **Network → System Check**.
-4. Connect canonical identity, notification, private-storage, scanner, and approved call-provider contracts.
-5. Test fresh install, upgrade, migrations, real roles, minors/guardian policy, search, event retry/dead-letter, privacy, backup/restore, rollback, and Safe Mode.
-6. Deploy live only after the full Definition of Done and Founder approval.
-
-## Quality commands
+## Quality and packaging
 
 ```bash
 bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The quality workflow runs the inherited File-17 contract suites, Sabri Meet reviews, Messages/receipt reviews, and two independent indexed-search/outbox review-and-fix suites, followed by syntax, CSS, repository-hygiene, exact installable-source checksums, and deterministic byte-for-byte packaging.
+The 2.0.2 gate explicitly enumerates **41** independent PHP review suites, six JavaScript syntax checks, all PHP syntax checks, CSS/accessibility baselines, repository hygiene, installable-source manifest verification and deterministic byte-for-byte packaging.
 
-## Coding completeness
+## Completion truth
 
-This branch is a **100% coded candidate against the currently approved File 17 specification**. Communities/groups/channels governance, anti-raid controls, general per-device presence and revocation, advanced message organization and governed forwarding/mentions, File 08/18/21 context adapters, high-risk step-up/dual approval and secret-free conference-provider governance are included in the reviewable source.
+**Specified:** complete for the reviewed repository-owned File-17/current-wave scope.  
+**Coded:** 2.0.2 corrective candidate.  
+**Packaged / Automated-QA Green:** only after the exact branch/head workflow succeeds.  
+**Staging-Accepted:** pending real Hostinger/WordPress/MySQL/roles/companions/providers/browser/security/rollback evidence.  
+**Live-Deployed:** not claimed.  
+**Operational:** not claimed.
 
-Coding completion is not operational completion. Real WordPress/MySQL staging, companion contracts, provider credentials and infrastructure, load/soak, penetration, browser/device, accessibility, backup/restore, rollback and Founder acceptance remain external release gates. The repository-level `CODING-COMPLETENESS.md` is the controlling truth record.
-
-## Explicit non-claims
-
-Version 2.0.0 does not claim audited E2EE, an accepted production SFU/TURN service, completed penetration/load testing, staging acceptance, live deployment, or operational completion.
+No repository document may equate a green CI or ZIP with production completion.
