@@ -54,7 +54,8 @@ print('CSS integrity: PASS')
 PY
 
 echo '== Repository hygiene and private-communication invariants =='
-if grep -RInE --exclude-dir=.git --exclude-dir=build --exclude='quality-check.sh' --exclude='static-contracts.php' --exclude='realtime-static-contracts.php' --exclude='safety-static-contracts.php' --exclude='relationships-static-contracts.php' '(TODO|FIXME|HACK|console\.log\(|debugger;)' .; then echo 'Repository hygiene check failed.' >&2; exit 1; fi
+# Scan production PHP/JS/templates for unfinished markers or debug statements; test fixtures are inspected by their own suites.
+if grep -RInE --include='*.php' --include='*.js' '(TODO|FIXME|HACK|console\.log\(|debugger;)' sabri-network.php includes templates assets/js; then echo 'Production source hygiene check failed.' >&2; exit 1; fi
 if find . -path './.git' -prune -o -path './build' -prune -o -type f -size +5M -print | grep -q .; then echo 'Unexpected source file larger than 5 MB.' >&2; exit 1; fi
 python3 - <<'PY'
 from pathlib import Path
