@@ -4,6 +4,8 @@ $root=dirname(__DIR__);$src=implode("\n", array_map('file_get_contents', array_m
 function fta(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 fta(str_contains($src,'sender_idempotency')&&str_contains($src,'transfer_chunk'),'Session and chunk idempotency are database-enforced.');
 fta(str_contains($src,'chunk_idempotency_conflict'),'Conflicting chunk replay is rejected.');
+fta(str_contains($src,'random_bytes(12)')&&str_contains($src,"'-' . \$attempt . '.snc'"),'Concurrent same-index attempts use independent encrypted storage paths.');
+fta(str_contains($src,"@unlink(self::storage_root() . '/' . \$storage_key)"),'A losing chunk retry deletes only its own attempt bytes.');
 fta(str_contains($src,'received_bytes=received_bytes+'),'Progress is committed server-side, not trusted from client.');
 fta(str_contains($src,'total > self::MAX_FILE_BYTES'),'Oversize transfer is rejected before storage.');
 fta(str_contains($src,'bytes !== $expected_bytes'),'Short, oversized and misaligned chunks are rejected.');

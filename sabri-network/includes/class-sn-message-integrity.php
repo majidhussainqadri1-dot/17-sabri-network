@@ -60,12 +60,17 @@ final class SN_Message_Integrity {
         if ($body === '' && !$attachment) return new WP_Error('empty_message', 'Write a message or attach a file.', ['status' => 400]);
         if (!$attachment) $message_type = 'text';
 
+        $stored_body = SN_Message_Body::encrypt($body, $conversation_id, $user_id);
+        if (is_wp_error($stored_body)) {
+            if ($attachment) SN_Private_Files::delete((int) $attachment['id'], $user_id);
+            return $stored_body;
+        }
         $now = current_time('mysql', true);
         $wpdb->query('START TRANSACTION');
         try {
             $inserted = $wpdb->insert(SN_DB::table('messages'), [
                 'conversation_id' => $conversation_id, 'sender_id' => $user_id, 'message_type' => $message_type,
-                'body' => $body, 'attachment_id' => $attachment ? (int) $attachment['id'] : 0,
+                'body' => $stored_body, 'attachment_id' => $attachment ? (int) $attachment['id'] : 0,
                 'attachment_source' => $attachment ? 'private' : 'none', 'reply_to' => $reply_to,
                 'idempotency_key' => $idempotency_key, 'metadata' => '{}', 'created_at' => $now,
             ]);
@@ -104,10 +109,12 @@ final class SN_Message_Integrity {
         if (!SN_Policy::can_edit_message($message, $user_id)) return new WP_Error('edit_forbidden', 'This message can no longer be edited.', ['status' => 403]);
         $body = trim(sanitize_textarea_field(wp_unslash((string) $request->get_param('body'))));
         if ($body === '' || mb_strlen($body) > self::MAX_MESSAGE_CHARS) return new WP_Error('invalid_message', 'Enter a valid message within the permitted length.', ['status' => 400]);
+        $stored_body = SN_Message_Body::encrypt($body, (int) $message->conversation_id, (int) $message->sender_id);
+        if (is_wp_error($stored_body)) return $stored_body;
         $wpdb->query('START TRANSACTION');
         try {
             $edited_at = current_time('mysql', true);
-            if ($wpdb->update(SN_DB::table('messages'), ['body' => $body, 'edited_at' => $edited_at], ['id' => $id]) === false) throw new RuntimeException('message_update_failed');
+            if ($wpdb->update(SN_DB::table('messages'), ['body' => $stored_body, 'edited_at' => $edited_at], ['id' => $id]) === false) throw new RuntimeException('message_update_failed');
             $indexed = SN_Message_Search::index_message($id);
             if (is_wp_error($indexed)) throw new RuntimeException($indexed->get_error_code());
             $event_id = SN_Outbox::enqueue('message.edited', 'message', $id, [
@@ -217,6 +224,9 @@ final class SN_Message_Integrity {
 
     private static function finalize_existing_message(object $message, int $user_id, bool $duplicate): WP_REST_Response|WP_Error {
         global $wpdb;
+        $secured = SN_Message_Body::ensure_encrypted_row($message);
+        if (is_wp_error($secured)) return $secured;
+        $message = $secured;
         $wpdb->query('START TRANSACTION');
         try {
             $indexed = SN_Message_Search::index_message((int) $message->id);
@@ -272,7 +282,9 @@ final class SN_Message_Integrity {
         if (!$row) return [];
         $sender = SN_Auth::public_user((int) $row->sender_id) ?: ['id'=>0,'name'=>'Unavailable account','avatar'=>SN_URL.'assets/network-default-avatar.svg'];
         $attachment = !$row->deleted_at && (int) $row->attachment_id > 0 && (string) $row->attachment_source === 'private' ? SN_Private_Files::formatted((int) $row->attachment_id, $viewer_id) : null;
-        return ['id'=>(int)$row->id,'conversation_id'=>(int)$row->conversation_id,'sender'=>$sender,'message_type'=>(string)$row->message_type,'body'=>$row->deleted_at?'':(string)$row->body,'attachment'=>$attachment,'reply_to'=>(int)$row->reply_to,'reactions'=>self::reactions((int)$row->id),'edited'=>(bool)$row->edited_at,'deleted'=>(bool)$row->deleted_at,'created_at'=>(string)$row->created_at];
+        $plain = $row->deleted_at ? '' : SN_Message_Body::decrypt_row($row);
+        $unavailable = is_wp_error($plain);
+        return ['id'=>(int)$row->id,'conversation_id'=>(int)$row->conversation_id,'sender'=>$sender,'message_type'=>(string)$row->message_type,'body'=>$unavailable?'':(string)$plain,'body_unavailable'=>$unavailable,'attachment'=>$attachment,'reply_to'=>(int)$row->reply_to,'reactions'=>self::reactions((int)$row->id),'edited'=>(bool)$row->edited_at,'deleted'=>(bool)$row->deleted_at,'created_at'=>(string)$row->created_at];
     }
     private static function not_found(): WP_Error { return new WP_Error('not_found', 'The requested conversation or message is unavailable.', ['status' => 404]); }
 }

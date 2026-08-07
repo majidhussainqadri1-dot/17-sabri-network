@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Network and Messages
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Canonical File-17 relationships, spaces, Messages, internal Smail, encrypted resumable verified-user file transfer, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
- * Version: 2.0.1
+ * Version: 2.0.2
  * Author: Sabri Homeopathy
  * Text Domain: sabri-network
  * Requires at least: 6.5
@@ -12,7 +12,7 @@
 
 defined('ABSPATH') || exit;
 
-define('SN_VERSION', '2.0.1');
+define('SN_VERSION', '2.0.2');
 define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0');
 define('SN_FILE', __FILE__);
 define('SN_DIR', plugin_dir_path(__FILE__));
@@ -43,6 +43,7 @@ require_once SN_DIR . 'includes/class-sn-message-search.php';
 require_once SN_DIR . 'includes/class-sn-safety.php';
 require_once SN_DIR . 'includes/class-sn-policy.php';
 require_once SN_DIR . 'includes/class-sn-communication-crypto.php';
+require_once SN_DIR . 'includes/class-sn-message-body.php';
 require_once SN_DIR . 'includes/class-sn-private-files.php';
 require_once SN_DIR . 'includes/class-sn-privacy.php';
 require_once SN_DIR . 'includes/class-sn-activator.php';
@@ -57,6 +58,7 @@ require_once SN_DIR . 'includes/class-sn-file-transfer.php';
 require_once SN_DIR . 'includes/class-sn-smail.php';
 require_once SN_DIR . 'includes/class-sn-message-integrity.php';
 require_once SN_DIR . 'includes/class-sn-meet.php';
+require_once SN_DIR . 'includes/class-sn-central-plan-hardening.php';
 
 register_activation_hook(__FILE__, ['SN_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['SN_Activator', 'deactivate']);
@@ -103,6 +105,7 @@ final class Sabri_Network {
         SN_Message_Integrity::register();
         SN_Message_Visibility::register();
         SN_Meet::register();
+        SN_Central_Plan_Hardening::register();
 
         add_filter('query_vars', [$this, 'query_vars']);
         add_filter('template_include', [$this, 'safe_template'], 99);
@@ -130,6 +133,7 @@ final class Sabri_Network {
         SN_Smail::maybe_upgrade();
         SN_Message_Search::maybe_upgrade();
         SN_Outbox::maybe_upgrade();
+        SN_Central_Plan_Hardening::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
@@ -150,6 +154,7 @@ final class Sabri_Network {
             SN_Message_Search::install();
             SN_Outbox::install();
             SN_Private_Files::ensure_storage();
+            SN_Central_Plan_Hardening::maybe_upgrade();
             SN_Activator::ensure_network_page(true);
             SN_Messages::ensure_pages(true);
             SN_File_Transfer::ensure_page(true);
@@ -178,7 +183,10 @@ final class Sabri_Network {
             'message_receipt_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/receipts'),
             'message_search_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search'),
             'message_context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search/context'),
+            'message_body_encryption' => 'authenticated-at-rest:SNE1',
             'event_delivery_contract' => 'sn_network_event_dispatched',
+            'notification_owner' => 'file-19',
+            'legacy_file17_notification_center' => false,
             'spaces_route' => rest_url('sabri-network/v2/spaces'),
             'presence_devices_route' => rest_url('sabri-network/v2/presence/devices'),
             'message_folders_route' => rest_url('sabri-network/v2/message-folders'),

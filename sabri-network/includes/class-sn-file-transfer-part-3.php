@@ -21,7 +21,16 @@ trait SN_File_Transfer_Part_3 {
                 ? rest_ensure_response(['accepted' => true, 'duplicate' => true, 'index' => $index])
                 : new WP_Error('chunk_idempotency_conflict', 'This chunk index was already used for different bytes.', ['status' => 409]);
         }
-        $storage_key = $row->public_id . '/' . str_pad((string) $index, 6, '0', STR_PAD_LEFT) . '.snc';
+
+        // Every concurrent attempt receives its own encrypted path. The unique DB key
+        // (transfer_id,chunk_index) decides the winner. A losing retry can therefore
+        // delete only its own bytes and can never unlink the winner's committed chunk.
+        try {
+            $attempt = bin2hex(random_bytes(12));
+        } catch (Throwable $e) {
+            return new WP_Error('secure_random_unavailable', 'Secure transfer storage naming is unavailable.', ['status' => 503]);
+        }
+        $storage_key = $row->public_id . '/' . str_pad((string) $index, 6, '0', STR_PAD_LEFT) . '-' . $attempt . '.snc';
         $written = SN_Communication_Crypto::write_encrypted_file(self::storage_root() . '/' . $storage_key, $body, self::chunk_context($row, $index));
         if (is_wp_error($written)) { return $written; }
         $now = current_time('mysql', true); $wpdb->query('START TRANSACTION');
@@ -31,9 +40,10 @@ trait SN_File_Transfer_Part_3 {
             if ($updated !== 1) { throw new RuntimeException('chunk_counter_failed'); }
             $wpdb->query('COMMIT');
         } catch (Throwable $e) {
-            $wpdb->query('ROLLBACK'); @unlink(self::storage_root() . '/' . $storage_key);
+            $wpdb->query('ROLLBACK');
+            @unlink(self::storage_root() . '/' . $storage_key);
             $race = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::chunks_table() . ' WHERE transfer_id=%d AND chunk_index=%d', (int) $row->id, $index));
-            if ($race && hash_equals((string) $race->sha256, $sha)) { return rest_ensure_response(['accepted' => true, 'duplicate' => true, 'index' => $index]); }
+            if ($race && hash_equals((string) $race->sha256, $sha) && (int) $race->byte_count === $bytes) { return rest_ensure_response(['accepted' => true, 'duplicate' => true, 'index' => $index]); }
             return new WP_Error('chunk_store_failed', 'The encrypted transfer chunk could not be committed.', ['status' => 500]);
         }
         return rest_ensure_response(['accepted' => true, 'index' => $index, 'sha256' => $sha, 'received_bytes' => (int) $row->received_bytes + $bytes]);

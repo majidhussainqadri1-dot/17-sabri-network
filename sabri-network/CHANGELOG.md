@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.0.2 — 2026-08-07 — Four-plan/four-round corrective release
+
+### Round 1 — governance and canonical ownership
+- Reconciled File 17 against Definitive Master Plan v3.0, recovered directives, the Continuous Value / Top-20 Superset plan, and the File 17 Final Harmonized plan.
+- Enforced File 19 as the only notification-center/delivery owner. File 17 now emits metadata-only notification facts, suppresses its historical local-write fallback, exposes compatibility-only notification routes, and hides its old local bell.
+- Kept File 17 as the single realtime communication owner and preserved File 20 shell/navigation, File 00/02 identity, File 08 clinic truth, CF-01 clinical truth and CF-04 media-processing boundaries.
+- Retained green as the current primary File-17 visual token and orange as a secondary accent only.
+
+### Round 2 — verified 1 GiB transfer concurrency
+- Corrected a destructive same-index chunk retry race. Every concurrent attempt now writes to an independent random encrypted path; the unique database `(transfer,index)` key decides the winner and a loser can unlink only its own bytes.
+- Added explicit checksum + byte-count reconciliation and a fail-closed secure-random error path.
+- Extended transfer adversarial checks for the concurrency invariant.
+
+### Round 3 — canonical message confidentiality and Smail integrity
+- Added authenticated server-side encryption at rest for canonical message bodies with the `SNE1` envelope. This is not an E2EE claim.
+- Added bounded, retry-safe legacy plaintext migration and authorized hashed-token search rebuilding from transient decrypted plaintext.
+- Routed Smail sends through `SN_Message_Integrity` instead of bypassing the canonical atomic/search/outbox/encryption layer.
+- Added retry-safe multi-recipient Smail conversation reservation bound to the Smail idempotency key and recipient hash.
+- Replaced legacy forward behavior with audience-minimized forwarding that decrypts only an authorized source in memory, re-encrypts the target body and does not expose the source identifier across audiences.
+
+### Round 4 — fresh release truth, QA and packaging
+- Promoted the immutable corrective candidate to runtime 2.0.2 so the prior 2.0.1 artifact remains historically truthful.
+- Added four named four-plan review suites and expanded the explicit quality-gate inventory from 37 to 41 PHP review suites.
+- Updated deterministic package naming/manifests, documentation and status evidence for 2.0.2.
+- Staging, live and operational acceptance remain separate external statuses; no production-complete claim is made by this repository release.
+
+## 2.0.1 — 2026-08-07 — Smail, verified transfer and recovered-directive completion
+
+- Added `sn.cf01.communication-context` 1.0.0 with revocable opaque references and fail-closed owner authorization.
+- Added internal Smail with Inbox, Sent, Drafts, Starred, Archive, Spam and Trash over canonical File-17 conversations/messages.
+- Added verified-user private transfer up to 1 GiB/file with resumable encrypted chunks, SHA-256, MIME/magic/archive controls, mandatory clean scanner result, quarantine, signed ten-minute grants, range resume, revocation, retention, privacy and audit.
+- Added current green primary File-17 visual identity while retaining orange only as a secondary accent.
+- Completed fresh-install schema/page/storage setup and deterministic 2.0.1 package evidence.
+- Added 37 explicitly enumerated review suites and PHP 8.1/8.3 exact-head CI coverage.
+
 ## 2.0.0 — 2026-08-01
 
 ### Architecture
@@ -73,6 +108,7 @@
 ### Status
 
 Code-reviewed candidate only. The current quality gate retains the previously verified 463 contract checks and adds four Sabri Meet review/fix suites with 86 checks, for 549 included checks in total, plus PHP/JavaScript/shell syntax, CSS integrity, repository hygiene, complete installable-source checksum verification and deterministic byte-for-byte packaging. This is evidence for the included checks, not a claim of absolute defect-freedom. Staging migration, real-role acceptance, penetration/load testing, rollback rehearsal, backup/restore, cross-file integration and live deployment remain separate gates.
+
 ## Fourth forensic review — fail-closed age and completeness truth
 
 - Unknown age now receives protective communication defaults and cannot be treated as adult through a not-minor shortcut.
@@ -81,7 +117,6 @@ Code-reviewed candidate only. The current quality gate retains the previously ve
 - Conversation ownership requires verified adult age.
 - Read-pointer database failure returns an error and is audited.
 - Added repository-level coding-completeness evidence and 42 new static/runtime/adversarial checks.
-
 
 ### 2.0.0 — indexed search and reliable delivery hardening
 - Added active-member-only indexed server-side message search with hashed tokens, signed snapshot pagination and signed bounded context navigation.

@@ -38,8 +38,8 @@ $js = content('assets/js/network.js');
 $css = content('assets/css/network.css');
 $allRuntime = implode("\n", [$main, $db, $policy, $rest, $auth, $files, $privacy, $activator, $ajax, $template, $js]);
 
-check(str_contains($main, 'Version: 2.0.1'), 'Plugin header must declare version 2.0.1.');
-check(str_contains($main, "define('SN_VERSION', '2.0.1')"), 'SN_VERSION must be 2.0.1.');
+check(str_contains($main, 'Version: 2.0.2'), 'Plugin header must declare version 2.0.2.');
+check(str_contains($main, "define('SN_VERSION', '2.0.2')"), 'SN_VERSION must be 2.0.2.');
 check(str_contains($rest, "private const NS = 'sabri-network/v2'"), 'REST API must use the v2 namespace.');
 check(!str_contains($allRuntime, 'wp_ajax_nopriv_'), 'Authenticated Network actions must not register nopriv AJAX routes.');
 check(!preg_match('/register_rest_route\s*\([^\n]+otp/i', $rest), 'File 17 must not expose OTP REST routes.');
@@ -83,7 +83,7 @@ check(!str_contains($js, 'sendBeacon'), 'Call state must not use unauthenticated
 check(str_contains($js, "endLocalCall(false)"), 'Remote bye must still close and update the local call state.');
 check(str_contains($js, 'modalReturnFocus') && str_contains($js, "event.key === 'Tab'"), 'Modal focus must be contained and restored.');
 check(str_contains($js, "item.classList.add('is-visible')"), 'Toast visibility state must be applied.');
-check(str_contains($css, '#ff8a1f'), 'Sabri Orange design token must be present.');
+check(str_contains($css, '#ff8a1f'), 'Sabri Orange secondary design token remains present for compatibility/accent use.');
 check(str_contains($css, ':focus-visible'), 'Keyboard focus indicator must be present.');
 check(str_contains($css, 'prefers-reduced-motion'), 'Reduced-motion support must be present.');
 check(str_contains($css, '[dir="rtl"]'), 'RTL support must be present.');
