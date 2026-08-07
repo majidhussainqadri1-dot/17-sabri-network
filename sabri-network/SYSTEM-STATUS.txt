@@ -1,34 +1,35 @@
 Code-complete candidate; not staging-accepted, not live-deployed, not production-operational.
-File 17 — Sabri Network and Messages 2.0.0
-حقیقی حیثیت — 3 اگست 2026ء
+File 17 — Sabri Network and Messages 2.0.1
+حقیقی حیثیت — 7 اگست 2026ء
 
-Specified: مکمل حاکم File 17 specification موجود
-Coded Candidate: مکمل approved coding scope reviewable source میں موجود
+Specified: موجودہ حاکم File 17 اور بازیافت شدہ directives کی مکمل specification
+Coded Candidate: مکمل معلوم approved coding scope reviewable source میں موجود
 Coding Completion: 100% code-complete candidate
-Packaged: current-head deterministic ZIP اور SHA-256 verification لازم
-Automated QA: inherited suites اور چار مستقل completion review/fix rounds لازم
+Packaged: deterministic ZIP، exact staged manifest اور SHA-256 workflow موجود؛ exact-head CI evidence لازم
+Automated QA: 37 صریح review suites، PHP 8.1/8.3، JavaScript/shell/CSS، hygiene اور deterministic package gates
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
 مکمل coded domains:
 - relationships، contacts، follows، blocks، discovery اور canonical conversations
-- direct/group/channel messages، private attachments، reactions، replies، edit/delete، receipts، indexed search اور signed context
-- dedicated Messages، Communication Settings، Sabri Meet، direct calls اور provider-gated conference control plane
+- communities، groups، channels اور private teams؛ roles، join/invitation، moderation، succession اور lifecycle
+- direct/group/channel messages، private attachments، reactions، replies، edit/delete، native recipient/device receipts، indexed search، folders، pins، stars اور hide-for-self
+- dedicated Messages، Communication Settings اور internal Smail
+- Smail Inbox، Sent، Drafts، Starred، Archive، Spam اور Trash؛ encrypted/versioned drafts اور canonical idempotent sends
+- verified-user private transfer: زیادہ سے زیادہ 1 GiB/file، resumable encrypted chunks، chunk/file SHA-256، MIME/magic/archive safety، fail-closed malware quarantine، signed ten-minute grants، range resume، revoke، retention، privacy اور audit
+- general per-device presence، keyed device identities، aggregate state، revocation، cleanup اور privacy lifecycle
+- Sabri Meet، direct calls اور provider-gated STUN/TURN/SFU conference control plane
 - reports، appeals، legal/safety holds، retention، audit، privacy export/erasure
 - transactional outbox/inbox، idempotency، retries، dead-letter اور atomic message/search/event integrity
-- communities، groups، channels اور private teams؛ roles، join requests، invitation consent، succession، lifecycle، bans اور governance evidence
-- member limits، slow mode، new-member delay، restricted/approval modes، anti-raid، invitation/media/call pauses
-- general per-device presence، keyed device identities، aggregate state، revocation، cleanup اور privacy lifecycle
-- mentions، governed forwarding، conversation pins، private stars، folders اور hide-for-self
-- File 08، File 18 اور File 21 opaque reauthorized context adapters
+- File 08، File 18، File 21 اور CF-01 opaque reauthorized context adapters
 - one-time step-up، scope hashes، distinct requester/approver/executor اور stale execution recovery
-- secret-free STUN/TURN/SFU provider registry، fresh health evidence اور short-lived participant-scoped credentials
+- سبز primary visual identity؛ نارنجی صرف secondary accent
 
 External acceptance gates still pending:
-- real WordPress/PHP/MySQL fresh install، upgrade، migration اور race testing
-- File 00/02/08/18/19/20/21/24/25 حقیقی integration اور degraded-mode acceptance
-- Hostinger staging، cron، private storage، LiteSpeed، browser/device، RTL/LTR اور accessibility
+- real WordPress/PHP/MySQL fresh install، supported upgrade/migration اور race testing
+- File 00/02/08/18/19/20/21/24/25، CF-01 اور CF-04 حقیقی integration/degraded-mode acceptance
+- Hostinger staging، cron، private storage، approved malware scanner، LiteSpeed، browser/device، RTL/LTR اور accessibility
 - approved WSS/STUN/TURN/SFU infrastructure، load/soak اور penetration testing
 - backup/restore، rollback rehearsal، Founder sign-off، live deployment، monitoring، support اور SLO evidence
 

@@ -64,11 +64,11 @@ trait SN_Spaces_Part_6 {
         return rest_ensure_response(['items'=>is_array($rows)?$rows:[]]);
     }
 
-    public static function can_post_for_conversation(int $conversation_id,int $user_id): true|WP_Error {
+    public static function can_post_for_conversation(int $conversation_id,int $user_id): bool|WP_Error {
         $space=self::space_by_conversation($conversation_id,false);return$space?self::can_post((int)$space->id,$user_id):true;
     }
 
-    public static function assert_post_allowed_in_transaction(int $conversation_id,int $user_id): true|WP_Error {
+    public static function assert_post_allowed_in_transaction(int $conversation_id,int $user_id): bool|WP_Error {
         $space=self::space_by_conversation($conversation_id,true);if(!$space)return true;$member=self::member((int)$space->id,$user_id,true);if(!$member)return self::error('sn_space_membership_required','An active space membership is required.',403);return self::can_post_locked($space,$member);
     }
 

@@ -204,7 +204,7 @@ final class SN_High_Risk {
     }
 
     /** Caller owns the surrounding transaction. */
-    public static function complete(int $action_id, int $executor_id, string $claim_token, array $result = [], string $final_status = 'executed'): true|WP_Error {
+    public static function complete(int $action_id, int $executor_id, string $claim_token, array $result = [], string $final_status = 'executed'): bool|WP_Error {
         global $wpdb;
         if (!in_array($final_status, ['executed', 'released'], true)) return self::error('sn_high_risk_final_state_invalid', 'The completion state is invalid.', 400);
         $row = self::action($action_id, true);

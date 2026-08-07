@@ -94,11 +94,11 @@ final class SN_REST {
         ]);
     }
 
-    public static function access(): true|WP_Error {
+    public static function access(): bool|WP_Error {
         return SN_Policy::access();
     }
 
-    public static function admin_access(): true|WP_Error {
+    public static function admin_access(): bool|WP_Error {
         $access = SN_Policy::access();
         if (is_wp_error($access)) {
             return $access;
@@ -2150,7 +2150,7 @@ final class SN_REST {
         return (string) $row->privacy === 'contacts' && SN_DB::are_contacts($viewer_id, (int) $row->user_id) && !SN_DB::is_blocked($viewer_id, (int) $row->user_id);
     }
 
-    private static function conversation_contact_check(object $conversation, int $conversation_id, int $actor_id, string $context): true|WP_Error {
+    private static function conversation_contact_check(object $conversation, int $conversation_id, int $actor_id, string $context): bool|WP_Error {
         if ((string) $conversation->type !== 'direct') {
             foreach (self::conversation_member_ids($conversation_id) as $target_id) {
                 if ($target_id !== $actor_id && SN_DB::is_blocked($actor_id, $target_id)) {
@@ -2172,7 +2172,7 @@ final class SN_REST {
         return is_object($row) ? $row : null;
     }
 
-    private static function restore_direct_conversation(object $conversation, int $a, int $b): true|WP_Error {
+    private static function restore_direct_conversation(object $conversation, int $a, int $b): bool|WP_Error {
         global $wpdb;
         $now = current_time('mysql', true);
         $wpdb->query('START TRANSACTION');

@@ -1,0 +1,35 @@
+<?php
+declare(strict_types=1);
+$root=dirname(__DIR__);$main=file_get_contents($root.'/sabri-network.php');$src=implode("\n", array_map('file_get_contents', array_merge([$root.'/includes/class-sn-file-transfer.php'], glob($root.'/includes/class-sn-file-transfer-part-*.php'))));$crypto=file_get_contents($root.'/includes/class-sn-communication-crypto.php');$tpl=file_get_contents($root.'/templates/file-transfer-app.php');$js=file_get_contents($root.'/assets/js/file-transfer.js');$css=file_get_contents($root.'/assets/css/file-transfer.css');$fails=[];$checks=0;
+function ftc(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
+ftc(str_contains($main,'class-sn-file-transfer.php')&&str_contains($main,'SN_File_Transfer::register()')&&str_contains($main,'SN_File_Transfer::install()'),'File-transfer lifecycle is loaded, registered and installed.');
+ftc(str_contains($src,'MAX_FILE_BYTES = 1073741824'),'Per-file limit is exactly 1 GiB.');
+ftc(str_contains($src,'MIN_CHUNK_BYTES')&&str_contains($src,'MAX_CHUNK_BYTES')&&str_contains($src,'total_chunks'),'Chunked resumable upload is bounded.');
+ftc(str_contains($src,"'methods' => 'PUT'")&&str_contains($src,"/chunks/(?P<index>\\d+)"),'Chunk upload has an authenticated idempotent REST route.');
+ftc(str_contains($src,"get_header('x-chunk-sha256')")&&str_contains($src,'hash(\'sha256\', $body)'),'Every chunk requires SHA-256 integrity.');
+ftc(str_contains($src,"hash_init('sha256')")&&str_contains($src,'expected_sha256'),'Whole-file SHA-256 is recomputed and optionally compared.');
+ftc(str_contains($src,'SN_Communication_Crypto::write_encrypted_file')&&str_contains($src,'SN_Communication_Crypto::read_encrypted_file'),'Chunks are encrypted at rest.');
+ftc(str_contains($src,'sn_network_transfer_scan_result')&&str_contains($src,'scanner_required'),'Malware scanning is fail-closed and adapter-driven.');
+ftc(str_contains($src,'archive_expansion_limit')&&str_contains($src,'archive_path_traversal'),'Archive expansion and path traversal are checked.');
+ftc(str_contains($src,'sanitize_file_name'),'Stored names are normalized.');
+ftc(str_contains($src,'detected_mime')&&str_contains($src,'finfo'),'MIME is detected server-side.');
+ftc(str_contains($src,'verified_account_required')&&str_contains($src,'recipient_verification_required'),'Sender and recipients must be verified.');
+ftc(str_contains($src,'SN_DB::is_blocked')&&str_contains($src,'SN_Policy::is_suspended'),'Block and suspension state is rechecked.');
+ftc(str_contains($src,'sn_network_transfer_policy_allowed'),'Copyright, consent, confidentiality and abuse policy has a fail-closed extension point.');
+ftc(str_contains($src,'SN_Outbox::enqueue')&&str_contains($src,'file-transfer.ready'),'Transfer events use the reliable outbox.');
+ftc(str_contains($src,'SN_DB::add_notification'),'Recipients receive metadata-minimized platform notifications.');
+ftc(str_contains($src,'SN_Communication_Crypto::sign')&&str_contains($src,'SN_Communication_Crypto::verify'),'Downloads use signed expiring grants.');
+ftc(str_contains($src,'Accept-Ranges: bytes')&&str_contains($src,'Content-Range'),'Downloads support resumable byte ranges.');
+ftc(str_contains($src,'Cache-Control: private, no-store'),'Private downloads cannot be publicly cached.');
+ftc(str_contains($src,"header('X-Content-Type-Options: nosniff')"),'Private downloads disable MIME sniffing.');
+ftc(str_contains($src,'revoke')&&str_contains($src,"status=\'revoked\'"),'Sender revocation is implemented.');
+ftc(str_contains($src,'retention_until')&&str_contains($src,'cleanup'),'Retention and expiry cleanup are implemented.');
+ftc(str_contains($src,'register_exporter')&&str_contains($src,'register_eraser'),'Transfer privacy export and erasure exist.');
+ftc(str_contains($tpl,'up to 1 GB')&&str_contains($tpl,'data-ft-progress'),'UI states the limit and exposes progress.');
+ftc(str_contains($js,'crypto.subtle.digest')&&str_contains($js,"'X-Chunk-Sha256'"),'Client calculates chunk hashes.');
+ftc(str_contains($js,'file.slice')&&str_contains($js,'received_chunks'),'Client uploads/resumes by chunks.');
+ftc(str_contains($css,'min-height:44px'),'Transfer controls meet 44px target baseline.');
+ftc(str_contains($css,'@media(max-width:820px)'),'Transfer surface is mobile responsive.');
+ftc(str_contains($css,'prefers-reduced-motion'),'Transfer surface respects reduced motion.');
+ftc(str_contains($css,'var(--sabri-primary,#137a46)'),'Transfer UI consumes the green design token.');
+if($fails){fwrite(STDERR,"Transfer static failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Transfer static contracts: PASS ($checks checks)\n";

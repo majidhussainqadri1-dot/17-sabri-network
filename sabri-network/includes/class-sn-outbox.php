@@ -155,7 +155,7 @@ final class SN_Outbox {
         foreach (array_map('absint', is_array($ids) ? $ids : []) as $id) self::dispatch_one($id);
     }
 
-    public static function dispatch_one(int $id): true|WP_Error {
+    public static function dispatch_one(int $id): bool|WP_Error {
         global $wpdb;
         if ($id <= 0) return new WP_Error('invalid_event', 'The event is invalid.');
         $table = self::outbox_table();
@@ -204,7 +204,7 @@ final class SN_Outbox {
     }
 
     /** Transactional, idempotent inbox for local companion handlers. */
-    public static function consume_incoming(string $producer, string $event_uuid, array $payload, callable $handler): true|WP_Error {
+    public static function consume_incoming(string $producer, string $event_uuid, array $payload, callable $handler): bool|WP_Error {
         global $wpdb;
         $producer = sanitize_key($producer);
         if ($producer === '' || !wp_is_uuid($event_uuid, 4)) return new WP_Error('invalid_incoming_event', 'The incoming event identity is invalid.');

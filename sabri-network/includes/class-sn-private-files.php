@@ -292,7 +292,7 @@ final class SN_Private_Files {
         return $status ?: 'scanner_unavailable';
     }
 
-    private static function normalize_image(string $path, string $mime): true|WP_Error {
+    private static function normalize_image(string $path, string $mime): bool|WP_Error {
         if (!function_exists('wp_get_image_editor')) {
             require_once ABSPATH . 'wp-admin/includes/image.php';
         }

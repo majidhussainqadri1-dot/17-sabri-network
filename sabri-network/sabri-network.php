@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Sabri Network and Messages
  * Plugin URI: https://www.sabrihomeopathy.com/
- * Description: Canonical File-17 relationships, spaces, messaging, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
- * Version: 2.0.0
+ * Description: Canonical File-17 relationships, spaces, Messages, internal Smail, encrypted resumable verified-user file transfer, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
+ * Version: 2.0.1
  * Author: Sabri Homeopathy
  * Text Domain: sabri-network
  * Requires at least: 6.5
@@ -12,7 +12,8 @@
 
 defined('ABSPATH') || exit;
 
-define('SN_VERSION', '2.0.0');
+define('SN_VERSION', '2.0.1');
+define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0');
 define('SN_FILE', __FILE__);
 define('SN_DIR', plugin_dir_path(__FILE__));
 define('SN_URL', plugin_dir_url(__FILE__));
@@ -35,11 +36,13 @@ require_once SN_DIR . 'includes/class-sn-presence-devices.php';
 require_once SN_DIR . 'includes/class-sn-message-operations.php';
 require_once SN_DIR . 'includes/class-sn-message-visibility.php';
 require_once SN_DIR . 'includes/class-sn-context-adapters.php';
+require_once SN_DIR . 'includes/class-sn-cf01-clinical-context.php';
 require_once SN_DIR . 'includes/class-sn-conference-provider.php';
 require_once SN_DIR . 'includes/class-sn-outbox.php';
 require_once SN_DIR . 'includes/class-sn-message-search.php';
 require_once SN_DIR . 'includes/class-sn-safety.php';
 require_once SN_DIR . 'includes/class-sn-policy.php';
+require_once SN_DIR . 'includes/class-sn-communication-crypto.php';
 require_once SN_DIR . 'includes/class-sn-private-files.php';
 require_once SN_DIR . 'includes/class-sn-privacy.php';
 require_once SN_DIR . 'includes/class-sn-activator.php';
@@ -50,6 +53,8 @@ require_once SN_DIR . 'includes/class-sn-rest.php';
 require_once SN_DIR . 'includes/class-sn-ajax.php';
 require_once SN_DIR . 'includes/class-sn-shortcode.php';
 require_once SN_DIR . 'includes/class-sn-messages.php';
+require_once SN_DIR . 'includes/class-sn-file-transfer.php';
+require_once SN_DIR . 'includes/class-sn-smail.php';
 require_once SN_DIR . 'includes/class-sn-message-integrity.php';
 require_once SN_DIR . 'includes/class-sn-meet.php';
 
@@ -86,10 +91,13 @@ final class Sabri_Network {
         SN_Presence_Devices::register();
         SN_Message_Operations::register();
         SN_Context_Adapters::register();
+        SN_CF01_Clinical_Context::register();
         SN_Conference_Provider::register();
         SN_Privacy::register();
         SN_Private_Files::register();
         SN_Messages::register();
+        SN_File_Transfer::register();
+        SN_Smail::register();
         SN_Message_Search::register();
         SN_Outbox::register();
         SN_Message_Integrity::register();
@@ -115,8 +123,11 @@ final class Sabri_Network {
         SN_Presence_Devices::maybe_upgrade();
         SN_Message_Operations::maybe_upgrade();
         SN_Context_Adapters::maybe_upgrade();
+        SN_CF01_Clinical_Context::maybe_upgrade();
         SN_Conference_Provider::maybe_upgrade();
         SN_Messages::maybe_upgrade();
+        SN_File_Transfer::maybe_upgrade();
+        SN_Smail::maybe_upgrade();
         SN_Message_Search::maybe_upgrade();
         SN_Outbox::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
@@ -131,13 +142,18 @@ final class Sabri_Network {
             SN_Presence_Devices::install();
             SN_Message_Operations::install();
             SN_Context_Adapters::install();
+            SN_CF01_Clinical_Context::install();
             SN_Conference_Provider::install();
             SN_Messages::install();
+            SN_File_Transfer::install();
+            SN_Smail::install();
             SN_Message_Search::install();
             SN_Outbox::install();
             SN_Private_Files::ensure_storage();
             SN_Activator::ensure_network_page(true);
             SN_Messages::ensure_pages(true);
+            SN_File_Transfer::ensure_page(true);
+            SN_Smail::ensure_page(true);
             update_option('sn_plugin_version', SN_VERSION, false);
             flush_rewrite_rules(false);
         }
@@ -167,10 +183,18 @@ final class Sabri_Network {
             'presence_devices_route' => rest_url('sabri-network/v2/presence/devices'),
             'message_folders_route' => rest_url('sabri-network/v2/message-folders'),
             'context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/contexts'),
+            'cf01_communication_context_contract' => SN_CF01_Clinical_Context::CONTRACT_NAME,
+            'cf01_communication_context_version' => SN_CF01_Clinical_Context::CONTRACT_VERSION,
+            'cf01_reference_function' => 'sn_cf01_communication_context_assertion',
+            'cf01_destination_resolver' => 'sn_cf01_resolve_communication_destination',
             'conference_credentials_route' => rest_url('sabri-network/v2/calls/{call_id}/media-credentials'),
             'high_risk_contract' => 'step-up + distinct approval + distinct execution',
             'messages_url' => SN_Messages::messages_url(),
             'communication_settings_url' => SN_Messages::settings_url(),
+            'smail_url' => SN_Smail::url(),
+            'smail_mailboxes' => ['inbox', 'sent', 'drafts', 'starred', 'archive', 'spam', 'trash'],
+            'file_transfer_url' => SN_File_Transfer::url(),
+            'file_transfer_max_bytes' => SN_File_Transfer::MAX_FILE_BYTES,
         ]);
 
         do_action('sn_network_route_registered', [

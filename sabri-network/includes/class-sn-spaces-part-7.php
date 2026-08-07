@@ -3,11 +3,11 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 trait SN_Spaces_Part_7 {
-    public static function can_post(int $space_id,int $user_id): true|WP_Error {
+    public static function can_post(int $space_id,int $user_id): bool|WP_Error {
         $space=self::space($space_id);$member=self::member($space_id,$user_id);if(!$space||!$member)return self::error('sn_space_membership_required','An active space membership is required.',403);return self::can_post_locked($space,$member);
     }
 
-    private static function can_post_locked(object $space,object $member): true|WP_Error {
+    private static function can_post_locked(object $space,object $member): bool|WP_Error {
         if(in_array((string)$space->state,['locked','archived','closed','deletion_requested'],true))return self::error('sn_space_read_only','This space is read-only.',409);
         if((string)$space->state==='restricted'&&!in_array((string)$member->role,['owner','administrator','moderator'],true))return self::error('sn_space_restricted_mode','Only space managers may post while restricted mode is active.',403);
         if(self::active_until((string)$space->anti_raid_until)&&!in_array((string)$member->role,['owner','administrator','moderator'],true))return self::error('sn_space_anti_raid_active','Posting is temporarily restricted during anti-raid mode.',409);
@@ -48,7 +48,7 @@ trait SN_Spaces_Part_7 {
         return ['items_removed'=>$changed>0,'items_retained'=>false,'messages'=>[],'done'=>true];
     }
 
-    private static function join_eligibility(?object $space,int $user,bool $invited=false): true|WP_Error {
+    private static function join_eligibility(?object $space,int $user,bool $invited=false): bool|WP_Error {
         if(!$space)return self::error('sn_space_not_found','The space is unavailable.',404);
         if(!in_array((string)$space->state,['active','restricted'],true))return self::error('sn_space_not_joinable','This space is not accepting memberships.',409);
         if(self::active_until((string)$space->anti_raid_until)&&!$invited)return self::error('sn_space_anti_raid_join_pause','New joins are temporarily paused.',409);

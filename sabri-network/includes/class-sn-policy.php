@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 /** Central server-side policy for every File-17 action. */
 final class SN_Policy {
-    public static function access(): true|WP_Error {
+    public static function access(): bool|WP_Error {
         if (!is_user_logged_in()) {
             return new WP_Error('authentication_required', 'Sign in through the platform account system to use Network.', ['status' => 401]);
         }
@@ -92,7 +92,7 @@ final class SN_Policy {
         return (bool) get_user_meta($user_id, 'sn_guardian_consent_verified', true);
     }
 
-    public static function can_contact(int $actor_id, int $target_id, string $context): true|WP_Error {
+    public static function can_contact(int $actor_id, int $target_id, string $context): bool|WP_Error {
         if (!$actor_id || !$target_id || $actor_id === $target_id || !get_user_by('id', $target_id)) {
             return new WP_Error('invalid_contact', 'Select a valid Network member.', ['status' => 400]);
         }
@@ -140,7 +140,7 @@ final class SN_Policy {
         return true;
     }
 
-    public static function can_follow(int $actor_id, int $target_id): true|WP_Error {
+    public static function can_follow(int $actor_id, int $target_id): bool|WP_Error {
         if (!$actor_id || !$target_id || $actor_id === $target_id || !get_user_by('id', $target_id)) {
             return new WP_Error('invalid_follow', 'Select a valid Network member.', ['status' => 400]);
         }
@@ -206,7 +206,7 @@ final class SN_Policy {
             && (bool) apply_filters('sn_network_can_use_group_calls', user_can($user_id, 'sn_network_group_call'), $user_id, $conversation_id);
     }
 
-    public static function can_post_to_conversation(object $conversation, int $user_id): true|WP_Error {
+    public static function can_post_to_conversation(object $conversation, int $user_id): bool|WP_Error {
         $role = SN_DB::member_role((int) $conversation->id, $user_id);
         if ($role === '') {
             return new WP_Error('conversation_membership_required', 'An active conversation membership is required.', ['status' => 403]);
