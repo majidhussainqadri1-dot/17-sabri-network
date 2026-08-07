@@ -38,8 +38,8 @@ $js = content('assets/js/network.js');
 $css = content('assets/css/network.css');
 $allRuntime = implode("\n", [$main, $db, $policy, $rest, $auth, $files, $privacy, $activator, $ajax, $template, $js]);
 
-check(str_contains($main, 'Version: 2.0.2'), 'Plugin header must declare version 2.0.2.');
-check(str_contains($main, "define('SN_VERSION', '2.0.2')"), 'SN_VERSION must be 2.0.2.');
+check(str_contains($main, 'Version: 2.0.3'), 'Plugin header must declare version 2.0.3.');
+check(str_contains($main, "define('SN_VERSION', '2.0.3')"), 'SN_VERSION must be 2.0.3.');
 check(str_contains($rest, "private const NS = 'sabri-network/v2'"), 'REST API must use the v2 namespace.');
 check(!str_contains($allRuntime, 'wp_ajax_nopriv_'), 'Authenticated Network actions must not register nopriv AJAX routes.');
 check(!preg_match('/register_rest_route\s*\([^\n]+otp/i', $rest), 'File 17 must not expose OTP REST routes.');
@@ -101,9 +101,7 @@ check(str_contains($js, 'Number.isNaN(date.getTime())') && str_contains($js, 'sn
 
 if ($failures) {
     fwrite(STDERR, "Static contract failures (" . count($failures) . "/$checks):\n");
-    foreach ($failures as $failure) {
-        fwrite(STDERR, " - $failure\n");
-    }
+    foreach ($failures as $failure) fwrite(STDERR, " - $failure\n");
     exit(1);
 }
 
