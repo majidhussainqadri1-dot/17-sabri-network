@@ -1,48 +1,60 @@
 # Repository Status
 
-**Target:** File 17 — Sabri Network and Messages 2.0.3  
-**State:** four-plan/forty-round corrective code-complete candidate  
-**Coding completion against current repository-owned/current-wave File-17 obligations:** **100% candidate**  
-**Configured review suites:** **45**  
+**Target:** File 17 — Sabri Network and Messages 2.1.0  
+**State:** current two-plan repository coding-completion candidate  
+**Coding completion against current repository-owned File-17 obligations:** **candidate; exact-head QA/fresh review required**  
+**Configured review suites:** **46**  
 **Installable source integrity:** exact staged manifest + deterministic double-build  
 **Staging/live/operational:** pending
 
 ## Governing audit set
 
-- Definitive Integrated Master Plan v3.0.
-- Consolidated All-Chats Recovered Directives.
-- Continuous Value / Top-20 Superset Master Plan.
-- File 17 Final Harmonized Master Plan.
+- Current consolidated central governing plan.
+- Current File 17 Final Harmonized Master Plan.
+- Earlier 2.0.3 forty-round audit remains historical evidence only where non-conflicting.
 
-## Forty-round result
+## 2.1.0 completion delta
+
+The current branch closes the newly identified repository-owned gaps without creating parallel communication truth:
+
+- unknown-sender message-request quarantine, rate protection, accept/decline/report/cancel and cooldown;
+- transactional acceptance into canonical contact + direct conversation + first canonical encrypted message;
+- encrypted scheduled-message queue with delivery-time authorization revalidation and cancellation/retry semantics;
+- polls and collaborative checklists over canonical messages, with no clinical-decision authority;
+- disappearing-message expiry with legal-hold preservation and private-search/private-file cleanup;
+- fail-closed transient translation adapter;
+- voice-note workflow on canonical message/private-file infrastructure;
+- authenticated-encrypted temporary updates with legacy plaintext lazy migration;
+- community rules/onboarding, forum, AMA, wiki, events/cohorts, response moderation/best-answer and aggregate privacy-minimized community health;
+- privacy export/erasure participation for new personal-data domains.
+
+## Historical forty-round result
+
+The earlier 2.0.3 cycle recorded:
 
 - **40** sequential reviews completed.
 - **18** rounds found one or more defects; corrections were applied in the same review cycle.
 - **22** rounds found no new defect.
-- Known unresolved repository/current-wave coding defects after round 40: **0**, subject to exact-head automated QA and later evidence.
-
-## 2.0.3 corrective delta
-
-File 26 global-search ownership is explicit; blocked profiles no longer expose phone/avatar projection; verified transfer is File-00-authoritative; communication keys are versioned/rotatable; message/private-file/Smail-draft ciphertext rotates lazily; scanner plaintext leases are always cleaned; legacy presence uses the canonical device backend; cross-user device count is removed; transfer filesystem containment is verified; Smail and core privacy exports are readable by the data subject; Smail draft fingerprints are keyed; and release/test/package identity is promoted to immutable 2.0.3.
+- Known unresolved repository/current-wave coding defects after historical round 40: **0**, subject to later governing requirements and evidence.
 
 ## Included engineering scope
 
-Canonical Network, spaces, Messages, receipts, indexed private search, reliable outbox/inbox, presence, calls/Sabri Meet, reports/privacy/safety, CF-01 communication context, internal Smail, authenticated-at-rest message bodies, and verified-user private transfer up to 1 GiB/file.
+Canonical Network, spaces, message requests, Messages, scheduled messages, polls/checklists, disappearing-message lifecycle, receipts, indexed private search, reliable outbox/inbox, encrypted temporary updates, presence, calls/Sabri Meet, reports/privacy/safety, CF-01 communication context, internal Smail, authenticated-at-rest message bodies, community knowledge/collaboration surfaces and verified-user private transfer up to 1 GiB/file.
 
 ## Ownership truth
 
-File 00/02 own identity/authentication/verification; File 19 owns the single notification center/delivery fabric; File 20 owns the global shell/navigation; File 26 owns global Search/Discovery/Ranking. File 17 owns authorized private-message search and publishes only public/explicitly-consented people/space projections for federated discovery. Private messages and contacts are excluded.
+File 00/02 own identity/authentication/verification; File 19 owns the single notification center/delivery fabric; File 20 owns the global shell/navigation; File 26 owns global Search/Discovery/Ranking. File 17 owns authorized private-message search and publishes only public/explicitly-consented people/space projections for federated discovery. Private messages and contacts are excluded. Appointment/clinical truth remains with File 08/CF-01; File 17 carries only governed communication context.
 
-## Top-20 roadmap truth
+## Provider/maturity truth
 
-`NOW`, `NEXT`, and `SCALE` are distinct. 2.0.3 closes known repository-owned current-wave obligations and preserves later-wave gates without falsely calling them live.
+Approved external providers remain real acceptance dependencies. Translation, STUN/TURN/SFU and similar external capabilities fail closed when no approved provider is configured. Source presence does not claim provider acceptance, audited E2EE, staging acceptance or operations.
 
 ## Remaining release evidence
 
-- exact-head GitHub Actions and immutable 2.0.3 artifact evidence;
+- exact-head GitHub Actions and immutable 2.1.0 artifact evidence;
 - real WordPress/PHP/MySQL fresh install and supported upgrade/migration;
 - current companion-contract acceptance;
-- approved scanner/private storage/call-provider acceptance;
+- approved scanner/private storage/translation/call-provider acceptance;
 - browser/device, RTL/LTR, accessibility and load acceptance;
 - backup/restore, rollback rehearsal, Founder staging sign-off, live deployment and operations.
 
