@@ -2,8 +2,8 @@
 /**
  * Cross-cutting contract firewall for File-17 completion routes.
  *
- * This is not a parallel backend. It enforces two canonical invariants before
- * the 2.1.0 completion handlers run: caller-supplied idempotency on new
+ * This is not a parallel backend. It enforces canonical invariants before the
+ * 2.1.0 completion/Future-24 handlers run: caller-supplied idempotency on
  * state-changing routes, and metadata-only discovery for private spaces.
  */
 declare(strict_types=1);
@@ -30,6 +30,34 @@ final class SN_Two_Plan_Contract_Firewall {
         '#^/sabri-network/v2/spaces/\d+/community-artifacts$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-artifacts/\d+/respond$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-artifacts/\d+/moderate$#' => true,
+
+        // Founder-approved Future Communication Superset — every POST/PATCH/DELETE
+        // path below reuses the same canonical encrypted idempotency ledger.
+        '#^/sabri-network/v2/future/e2ee-policy$#' => true,
+        '#^/sabri-network/v2/future/device-keys$#' => true,
+        '#^/sabri-network/v2/future/conversation-locks/\d+$#' => true,
+        '#^/sabri-network/v2/future/team-inbox/\d+$#' => true,
+        '#^/sabri-network/v2/future/team-inbox/\d+/handoff$#' => true,
+        '#^/sabri-network/v2/future/reminders$#' => true,
+        '#^/sabri-network/v2/future/templates$#' => true,
+        '#^/sabri-network/v2/future/conversations/bulk$#' => true,
+        '#^/sabri-network/v2/future/smart-views$#' => true,
+        '#^/sabri-network/v2/future/community-invites$#' => true,
+        '#^/sabri-network/v2/future/community-invites/redeem$#' => true,
+        '#^/sabri-network/v2/future/temporary-memberships$#' => true,
+        '#^/sabri-network/v2/future/mentorships$#' => true,
+        '#^/sabri-network/v2/future/mentorships/\d+$#' => true,
+        '#^/sabri-network/v2/future/citations$#' => true,
+        '#^/sabri-network/v2/future/case-discussions$#' => true,
+        '#^/sabri-network/v2/calls/\d+/lobby$#' => true,
+        '#^/sabri-network/v2/calls/\d+/hand-raise$#' => true,
+        '#^/sabri-network/v2/calls/\d+/breakouts$#' => true,
+        '#^/sabri-network/v2/calls/\d+/host-transfer$#' => true,
+        '#^/sabri-network/v2/calls/\d+/network-quality$#' => true,
+        '#^/sabri-network/v2/future/ai-assistant$#' => true,
+        '#^/sabri-network/v2/future/semantic-search$#' => true,
+        '#^/sabri-network/v2/future/interop$#' => true,
+        '#^/sabri-network/v2/future/records/\d+$#' => true,
     ];
 
     public static function register(): void {
@@ -194,8 +222,10 @@ final class SN_Two_Plan_Contract_Firewall {
                 'size' => (int) ($file['size'] ?? 0),
                 'type' => sanitize_text_field((string) ($file['type'] ?? '')),
                 'error' => (int) ($file['error'] ?? 0),
+                'sha256' => (string) (($params['_sn_uploaded_file_hashes'][$key] ?? '')),
             ];
         }
+        unset($params['_sn_uploaded_file_hashes']);
         self::ksort_recursive($params);
         self::ksort_recursive($files);
         return hash('sha256', (string) wp_json_encode(['params' => $params, 'files' => $files]));
