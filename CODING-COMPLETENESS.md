@@ -12,6 +12,7 @@ This classification is narrower than production completion. It records source im
 | Measure | Result |
 |---|---:|
 | Runtime candidate | **2.1.0** |
+| Explicit PHP review suites in full gate | **46** |
 | Unknown-sender message-request workflow | implemented |
 | Scheduled messages | implemented with encrypted queue + delivery-time revalidation |
 | Polls/checklists | implemented on canonical messages |
