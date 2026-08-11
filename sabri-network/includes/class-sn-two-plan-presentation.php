@@ -8,6 +8,20 @@ final class SN_Two_Plan_Presentation {
 
     public static function register(): void {
         add_action('rest_api_init', [self::class, 'register_routes'], 1450);
+        add_action('wp_enqueue_scripts', [self::class, 'enqueue_messages_assets'], 35);
+    }
+
+    public static function enqueue_messages_assets(): void {
+        $page_id = (int) get_option('sn_messages_page_id');
+        $standalone = (int) get_query_var('sn_messages_app') === 1 && (string) get_query_var('sn_messages_mode') !== 'settings';
+        $is_messages = ($page_id > 0 && is_page($page_id)) || $standalone;
+        if (!$is_messages) return;
+        $css = SN_DIR . 'assets/css/two-plan-ui.css';
+        $js = SN_DIR . 'assets/js/two-plan-ui.js';
+        wp_register_style('sabri-network-two-plan-ui', SN_URL . 'assets/css/two-plan-ui.css', ['sabri-messages'], is_file($css) ? (string) filemtime($css) : SN_VERSION);
+        wp_register_script('sabri-network-two-plan-ui', SN_URL . 'assets/js/two-plan-ui.js', ['sabri-messages'], is_file($js) ? (string) filemtime($js) : SN_VERSION, true);
+        wp_enqueue_style('sabri-network-two-plan-ui');
+        wp_enqueue_script('sabri-network-two-plan-ui');
     }
 
     public static function register_routes(): void {
