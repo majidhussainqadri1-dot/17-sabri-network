@@ -17,9 +17,10 @@ node --check "$STAGE/sabri-network/assets/js/messages.js"
 node --check "$STAGE/sabri-network/assets/js/message-search.js"
 node --check "$STAGE/sabri-network/assets/js/smail.js"
 node --check "$STAGE/sabri-network/assets/js/file-transfer.js"
+node --check "$STAGE/sabri-network/assets/js/two-plan-ui.js"
 grep -q 'Version: 2.1.0' "$STAGE/sabri-network/sabri-network.php"
 grep -q "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')" "$STAGE/sabri-network/sabri-network.php"
-for file in includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md includes/class-sn-smail.php includes/class-sn-file-transfer.php includes/class-sn-communication-crypto.php includes/class-sn-message-body.php includes/class-sn-central-plan-hardening.php includes/class-sn-compatibility-hardening.php includes/class-sn-two-plan-completion.php templates/smail-app.php templates/file-transfer-app.php; do test -f "$STAGE/sabri-network/$file"; done
+for file in includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md includes/class-sn-smail.php includes/class-sn-file-transfer.php includes/class-sn-communication-crypto.php includes/class-sn-message-body.php includes/class-sn-central-plan-hardening.php includes/class-sn-compatibility-hardening.php includes/class-sn-two-plan-completion.php includes/class-sn-two-plan-contract-firewall.php includes/class-sn-two-plan-presentation.php assets/js/two-plan-ui.js assets/css/two-plan-ui.css templates/smail-app.php templates/file-transfer-app.php; do test -f "$STAGE/sabri-network/$file"; done
 (
  cd "$STAGE"
  find sabri-network -type f ! -name 'MANIFEST.sha256' -print | sort | while IFS= read -r file; do sha256sum "$file"; done > sabri-network/MANIFEST.sha256
