@@ -55,6 +55,8 @@ $check(str_contains($future,'sn_network_interop_provider_ready')&&str_contains($
 $check(!str_contains($future,'wp_insert_attachment')&&!str_contains($future,'media_handle_upload'),'Future-24 must not create a parallel public-media backend.');
 $check(str_contains($future_js,'future/capabilities')&&str_contains($future_js,'future/reminders')&&str_contains($future_js,'future/templates'),'Future-24 must have practical user-facing workspace controls.');
 $check(str_contains($future_css,'prefers-reduced-motion')&&str_contains($future_css,'44px')&&str_contains($future_css,'#087a4e'),'Future-24 CSS must preserve accessibility and Sabri Green.');
+$check(str_contains($future,"usort(\$participants")&&str_contains($future,"'f17-safety-v1|'"),'Safety-number derivation must canonically order both peers so both directions match.');
+$check(str_contains($firewall,'/future/e2ee-policy')&&str_contains($firewall,'/future/community-invites')&&str_contains($firewall,'/future/ai-assistant')&&str_contains($firewall,'/future/interop'),'Future-24 mutations must be covered by the canonical caller-supplied idempotency firewall.');
 
-if($checks!==64)$fail[]='Expected 64 checks, got '.$checks;
+if($checks!==66)$fail[]='Expected 66 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Two-plan completion failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Two-plan completion contracts: PASS ($checks checks)\n";
