@@ -17,6 +17,7 @@ final class SN_Two_Plan_Contract_Firewall {
     private const MUTATING_ROUTE_PATTERNS = [
         '#^/sabri-network/v2/message-requests$#' => true,
         '#^/sabri-network/v2/message-requests/\d+$#' => true,
+        '#^/sabri-network/v2/messages/\d+/forward$#' => true,
         '#^/sabri-network/v2/conversations/\d+/scheduled-messages$#' => true,
         '#^/sabri-network/v2/conversations/\d+/polls$#' => true,
         '#^/sabri-network/v2/messages/\d+/poll-vote$#' => true,
@@ -69,7 +70,7 @@ final class SN_Two_Plan_Contract_Firewall {
         if ($result !== null) return $result;
         if (!self::requires_idempotency($request)) return null;
         $actor = get_current_user_id();
-        if ($actor <= 0) return null; // Native route permission callback remains authoritative.
+        if ($actor <= 0) return null;
 
         $raw_key = trim((string) $request->get_header('Idempotency-Key'));
         if ($raw_key === '') $raw_key = trim((string) $request->get_param('client_id'));
@@ -126,7 +127,6 @@ final class SN_Two_Plan_Contract_Firewall {
             }
             $cipher = SN_Communication_Crypto::encrypt($json, 'two-plan-idempotency|'.$scope_key);
             if (is_wp_error($cipher)) {
-                // Fail closed: do not remove a processing record after an uncertain committed mutation.
                 SN_DB::audit('idempotency_response_cache_failed', 'two_plan_idempotency', 0, 'failure', ['scope_hash' => hash('sha256', $scope_key)], get_current_user_id());
                 return $response;
             }
@@ -137,7 +137,6 @@ final class SN_Two_Plan_Contract_Firewall {
                 'updated_at' => current_time('mysql', true),
             ], ['scope_key' => $scope_key]);
         } else {
-            // Handler returned normally with an error and therefore did not leave an uncertain process crash.
             $wpdb->delete(self::table(), ['scope_key' => $scope_key], ['%s']);
         }
         return $response;
