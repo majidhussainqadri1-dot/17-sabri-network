@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Sabri Network and Messages
  * Plugin URI: https://www.sabrihomeopathy.com/
- * Description: Canonical File-17 relationships, spaces, Messages, internal Smail, encrypted resumable verified-user file transfer, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
- * Version: 2.0.3
+ * Description: Canonical File-17 relationships, spaces, Messages, message requests, internal Smail, encrypted resumable verified-user file transfer, multi-device presence, private search, reliable events, context adapters, governed conference providers, calls and safety system for the Sabri Social Homeopathy Platform.
+ * Version: 2.1.0
  * Author: Sabri Homeopathy
  * Text Domain: sabri-network
  * Requires at least: 6.5
@@ -12,7 +12,7 @@
 
 defined('ABSPATH') || exit;
 
-define('SN_VERSION', '2.0.3');
+define('SN_VERSION', '2.1.0');
 define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0');
 define('SN_FILE', __FILE__);
 define('SN_DIR', plugin_dir_path(__FILE__));
@@ -134,6 +134,7 @@ final class Sabri_Network {
         SN_Message_Search::maybe_upgrade();
         SN_Outbox::maybe_upgrade();
         SN_Central_Plan_Hardening::maybe_upgrade();
+        SN_Two_Plan_Completion::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
@@ -153,6 +154,7 @@ final class Sabri_Network {
             SN_Smail::install();
             SN_Message_Search::install();
             SN_Outbox::install();
+            SN_Two_Plan_Completion::install();
             SN_Private_Files::ensure_storage();
             SN_Central_Plan_Hardening::maybe_upgrade();
             SN_Activator::ensure_network_page(true);
@@ -175,6 +177,8 @@ final class Sabri_Network {
             'contact_request_method' => 'POST',
             'contact_decision_route' => rest_url('sabri-network/v2/contacts/{request_id}'),
             'contact_decision_method' => 'POST',
+            'message_request_route' => rest_url('sabri-network/v2/message-requests'),
+            'message_request_method' => 'POST',
             'block_route' => rest_url('sabri-network/v2/block'),
             'block_method' => 'POST',
             'conversation_route' => rest_url('sabri-network/v2/conversations'),
@@ -182,7 +186,13 @@ final class Sabri_Network {
             'message_receipt_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/receipts'),
             'message_search_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search'),
             'message_context_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/search/context'),
+            'scheduled_message_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/scheduled-messages'),
+            'poll_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/polls'),
+            'checklist_route' => rest_url('sabri-network/v2/conversations/{conversation_id}/checklists'),
+            'community_artifacts_route' => rest_url('sabri-network/v2/spaces/{space_id}/community-artifacts'),
             'message_body_encryption' => 'authenticated-at-rest:SNE1',
+            'temporary_update_encryption' => 'authenticated-at-rest:SNC4-compatible',
+            'two_plan_completion_schema' => SN_Two_Plan_Completion::SCHEMA_VERSION,
             'event_delivery_contract' => 'sn_network_event_dispatched',
             'notification_owner' => 'file-19',
             'legacy_file17_notification_center' => false,
