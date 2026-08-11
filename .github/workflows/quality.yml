@@ -42,6 +42,13 @@ jobs:
               exit 1
             fi
           done
+          node --check sabri-network/assets/js/future-superset.js
+          python3 - <<'PY'
+          from pathlib import Path
+          css=Path('sabri-network/assets/css/future-superset.css').read_text(encoding='utf-8')
+          assert css.count('{') == css.count('}')
+          assert 'prefers-reduced-motion' in css and '44px' in css and '#087a4e' in css
+          PY
           run_test() {
             local file="$1" output
             if ! output="$(php "sabri-network/tests/$file" 2>&1)"; then
@@ -88,6 +95,7 @@ jobs:
       - name: Run full quality gate
         run: |
           set -o pipefail
+          node --check sabri-network/assets/js/future-superset.js
           if ! bash sabri-network/tools/quality-check.sh 2>&1 | tee /tmp/file17-quality.log; then
             tail -n 80 /tmp/file17-quality.log | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::error file=sabri-network\/tools\/quality-check.sh::/'
             exit 1
