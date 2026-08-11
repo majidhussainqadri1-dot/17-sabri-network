@@ -36,22 +36,35 @@ jobs:
           set -euo pipefail
           mapfile -t files < <(find sabri-network -type f -name '*.php' -not -path '*/build/*' -print | sort)
           test "${#files[@]}" -ge 80
-          for file in "${files[@]}"; do php -l "$file"; done
-          php sabri-network/tests/cf01-clinical-context-static-contracts.php
-          php sabri-network/tests/cf01-clinical-context-runtime-contracts.php
-          php sabri-network/tests/smail-static-contracts.php
-          php sabri-network/tests/smail-adversarial-contracts.php
-          php sabri-network/tests/transfer-static-contracts.php
-          php sabri-network/tests/transfer-adversarial-contracts.php
-          php sabri-network/tests/four-plan-review-1-governance-contracts.php
-          php sabri-network/tests/four-plan-review-2-transfer-concurrency-contracts.php
-          php sabri-network/tests/four-plan-review-3-message-smail-security-contracts.php
-          php sabri-network/tests/four-plan-review-4-fresh-release-contracts.php
-          php sabri-network/tests/forty-round-review-1-governance-identity-crypto-contracts.php
-          php sabri-network/tests/forty-round-review-2-transfer-smail-privacy-contracts.php
-          php sabri-network/tests/forty-round-review-3-canonical-safety-resilience-contracts.php
-          php sabri-network/tests/forty-round-review-4-release-truth-contracts.php
-          php sabri-network/tests/two-plan-completion-contracts.php
+          for file in "${files[@]}"; do
+            if ! output="$(php -l "$file" 2>&1)"; then
+              printf '::error file=%s::%s\n' "$file" "${output//$'\n'/'%0A'}"
+              exit 1
+            fi
+          done
+          run_test() {
+            local file="$1" output
+            if ! output="$(php "sabri-network/tests/$file" 2>&1)"; then
+              printf '::error file=sabri-network/tests/%s::%s\n' "$file" "${output//$'\n'/'%0A'}"
+              exit 1
+            fi
+            printf '%s\n' "$output"
+          }
+          run_test cf01-clinical-context-static-contracts.php
+          run_test cf01-clinical-context-runtime-contracts.php
+          run_test smail-static-contracts.php
+          run_test smail-adversarial-contracts.php
+          run_test transfer-static-contracts.php
+          run_test transfer-adversarial-contracts.php
+          run_test four-plan-review-1-governance-contracts.php
+          run_test four-plan-review-2-transfer-concurrency-contracts.php
+          run_test four-plan-review-3-message-smail-security-contracts.php
+          run_test four-plan-review-4-fresh-release-contracts.php
+          run_test forty-round-review-1-governance-identity-crypto-contracts.php
+          run_test forty-round-review-2-transfer-smail-privacy-contracts.php
+          run_test forty-round-review-3-canonical-safety-resilience-contracts.php
+          run_test forty-round-review-4-release-truth-contracts.php
+          run_test two-plan-completion-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -73,7 +86,12 @@ jobs:
       - name: Install packaging dependencies
         run: sudo apt-get update && sudo apt-get install -y zip rsync
       - name: Run full quality gate
-        run: bash sabri-network/tools/quality-check.sh
+        run: |
+          set -o pipefail
+          if ! bash sabri-network/tools/quality-check.sh 2>&1 | tee /tmp/file17-quality.log; then
+            tail -n 80 /tmp/file17-quality.log | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::error file=sabri-network\/tools\/quality-check.sh::/'
+            exit 1
+          fi
       - name: Upload governed 2.1.0 candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
