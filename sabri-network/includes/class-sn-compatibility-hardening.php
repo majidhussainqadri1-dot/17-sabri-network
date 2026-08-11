@@ -6,6 +6,7 @@ defined('ABSPATH') || exit;
 require_once SN_DIR . 'includes/class-sn-two-plan-completion.php';
 require_once SN_DIR . 'includes/class-sn-two-plan-contract-firewall.php';
 require_once SN_DIR . 'includes/class-sn-two-plan-presentation.php';
+require_once SN_DIR . 'includes/class-sn-two-plan-runtime-hardening.php';
 
 final class SN_Compatibility_Hardening {
     private const MAX_FORWARD_BODY = 10000;
@@ -16,6 +17,7 @@ final class SN_Compatibility_Hardening {
         SN_Two_Plan_Completion::register();
         SN_Two_Plan_Contract_Firewall::register();
         SN_Two_Plan_Presentation::register();
+        SN_Two_Plan_Runtime_Hardening::register();
     }
 
     public static function override_privacy_exporter(array $exporters): array {
