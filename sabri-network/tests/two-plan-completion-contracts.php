@@ -7,6 +7,7 @@ $check=static function(bool $ok,string $msg)use(&$fail,&$checks):void{$checks++;
 $main=$read($root.'/sabri-network.php');
 $compat=$read($root.'/includes/class-sn-compatibility-hardening.php');
 $completion=$read($root.'/includes/class-sn-two-plan-completion.php');
+$firewall=$read($root.'/includes/class-sn-two-plan-contract-firewall.php');
 $quality=$read($root.'/tools/quality-check.sh');
 
 $check(str_contains($main,'Version: 2.1.0')&&str_contains($main,"define('SN_VERSION', '2.1.0')"),'File 17 completion release must have an immutable 2.1.0 runtime identity.');
@@ -32,5 +33,9 @@ $check(!preg_match('/(?:E2EE enabled|end-to-end encrypted by default|production-
 $check(str_contains($completion,'register_exporter')&&str_contains($completion,'register_eraser'),'New personal-data domains must participate in privacy export/erasure.');
 $check(str_contains($completion,'admin/two-plan-completion')&&str_contains($completion,"'staging_acceptance'=>false")&&str_contains($completion,"'live_deployment'=>false"),'Runtime health must preserve staging/live separation.');
 $check(str_contains($quality,'two-plan-completion-contracts.php'),'The explicit quality gate must execute this suite.');
-if($checks!==23)$fail[]='Expected 23 checks, got '.$checks;
+$check(str_contains($compat,'class-sn-two-plan-contract-firewall.php')&&str_contains($compat,'SN_Two_Plan_Contract_Firewall::register()'),'The completion contract firewall must be loaded by the canonical hardening layer.');
+$check(str_contains($firewall,'sn_idempotency_key_required')&&str_contains($firewall,"get_header('Idempotency-Key')")&&str_contains($firewall,"'state' => 'processing'"),'New completion mutations must require caller-supplied idempotency and fail closed while an outcome is uncertain.');
+$check(str_contains($firewall,'response_cipher')&&str_contains($firewall,"SN_Communication_Crypto::encrypt(\$json, 'two-plan-idempotency|"),'Idempotency replay cache must encrypt successful response payloads at rest.');
+$check(str_contains($firewall,"visibility !== 'discoverable_private'")&&str_contains($firewall,"\$item['body'] = ''")&&str_contains($firewall,"\$item['body_withheld'] = true"),'Discoverable-private community listings must expose metadata only to non-members.');
+if($checks!==27)$fail[]='Expected 27 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Two-plan completion failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Two-plan completion contracts: PASS ($checks checks)\n";
