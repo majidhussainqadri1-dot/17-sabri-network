@@ -6,8 +6,11 @@ $read=static fn(string $p):string=>(string)file_get_contents($p);
 $check=static function(bool $ok,string $msg)use(&$fail,&$checks):void{$checks++;if(!$ok)$fail[]=$msg;};
 $main=$read($root.'/sabri-network.php');
 $compat=$read($root.'/includes/class-sn-compatibility-hardening.php');
+$runtime=$read($root.'/includes/class-sn-two-plan-runtime-hardening.php');
 $completion=$read($root.'/includes/class-sn-two-plan-completion.php');
 $firewall=$read($root.'/includes/class-sn-two-plan-contract-firewall.php');
+$future=$read($root.'/includes/class-sn-future-superset.php').$read($root.'/includes/class-sn-future-superset-part-1.php').$read($root.'/includes/class-sn-future-superset-part-2.php').$read($root.'/includes/class-sn-future-superset-part-3.php').$read($root.'/includes/class-sn-future-superset-core.php');
+$future_js=$read($root.'/assets/js/future-superset.js');$future_css=$read($root.'/assets/css/future-superset.css');
 $quality=$read($root.'/tools/quality-check.sh');
 
 $check(str_contains($main,'Version: 2.1.0')&&str_contains($main,"define('SN_VERSION', '2.1.0')"),'File 17 completion release must have an immutable 2.1.0 runtime identity.');
@@ -37,5 +40,21 @@ $check(str_contains($compat,'class-sn-two-plan-contract-firewall.php')&&str_cont
 $check(str_contains($firewall,'sn_idempotency_key_required')&&str_contains($firewall,"get_header('Idempotency-Key')")&&str_contains($firewall,"'state' => 'processing'"),'New completion mutations must require caller-supplied idempotency and fail closed while an outcome is uncertain.');
 $check(str_contains($firewall,'response_cipher')&&str_contains($firewall,"SN_Communication_Crypto::encrypt(\$json, 'two-plan-idempotency|"),'Idempotency replay cache must encrypt successful response payloads at rest.');
 $check(str_contains($firewall,"visibility !== 'discoverable_private'")&&str_contains($firewall,"\$item['body'] = ''")&&str_contains($firewall,"\$item['body_withheld'] = true"),'Discoverable-private community listings must expose metadata only to non-members.');
-if($checks!==27)$fail[]='Expected 27 checks, got '.$checks;
+
+$check(str_contains($runtime,"require_once SN_DIR . 'includes/class-sn-future-superset.php'")&&str_contains($runtime,'SN_Future_Superset::register()'),'Future-24 must be loaded through the existing canonical runtime hardening layer.');
+$check(str_contains($future,'FEATURE_COUNT=24'),'Future superset must declare all 24 approved enhancements.');
+for($i=1;$i<=24;$i++)$check(str_contains($future,sprintf('F17-FUT-%02d',$i)),sprintf('F17-FUT-%02d must be implemented.',$i));
+$check(str_contains($future,'sn_network_e2ee_provider_status')&&str_contains($future,'audited'),'E2EE must remain audited-provider gated rather than falsely claimed.');
+$check(str_contains($future,'sn_network_step_up_verified')&&str_contains($future,'capture_message_version')&&str_contains($future,'_sn_future_snapshot_id'),'Sensitive lock and prior-revision capture must execute server-side.');
+$check(str_contains($future,'sn_network_notification_requested'),'Reminders must delegate delivery to File 19.');
+$check(str_contains($future,"['file-06','file-12']")&&str_contains($future,'sn_network_case_discussion_professional_allowed'),'Scholarly citations and case discussions must preserve owner/safety boundaries.');
+$check(str_contains($future,'sn_network_breakout_create_result')&&str_contains($future,'sn_network_call_host_transfer_result'),'Breakouts and host transfer must stay conference-provider gated.');
+$check(str_contains($future,'sn_network_ai_assistant_result')&&str_contains($future,"'ai_owner'=>'file-16'"),'AI authority must remain File 16.');
+$check(str_contains($future,'sn_network_private_semantic_search_result')&&str_contains($future,"'exported_to_file26'=>false"),'Private semantic search must remain File 17 and must not feed File 26.');
+$check(str_contains($future,'sn_network_interop_provider_ready')&&str_contains($future,'sn_network_interop_remote_allowed'),'Interoperability must require approved provider and remote destination.');
+$check(!str_contains($future,'wp_insert_attachment')&&!str_contains($future,'media_handle_upload'),'Future-24 must not create a parallel public-media backend.');
+$check(str_contains($future_js,'future/capabilities')&&str_contains($future_js,'future/reminders')&&str_contains($future_js,'future/templates'),'Future-24 must have practical user-facing workspace controls.');
+$check(str_contains($future_css,'prefers-reduced-motion')&&str_contains($future_css,'44px')&&str_contains($future_css,'#087a4e'),'Future-24 CSS must preserve accessibility and Sabri Green.');
+
+if($checks!==64)$fail[]='Expected 64 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Two-plan completion failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Two-plan completion contracts: PASS ($checks checks)\n";
