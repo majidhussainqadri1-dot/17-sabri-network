@@ -3,12 +3,15 @@
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
+require_once SN_DIR . 'includes/class-sn-two-plan-completion.php';
+
 final class SN_Compatibility_Hardening {
     private const MAX_FORWARD_BODY = 10000;
 
     public static function register(): void {
         add_action('rest_api_init', [self::class, 'override_routes'], 1200);
         add_filter('wp_privacy_personal_data_exporters', [self::class, 'override_privacy_exporter'], 1200);
+        SN_Two_Plan_Completion::register();
     }
 
     public static function override_privacy_exporter(array $exporters): array {
