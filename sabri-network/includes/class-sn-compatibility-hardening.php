@@ -4,6 +4,7 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 require_once SN_DIR . 'includes/class-sn-two-plan-completion.php';
+require_once SN_DIR . 'includes/class-sn-two-plan-contract-firewall.php';
 
 final class SN_Compatibility_Hardening {
     private const MAX_FORWARD_BODY = 10000;
@@ -12,6 +13,7 @@ final class SN_Compatibility_Hardening {
         add_action('rest_api_init', [self::class, 'override_routes'], 1200);
         add_filter('wp_privacy_personal_data_exporters', [self::class, 'override_privacy_exporter'], 1200);
         SN_Two_Plan_Completion::register();
+        SN_Two_Plan_Contract_Firewall::register();
     }
 
     public static function override_privacy_exporter(array $exporters): array {
@@ -69,7 +71,6 @@ final class SN_Compatibility_Hardening {
         if ((int) $source->attachment_id > 0 && (string) $source->attachment_source === 'private') return new WP_Error('sn_forward_private_attachment_requires_resend', 'Private attachments must be re-uploaded rather than reused across audiences.', ['status' => 409]);
         $plain = SN_Message_Body::decrypt_row($source); if (is_wp_error($plain)) return $plain;
         $plain = mb_substr((string) $plain, 0, self::MAX_FORWARD_BODY); if ($plain === '') return new WP_Error('sn_forward_empty', 'There is no permitted content to forward.', ['status' => 409]);
-        $stored = SN_Message_Body::encrypt($plain, $target_id, $actor); if (is_wp_error($stored)) return $stored;
         $client = strtolower(trim((string) $request->get_param('client_id'))) ?: wp_generate_uuid4();
         if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client)) return new WP_Error('sn_forward_client_id_invalid', 'A valid idempotency key is required.', ['status' => 400]);
         $idem = hash('sha256', $actor . ':' . $target_id . ':forward:' . $source_id . ':' . $client);
