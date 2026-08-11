@@ -5,8 +5,12 @@ final class SN_Shortcode {
     public static function register_assets(): void {
         $css_version = is_file(SN_DIR . 'assets/css/network.css') ? (string) filemtime(SN_DIR . 'assets/css/network.css') : SN_VERSION;
         $js_version = is_file(SN_DIR . 'assets/js/network.js') ? (string) filemtime(SN_DIR . 'assets/js/network.js') : SN_VERSION;
+        $two_plan_css = SN_DIR . 'assets/css/two-plan-ui.css';
+        $two_plan_js = SN_DIR . 'assets/js/two-plan-ui.js';
         wp_register_style('sabri-network', SN_URL . 'assets/css/network.css', [], $css_version);
         wp_register_script('sabri-network', SN_URL . 'assets/js/network.js', [], $js_version, true);
+        wp_register_style('sabri-network-two-plan-ui', SN_URL . 'assets/css/two-plan-ui.css', ['sabri-network'], is_file($two_plan_css) ? (string) filemtime($two_plan_css) : SN_VERSION);
+        wp_register_script('sabri-network-two-plan-ui', SN_URL . 'assets/js/two-plan-ui.js', ['sabri-network'], is_file($two_plan_js) ? (string) filemtime($two_plan_js) : SN_VERSION, true);
     }
 
     public static function enqueue_if_network(): void {
@@ -14,14 +18,18 @@ final class SN_Shortcode {
         $is_network = ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id)) || (int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe']);
         if ($is_network) {
             wp_enqueue_style('sabri-network');
+            wp_enqueue_style('sabri-network-two-plan-ui');
             wp_enqueue_script('sabri-network');
+            wp_enqueue_script('sabri-network-two-plan-ui');
         }
     }
 
     public static function render(): string {
         self::register_assets();
         wp_enqueue_style('sabri-network');
+        wp_enqueue_style('sabri-network-two-plan-ui');
         wp_enqueue_script('sabri-network');
+        wp_enqueue_script('sabri-network-two-plan-ui');
 
         $access = SN_Policy::access();
         $network_ready = $access === true;
