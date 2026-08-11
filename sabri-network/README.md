@@ -1,22 +1,17 @@
 # File 17 — Sabri Network and Messages
 
-**Plugin version:** 2.0.3  
+**Plugin version:** 2.1.0  
 **WordPress:** 6.5 or later  
 **PHP:** 8.1 or later  
-**Repository status:** four-plan/forty-round code-complete corrective candidate; staging/live/operational acceptance remains separate
+**Repository status:** current two-plan repository coding-completion candidate; staging/live/operational acceptance remains separate
 
-File 17 is the Sabri Social Homeopathy Platform's single canonical communication/realtime owner: relationships, contacts/follows, communities/groups/channels, conversations/messages, private attachments, internal Smail, verified-user private transfer, presence/typing, calls/signaling/Sabri Meet, blocks/reports, native privacy lifecycle, receipts, private search and communication-event evidence. Network and Messages are distinct experiences over the same backend.
+File 17 is the Sabri Social Homeopathy Platform's single canonical communication/realtime owner: relationships, contacts/follows, unknown-sender message requests, communities/groups/channels, conversations/messages, private attachments, internal Smail, verified-user private transfer, temporary updates, presence/typing, calls/signaling/Sabri Meet, blocks/reports, native privacy lifecycle, receipts, private search and communication-event evidence. Network and Messages are distinct experiences over the same backend.
 
-## Governing basis and forty-round result
+## Governing basis
 
-The 2.0.3 corrective cycle was reviewed against Definitive Master Plan v3.0, Consolidated Recovered Directives, Continuous Value / Top-20 Superset Master Plan, and the File 17 Final Harmonized Master Plan.
+The 2.1.0 completion candidate is reconciled to the current consolidated central governing plan and the current File 17 Final Harmonized Master Plan. Earlier 2.0.3 forty-round evidence remains historical and does not replace fresh current-plan QA.
 
-- 40 sequential review rounds completed.
-- 18 rounds found defects and corrected them.
-- 22 rounds found no new defect.
-- 45 explicit PHP review suites are configured in the final full gate.
-
-See `../FORTY-ROUND-AUDIT-2026-08-07.md`.
+The full explicit quality gate now contains **46 PHP review suites**.
 
 ## Canonical boundaries
 
@@ -30,33 +25,37 @@ See `../FORTY-ROUND-AUDIT-2026-08-07.md`.
 - File 08/CF-01: appointment/clinical truth; File 17 retains governed opaque communication-context references only.
 - CF-04: optional approved secure binary-processing adapter after its own activation.
 
-## 2.0.3 security/privacy hardening
+## 2.1.0 completion features
 
-- Block-safe phone/avatar projection.
-- Versioned SNC3/SNC4 communication key IDs, bounded previous-key support and lazy re-encryption for message bodies, private files and Smail drafts.
-- File-00-only verified-transfer eligibility; no legacy local verification fallback.
-- Scanner plaintext leases always cleaned; entropy failure is fail-closed.
-- Legacy `/presence` projects the canonical per-device service; device counts are self-only.
-- Transfer files are contained by validated private-root realpaths before read/delete/scan/download.
-- Smail mailbox and data-subject privacy exports return authorized plaintext rather than stored ciphertext.
-- Smail draft fingerprints are keyed HMAC blind hashes.
-- Forwarding remains decrypt-in-memory/re-encrypt-to-target, idempotent and audience-minimized.
+- Unknown-sender message requests with accept/decline/report/cancel, sender/recipient rate protection, cooldown and transactional acceptance into the canonical contact/direct-conversation backend.
+- Encrypted scheduled-message queue with delivery-time authorization revalidation, cancellation and bounded retry state.
+- Polls and collaborative checklists represented by canonical messages; neither becomes clinical-decision authority.
+- Disappearing-message lifecycle with legal-hold protection, search-index removal and private-attachment revocation/deletion.
+- Fail-closed transient translation through an approved adapter only.
+- Voice-note endpoint reusing canonical message-integrity/private-file controls, with playback/transcript capability metadata.
+- Authenticated-encrypted new temporary-update text and lazy migration of legacy plaintext updates on authorized reads.
+- Community rules/onboarding, forum questions, AMA sessions, wiki pages, events/cohorts, moderated responses/best-answer and aggregate privacy-minimized community health.
+- Privacy export/erasure participation for the new personal-data domains.
+
+## Message confidentiality and private search
+
+Canonical message bodies are authenticated-encrypted at rest through the `SNE1` envelope. This is server-side storage encryption, not an audited E2EE claim. Search decrypts only authorized content transiently and stores keyed token hashes; File 26 never receives this private corpus. The 2.1.0 completion layer similarly encrypts pending message-request text, scheduled-message payloads, community artifact/response bodies and new temporary-update text.
 
 ## Calls and external media-provider limitation
 
-Sabri Meet and direct call state/signaling are File-17 canonical capabilities, but real media transport remains **provider-gated**. STUN/TURN/SFU use approved external media-provider adapters with short-lived scoped credentials and health/capability checks. When an approved provider is unavailable or not accepted in staging, the affected media feature must be unavailable/degraded rather than simulated. This source does not claim an external provider is configured, staging-accepted or operational.
+Sabri Meet and direct call state/signaling are File-17 canonical capabilities, but real media transport remains **provider-gated**. STUN/TURN/SFU use approved external media-provider adapters with short-lived scoped credentials and health/capability checks. When an approved provider is unavailable or not accepted in staging, the affected media feature must be unavailable/degraded rather than simulated.
 
 ## Internal Smail
 
 Smail is an internal communication center, not Internet email/SMTP. Inbox, Sent, Drafts, Starred, Archive, Spam and Trash reuse the canonical File-17 message backend. Sends use `SN_Message_Integrity`; multi-recipient retries reuse an idempotent canonical conversation reservation.
 
-## Message confidentiality and private search
-
-Canonical message bodies are authenticated-encrypted at rest through the `SNE1` envelope. This is server-side storage encryption, not an audited E2EE claim. Search decrypts only authorized content transiently and stores keyed token hashes; File 26 never receives this private corpus.
-
 ## Verified private transfer
 
 Exact maximum is **1,073,741,824 bytes** per file. Transfer is resumable, SHA-256 checked, authenticated-encrypted outside the public WordPress tree, MIME/magic/archive validated, fail-closed to scanner quarantine, and delivered only through recipient/version-bound expiring grants with revocation/retention/audit controls.
+
+## Historical 2.0.3 corrective record
+
+The previous forty-round cycle recorded 40 rounds, 18 defect-bearing rounds and 22 rounds with no new defect. Its ledger remains in `../FORTY-ROUND-AUDIT-2026-08-07.md` as historical evidence.
 
 ## Quality and packaging
 
@@ -65,12 +64,12 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The 2.0.3 gate includes **45 PHP review suites**, PHP 8.1/8.3 syntax, six JavaScript syntax checks, shell syntax, CSS/accessibility baselines, repository hygiene, exact staged-source manifest verification and deterministic byte-for-byte packaging.
+The 2.1.0 gate includes **46 PHP review suites**, PHP 8.1/8.3 syntax, six JavaScript syntax checks, shell syntax, CSS/accessibility baselines, repository hygiene, exact staged-source manifest verification and deterministic byte-for-byte packaging.
 
 ## Completion truth
 
-**Specified:** complete for reviewed repository-owned/current-wave scope.  
-**Coded:** 2.0.3 code-complete corrective candidate.  
+**Specified:** complete for current governing-plan File-17 repository scope.  
+**Coded:** 2.1.0 repository completion candidate.  
 **Packaged / Automated-QA Green:** only after exact-head workflow success.  
 **Staging-Accepted:** pending real environment and integration acceptance.  
 **Live-Deployed:** not claimed.  

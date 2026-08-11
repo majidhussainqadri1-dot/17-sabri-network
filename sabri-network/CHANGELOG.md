@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.1.0 — 2026-08-11 — Current two-plan repository completion candidate
+
+### Governing reconciliation
+- Reopened coding completeness against the newly governing consolidated central plan and the current File 17 Final Harmonized Master Plan instead of treating the historical 2.0.3 review as present-plan proof.
+- Preserved File 17 as the only communication owner and retained File 00/02 identity, File 19 notification, File 20 shell, File 26 global-search and File 08/CF-01 clinical ownership boundaries.
+
+### Message requests and abuse protection
+- Added unknown-sender message requests with encrypted first-message storage, incoming/outgoing queues, accept/decline/report/cancel decisions, sender and recipient rate limits and post-decline/report cooldown.
+- Acceptance is transactional: request state, canonical contact state, canonical direct conversation membership and first canonical encrypted message succeed together or roll back.
+
+### Messaging completion
+- Added encrypted scheduled-message storage with cancellation, bounded retry state and delivery-time authorization revalidation.
+- Added canonical polls and collaborative checklists while explicitly preventing clinical-decision authority.
+- Added disappearing-message expiry with legal-hold preservation, private-search removal, reaction cleanup and attachment revocation/deletion.
+- Added fail-closed transient message translation through an approved adapter only.
+- Added voice-note workflow on the canonical message-integrity/private-file path with playback/transcript capability metadata.
+
+### Temporary updates and community capabilities
+- Replaced plaintext persistence for new temporary-update text with authenticated encryption and lazy authorized migration of legacy plaintext values.
+- Added community rules/onboarding questions/orientation, forum questions, expert AMA sessions, wiki pages, events/cohorts, responses, best-answer/close/archive/reopen moderation and privacy-minimized aggregate community health.
+
+### Privacy, QA and release truth
+- Added privacy exporter/eraser participation for new personal-data domains.
+- Added `two-plan-completion-contracts.php` and expanded the explicit full quality inventory from 45 to **46 PHP review suites**.
+- Promoted current runtime/package identity to **2.1.0** with deterministic `17-sabri-network-and-messages-2.1.0.zip` packaging.
+- Historical 2.0.3 forty-round evidence remains historical; staging, live and operational acceptance remain separate external gates.
+
 ## 2.0.3 — 2026-08-07 — Forty-round corrective release candidate
 
 ### Forty-round review result
