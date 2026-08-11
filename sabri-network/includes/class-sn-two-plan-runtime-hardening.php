@@ -3,6 +3,8 @@
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
+require_once SN_DIR . 'includes/class-sn-future-superset.php';
+
 final class SN_Two_Plan_Runtime_Hardening {
     private const PROCESSING_LEASE_SECONDS = 900;
 
@@ -10,6 +12,7 @@ final class SN_Two_Plan_Runtime_Hardening {
         add_filter('rest_pre_dispatch', [self::class, 'pre_dispatch'], 6, 3);
         add_action('rest_api_init', [self::class, 'override_routes'], 1600);
         add_action('sn_cleanup_hourly', [self::class, 'recover_stale_scheduled'], 5);
+        SN_Future_Superset::register();
     }
 
     public static function pre_dispatch($result, WP_REST_Server $server, WP_REST_Request $request) {
