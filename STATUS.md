@@ -1,16 +1,16 @@
 # Repository Status
 
 **Target:** File 17 — Sabri Network and Messages 2.1.0  
-**State:** current two-plan repository coding-completion candidate  
-**Coding completion against current repository-owned File-17 obligations:** **candidate; exact-head QA/fresh review required**  
-**Configured review suites:** **46**  
+**State:** fresh Future-24 forty-round corrective candidate  
+**Coding completion against current repository-owned File-17 obligations:** **candidate; exact-head QA required after round-40 corrections**  
+**Configured review suites:** **47**  
 **Installable source integrity:** exact staged manifest + deterministic double-build  
 **Staging/live/operational:** pending
 
 ## Governing audit set
 
 - Current consolidated central governing plan.
-- Current File 17 Final Harmonized Master Plan.
+- Current File 17 Final Harmonized Master Plan plus Founder-approved Future Communication Superset 24.
 - Earlier 2.0.3 forty-round audit remains historical evidence only where non-conflicting.
 
 ## 2.1.0 completion delta
@@ -26,7 +26,8 @@ The current branch closes the newly identified repository-owned gaps without cre
 - voice-note workflow on canonical message/private-file infrastructure;
 - authenticated-encrypted temporary updates with legacy plaintext lazy migration;
 - community rules/onboarding, forum, AMA, wiki, events/cohorts, response moderation/best-answer and aggregate privacy-minimized community health;
-- privacy export/erasure participation for new personal-data domains.
+- privacy export/erasure participation for new personal-data domains;
+- Future-24 corrective hardening for mutation budgets, bounded resumable bulk jobs, PHP 8.1 compatibility, hidden-message version-history privacy, key/conference/team/template workflows and provider fail-closed behavior.
 
 ## Historical forty-round result
 
@@ -36,6 +37,8 @@ The earlier 2.0.3 cycle recorded:
 - **18** rounds found one or more defects; corrections were applied in the same review cycle.
 - **22** rounds found no new defect.
 - Known unresolved repository/current-wave coding defects after historical round 40: **0**, subject to later governing requirements and evidence.
+
+The current Future-24 forty-round cycle is a separate review lineage; its final ledger is not replaced by the historical 18/22 result.
 
 ## Included engineering scope
 
@@ -47,11 +50,11 @@ File 00/02 own identity/authentication/verification; File 19 owns the single not
 
 ## Provider/maturity truth
 
-Approved external providers remain real acceptance dependencies. Translation, STUN/TURN/SFU and similar external capabilities fail closed when no approved provider is configured. Source presence does not claim provider acceptance, audited E2EE, staging acceptance or operations.
+Approved external providers remain real acceptance dependencies. Translation, STUN/TURN/SFU, audited E2EE, File 16 AI, semantic search provider execution and interoperability fail closed when no approved provider is configured. Source presence does not claim provider acceptance, staging acceptance or operations.
 
 ## Remaining release evidence
 
-- exact-head GitHub Actions and immutable 2.1.0 artifact evidence;
+- exact-head GitHub Actions and immutable 2.1.0 artifact evidence after the final round-40 correction;
 - real WordPress/PHP/MySQL fresh install and supported upgrade/migration;
 - current companion-contract acceptance;
 - approved scanner/private storage/translation/call-provider acceptance;
