@@ -2,8 +2,8 @@
 
 **Assessment target:** Sabri Network and Messages 2.1.0  
 **Governing audit set:** current consolidated central governing plan + current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24 addendum  
-**Assessment date:** 11 August 2026  
-**Coding classification:** **100% code-complete corrective candidate for repository-owned/current-wave scope**
+**Assessment date:** 12 August 2026  
+**Coding classification:** **code-complete corrective candidate for repository-owned/current-wave scope; exact-head QA must be green after final round-40 corrections**
 
 This classification is narrower than production completion. It records source implementation of the repository-owned communication requirements currently approved for File 17, including the Founder-approved 24-feature future superset. It does **not** establish staging, provider, live or operational acceptance; any failed exact-head QA or later evidence immediately reopens the assessment.
 
@@ -12,7 +12,7 @@ This classification is narrower than production completion. It records source im
 | Measure | Result |
 |---|---:|
 | Runtime candidate | **2.1.0** |
-| Explicit PHP review suites in full gate | **46** |
+| Explicit PHP review suites in full gate | **47** |
 | Unknown-sender message-request workflow | implemented |
 | Scheduled messages | implemented with encrypted queue + delivery-time revalidation |
 | Polls/checklists | implemented on canonical messages |
@@ -20,6 +20,7 @@ This classification is narrower than production completion. It records source im
 | Temporary-update text at rest | authenticated-encrypted for new writes; lazy legacy migration |
 | Community rules/forum/AMA/wiki/events/health | implemented |
 | Founder-approved Future Communication Superset | **24/24 repository capability paths implemented; provider-dependent paths fail closed** |
+| Fresh Future-24 forty-round corrective hardening | implemented; exact-head final QA required |
 | Known staging/live/operational acceptance | **pending** |
 
 A failed exact-head CI, fresh review defect, staging failure, new governing directive or later evidence reopens this assessment.
@@ -28,12 +29,14 @@ A failed exact-head CI, fresh review defect, staging failure, new governing dire
 
 The prior 2.0.3 forty-round cycle remains historical evidence: 40 rounds, defects found/corrected in 18 rounds, 22 rounds with no new defect, and zero known unresolved repository/current-wave defects at that historical freeze. The later governing plans required a new reconciliation and therefore the older release was not treated as proof of present completeness.
 
+The fresh Future-24 forty-round cycle is separate. Its defects and corrections are tracked independently and must not be reported using the historical 18/22 split.
+
 ## Seven separate statuses
 
 1. **Specified:** complete for the current two-plan File-17 scope plus the approved Future-24 addendum.
 2. **Coded:** 2.1.0 code-complete corrective candidate for repository-owned/current-wave scope.
-3. **Packaged:** deterministic 2.1.0 packaging workflow is configured; exact-head artifact evidence is required for the current candidate.
-4. **Automated-QA Green:** established only when the exact current 2.1.0 candidate GitHub Actions run succeeds.
+3. **Packaged:** deterministic 2.1.0 packaging workflow is configured; exact-head artifact evidence is required for the final corrected candidate.
+4. **Automated-QA Green:** established only when the exact current 2.1.0 candidate GitHub Actions run succeeds after all round-40 corrections.
 5. **Staging-Accepted:** pending real WordPress/MySQL/roles/companions/providers/migration/rollback acceptance.
 6. **Live-Deployed:** not claimed.
 7. **Operational:** not claimed.
@@ -44,20 +47,20 @@ The prior 2.0.3 forty-round cycle remains historical evidence: 40 rounds, defect
 - Unknown-sender message requests with request inbox, decision workflow, abuse rate protection and transactional acceptance.
 - Communities, groups, channels and private teams with roles, joins/invitations, moderation, succession and lifecycle.
 - Community rules/onboarding plus forum questions, AMA sessions, wiki pages, events/cohorts, moderated responses/best-answer and aggregate health metrics.
-- Direct/group/channel conversations and canonical messages with reactions, replies, edits/deletes and **native recipient/device message receipts**.
+- Direct/group/channel conversations and canonical messages with reactions, replies, edits/deletes and native recipient/device message receipts.
 - Scheduled messages, polls, collaborative checklists and disappearing-message lifecycle with legal-hold precedence.
 - Authenticated server-side encryption at rest for canonical message bodies; encrypted queued/pending communication payloads; no unsupported E2EE claim.
-- Private attachments, voice-note workflow and **secure indexed search** with File-17-only private-message ownership.
+- Private attachments, voice-note workflow and secure indexed search with File-17-only private-message ownership.
 - Encrypted temporary-update text with privacy-aware viewers and expiry cleanup.
 - Private folders, stars, pins and hide-for-self projections.
 - Internal Smail with Inbox, Sent, Drafts, Starred, Archive, Spam and Trash.
 - Verified-user private transfer up to 1 GiB/file with resumability, SHA-256, MIME/magic/archive validation, scanner quarantine, signed grants, range resume, revocation, retention and audit.
-- **General per-device presence** with aggregate privacy and revocation.
+- General per-device presence with aggregate privacy and revocation.
 - Direct calls, Sabri Meet and provider-gated conference controls.
-- **Governed mentions and audience-minimized forwarding** through the canonical message backend.
-- **Secret-free STUN/TURN/SFU provider governance** with scoped, short-lived provider credentials and fail-closed capability claims.
+- Governed mentions and audience-minimized forwarding through the canonical message backend.
+- Secret-free STUN/TURN/SFU provider governance with scoped, short-lived provider credentials and fail-closed capability claims.
 - Fail-closed translation adapter; external translation is unavailable until an approved provider is connected.
-- Reports, appeals, legal/safety holds, retention, privacy export/erasure and **Transactional outbox/inbox** delivery semantics.
+- Reports, appeals, legal/safety holds, retention, privacy export/erasure and transactional outbox/inbox delivery semantics.
 - Opaque File 08/18/21 and CF-01 contexts without copied native-domain truth.
 - File 19 single-notification boundary, File 20 shell boundary and File 26 global-search boundary.
 - Green-primary responsive/RTL/accessibility baselines.
@@ -70,6 +73,8 @@ The 2.1.0 candidate includes the following change-controlled File-17 capability 
 - **F17-FUT-05–16 — NEXT:** delegated/shared team inbox; assignment/handoff; snooze/remind-later; saved professional replies/templates; message version history; bulk conversation operations; smart private views; expiring signed QR community invitations; temporary scoped membership; mentor–student communication mode; File 06/File 12 scholarly citation cards; de-identified professional case-discussion template.
 - **F17-FUT-17–21 — SCALE:** call lobby; hand raise/speaker queue; provider-gated breakout rooms; provider-gated host transfer; privacy-minimized call network-quality assistant.
 - **F17-FUT-22–24 — Advanced Trust:** explicit-consent File-16 AI assistant bridge; File-17 private semantic search that never exports private messages to File 26; approved standards-based interoperability gateway that never becomes identity authority.
+
+The fresh corrective cycle additionally hardens Future-24 registration, abuse budgets, bulk-job crash recovery/expiry ordering, PHP 8.1 compatibility, hidden-message version-history privacy, key transparency, team inbox/handoff, reminder/template semantics, conference lifecycle, semantic-search privacy and interoperability fail-closed behavior.
 
 Provider-dependent capabilities are coded as **fail-closed integration contracts**. Source presence is not provider acceptance: audited E2EE, SFU breakouts/host transfer, File 16 AI execution, semantic-provider execution and external interoperability remain unavailable until their approved adapters and acceptance evidence exist.
 
