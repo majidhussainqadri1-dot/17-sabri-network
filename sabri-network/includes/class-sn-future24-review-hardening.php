@@ -1,5 +1,5 @@
 <?php
-/** Fresh 40-round corrective overlays for the Founder-approved Future-24 scope. */
+/** Fresh corrective overlays for the Founder-approved Future-24 scope. */
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
@@ -19,6 +19,7 @@ require_once SN_DIR . 'includes/class-sn-future24-review-hardening-m.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-n.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-o.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-p.php';
+require_once SN_DIR . 'includes/class-sn-future24-review-hardening-q.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -38,5 +39,6 @@ final class SN_Future24_Review_Hardening {
         SN_Future24_Review_Hardening_N::register();
         SN_Future24_Review_Hardening_O::register();
         SN_Future24_Review_Hardening_P::register();
+        SN_Future24_Review_Hardening_Q::register();
     }
 }
