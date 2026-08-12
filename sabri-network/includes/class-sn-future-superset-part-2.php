@@ -3,7 +3,74 @@ declare(strict_types=1); defined('ABSPATH') || exit;
 trait SN_Future_Superset_Part_2 {
     public static function capture_message_version(object $m,int $editor): int|WP_Error {global $wpdb;$mid=(int)($m->id??0);$c=(int)($m->conversation_id??0);if(!$mid||!$c)return self::error('sn_version_source_invalid','Message revision source is invalid.',500);$plain=SN_Message_Body::decrypt_row($m);if(is_wp_error($plain))return $plain;$rev=1+(int)$wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(revision),0) FROM '.self::versions_table().' WHERE message_id=%d',$mid));$cipher=SN_Communication_Crypto::encrypt($plain,'future-message-version|'.$mid.'|'.$rev);if(is_wp_error($cipher))return $cipher;$ok=$wpdb->insert(self::versions_table(),['message_id'=>$mid,'conversation_id'=>$c,'editor_id'=>$editor,'revision'=>$rev,'body_cipher'=>$cipher,'source_hash'=>hash('sha256',$plain),'created_at'=>self::now()]);return $ok===false?self::db_error():(int)$wpdb->insert_id;}
     public static function message_versions(WP_REST_Request $r): WP_REST_Response|WP_Error {global $wpdb;$mid=absint($r['id']);$m=self::message_row($mid);$u=get_current_user_id();if(!$m||!empty($m->deleted_at)||!self::conversation_member((int)$m->conversation_id,$u)||SN_Message_Operations::is_hidden($u,$mid))return self::not_found();$rows=$wpdb->get_results($wpdb->prepare('SELECT * FROM '.self::versions_table().' WHERE message_id=%d ORDER BY revision DESC LIMIT 50',$mid));$out=[];foreach(is_array($rows)?$rows:[] as $x){$p=SN_Communication_Crypto::decrypt((string)$x->body_cipher,'future-message-version|'.$mid.'|'.(int)$x->revision);if(!is_wp_error($p))$out[]=['revision'=>(int)$x->revision,'body'=>$p,'editor_id'=>(int)$x->editor_id,'created_at'=>(string)$x->created_at];}return rest_ensure_response(['message_id'=>$mid,'versions'=>$out]);}
-    public static function bulk_conversations(WP_REST_Request $r): WP_REST_Response|WP_Error {global $wpdb;$u=get_current_user_id();$ids=array_slice(array_values(array_unique(array_filter(array_map('absint',(array)$r->get_param('conversation_ids'))))),0,100);$act=self::enum((string)$r->get_param('action'),['archive','unarchive','mute','unmute','mark_read'],'');if(!$ids||$act==='')return self::error('sn_bulk_invalid','Select conversations and a supported operation.',400);$n=0;$wpdb->query('START TRANSACTION');try{foreach($ids as $c){if(!self::conversation_member($c,$u))continue;if($act==='mark_read'){$max=(int)$wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM '.SN_DB::table('messages').' WHERE conversation_id=%d',$c));$ok=$wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('members').' SET last_read_message_id=GREATEST(last_read_message_id,%d) WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',$max,$c,$u));}else{$field=str_contains($act,'archive')?'is_archived':'is_muted';$value=in_array($act,['archive','mute'],true)?1:0;$ok=$wpdb->update(SN_DB::table('members'),[$field=>$value],['conversation_id'=>$c,'user_id'=>$u,'left_at'=>null]);}if($ok===false)throw new RuntimeException('bulk');$n++;}$wpdb->query('COMMIT');}catch(Throwable $e){$wpdb->query('ROLLBACK');return self::db_error();}SN_DB::audit('future_bulk_conversations','user',$u,'success',['action'=>$act,'count'=>$n],$u);return rest_ensure_response(['action'=>$act,'changed'=>$n]);}
+
+    public static function bulk_conversations(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $u=get_current_user_id();
+        $ids=array_slice(array_values(array_unique(array_filter(array_map('absint',(array)$r->get_param('conversation_ids'))))),0,100);
+        $act=self::enum((string)$r->get_param('action'),['archive','unarchive','mute','unmute','mark_read','mark_unread','label','assign','export_request'],'');
+        if(!$ids||$act==='')return self::error('sn_bulk_invalid','Select conversations and a supported operation.',400);
+        $params=[];
+        if($act==='label')$params['label']=mb_substr(sanitize_text_field((string)$r->get_param('label')),0,80);
+        if($act==='assign'){$params['assignee_id']=absint($r->get_param('assignee_id'));if($params['assignee_id']<=0)return self::error('sn_bulk_assignee_required','Select an assignee.',400);}
+        $data=['action'=>$act,'conversation_ids'=>$ids,'params'=>$params,'preview'=>rest_sanitize_boolean($r->get_param('preview')),'cursor'=>0,'results'=>[],'requested_at'=>self::now()];
+        $id=self::create_record('F17-FUT-10',$u,'user',$u,$data,self::client($r,$u,'bulk-conversations'),gmdate('Y-m-d H:i:s',time()+7*DAY_IN_SECONDS),'queued');
+        if(is_wp_error($id))return $id;
+        $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-10' AND owner_id=%d AND scope_type='user'",$id,$u));
+        $stored=$row?self::decode($row):$data;
+        return new WP_REST_Response(['job_id'=>$id,'state'=>$row?(string)$row->state:'queued','action'=>$act,'preview'=>(bool)$data['preview'],'progress'=>is_wp_error($stored)?0:(int)($stored['cursor']??0),'total'=>count($ids)],202);
+    }
+
+    public static function bulk_job_status(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;$u=get_current_user_id();$id=absint($r['id']);
+        $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-10' AND owner_id=%d AND scope_type='user'",$id,$u));
+        if(!$row)return self::not_found();$d=self::decode($row);if(is_wp_error($d))return $d;
+        return rest_ensure_response(['job_id'=>$id,'state'=>(string)$row->state,'action'=>(string)($d['action']??''),'preview'=>(bool)($d['preview']??false),'progress'=>(int)($d['cursor']??0),'total'=>count((array)($d['conversation_ids']??[])),'results'=>(array)($d['results']??[])]);
+    }
+
+    public static function cancel_bulk_job(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;$u=get_current_user_id();$id=absint($r['id']);
+        $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-10' AND owner_id=%d AND scope_type='user'",$id,$u));
+        if(!$row)return self::not_found();
+        if(in_array((string)$row->state,['completed','cancelled','failed'],true))return rest_ensure_response(['job_id'=>$id,'state'=>(string)$row->state]);
+        if((string)$row->state==='processing')return self::error('sn_bulk_job_busy','The current chunk is being processed; retry cancellation after this bounded chunk finishes.',409);
+        $ok=$wpdb->update(self::records_table(),['state'=>'cancelled','updated_at'=>self::now(),'version'=>(int)$row->version+1],['id'=>$id,'state'=>'queued','version'=>(int)$row->version]);
+        return $ok===1?rest_ensure_response(['job_id'=>$id,'state'=>'cancelled']):self::error('sn_bulk_job_conflict','Bulk job changed before cancellation.',409);
+    }
+
+    public static function process_bulk_jobs(?string $now=null): void {
+        global $wpdb;$now=$now?:self::now();
+        $jobs=$wpdb->get_results("SELECT * FROM ".self::records_table()." WHERE feature_id='F17-FUT-10' AND scope_type='user' AND state='queued' ORDER BY id ASC LIMIT 20");
+        foreach(is_array($jobs)?$jobs:[] as $job){
+            $claimed=$wpdb->update(self::records_table(),['state'=>'processing','updated_at'=>$now,'version'=>(int)$job->version+1],['id'=>(int)$job->id,'state'=>'queued','version'=>(int)$job->version]);if($claimed!==1)continue;
+            $d=self::decode($job);
+            if(is_wp_error($d)){$wpdb->update(self::records_table(),['state'=>'failed','updated_at'=>self::now(),'version'=>(int)$job->version+2],['id'=>(int)$job->id,'state'=>'processing','version'=>(int)$job->version+1]);continue;}
+            $ids=array_values(array_map('absint',(array)($d['conversation_ids']??[])));$cursor=max(0,(int)($d['cursor']??0));$results=is_array($d['results']??null)?$d['results']:[];$action=(string)($d['action']??'');$params=is_array($d['params']??null)?$d['params']:[];$preview=(bool)($d['preview']??false);$owner=(int)$job->owner_id;
+            foreach(array_slice($ids,$cursor,20) as $conversation_id){$results[]=self::process_bulk_item($conversation_id,$owner,$action,$params,$preview,(int)$job->id);$cursor++;}
+            $d['cursor']=$cursor;$d['results']=array_slice($results,-100);$json=wp_json_encode($d,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);$cipher=SN_Communication_Crypto::encrypt((string)$json,'future-record|F17-FUT-10|'.$owner.'|user|'.$owner);if(is_wp_error($cipher)){$wpdb->update(self::records_table(),['state'=>'failed','updated_at'=>self::now(),'version'=>(int)$job->version+2],['id'=>(int)$job->id,'state'=>'processing','version'=>(int)$job->version+1]);continue;}
+            $done=$cursor>=count($ids);$state=$done?'completed':'queued';$ok=$wpdb->update(self::records_table(),['payload_cipher'=>$cipher,'state'=>$state,'updated_at'=>self::now(),'version'=>(int)$job->version+2],['id'=>(int)$job->id,'state'=>'processing','version'=>(int)$job->version+1]);
+            if($ok===1&&$done)SN_DB::audit('future_bulk_conversations','bulk_job',(int)$job->id,'success',['action'=>$action,'count'=>count($ids),'preview'=>$preview],$owner);
+        }
+    }
+
+    private static function process_bulk_item(int $c,int $u,string $act,array $params,bool $preview,int $job_id): array {
+        global $wpdb;
+        if(!self::conversation_member($c,$u))return ['conversation_id'=>$c,'status'=>'not_available'];
+        if($act==='assign'&&!self::conversation_manager($c,$u))return ['conversation_id'=>$c,'status'=>'forbidden'];
+        $assignee=absint($params['assignee_id']??0);if($act==='assign'&&($assignee<=0||!self::conversation_member($c,$assignee)))return ['conversation_id'=>$c,'status'=>'assignee_unavailable'];
+        if($preview)return ['conversation_id'=>$c,'status'=>'preview_ok'];
+        try{
+            if($act==='mark_read'){$max=(int)$wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM '.SN_DB::table('messages').' WHERE conversation_id=%d AND deleted_at IS NULL',$c));$ok=$wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('members').' SET last_read_message_id=GREATEST(last_read_message_id,%d) WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',$max,$c,$u));if($ok===false)throw new RuntimeException('mark_read_failed');}
+            elseif($act==='mark_unread'){$last=(int)$wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM '.SN_DB::table('messages').' WHERE conversation_id=%d AND deleted_at IS NULL',$c));$prev=$last>0?(int)$wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM '.SN_DB::table('messages').' WHERE conversation_id=%d AND id<%d AND deleted_at IS NULL',$c,$last)):0;$ok=$wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('members').' SET last_read_message_id=LEAST(last_read_message_id,%d) WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',$prev,$c,$u));if($ok===false)throw new RuntimeException('mark_unread_failed');}
+            elseif(in_array($act,['archive','unarchive','mute','unmute'],true)){$field=str_contains($act,'archive')?'is_archived':'is_muted';$value=in_array($act,['archive','mute'],true)?1:0;$ok=$wpdb->update(SN_DB::table('members'),[$field=>$value],['conversation_id'=>$c,'user_id'=>$u,'left_at'=>null]);if($ok===false)throw new RuntimeException('preference_failed');}
+            elseif($act==='label'){$label=mb_substr(sanitize_text_field((string)($params['label']??'')),0,80);$id=self::upsert_record('F17-FUT-10',$u,'conversation',$c,['subtype'=>'label','label'=>$label,'updated_by'=>$u],'bulk-label:'.$u.':'.$c,null);if(is_wp_error($id))throw new RuntimeException($id->get_error_code());}
+            elseif($act==='assign'){$team=['enabled'=>true,'assignee_id'=>$assignee,'status'=>'open','updated_by'=>$u,'bulk_job_id'=>$job_id];$a=self::upsert_record('F17-FUT-05',0,'conversation',$c,$team,'team:'.$c,null);if(is_wp_error($a))throw new RuntimeException($a->get_error_code());$b=self::upsert_record('F17-FUT-06',0,'conversation',$c,['assignee_id'=>$assignee,'handoff_by'=>$u,'status'=>'open','bulk_job_id'=>$job_id],'assignment:'.$c,null);if(is_wp_error($b))throw new RuntimeException($b->get_error_code());}
+            elseif($act==='export_request'){do_action('sn_network_conversation_export_requested',['owner'=>'file-17','conversation_id'=>$c,'requester_id'=>$u,'bulk_job_id'=>$job_id,'idempotency_key'=>'file17-bulk-export:'.$job_id.':'.$c]);}
+            else return ['conversation_id'=>$c,'status'=>'unsupported'];
+            SN_DB::audit('future_bulk_item','conversation',$c,'success',['action'=>$act,'bulk_job_id'=>$job_id],$u);return ['conversation_id'=>$c,'status'=>'changed'];
+        }catch(Throwable $e){SN_DB::audit('future_bulk_item','conversation',$c,'failure',['action'=>$act,'bulk_job_id'=>$job_id,'reason'=>$e->getMessage()],$u);return ['conversation_id'=>$c,'status'=>'failed'];}
+    }
+
     public static function save_smart_view(WP_REST_Request $r): WP_REST_Response|WP_Error {$u=get_current_user_id();$name=mb_substr(sanitize_text_field((string)$r->get_param('name')),0,100);if($name==='')return self::error('sn_smart_view_invalid','A view name is required.',400);$criteria=is_array($r->get_param('criteria'))?$r->get_param('criteria'):[];$clean=[];foreach(['unread','muted','archived','has_files','from_verified','conversation_type','days'] as $k)if(array_key_exists($k,$criteria))$clean[$k]=is_bool($criteria[$k])?$criteria[$k]:mb_substr(sanitize_text_field((string)$criteria[$k]),0,60);$id=self::create_record('F17-FUT-11',$u,'user',$u,['name'=>$name,'criteria'=>$clean],self::client($r,$u,'smart-view'),null);return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'name'=>$name,'criteria'=>$clean],201);}
     public static function list_smart_views(): WP_REST_Response {return rest_ensure_response(['items'=>self::owned('F17-FUT-11',get_current_user_id())]);}
     public static function create_qr_invite(WP_REST_Request $r): WP_REST_Response|WP_Error {$space=absint($r->get_param('space_id'));$u=get_current_user_id();if(!self::space_manager($space,$u))return self::error('forbidden','Space management permission is required.',403);$role=self::enum((string)$r->get_param('role'),['member','observer'],'member');$exp=time()+max(1,min(168,absint($r->get_param('expires_in_hours'))?:24))*HOUR_IN_SECONDS;$claims=['typ'=>'f17-space-invite','space_id'=>$space,'role'=>$role,'iss'=>$u,'nonce'=>wp_generate_uuid4(),'exp'=>$exp];$token=SN_Communication_Crypto::sign($claims,'future-space-invite');$hash=hash('sha256',$token);$id=self::create_record('F17-FUT-12',$u,'space',$space,['token_hash'=>$hash,'role'=>$role],'qr-invite:'.$hash,gmdate('Y-m-d H:i:s',$exp));return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'token'=>$token,'expires_at'=>gmdate('c',$exp),'qr_payload'=>'sn-network://community-invite?token='.rawurlencode($token)],201);}
