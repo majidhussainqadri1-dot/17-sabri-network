@@ -4,9 +4,11 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-a.php';
+require_once SN_DIR . 'includes/class-sn-future24-review-hardening-b.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
         SN_Future24_Review_Hardening_A::register();
+        SN_Future24_Review_Hardening_B::register();
     }
 }
