@@ -72,6 +72,7 @@ jobs:
           run_test forty-round-review-3-canonical-safety-resilience-contracts.php
           run_test forty-round-review-4-release-truth-contracts.php
           run_test two-plan-completion-contracts.php
+          run_test future24-forty-round-corrective-static-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -100,6 +101,7 @@ jobs:
             tail -n 80 /tmp/file17-quality.log | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::error file=sabri-network\/tools\/quality-check.sh::/'
             exit 1
           fi
+          php sabri-network/tests/future24-forty-round-corrective-static-contracts.php
       - name: Upload governed 2.1.0 candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
