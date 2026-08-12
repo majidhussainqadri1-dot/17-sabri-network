@@ -1,17 +1,15 @@
 <?php
-/** Review rounds 41–42 — fail-closed REST message visibility and reminder scoping. */
+/** Review rounds 41–42 + 44 — fail-closed REST message visibility and reminder scoping. */
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 final class SN_Future24_Review_Hardening_P {
     public static function register(): void {
         // SN_Central_Plan_Hardening decrypts legacy message bodies at priority 50.
-        // Revalidate authoritative visibility afterwards so a formatter cannot revive
-        // a deleted/hidden message or disclose a body outside an active membership.
         add_filter('rest_post_dispatch', [self::class, 'redact_unavailable_message_bodies'], 60, 3);
-        // Future-Superset routes are registered at priority 1700; override the reminder
-        // mutation afterwards so message-linked reminders cannot point at arbitrary rows.
-        add_action('rest_api_init', [self::class, 'override_reminder_route'], 1800);
+        // Reminder hardening M registers at 2001. Register later and delegate to M so
+        // message scope and timezone/lifecycle protections are both preserved.
+        add_action('rest_api_init', [self::class, 'override_reminder_route'], 2100);
     }
 
     public static function override_reminder_route(): void {
@@ -36,18 +34,19 @@ final class SN_Future24_Review_Hardening_P {
             }
             global $wpdb;
             $row = $wpdb->get_row($wpdb->prepare(
-                'SELECT id,conversation_id,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d',
+                'SELECT id,conversation_id,sender_id,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d',
                 $message_id
             ));
             if (!$row
                 || (int) $row->conversation_id !== $conversation_id
                 || !empty($row->deleted_at)
-                || SN_Message_Operations::is_hidden($user, $message_id)) {
+                || SN_Message_Operations::is_hidden($user, $message_id)
+                || SN_DB::is_blocked($user, (int) $row->sender_id)) {
                 return new WP_Error('not_found', 'The requested message is unavailable.', ['status' => 404]);
             }
         }
 
-        return SN_Future_Superset::create_reminder($request);
+        return SN_Future24_Review_Hardening_M::create_reminder($request);
     }
 
     public static function redact_unavailable_message_bodies($response, WP_REST_Server $server, WP_REST_Request $request) {
@@ -67,41 +66,29 @@ final class SN_Future24_Review_Hardening_P {
                 $payload[$key] = self::redact_payload($value, $viewer);
             }
         }
-
-        if (!isset($payload['body']) || !is_string($payload['body'])) {
-            return $payload;
-        }
+        if (!isset($payload['body']) || !is_string($payload['body'])) return $payload;
 
         $message_id = absint($payload['message_id'] ?? 0);
-        if ($message_id <= 0 && isset($payload['conversation_id'], $payload['id'])) {
-            $message_id = absint($payload['id']);
-        }
-        if ($message_id <= 0) {
-            return $payload;
-        }
+        if ($message_id <= 0 && isset($payload['conversation_id'], $payload['id'])) $message_id = absint($payload['id']);
+        if ($message_id <= 0) return $payload;
 
         global $wpdb;
         static $cache = [];
         if (!array_key_exists($message_id, $cache)) {
             $cache[$message_id] = $wpdb->get_row($wpdb->prepare(
-                'SELECT id,conversation_id,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d',
+                'SELECT id,conversation_id,sender_id,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d',
                 $message_id
             ));
         }
         $row = $cache[$message_id];
-        if (!$row) {
-            return $payload;
-        }
-
-        // If the payload supplies a conversation id, it must agree with canonical truth.
-        if (isset($payload['conversation_id']) && absint($payload['conversation_id']) !== (int) $row->conversation_id) {
-            return self::redacted($payload);
-        }
+        if (!$row) return $payload;
+        if (isset($payload['conversation_id']) && absint($payload['conversation_id']) !== (int) $row->conversation_id) return self::redacted($payload);
 
         $unavailable = !empty($row->deleted_at)
             || $viewer <= 0
             || !SN_DB::is_member((int) $row->conversation_id, $viewer)
-            || SN_Message_Operations::is_hidden($viewer, $message_id);
+            || SN_Message_Operations::is_hidden($viewer, $message_id)
+            || SN_DB::is_blocked($viewer, (int) $row->sender_id);
 
         return $unavailable ? self::redacted($payload) : $payload;
     }
