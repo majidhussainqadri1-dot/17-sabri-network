@@ -44,6 +44,30 @@ final class SN_Future_Superset {
         'F17-FUT-24'=>['slug'=>'interop-gateway','phase'=>'advanced-trust','provider'=>'interop','label'=>'Standards-Based Interoperability Gateway'],
     ]; }
 
+    /**
+     * Preserve idempotency even when a caller omits or mangles client_id.
+     * Explicit valid keys remain authoritative; otherwise an identical request body
+     * maps to a deterministic per-user/per-operation fallback instead of a random UUID.
+     */
+    private static function client(WP_REST_Request $request, int $user_id, string $purpose): string {
+        $candidate = strtolower(trim((string) $request->get_param('client_id')));
+        if (preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $candidate)) {
+            return $user_id . ':' . $purpose . ':' . $candidate;
+        }
+        $params = $request->get_params();
+        unset($params['client_id']);
+        $normalize = static function (&$value) use (&$normalize): void {
+            if (!is_array($value)) return;
+            if (!array_is_list($value)) ksort($value, SORT_STRING);
+            foreach ($value as &$nested) $normalize($nested);
+            unset($nested);
+        };
+        $normalize($params);
+        $json = wp_json_encode($params, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $fingerprint = substr(hash('sha256', (string) $json), 0, 48);
+        return $user_id . ':' . $purpose . ':auto-' . $fingerprint;
+    }
+
     public static function register(): void {
         add_action('init',[self::class,'maybe_upgrade'],28);
         add_action('rest_api_init',[self::class,'register_routes'],1700);
