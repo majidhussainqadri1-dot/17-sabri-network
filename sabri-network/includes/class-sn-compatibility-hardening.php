@@ -19,8 +19,8 @@ final class SN_Compatibility_Hardening {
         SN_Two_Plan_Completion::register();
         SN_Two_Plan_Contract_Firewall::register();
         SN_Two_Plan_Presentation::register();
+        // SN_Two_Plan_Runtime_Hardening is the single Future-24 registration owner.
         SN_Two_Plan_Runtime_Hardening::register();
-        SN_Future_Superset::register();
         SN_Future24_Review_Hardening::register();
     }
 
