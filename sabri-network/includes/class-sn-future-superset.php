@@ -68,6 +68,67 @@ final class SN_Future_Superset {
         return $user_id . ':' . $purpose . ':auto-' . $fingerprint;
     }
 
+    /** Claim reminder work before File 19 handoff and emit a stable deduplication key. */
+    public static function cleanup(): void {
+        global $wpdb;
+        $now = self::now();
+        $stale = gmdate('Y-m-d H:i:s', time() - 15 * MINUTE_IN_SECONDS);
+        $wpdb->query($wpdb->prepare(
+            "UPDATE " . self::records_table() . " SET state='active',updated_at=%s,version=version+1 WHERE feature_id='F17-FUT-07' AND state='firing' AND updated_at<%s",
+            $now,
+            $stale
+        ));
+        $due = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-07' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200",
+            $now
+        ));
+        foreach (is_array($due) ? $due : [] as $record) {
+            $data = self::decode($record);
+            if (is_wp_error($data)) continue;
+            $claimed = $wpdb->update(
+                self::records_table(),
+                ['state'=>'firing','updated_at'=>$now,'version'=>(int)$record->version+1],
+                ['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]
+            );
+            if ($claimed !== 1) continue;
+            try {
+                do_action('sn_network_notification_requested', [
+                    'owner'=>'file-17',
+                    'recipient_id'=>(int)$record->owner_id,
+                    'type'=>'communication_reminder',
+                    'title'=>'Communication reminder',
+                    'body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),
+                    'entity_type'=>'conversation',
+                    'entity_id'=>(int)$record->scope_id,
+                    'message_id'=>(int)($data['message_id']??0),
+                    'idempotency_key'=>'file17-future-reminder:' . (int)$record->id,
+                ]);
+                $wpdb->update(
+                    self::records_table(),
+                    ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2],
+                    ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]
+                );
+            } catch (Throwable $error) {
+                $wpdb->update(
+                    self::records_table(),
+                    ['state'=>'active','updated_at'=>self::now(),'version'=>(int)$record->version+2],
+                    ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]
+                );
+                SN_DB::audit('future_reminder_handoff_failed','future_record',(int)$record->id,'failure',['reason'=>$error->getMessage()],(int)$record->owner_id);
+            }
+        }
+        $temp = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-13' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200",
+            $now
+        ));
+        foreach (is_array($temp) ? $temp : [] as $record) self::expire_temp($record);
+        $wpdb->query($wpdb->prepare(
+            "UPDATE " . self::records_table() . " SET state='expired',updated_at=%s,version=version+1 WHERE state='active' AND expires_at IS NOT NULL AND expires_at<%s AND feature_id NOT IN ('F17-FUT-07','F17-FUT-13')",
+            $now,
+            $now
+        ));
+    }
+
     public static function register(): void {
         add_action('init',[self::class,'maybe_upgrade'],28);
         add_action('rest_api_init',[self::class,'register_routes'],1700);
