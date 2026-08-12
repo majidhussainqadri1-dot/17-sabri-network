@@ -65,6 +65,7 @@ $check(substr_count($compat,'SN_Future_Superset::register();')===0,'Compatibilit
 $check(str_contains($review_loader,"class-sn-future24-review-hardening-o.php")&&str_contains($review_loader,'SN_Future24_Review_Hardening_O::register()'),'Round-38 hardening O must be loaded and registered.');
 $check(str_contains($review_o,'future24_mutation')&&str_contains($review_o,'sn_future24_rate_limited'),'Advanced Future-24 mutations must have a global abuse budget.');
 $check(str_contains($review_o,"feature_id='F17-FUT-10'")&&str_contains($review_o,"state='processing'")&&str_contains($review_o,"state='queued'")&&str_contains($review_o,'cleanup_breakouts'),'Bulk-job crash recovery and breakout-expiry ordering must be hardened.');
+$check(str_contains($review_o,'BULK_RECOVERY_BATCH = 200')&&str_contains($review_o,"state='queued' AND expires_at")&&str_contains($review_o,"state='processing' AND updated_at<%s AND expires_at")&&substr_count($review_o,'LIMIT $batch')===3,'Round-40 recovery must be bounded and must not expire an active processing worker solely on wall-clock expiry.');
 
-if($checks!==71)$fail[]='Expected 71 checks, got '.$checks;
+if($checks!==72)$fail[]='Expected 72 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Two-plan completion failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Two-plan completion contracts: PASS ($checks checks)\n";
