@@ -1,0 +1,23 @@
+<?php
+/** Review round 26+ — privacy-minimized call quality and advanced AI/search hardening. */
+declare(strict_types=1);
+defined('ABSPATH') || exit;
+
+final class SN_Future24_Review_Hardening_G {
+    public static function register():void{add_action('rest_api_init',[self::class,'routes'],1997);}
+    public static function routes():void{
+        register_rest_route('sabri-network/v2','/calls/(?P<id>\d+)/network-quality',['methods'=>'POST','callback'=>[self::class,'network_quality'],'permission_callback'=>[SN_REST::class,'access']],true);
+    }
+    public static function network_quality(WP_REST_Request $r):WP_REST_Response|WP_Error{
+        global $wpdb;$call=absint($r['id']);$user=get_current_user_id();if(!self::call_member($call,$user))return self::not_found();
+        $loss=max(0,min(100,(float)$r->get_param('packet_loss_pct')));$rtt=max(0,min(5000,absint($r->get_param('rtt_ms'))));$jitter=max(0,min(5000,absint($r->get_param('jitter_ms'))));$down=max(0,min(1000000,absint($r->get_param('downlink_kbps'))));
+        $quality=$loss>=8||$rtt>=700?'poor':($loss>=3||$rtt>=350?'fair':'good');$hints=$quality==='poor'?['prefer_audio_only'=>true,'reduce_video_resolution'=>true,'retry_ice'=>true]:($quality==='fair'?['reduce_video_resolution'=>true]:[]);
+        $consent=rest_sanitize_boolean($r->get_param('telemetry_consent'));if(!$consent)return rest_ensure_response(['quality'=>$quality,'hints'=>$hints,'stored'=>false,'diagnostic_only'=>true]);
+        $expires=gmdate('Y-m-d H:i:s',time()+max(1,min(72,(int)apply_filters('sn_network_quality_retention_hours',24,$user,$call)))*HOUR_IN_SECONDS);$payload=['quality'=>$quality,'packet_loss_bucket'=>self::bucket($loss,[1,3,8,15]),'rtt_bucket'=>self::bucket($rtt,[100,250,500,1000]),'jitter_bucket'=>self::bucket($jitter,[20,50,100,250]),'downlink_bucket'=>self::bucket($down,[300,1000,3000,10000]),'consent'=>true];$id=self::upsert($user,$call,$payload,$expires);if(is_wp_error($id))return $id;SN_DB::audit('future_network_quality','call',$call,'success',['quality'=>$quality,'retention_hours'=>round((strtotime($expires)-time())/HOUR_IN_SECONDS)],$user);return rest_ensure_response(['quality'=>$quality,'hints'=>$hints,'stored'=>true,'expires_at'=>$expires,'diagnostic_only'=>true]);
+    }
+    private static function upsert(int $owner,int $call,array $data,string $expires):int|WP_Error{global $wpdb;$key=hash('sha256','quality:'.$call.':'.$owner);$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.$wpdb->prefix.'sn_future_records WHERE client_key=%s LIMIT 1',$key));$dummy=$row?:((object)['feature_id'=>'F17-FUT-21','owner_id'=>$owner,'scope_type'=>'call','scope_id'=>$call,'version'=>0]);$cipher=self::encode($dummy,$data);if(is_wp_error($cipher))return $cipher;$now=current_time('mysql',true);if($row){$ok=$wpdb->update($wpdb->prefix.'sn_future_records',['payload_cipher'=>$cipher,'state'=>'active','expires_at'=>$expires,'updated_at'=>$now,'version'=>(int)$row->version+1],['id'=>(int)$row->id,'version'=>(int)$row->version]);return $ok===1?(int)$row->id:self::error('sn_quality_conflict','Quality state changed concurrently.',409);}$ok=$wpdb->insert($wpdb->prefix.'sn_future_records',['feature_id'=>'F17-FUT-21','owner_id'=>$owner,'scope_type'=>'call','scope_id'=>$call,'state'=>'active','payload_cipher'=>$cipher,'client_key'=>$key,'expires_at'=>$expires,'created_at'=>$now,'updated_at'=>$now,'version'=>1]);return $ok===false?self::error('database_error','Quality state could not be stored safely.',500):(int)$wpdb->insert_id;}
+    private static function bucket(float|int $value,array $cuts):string{$i=0;foreach($cuts as $cut){if($value<$cut)return 'b'.$i;$i++;}return 'b'.$i;}
+    private static function call_member(int $call,int $u):bool{global $wpdb;return(bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM ".SN_DB::table('call_members')." WHERE call_id=%d AND user_id=%d AND status IN ('invited','joined') LIMIT 1",$call,$u));}
+    private static function encode(object $row,array $data):string|WP_Error{return SN_Communication_Crypto::encrypt((string)wp_json_encode($data),'future-record|'.(string)$row->feature_id.'|'.(int)$row->owner_id.'|'.(string)$row->scope_type.'|'.(int)$row->scope_id);}
+    private static function not_found():WP_Error{return self::error('not_found','Requested communication object is unavailable.',404);}private static function error(string $c,string $m,int $s):WP_Error{return new WP_Error($c,$m,['status'=>$s]);}
+}
