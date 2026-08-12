@@ -35,7 +35,7 @@ $assert(str_contains($part1, 'SN_Message_Operations::is_hidden($u,(int)$m->id)')
 $assert(str_contains($future, "state='firing'"), 'Reminder handoff must claim due work before notifying File 19.');
 $assert(str_contains($future, 'file17-future-reminder:'), 'Reminder handoff must expose a stable downstream idempotency key.');
 $assert(str_contains($part2, "'mark_unread','label','assign','export_request'"), 'Bulk operations must include the approved superset actions.');
-$assert(str_contains($part2, "['state'=>'processing'") && str_contains($part2, "['id'=>(int)$job->id,'state'=>'queued'") && str_contains($part2, "['id'=>(int)$job->id,'state'=>'processing'"), 'Bulk jobs must claim queued work, process bounded chunks, and use a resumable processing-to-queued state transition.');
+$assert(str_contains($part2, "['state'=>'processing'") && str_contains($part2, "['id'=>(int)\$job->id,'state'=>'queued'") && str_contains($part2, "['id'=>(int)\$job->id,'state'=>'processing'"), 'Bulk jobs must claim queued work, process bounded chunks, and use a resumable processing-to-queued state transition.');
 
 $checks = [
     'includes/class-sn-future24-review-hardening-a.php' => ['smart-views/(?P<id>\\d+)/results', 'community-invites/(?P<id>\\d+)/revoke', 'FOR UPDATE'],
