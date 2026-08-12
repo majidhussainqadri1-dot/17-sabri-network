@@ -8,6 +8,7 @@ require_once SN_DIR . 'includes/class-sn-future24-review-hardening-b.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-c.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-d.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-e.php';
+require_once SN_DIR . 'includes/class-sn-future24-review-hardening-f.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -16,5 +17,6 @@ final class SN_Future24_Review_Hardening {
         SN_Future24_Review_Hardening_C::register();
         SN_Future24_Review_Hardening_D::register();
         SN_Future24_Review_Hardening_E::register();
+        SN_Future24_Review_Hardening_F::register();
     }
 }
