@@ -23,5 +23,12 @@ fr4a_check(str_contains($completeness, 'Transactional outbox/inbox') || str_cont
 foreach (['Communities, groups, channels and private teams','General per-device presence','Governed mentions and audience-minimized forwarding','Secret-free STUN/TURN/SFU provider governance'] as $completedDomain) {
     fr4a_check(str_contains($completeness, $completedDomain), "Completeness evidence must record coded domain: $completedDomain");
 }
-fr4a_check(str_contains($completeness, '**Coding classification:** **100% code-complete corrective candidate for repository-owned/current-wave scope**') && str_contains($completeness, '**Staging-Accepted:** pending'), 'Completion evidence must state the code-complete but staging-pending boundary.');
+fr4a_check(
+    str_contains($completeness, '**Coding classification:**') &&
+    str_contains($completeness, 'code-complete corrective candidate for repository-owned/current-wave scope') &&
+    str_contains($completeness, '**Staging-Accepted:** pending') &&
+    str_contains($completeness, '**Live-Deployed:** not claimed') &&
+    !preg_match('/(?:production-ready|staging-accepted\s*:\s*(?:yes|complete)|live-deployed\s*:\s*(?:yes|complete))/i', $completeness),
+    'Completion evidence must state the code-complete candidate but staging/live-pending boundary.'
+);
 if($failures){fwrite(STDERR,"Fourth-review adversarial failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Fourth-review adversarial contracts: PASS ($checks checks)\n";
