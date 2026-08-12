@@ -22,26 +22,27 @@ $part2 = $read('includes/class-sn-future-superset-part-2.php');
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
 $assert(substr_count($compat, 'SN_Future_Superset::register();') === 0, 'Compatibility hardening must not register Future-24 a second time.');
 
-foreach (range('a', 'n') as $suffix) {
+foreach (range('a', 'o') as $suffix) {
     $path = "includes/class-sn-future24-review-hardening-{$suffix}.php";
     $assert(is_file($root . '/' . $path), "Missing corrective hardening {$suffix}.");
     $assert(str_contains($loader, "class-sn-future24-review-hardening-{$suffix}.php"), "Loader does not require corrective hardening {$suffix}.");
+    $assert(str_contains($loader, 'SN_Future24_Review_Hardening_' . strtoupper($suffix) . '::register()'), "Loader does not register corrective hardening {$suffix}.");
 }
 
 $assert(str_contains($part1, 'sn_network_device_public_key_valid'), 'Device public-key validation must fail closed through an approved provider.');
 $assert(str_contains($part1, 'sn_conversation_step_up_required'), 'Sensitive conversation lock must require step-up.');
-$assert(str_contains($part1, 'SN_Message_Operations::is_hidden'), 'Message-version history must respect hidden-message state.');
+$assert(str_contains($part1, 'SN_Message_Operations::is_hidden($u,(int)$m->id)'), 'Message-version capture must respect hidden-message state with the canonical user/message argument order.');
 $assert(str_contains($future, "state='firing'"), 'Reminder handoff must claim due work before notifying File 19.');
 $assert(str_contains($future, 'file17-future-reminder:'), 'Reminder handoff must expose a stable downstream idempotency key.');
 $assert(str_contains($part2, "'mark_unread','label','assign','export_request'"), 'Bulk operations must include the approved superset actions.');
-$assert(str_contains($part2, "state='processing'"), 'Bulk jobs must use a resumable processing state.');
+$assert(str_contains($part2, "['state'=>'processing'") && str_contains($part2, "['id'=>(int)$job->id,'state'=>'queued'") && str_contains($part2, "['id'=>(int)$job->id,'state'=>'processing'"), 'Bulk jobs must claim queued work, process bounded chunks, and use a resumable processing-to-queued state transition.');
 
 $checks = [
     'includes/class-sn-future24-review-hardening-a.php' => ['smart-views/(?P<id>\\d+)/results', 'community-invites/(?P<id>\\d+)/revoke', 'FOR UPDATE'],
     'includes/class-sn-future24-review-hardening-b.php' => ['sn_network_mentor_eligible', 'guardian_communication_approved', '/end'],
     'includes/class-sn-future24-review-hardening-c.php' => ['sn_network_citation_resolve', 'sn_network_case_discussion_deidentify', 'retention_days'],
-    'includes/class-sn-future24-review-hardening-d.php' => ['speaker-queue', 'reorder', "action==='next'"],
-    'includes/class-sn-future24-review-hardening-e.php' => ['breakouts/move', 'breakouts/close', 'sn_network_sfu_available'],
+    'includes/class-sn-future24-review-hardening-d.php' => ['speaker-queue', 'reorder', "action==='next'", 'bool|WP_Error'],
+    'includes/class-sn-future24-review-hardening-e.php' => ['breakouts/move', 'breakouts/close', 'sn_network_sfu_available', 'bool|WP_Error'],
     'includes/class-sn-future24-review-hardening-f.php' => ['host-transfer/confirm', 'host-takeover', 'pending_transfer'],
     'includes/class-sn-future24-review-hardening-g.php' => ['telemetry_consent', 'explicit_consent', 'semantic-search/consent', 'exported_to_file26'],
     'includes/class-sn-future24-review-hardening-h.php' => ['interop_inbound', 'quarantine', 'kill_switch', 'event_id'],
@@ -50,7 +51,8 @@ $checks = [
     'includes/class-sn-future24-review-hardening-k.php' => ['sn_network_team_inbox_delegation_allowed', '/notes', 'assigned_to_me'],
     'includes/class-sn-future24-review-hardening-l.php' => ['expected_version', 'handoff_reason', 'sla_due_at', 'FOR UPDATE'],
     'includes/class-sn-future24-review-hardening-m.php' => ['timezone_required', 'reschedule', 'cancelled_preflight'],
-    'includes/class-sn-future24-review-hardening-n.php' => ['ALLOWED_VARIABLES', '/preview', '/versions', 'template_revision'],
+    'includes/class-sn-future24-review-hardening-n.php' => ['ALLOWED_VARIABLES', '/preview', '/versions', 'template_revision', 'bool|WP_Error'],
+    'includes/class-sn-future24-review-hardening-o.php' => ['future24_mutation', 'BULK_RECOVERY_BATCH', "state='processing'", 'LIMIT $batch'],
 ];
 foreach ($checks as $file => $needles) {
     $source = $read($file);
@@ -59,5 +61,8 @@ foreach ($checks as $file => $needles) {
 
 $assert(!str_contains($read('includes/class-sn-future24-review-hardening-g.php'), "'query'=>"), 'Semantic search must not log raw private query text.');
 $assert(!str_contains($read('includes/class-sn-future24-review-hardening-h.php'), "'payload'=>\$payload"), 'Interop receipts must not persist raw inbound payloads.');
+$assert(!str_contains($read('includes/class-sn-future24-review-hardening-d.php'), ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
+$assert(!str_contains($read('includes/class-sn-future24-review-hardening-e.php'), ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
+$assert(!str_contains($read('includes/class-sn-future24-review-hardening-n.php'), ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
 
 fwrite(STDOUT, "Future-24 fresh forty-round corrective static contracts: PASS\n");
