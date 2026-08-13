@@ -11,16 +11,29 @@ if find "$STAGE/sabri-network" -type l -print -quit | grep -q .; then echo 'Pack
 find "$STAGE/sabri-network" -type d -exec chmod 0755 {} +
 find "$STAGE/sabri-network" -type f -exec chmod 0644 {} +
 find "$STAGE/sabri-network" -type f -name '*.php' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
-node --check "$STAGE/sabri-network/assets/js/network.js"
-node --check "$STAGE/sabri-network/assets/js/meet.js"
-node --check "$STAGE/sabri-network/assets/js/messages.js"
-node --check "$STAGE/sabri-network/assets/js/message-search.js"
-node --check "$STAGE/sabri-network/assets/js/smail.js"
-node --check "$STAGE/sabri-network/assets/js/file-transfer.js"
-node --check "$STAGE/sabri-network/assets/js/two-plan-ui.js"
+for file in network.js meet.js messages.js message-search.js smail.js file-transfer.js two-plan-ui.js future-superset.js; do
+  node --check "$STAGE/sabri-network/assets/js/$file"
+done
 grep -q 'Version: 2.1.0' "$STAGE/sabri-network/sabri-network.php"
 grep -q "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')" "$STAGE/sabri-network/sabri-network.php"
-for file in includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md includes/class-sn-smail.php includes/class-sn-file-transfer.php includes/class-sn-communication-crypto.php includes/class-sn-message-body.php includes/class-sn-central-plan-hardening.php includes/class-sn-compatibility-hardening.php includes/class-sn-two-plan-completion.php includes/class-sn-two-plan-contract-firewall.php includes/class-sn-two-plan-presentation.php assets/js/two-plan-ui.js assets/css/two-plan-ui.css templates/smail-app.php templates/file-transfer-app.php; do test -f "$STAGE/sabri-network/$file"; done
+required=(
+  includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md
+  includes/class-sn-smail.php includes/class-sn-file-transfer.php
+  includes/class-sn-communication-crypto.php includes/class-sn-message-body.php
+  includes/class-sn-central-plan-hardening.php includes/class-sn-compatibility-hardening.php
+  includes/class-sn-two-plan-completion.php includes/class-sn-two-plan-contract-firewall.php
+  includes/class-sn-two-plan-presentation.php includes/class-sn-two-plan-runtime-hardening.php
+  includes/class-sn-membership-assertions.php includes/class-sn-relationship-runtime-hardening.php
+  includes/class-sn-message-runtime-hardening.php includes/class-sn-attachment-runtime-hardening.php
+  includes/class-sn-space-runtime-hardening.php includes/class-sn-realtime-runtime-hardening.php
+  includes/class-sn-call-runtime-hardening.php includes/class-sn-smail-runtime-hardening.php
+  includes/class-sn-privacy-runtime-hardening.php includes/class-sn-safety-runtime-hardening.php
+  includes/class-sn-future-superset.php includes/class-sn-future24-review-hardening.php
+  assets/js/two-plan-ui.js assets/js/future-superset.js
+  assets/css/two-plan-ui.css assets/css/future-superset.css
+  templates/smail-app.php templates/file-transfer-app.php
+)
+for file in "${required[@]}"; do test -f "$STAGE/sabri-network/$file" || { echo "Missing governed package surface: $file" >&2; exit 1; }; done
 (
  cd "$STAGE"
  find sabri-network -type f ! -name 'MANIFEST.sha256' -print | sort | while IFS= read -r file; do sha256sum "$file"; done > sabri-network/MANIFEST.sha256

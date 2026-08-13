@@ -2,94 +2,42 @@
 defined('ABSPATH') || exit;
 
 trait SN_File_Transfer_Part_5 {
-
     public static function revoke(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        global $wpdb; $row = self::session((string) $request['public_id']); $user_id = get_current_user_id();
-        if (!$row || (int) $row->sender_id !== $user_id) { return self::not_found(); }
-        if ($row->revoked_at) { return rest_ensure_response(['revoked' => true, 'duplicate' => true]); }
-        $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
-        try {
-            if ($wpdb->query($wpdb->prepare('UPDATE ' . self::sessions_table() . ' SET status=\'revoked\',revoked_at=%s,version=version+1,updated_at=%s WHERE id=%d AND revoked_at IS NULL', $now, $now, (int) $row->id)) !== 1) { throw new RuntimeException('revoke_race'); }
-            $wpdb->query($wpdb->prepare('UPDATE ' . self::recipients_table() . ' SET state=\'revoked\',revoked_at=%s,updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL', $now, $now, (int) $row->id));
-            $event = SN_Outbox::enqueue('file-transfer.revoked', 'file_transfer', (int) $row->id, ['transfer_id' => (int) $row->id, 'sender_id' => $user_id], 'file-transfer-revoked-' . $row->id);
-            if (is_wp_error($event)) { throw new RuntimeException('revoke_event_failed'); }
-            $wpdb->query('COMMIT');
-        } catch (Throwable $e) { $wpdb->query('ROLLBACK'); return new WP_Error('transfer_revoke_failed', 'The transfer could not be revoked.', ['status' => 500]); }
-        SN_DB::audit('file_transfer_revoked', 'file_transfer', (int) $row->id);
-        return rest_ensure_response(['revoked' => true]);
+        global $wpdb;$row=self::session((string)$request['public_id']);$user=get_current_user_id();if(!$row||(int)$row->sender_id!==$user)return self::not_found();if($row->revoked_at)return rest_ensure_response(['revoked'=>true,'duplicate'=>true]);$now=current_time('mysql',true);$event=null;
+        if($wpdb->query('START TRANSACTION')===false)return new WP_Error('transfer_revoke_failed','The transfer revocation transaction could not start.',['status'=>500]);
+        try{
+            $locked=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::sessions_table().' WHERE id=%d FOR UPDATE',(int)$row->id));if(!$locked)throw new RuntimeException('transfer_missing');if($locked->revoked_at){$wpdb->query('ROLLBACK');return rest_ensure_response(['revoked'=>true,'duplicate'=>true]);}
+            if($wpdb->query($wpdb->prepare("UPDATE ".self::sessions_table()." SET status='revoked',revoked_at=%s,version=version+1,updated_at=%s WHERE id=%d AND revoked_at IS NULL",$now,$now,(int)$row->id))!==1)throw new RuntimeException('revoke_session_failed');
+            $recipient_update=$wpdb->query($wpdb->prepare("UPDATE ".self::recipients_table()." SET state='revoked',revoked_at=%s,updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL",$now,$now,(int)$row->id));if($recipient_update===false)throw new RuntimeException('revoke_recipients_failed');
+            $event=SN_Outbox::enqueue('file-transfer.revoked','file_transfer',(int)$row->id,['transfer_id'=>(int)$row->id,'sender_id'=>$user],'file-transfer-revoked-'.$row->id);if(is_wp_error($event))throw new RuntimeException('revoke_event_failed');
+            if($wpdb->query('COMMIT')===false)throw new RuntimeException('revoke_commit_failed');
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');$fresh=self::session((string)$row->public_id);if($fresh&&$fresh->revoked_at){$remaining=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::recipients_table().' WHERE transfer_id=%d AND revoked_at IS NULL',(int)$row->id));if($remaining===0)return rest_ensure_response(['revoked'=>true,'duplicate'=>true,'commit_reconciled'=>true]);}SN_DB::audit('file_transfer_revoke_failed','file_transfer',(int)$row->id,'failure',['reason'=>$e->getMessage()],$user);return new WP_Error('transfer_revoke_failed','The transfer could not be revoked atomically.',['status'=>500]);}
+        do_action('sn_network_event_queued',$event,'file-transfer.revoked');SN_DB::audit('file_transfer_revoked','file_transfer',(int)$row->id,'success',[],$user);return rest_ensure_response(['revoked'=>true]);
     }
 
     public static function maybe_download(): void {
-        if (!isset($_GET['sn_file17_transfer_download'], $_GET['grant'])) { return; }
-        $public_id = sanitize_text_field(wp_unslash($_GET['sn_file17_transfer_download']));
-        $token = sanitize_text_field(wp_unslash($_GET['grant']));
-        $claims = SN_Communication_Crypto::verify($token, 'file-transfer-download');
-        if (is_wp_error($claims) || !is_user_logged_in() || (int) ($claims['user'] ?? 0) !== get_current_user_id() || !hash_equals((string) ($claims['transfer'] ?? ''), $public_id)) { status_header(403); exit('Private transfer access denied.'); }
-        $row = self::session($public_id); $user_id = get_current_user_id();
-        if (!$row || (int) ($claims['version'] ?? 0) !== (int) $row->version || !self::can_access($row, $user_id) || (string) $row->status !== 'ready' || (string) $row->scan_status !== 'clean' || $row->revoked_at || strtotime((string) $row->expires_at) <= time()) { status_header(404); exit('Private transfer unavailable.'); }
-        $policy = self::revalidate($row, $user_id, (int) $row->sender_id === $user_id); if (is_wp_error($policy)) { $data = $policy->get_error_data(); status_header(is_array($data) ? (int) ($data['status'] ?? 403) : 403); exit('Private transfer access denied.'); }
-        self::stream_download($row, $user_id); exit;
+        if(!isset($_GET['sn_file17_transfer_download'],$_GET['grant']))return;$public=sanitize_text_field(wp_unslash($_GET['sn_file17_transfer_download']));$token=sanitize_text_field(wp_unslash($_GET['grant']));$claims=SN_Communication_Crypto::verify($token,'file-transfer-download');
+        if(is_wp_error($claims)||!is_user_logged_in()||(int)($claims['user']??0)!==get_current_user_id()||!hash_equals((string)($claims['transfer']??''),$public)){status_header(403);exit('Private transfer access denied.');}
+        $row=self::session($public);$user=get_current_user_id();if(!$row||(int)($claims['version']??0)!==(int)$row->version||!self::can_access($row,$user)||(string)$row->status!=='ready'||(string)$row->scan_status!=='clean'||$row->revoked_at||strtotime((string)$row->expires_at)<=time()){status_header(404);exit('Private transfer unavailable.');}
+        $policy=self::revalidate($row,$user,(int)$row->sender_id===$user);if(is_wp_error($policy)){$data=$policy->get_error_data();status_header(is_array($data)?(int)($data['status']??403):403);exit('Private transfer access denied.');}
+        self::stream_download($row,$user);exit;
     }
 
-    private static function stream_download(object $row, int $user_id): void {
-        global $wpdb;
-        $total = (int) $row->total_bytes; $start = 0; $end = $total - 1; $status = 200;
-        $range = isset($_SERVER['HTTP_RANGE']) ? trim((string) $_SERVER['HTTP_RANGE']) : '';
-        if ($range !== '' && preg_match('/^bytes=(\d*)-(\d*)$/', $range, $m)) {
-            if ($m[1] === '' && $m[2] !== '') { $length = min($total, (int) $m[2]); $start = $total - $length; }
-            else { $start = (int) $m[1]; if ($m[2] !== '') { $end = min($end, (int) $m[2]); } }
-            if ($start < 0 || $start > $end || $start >= $total) { header('Content-Range: bytes */' . $total); status_header(416); return; }
-            $status = 206;
-        }
-        status_header($status); nocache_headers();
-        header('Content-Type: ' . ($row->detected_mime ?: 'application/octet-stream'));
-        header('Content-Disposition: attachment; filename="' . str_replace(['"', "\r", "\n"], '', (string) $row->safe_name) . '"');
-        header('Accept-Ranges: bytes'); header('Content-Length: ' . (($end - $start) + 1));
-        header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: no-referrer'); header('Cache-Control: private, no-store, max-age=0');
-        if ($status === 206) { header("Content-Range: bytes $start-$end/$total"); }
-        $chunks = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . self::chunks_table() . ' WHERE transfer_id=%d ORDER BY chunk_index ASC', (int) $row->id));
-        $offset = 0; $sent = 0; $failed = false;
-        foreach ($chunks as $chunk) {
-            $chunk_start = $offset; $chunk_end = $offset + (int) $chunk->byte_count - 1; $offset = $chunk_end + 1;
-            if ($chunk_end < $start || $chunk_start > $end) { continue; }
-            $path = self::existing_storage_path((string) $chunk->storage_key);
-            if (is_wp_error($path)) { $failed = true; break; }
-            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
-            if (is_wp_error($plain)) { $failed = true; break; }
-            $slice_start = max(0, $start - $chunk_start); $slice_end = min((int) $chunk->byte_count - 1, $end - $chunk_start);
-            $slice = substr($plain, $slice_start, ($slice_end - $slice_start) + 1);
-            $sent += strlen($slice); echo $slice; if (ob_get_level() > 0) { @ob_flush(); } flush();
-        }
-        $expected = ($end - $start) + 1;
-        if ($failed || $sent !== $expected) {
-            SN_DB::audit('file_transfer_download_failed', 'file_transfer', (int) $row->id, 'failure', ['range' => $status === 206, 'expected_bytes' => $expected, 'sent_bytes' => $sent]);
-            return;
-        }
-        $now = current_time('mysql', true);
-        $wpdb->query($wpdb->prepare('UPDATE ' . self::recipients_table() . ' SET state=\'downloaded\',first_accessed_at=COALESCE(first_accessed_at,%s),downloaded_at=%s,updated_at=%s WHERE transfer_id=%d AND user_id=%d AND revoked_at IS NULL', $now, $now, $now, (int) $row->id, $user_id));
-        SN_DB::audit('file_transfer_downloaded', 'file_transfer', (int) $row->id, 'success', ['range' => $status === 206, 'bytes' => $sent]);
+    private static function stream_download(object $row,int $user): void {
+        global $wpdb;$total=(int)$row->total_bytes;$start=0;$end=$total-1;$status=200;$range=isset($_SERVER['HTTP_RANGE'])?trim((string)$_SERVER['HTTP_RANGE']):'';
+        if($range!==''&&preg_match('/^bytes=(\d*)-(\d*)$/',$range,$m)){if($m[1]===''&&$m[2]!==''){$length=min($total,(int)$m[2]);$start=$total-$length;}else{$start=(int)$m[1];if($m[2]!=='')$end=min($end,(int)$m[2]);}if($start<0||$start>$end||$start>=$total){header('Content-Range: bytes */'.$total);status_header(416);return;}$status=206;}
+        status_header($status);nocache_headers();header('Content-Type: '.($row->detected_mime?:'application/octet-stream'));header('Content-Disposition: attachment; filename="'.str_replace(['"',"\r","\n"],'',(string)$row->safe_name).'"');header('Accept-Ranges: bytes');header('Content-Length: '.(($end-$start)+1));header('X-Content-Type-Options: nosniff');header('Referrer-Policy: no-referrer');header('Cache-Control: private, no-store, max-age=0');if($status===206)header("Content-Range: bytes $start-$end/$total");
+        $chunks=$wpdb->get_results($wpdb->prepare('SELECT * FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY chunk_index ASC',(int)$row->id));$offset=0;$sent=0;$failed=false;$expected_index=0;
+        foreach($chunks as $chunk){if((int)$chunk->chunk_index!==$expected_index++){$failed=true;break;}$chunk_start=$offset;$chunk_end=$offset+(int)$chunk->byte_count-1;$offset=$chunk_end+1;if($chunk_end<$start||$chunk_start>$end)continue;$path=self::existing_storage_path((string)$chunk->storage_key);if(is_wp_error($path)){$failed=true;break;}$plain=SN_Communication_Crypto::read_encrypted_file($path,self::chunk_context($row,(int)$chunk->chunk_index));if(is_wp_error($plain)||strlen($plain)!==(int)$chunk->byte_count||!hash_equals((string)$chunk->sha256,hash('sha256',is_wp_error($plain)?'':$plain))){$failed=true;break;}$slice_start=max(0,$start-$chunk_start);$slice_end=min((int)$chunk->byte_count-1,$end-$chunk_start);$slice=substr($plain,$slice_start,($slice_end-$slice_start)+1);$sent+=strlen($slice);echo $slice;if(ob_get_level()>0)@ob_flush();flush();}
+        $expected=($end-$start)+1;if($failed||$sent!==$expected){SN_DB::audit('file_transfer_download_failed','file_transfer',(int)$row->id,'failure',['range'=>$status===206,'expected_bytes'=>$expected,'sent_bytes'=>$sent],$user);return;}
+        $now=current_time('mysql',true);$changed=$wpdb->query($wpdb->prepare("UPDATE ".self::recipients_table()." SET state='downloaded',first_accessed_at=COALESCE(first_accessed_at,%s),downloaded_at=%s,updated_at=%s WHERE transfer_id=%d AND user_id=%d AND revoked_at IS NULL",$now,$now,$now,(int)$row->id,$user));if($changed===false){SN_DB::audit('file_transfer_download_receipt_failed','file_transfer',(int)$row->id,'failure',['bytes'=>$sent],$user);return;}SN_DB::audit('file_transfer_downloaded','file_transfer',(int)$row->id,'success',['range'=>$status===206,'bytes'=>$sent],$user);
     }
 
     public static function materialize_for_scan(int $transfer_id): string|WP_Error {
-        global $wpdb; $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE id=%d', $transfer_id));
-        if (!$row || ((int) $row->sender_id !== get_current_user_id() && !(bool) apply_filters('sn_network_transfer_scanner_authorized', false, $transfer_id, get_current_user_id()))) { return self::not_found(); }
-        try {
-            $suffix = bin2hex(random_bytes(8));
-        } catch (Throwable $e) {
-            return new WP_Error('secure_random_unavailable', 'Secure scan materialization is unavailable.', ['status' => 503]);
-        }
-        $tmp = self::storage_root() . '/' . $row->public_id . '/scan-' . $suffix . '.tmp';
-        $handle = @fopen($tmp, 'xb'); if (!$handle) { return new WP_Error('scan_materialization_failed', 'A private scan file could not be created.', ['status' => 500]); }
-        @chmod($tmp, 0600);
-        $chunks = $wpdb->get_results($wpdb->prepare('SELECT * FROM ' . self::chunks_table() . ' WHERE transfer_id=%d ORDER BY chunk_index ASC', $transfer_id));
-        foreach ($chunks as $chunk) {
-            $path = self::existing_storage_path((string) $chunk->storage_key);
-            if (is_wp_error($path)) { fclose($handle); @unlink($tmp); return $path; }
-            $plain = SN_Communication_Crypto::read_encrypted_file($path, self::chunk_context($row, (int) $chunk->chunk_index));
-            if (is_wp_error($plain) || fwrite($handle, is_wp_error($plain) ? '' : $plain) === false) { fclose($handle); @unlink($tmp); return is_wp_error($plain) ? $plain : new WP_Error('scan_materialization_failed', 'The private scan file could not be completed.', ['status' => 500]); }
-        }
-        fclose($handle); return $tmp;
+        global $wpdb;$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::sessions_table().' WHERE id=%d',$transfer_id));if(!$row||((int)$row->sender_id!==get_current_user_id()&&!(bool)apply_filters('sn_network_transfer_scanner_authorized',false,$transfer_id,get_current_user_id())))return self::not_found();
+        try{$suffix=bin2hex(random_bytes(8));}catch(Throwable $e){return new WP_Error('secure_random_unavailable','Secure scan materialization is unavailable.',['status'=>503]);}
+        $tmp=self::storage_root().'/'.$row->public_id.'/scan-'.$suffix.'.tmp';$handle=@fopen($tmp,'xb');if(!$handle)return new WP_Error('scan_materialization_failed','A private scan file could not be created.',['status'=>500]);@chmod($tmp,0600);$chunks=$wpdb->get_results($wpdb->prepare('SELECT * FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY chunk_index ASC',$transfer_id));$expected=0;
+        foreach($chunks as $chunk){if((int)$chunk->chunk_index!==$expected++){fclose($handle);@unlink($tmp);return new WP_Error('transfer_chunk_gap','The transfer chunk sequence is incomplete.',['status'=>409]);}$path=self::existing_storage_path((string)$chunk->storage_key);if(is_wp_error($path)){fclose($handle);@unlink($tmp);return $path;}$plain=SN_Communication_Crypto::read_encrypted_file($path,self::chunk_context($row,(int)$chunk->chunk_index));if(is_wp_error($plain)||strlen($plain)!==(int)$chunk->byte_count||!hash_equals((string)$chunk->sha256,hash('sha256',is_wp_error($plain)?'':$plain))||fwrite($handle,is_wp_error($plain)?'':$plain)===false){fclose($handle);@unlink($tmp);return is_wp_error($plain)?$plain:new WP_Error('scan_materialization_failed','The private scan file could not be completed.',['status'=>500]);}}
+        fclose($handle);return $tmp;
     }
-
 }

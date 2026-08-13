@@ -16,7 +16,7 @@ $check = static function (bool $condition, string $message) use (&$checks, &$fai
 };
 $check(str_contains($meet, "home_url('/calls/')") && str_contains($meet, "'/calls/' . rawurlencode"), 'Sabri Meet must own dashboard and opaque meeting deep links.');
 $check(str_contains($meet, "assets/js/meet.js") && str_contains($meet, "assets/css/meet.css"), 'Meet assets must load only through the File-17 runtime.');
-$check(str_contains($package, 'node --check "$STAGE/sabri-network/assets/js/meet.js"'), 'Packaged Meet JavaScript must receive syntax validation.');
+$check(str_contains($package, 'for file in network.js meet.js messages.js message-search.js smail.js file-transfer.js two-plan-ui.js future-superset.js') && str_contains($package, 'node --check "$STAGE/sabri-network/assets/js/$file"'), 'Packaged Meet JavaScript must receive syntax validation through the complete staged-JS loop.');
 $check(str_contains($template, 'Sabri Meet') && str_contains($template, 'sn-meet-controls'), 'Dedicated Sabri Meet user experience must exist.');
 $check(str_contains($template, 'Camera and microphone access begins only after you choose a control.'), 'Prejoin UI must disclose permission timing truthfully.');
 $check(strpos($js, "getUserMedia") > strpos($js, "addEventListener('click', toggleMic)"), 'Camera/microphone access must follow an explicit user action.');

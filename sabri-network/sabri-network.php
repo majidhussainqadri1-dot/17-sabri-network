@@ -135,6 +135,7 @@ final class Sabri_Network {
         SN_Outbox::maybe_upgrade();
         SN_Central_Plan_Hardening::maybe_upgrade();
         SN_Two_Plan_Completion::maybe_upgrade();
+        SN_Future_Superset::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
@@ -155,6 +156,7 @@ final class Sabri_Network {
             SN_Message_Search::install();
             SN_Outbox::install();
             SN_Two_Plan_Completion::install();
+            SN_Future_Superset::install();
             SN_Private_Files::ensure_storage();
             SN_Central_Plan_Hardening::maybe_upgrade();
             SN_Activator::ensure_network_page(true);
@@ -245,11 +247,11 @@ final class Sabri_Network {
     }
 
     public function disable_safe_canonical($redirect_url, $requested_url) {
-        return ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) ? false : $redirect_url;
+        return (int) get_query_var('sn_network_app') === 1 ? false : $redirect_url;
     }
 
     public function safe_template(string $template): string {
-        if ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) {
+        if ((int) get_query_var('sn_network_app') === 1) {
             status_header(200);
             return SN_DIR . 'templates/network-standalone.php';
         }
@@ -264,7 +266,7 @@ final class Sabri_Network {
 
     public function disable_network_cache(): void {
         $page_id = (int) get_option('sn_network_page_id');
-        $is_network = ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id)) || (int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe']);
+        $is_network = ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id)) || (int) get_query_var('sn_network_app') === 1;
         if (!$is_network) return;
         if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true);
         if (!defined('DONOTCACHEOBJECT')) define('DONOTCACHEOBJECT', true);

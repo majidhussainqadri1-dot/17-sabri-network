@@ -43,11 +43,11 @@ Canonical message bodies are authenticated-encrypted at rest through the `SNE1` 
 
 ## Calls and external media-provider limitation
 
-Sabri Meet and direct call state/signaling are File-17 canonical capabilities, but real media transport remains **provider-gated**. STUN/TURN/SFU use approved external media-provider adapters with short-lived scoped credentials and health/capability checks. When an approved provider is unavailable or not accepted in staging, the affected media feature must be unavailable/degraded rather than simulated.
+Sabri Meet and direct call state/signaling are File-17 canonical capabilities, but real media transport remains **provider-gated**. STUN/TURN/SFU use approved external media-provider adapters with short-lived scoped credentials and health/capability checks. Media credential issuance forces a fresh File-00 calling-eligibility assertion both immediately before provider issuance and again before credentials are returned. When an approved provider is unavailable or not accepted in staging, the affected media feature must be unavailable/degraded rather than simulated.
 
 ## Internal Smail
 
-Smail is an internal communication center, not Internet email/SMTP. Inbox, Sent, Drafts, Starred, Archive, Spam and Trash reuse the canonical File-17 message backend. Sends use `SN_Message_Integrity`; multi-recipient retries reuse an idempotent canonical conversation reservation.
+Smail is an internal communication center, not Internet email/SMTP. Inbox, Sent, Drafts, Starred, Archive, Spam and Trash reuse the canonical File-17 message backend. Sends use the current `SN_Message_Runtime_Hardening` canonical message path; multi-recipient retries reuse an idempotent canonical conversation reservation.
 
 ## Verified private transfer
 
@@ -64,7 +64,7 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The 2.1.0 gate includes **46 PHP review suites**, PHP 8.1/8.3 syntax, six JavaScript syntax checks, shell syntax, CSS/accessibility baselines, repository hygiene, exact staged-source manifest verification and deterministic byte-for-byte packaging.
+The 2.1.0 gate includes **46 PHP review suites**, PHP 8.1/8.3 syntax, **eight JavaScript syntax checks**, shell syntax, CSS/accessibility baselines, repository hygiene, exact staged-source manifest verification and deterministic byte-for-byte packaging. The package script independently validates all eight JavaScript entry points and the governed runtime-hardening surfaces before producing the ZIP.
 
 ## Completion truth
 
