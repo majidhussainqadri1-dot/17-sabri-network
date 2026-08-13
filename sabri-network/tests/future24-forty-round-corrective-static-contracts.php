@@ -12,6 +12,7 @@ $assert = static function (bool $condition, string $message): void {
     if (!$condition) { fwrite(STDERR, "FAIL: {$message}\n"); exit(1); }
 };
 
+$plugin = $read('sabri-network.php');
 $runtime = $read('includes/class-sn-two-plan-runtime-hardening.php');
 $compat = $read('includes/class-sn-compatibility-hardening.php');
 $firewall = $read('includes/class-sn-two-plan-contract-firewall.php');
@@ -21,6 +22,7 @@ $part1 = $read('includes/class-sn-future-superset-part-1.php');
 $part2 = $read('includes/class-sn-future-superset-part-2.php');
 $activator = $read('includes/class-sn-activator.php');
 
+$assert(!str_contains($plugin, "\$_GET['sn-network-safe']"), 'Safe standalone rendering must only activate through the canonical rewrite query var, never an arbitrary raw query parameter.');
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
 $assert(substr_count($compat, 'SN_Future_Superset::register();') === 0, 'Compatibility hardening must not register Future-24 a second time.');
 $assert(str_contains($runtime, "str_starts_with(\$route, '/sabri-network/v2/')"), 'Global REST pre-dispatch hardening must ignore non-File-17 namespaces.');
