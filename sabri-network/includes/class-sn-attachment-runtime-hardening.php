@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 defined('ABSPATH') || exit;
+require_once SN_DIR . 'includes/class-sn-smail-runtime-hardening.php';
 
 /** Fail-closed private attachment and voice-note corrections. */
 final class SN_Attachment_Runtime_Hardening {
@@ -10,9 +11,9 @@ final class SN_Attachment_Runtime_Hardening {
         add_filter('sn_network_attachment_scan_result', [self::class, 'require_scanner_for_opaque_media'], PHP_INT_MAX, 3);
         add_action('template_redirect', [self::class, 'verify_private_download_integrity'], -101);
         add_action('rest_api_init', [self::class, 'override_routes'], 1950);
+        SN_Smail_Runtime_Hardening::register();
     }
 
-    /** Images are normalized by File 17; opaque audio/video/documents require an approved scanner. */
     public static function require_scanner_for_opaque_media($result, string $path, array $meta) {
         if ($result !== null) return $result;
         $mime = strtolower((string) ($meta['mime'] ?? ''));
@@ -22,7 +23,6 @@ final class SN_Attachment_Runtime_Hardening {
         return $result;
     }
 
-    /** Refuse a private download when the stored object no longer matches its canonical SHA-256. */
     public static function verify_private_download_integrity(): void {
         $attachment_id = absint(get_query_var(self::PRIVATE_QUERY_VAR));
         if (!$attachment_id && isset($_GET[self::PRIVATE_QUERY_VAR])) $attachment_id = absint(wp_unslash($_GET[self::PRIVATE_QUERY_VAR]));
@@ -63,7 +63,6 @@ final class SN_Attachment_Runtime_Hardening {
         $message = is_array($data['message'] ?? null) ? $data['message'] : [];
         $id = absint($message['id'] ?? 0);
         if ($id <= 0 || (string) ($message['message_type'] ?? '') !== 'audio') return new WP_Error('sn_voice_note_send_failed', 'The voice note could not be finalized.', ['status' => 500]);
-
         $transcript = mb_substr(trim(sanitize_textarea_field(wp_unslash((string) $request->get_param('transcript')))), 0, 10000);
         $voice = [
             'playback_speeds' => [0.75, 1, 1.25, 1.5, 2],
@@ -72,7 +71,6 @@ final class SN_Attachment_Runtime_Hardening {
             'transcript_source' => $transcript !== '' ? 'user_supplied_unverified' : 'none',
         ];
         if ($transcript !== '') $voice['transcript'] = $transcript;
-
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare('SELECT id,metadata,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $id));
         if (!$row || $row->deleted_at !== null) return new WP_Error('sn_voice_note_state_changed', 'The voice note changed before metadata finalization.', ['status' => 409]);
