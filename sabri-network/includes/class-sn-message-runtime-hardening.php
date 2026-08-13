@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 defined('ABSPATH') || exit;
+require_once SN_DIR . 'includes/class-sn-attachment-runtime-hardening.php';
 
 /** Commit-first canonical message mutation correction. */
 final class SN_Message_Runtime_Hardening {
@@ -8,6 +9,7 @@ final class SN_Message_Runtime_Hardening {
 
     public static function register():void{
         add_action('rest_api_init',[self::class,'override_routes'],1850);
+        SN_Attachment_Runtime_Hardening::register();
     }
 
     public static function override_routes():void{
