@@ -64,13 +64,22 @@ trait SN_File_Transfer_Part_4 {
         try {
             $updated = $wpdb->query($wpdb->prepare('UPDATE ' . self::sessions_table() . ' SET actual_sha256=%s,detected_mime=%s,status=\'ready\',scan_status=\'clean\',failure_code=\'\',completed_at=%s,expires_at=%s,version=version+1,updated_at=%s WHERE id=%d AND status IN (\'uploading\',\'quarantined\')', $actual, $mime, $now, $retention, $now, (int) $row->id));
             if ($updated !== 1) { throw new RuntimeException('transfer_finalize_race'); }
+            $recipient_projection = $wpdb->query($wpdb->prepare('UPDATE ' . self::recipients_table() . ' SET state=\'ready\',updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL', $now, (int) $row->id));
+            if ($recipient_projection === false) { throw new RuntimeException('transfer_recipient_ready_failed'); }
             $event = SN_Outbox::enqueue('file-transfer.ready', 'file_transfer', (int) $row->id, ['transfer_id' => (int) $row->id, 'sender_id' => $sender_id, 'bytes' => (int) $row->total_bytes, 'sha256' => $actual], 'file-transfer-ready-' . $row->id);
             if (is_wp_error($event)) { throw new RuntimeException('transfer_ready_event_failed'); }
-            $wpdb->query('COMMIT');
-        } catch (Throwable $e) { $wpdb->query('ROLLBACK'); return new WP_Error('transfer_finalize_failed', 'The clean transfer could not be finalized.', ['status' => 500]); }
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('transfer_finalize_commit_failed'); }
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            $fresh = self::session((string) $row->public_id);
+            if ($fresh && (string) $fresh->status === 'ready' && hash_equals((string) $fresh->actual_sha256, $actual)) {
+                return rest_ensure_response(['transfer' => self::format($fresh, $sender_id), 'duplicate' => true, 'commit_reconciled' => true]);
+            }
+            return new WP_Error('transfer_finalize_failed', 'The clean transfer could not be finalized.', ['status' => 500]);
+        }
         $recipient_ids = $wpdb->get_col($wpdb->prepare('SELECT user_id FROM ' . self::recipients_table() . ' WHERE transfer_id=%d AND revoked_at IS NULL', (int) $row->id));
         foreach ($recipient_ids as $recipient_id) { SN_DB::add_notification((int) $recipient_id, 'file_transfer_ready', 'A private file is ready', '', 'file_transfer', (int) $row->id); }
-        $wpdb->query($wpdb->prepare('UPDATE ' . self::recipients_table() . ' SET state=\'ready\',notified_at=%s,updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL', $now, $now, (int) $row->id));
+        $wpdb->query($wpdb->prepare('UPDATE ' . self::recipients_table() . ' SET notified_at=%s,updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL', $now, $now, (int) $row->id));
         SN_DB::audit('file_transfer_ready', 'file_transfer', (int) $row->id, 'success', ['bytes' => (int) $row->total_bytes]);
         return rest_ensure_response(['transfer' => self::format(self::session((string) $row->public_id), $sender_id)]);
     }
