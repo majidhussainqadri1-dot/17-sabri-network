@@ -34,13 +34,17 @@ trait SN_File_Transfer_Part_1 {
         $network_id = (int) get_option('sn_network_page_id');
         if ($network_id > 0 && SN_Activator::is_owned_page($network_id) && $queried === $network_id) { return true; }
 
-        foreach (['sn_messages_page_id', 'sn_communication_settings_page_id'] as $option) {
+        $message_surfaces = [
+            'sn_messages_page_id' => 'messages',
+            'sn_communication_settings_page_id' => 'settings',
+        ];
+        foreach ($message_surfaces as $option => $owner) {
             $id = (int) get_option($option);
-            if ($id > 0 && SN_Messages::is_owned_page($id) && $queried === $id) { return true; }
+            if ($id > 0 && (string) get_post_meta($id, '_sn_messages_owned', true) === $owner && $queried === $id) { return true; }
         }
 
         $smail_id = (int) get_option('sn_smail_page_id');
-        if ($smail_id > 0 && (string) get_post_meta($smail_id, '_sn_file17_owned', true) === 'smail' && $queried === $smail_id) { return true; }
+        if ($smail_id > 0 && (string) get_post_meta($smail_id, '_sn_smail_owned', true) === 'smail' && $queried === $smail_id) { return true; }
 
         $transfer_id = (int) get_option('sn_file_transfer_page_id');
         if ($transfer_id > 0 && self::is_owned_page($transfer_id) && $queried === $transfer_id) { return true; }
