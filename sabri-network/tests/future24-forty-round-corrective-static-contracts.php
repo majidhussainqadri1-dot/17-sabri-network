@@ -23,6 +23,8 @@ $activator = $read('includes/class-sn-activator.php');
 
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
 $assert(substr_count($compat, 'SN_Future_Superset::register();') === 0, 'Compatibility hardening must not register Future-24 a second time.');
+$assert(str_contains($runtime, "str_starts_with(\$route, '/sabri-network/v2/')"), 'Global REST pre-dispatch hardening must ignore non-File-17 namespaces.');
+$assert(str_contains($runtime, '$file_params = $request->get_file_params();') && str_contains($runtime, '$access = SN_Policy::access();'), 'File hashing must revalidate canonical access before touching uploaded bytes.');
 $assert(str_contains($activator, 'SN_Two_Plan_Completion::install();'), 'Fresh activation must install the current two-plan schema before recording the plugin version.');
 $assert(str_contains($activator, 'SN_Future_Superset::install();'), 'Fresh activation must install the Future-24 schema before recording the plugin version.');
 $twoPlanInstall = strpos($activator, 'SN_Two_Plan_Completion::install();');
