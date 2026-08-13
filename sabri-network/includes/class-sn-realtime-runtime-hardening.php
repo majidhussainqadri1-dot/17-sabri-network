@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
 defined('ABSPATH') || exit;
+require_once SN_DIR . 'includes/class-sn-call-runtime-hardening.php';
 
 final class SN_Realtime_Runtime_Hardening {
     private const LOCK_TIMEOUT = 5;
 
     public static function register(): void {
         add_action('rest_api_init', [self::class, 'override_routes'], 1960);
+        SN_Call_Runtime_Hardening::register();
     }
 
     public static function override_routes(): void {
