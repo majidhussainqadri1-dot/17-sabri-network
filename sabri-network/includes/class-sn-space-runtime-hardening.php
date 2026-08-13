@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 defined('ABSPATH') || exit;
+require_once SN_DIR . 'includes/class-sn-realtime-runtime-hardening.php';
 
 /** Advisory-lock boundary for every File-17 space/community governance mutation. */
 final class SN_Space_Runtime_Hardening {
@@ -9,6 +10,7 @@ final class SN_Space_Runtime_Hardening {
     public static function register(): void {
         add_filter('rest_pre_dispatch', [self::class, 'lock_mutation'], 5, 3);
         add_filter('rest_post_dispatch', [self::class, 'release_mutation'], 11, 3);
+        SN_Realtime_Runtime_Hardening::register();
     }
 
     public static function lock_mutation($result, WP_REST_Server $server, WP_REST_Request $request) {
