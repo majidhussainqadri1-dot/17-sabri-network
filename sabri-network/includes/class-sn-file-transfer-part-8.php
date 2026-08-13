@@ -2,8 +2,6 @@
 defined('ABSPATH') || exit;
 
 trait SN_File_Transfer_Part_8 {
-    private const PRIVACY_ERASE_PAGE_SIZE = 100;
-
     public static function erase_personal_data(string $email, int $page = 1): array {
         global $wpdb;
         $user = get_user_by('email', $email);
@@ -11,13 +9,16 @@ trait SN_File_Transfer_Part_8 {
             return ['items_removed' => false, 'items_retained' => false, 'messages' => [], 'done' => true];
         }
 
+        // Keep the batch size local: trait constants are unavailable on the
+        // plugin's PHP 8.1 minimum runtime.
+        $page_size = 100;
         $uid = (int) $user->ID;
         $page = max(1, $page);
-        $offset = ($page - 1) * self::PRIVACY_ERASE_PAGE_SIZE;
+        $offset = ($page - 1) * $page_size;
         $sessions = $wpdb->get_results($wpdb->prepare(
             'SELECT id,public_id,status,version,revoked_at FROM ' . self::sessions_table() . ' WHERE sender_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
             $uid,
-            self::PRIVACY_ERASE_PAGE_SIZE,
+            $page_size,
             $offset
         ));
         $sessions = is_array($sessions) ? $sessions : [];
@@ -91,7 +92,7 @@ trait SN_File_Transfer_Part_8 {
             'items_removed' => $removed,
             'items_retained' => $retained,
             'messages' => array_values(array_unique($messages)),
-            'done' => count($sessions) < self::PRIVACY_ERASE_PAGE_SIZE,
+            'done' => count($sessions) < $page_size,
         ];
     }
 
