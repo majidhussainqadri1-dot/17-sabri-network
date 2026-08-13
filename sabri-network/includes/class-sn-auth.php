@@ -1,6 +1,8 @@
 <?php
 defined('ABSPATH') || exit;
 
+require_once __DIR__ . '/class-sn-membership-assertions.php';
+
 /** Read-only identity projection. Account creation/authentication remains File 00/File 02. */
 final class SN_Auth {
     public static function normalize_phone(string $raw): string|WP_Error {
@@ -20,19 +22,13 @@ final class SN_Auth {
         return $raw;
     }
 
+    /** Phone ownership/resolution remains File 00; no File-17 duplicate phone registry is queried. */
     public static function user_by_phone(string $phone): ?WP_User {
         $phone = self::normalize_phone($phone);
-        if (is_wp_error($phone)) {
+        if (is_wp_error($phone) || !SN_Membership_Assertions::available()) {
             return null;
         }
-        $users = get_users([
-            'number' => 1,
-            'meta_key' => 'sn_phone_e164',
-            'meta_value' => $phone,
-            'fields' => 'all',
-            'count_total' => false,
-        ]);
-        return $users ? $users[0] : null;
+        return SN_Membership_Assertions::resolve_user_by_phone($phone);
     }
 
     public static function public_user(int $user_id, bool $self = false): array {
@@ -43,17 +39,18 @@ final class SN_Auth {
         $viewer_id = get_current_user_id();
         $privacy = SN_Policy::privacy_for($user_id);
         $blocked = !$self && $viewer_id > 0 && $viewer_id !== $user_id && SN_DB::is_blocked($viewer_id, $user_id);
-        $phone = (string) get_user_meta($user_id, 'sn_phone_e164', true);
+        $phone = SN_Membership_Assertions::phone_projection($user_id, $viewer_id, $self);
         $can_see_phone = !$blocked && ($self || self::can_view_phone($viewer_id, $user_id, $privacy));
         $avatar_visibility = (string) ($privacy['profile_photo'] ?? 'everyone');
         $can_see_avatar = !$blocked && ($self || $avatar_visibility === 'everyone' || ($avatar_visibility === 'contacts' && SN_DB::are_contacts($viewer_id, $user_id)));
+        $verification_badge = apply_filters('sn_network_public_verification_badge', false, $user_id, $viewer_id);
         $projection = [
             'id' => $user_id,
             'name' => sanitize_text_field($user->display_name),
             'avatar' => $can_see_avatar ? get_avatar_url($user_id, ['size' => 192]) : SN_URL . 'assets/network-default-avatar.svg',
             'phone' => $can_see_phone ? $phone : '',
             'phone_masked' => $can_see_phone && $phone ? self::mask_phone($phone) : '',
-            'verified' => (bool) apply_filters('sn_network_user_verified', (bool) get_user_meta($user_id, 'sn_phone_verified', true), $user_id),
+            'verified' => $verification_badge === true,
             'about' => mb_substr(sanitize_textarea_field((string) get_user_meta($user_id, 'sn_about', true)), 0, 500),
             'role_label' => sanitize_text_field((string) apply_filters('sn_network_user_role_label', get_user_meta($user_id, 'sn_role_label', true), $user_id)),
         ];
@@ -72,6 +69,9 @@ final class SN_Auth {
     }
 
     public static function can_view_phone(int $viewer_id, int $target_id, array $privacy = []): bool {
+        if (!SN_Membership_Assertions::phone_verified($target_id)) {
+            return false;
+        }
         if ($viewer_id === $target_id && $viewer_id > 0) {
             return true;
         }
@@ -89,7 +89,8 @@ final class SN_Auth {
     }
 
     public static function ice_servers(int $user_id, int $conversation_id = 0): array {
-        if ($user_id <= 0 || ($conversation_id > 0 && !SN_DB::is_member($conversation_id, $user_id))) {
+        $assertion = SN_Membership_Assertions::communication($user_id);
+        if ($user_id <= 0 || is_wp_error($assertion) || $assertion['can_call'] !== true || ($conversation_id > 0 && !SN_DB::is_member($conversation_id, $user_id))) {
             return [];
         }
         $servers = [];
