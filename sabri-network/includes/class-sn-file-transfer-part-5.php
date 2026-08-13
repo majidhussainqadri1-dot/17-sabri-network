@@ -11,11 +11,17 @@ trait SN_File_Transfer_Part_5 {
         $wpdb->query('START TRANSACTION');
         try {
             if ($wpdb->query($wpdb->prepare('UPDATE ' . self::sessions_table() . ' SET status=\'revoked\',revoked_at=%s,version=version+1,updated_at=%s WHERE id=%d AND revoked_at IS NULL', $now, $now, (int) $row->id)) !== 1) { throw new RuntimeException('revoke_race'); }
-            $wpdb->query($wpdb->prepare('UPDATE ' . self::recipients_table() . ' SET state=\'revoked\',revoked_at=%s,updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL', $now, $now, (int) $row->id));
+            $recipients = $wpdb->query($wpdb->prepare('UPDATE ' . self::recipients_table() . ' SET state=\'revoked\',revoked_at=%s,updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL', $now, $now, (int) $row->id));
+            if ($recipients === false) { throw new RuntimeException('revoke_recipients_failed'); }
             $event = SN_Outbox::enqueue('file-transfer.revoked', 'file_transfer', (int) $row->id, ['transfer_id' => (int) $row->id, 'sender_id' => $user_id], 'file-transfer-revoked-' . $row->id);
             if (is_wp_error($event)) { throw new RuntimeException('revoke_event_failed'); }
-            $wpdb->query('COMMIT');
-        } catch (Throwable $e) { $wpdb->query('ROLLBACK'); return new WP_Error('transfer_revoke_failed', 'The transfer could not be revoked.', ['status' => 500]); }
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('revoke_commit_failed'); }
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            $fresh = self::session((string) $row->public_id);
+            if ($fresh && $fresh->revoked_at) { return rest_ensure_response(['revoked' => true, 'duplicate' => true, 'commit_reconciled' => true]); }
+            return new WP_Error('transfer_revoke_failed', 'The transfer could not be revoked.', ['status' => 500]);
+        }
         SN_DB::audit('file_transfer_revoked', 'file_transfer', (int) $row->id);
         return rest_ensure_response(['revoked' => true]);
     }
