@@ -31,6 +31,9 @@ $assert(str_contains($runtime, '$file_params = $request->get_file_params();') &&
 $assert(str_contains($compat, "class-sn-rounds41-60-runtime-hardening.php") && str_contains($compat, 'SN_Rounds41_60_Runtime_Hardening::register();'), 'Rounds 41-60 runtime corrections must be loaded and registered.');
 $assert(str_contains($rounds, 'reconcile_scheduled_finalization') && str_contains($rounds, "status='processing'") && str_contains($rounds, "hash('sha256', (string) \$row->client_key)"), 'Scheduled sends must reconcile an already-created idempotent message if schedule finalization failed.');
 $assert(str_contains($rounds, 'scheduled_message_finalization_reconciled'), 'Scheduled finalization reconciliation must leave an audit trail.');
+$assert(str_contains($rounds, "remove_action('sn_cleanup_hourly', [SN_Two_Plan_Completion::class, 'expire_messages'])"), 'The fixed first-page expiry sweep must be replaced by the cursor scanner.');
+$assert(str_contains($rounds, 'EXPIRY_SCAN_BATCH') && str_contains($rounds, 'EXPIRY_CURSOR_OPTION') && str_contains($rounds, 'id>%d') && str_contains($rounds, 'FOR UPDATE'), 'Disappearing-message expiry must scan with a persistent cursor and revalidate the locked current row.');
+$assert(str_contains($rounds, 'message_has_legal_hold') && str_contains($rounds, 'count($rows) < self::EXPIRY_SCAN_BATCH'), 'Expiry cursor cycles must preserve legal holds and eventually return to the start of the table.');
 $assert(str_contains($activator, 'SN_Two_Plan_Completion::install();'), 'Fresh activation must install the current two-plan schema before recording the plugin version.');
 $assert(str_contains($activator, 'SN_Future_Superset::install();'), 'Fresh activation must install the Future-24 schema before recording the plugin version.');
 $twoPlanInstall = strpos($activator, 'SN_Two_Plan_Completion::install();');
