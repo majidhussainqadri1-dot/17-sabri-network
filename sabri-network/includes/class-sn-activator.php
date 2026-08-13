@@ -21,6 +21,12 @@ final class SN_Activator {
         SN_Message_Search::install();
         SN_Outbox::install();
         SN_Meet::install();
+        // Fresh activation must finish every schema owned by the current 2.1.0
+        // communication candidate before recording the plugin version. Relying on
+        // a later front-end/admin request to run init-time upgrades leaves the
+        // activation transaction in a partially installed state.
+        SN_Two_Plan_Completion::install();
+        SN_Future_Superset::install();
         SN_Messages::register_rewrites();
         SN_Meet::register_rewrites();
         SN_Private_Files::ensure_storage();
