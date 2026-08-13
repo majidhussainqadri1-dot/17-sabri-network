@@ -245,11 +245,11 @@ final class Sabri_Network {
     }
 
     public function disable_safe_canonical($redirect_url, $requested_url) {
-        return ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) ? false : $redirect_url;
+        return (int) get_query_var('sn_network_app') === 1 ? false : $redirect_url;
     }
 
     public function safe_template(string $template): string {
-        if ((int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe'])) {
+        if ((int) get_query_var('sn_network_app') === 1) {
             status_header(200);
             return SN_DIR . 'templates/network-standalone.php';
         }
@@ -264,7 +264,7 @@ final class Sabri_Network {
 
     public function disable_network_cache(): void {
         $page_id = (int) get_option('sn_network_page_id');
-        $is_network = ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id)) || (int) get_query_var('sn_network_app') === 1 || isset($_GET['sn-network-safe']);
+        $is_network = ($page_id && SN_Activator::is_owned_page($page_id) && is_page($page_id)) || (int) get_query_var('sn_network_app') === 1;
         if (!$is_network) return;
         if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true);
         if (!defined('DONOTCACHEOBJECT')) define('DONOTCACHEOBJECT', true);
