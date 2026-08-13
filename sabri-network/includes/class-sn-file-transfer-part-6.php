@@ -20,7 +20,18 @@ trait SN_File_Transfer_Part_6 {
 
     private static function reject_corrupt(object $row, string $code): WP_Error {
         global $wpdb; $now = current_time('mysql', true);
-        $wpdb->update(self::sessions_table(), ['status' => 'rejected', 'scan_status' => 'rejected', 'failure_code' => sanitize_key($code), 'revoked_at' => $now, 'version' => (int) $row->version + 1, 'updated_at' => $now], ['id' => (int) $row->id]);
+        $updated = $wpdb->query($wpdb->prepare(
+            'UPDATE ' . self::sessions_table() . " SET status='rejected',scan_status='rejected',failure_code=%s,revoked_at=%s,version=version+1,updated_at=%s WHERE id=%d AND status IN ('uploading','quarantined') AND version=%d",
+            sanitize_key($code),
+            $now,
+            $now,
+            (int) $row->id,
+            (int) $row->version
+        ));
+        if ($updated !== 1) {
+            SN_DB::audit('file_transfer_rejection_persist_failed', 'file_transfer', (int) $row->id, 'failure', ['reason' => sanitize_key($code)]);
+            return new WP_Error('transfer_rejection_persist_failed', 'The unsafe transfer was blocked, but its rejection state could not be persisted safely.', ['status' => 500]);
+        }
         self::delete_chunks((int) $row->id); SN_DB::audit('file_transfer_rejected', 'file_transfer', (int) $row->id, 'failure', ['reason' => $code]);
         return new WP_Error($code, 'The private transfer failed integrity, file-type, archive or malware policy validation.', ['status' => 422]);
     }
