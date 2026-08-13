@@ -17,17 +17,22 @@ $runtime = $read('includes/class-sn-two-plan-runtime-hardening.php');
 $rounds = $read('includes/class-sn-rounds41-60-runtime-hardening.php');
 $compat = $read('includes/class-sn-compatibility-hardening.php');
 $firewall = $read('includes/class-sn-two-plan-contract-firewall.php');
+$presentation = $read('includes/class-sn-two-plan-presentation.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
 $future = $read('includes/class-sn-future-superset.php');
 $part1 = $read('includes/class-sn-future-superset-part-1.php');
 $part2 = $read('includes/class-sn-future-superset-part-2.php');
 $activator = $read('includes/class-sn-activator.php');
+$transfer1 = $read('includes/class-sn-file-transfer-part-1.php');
 $transfer3 = $read('includes/class-sn-file-transfer-part-3.php');
 $transfer4 = $read('includes/class-sn-file-transfer-part-4.php');
 $transfer5 = $read('includes/class-sn-file-transfer-part-5.php');
 $transfer6 = $read('includes/class-sn-file-transfer-part-6.php');
 $transfer7 = $read('includes/class-sn-file-transfer-part-7.php');
 $transfer8 = $read('includes/class-sn-file-transfer-part-8.php');
+$smail3 = $read('includes/class-sn-smail-part-3.php');
+$readme = $read('README.md');
+$status = $read('SYSTEM-STATUS.txt');
 
 $assert(!str_contains($plugin, "\$_GET['sn-network-safe']"), 'Safe standalone rendering must only activate through the canonical rewrite query var, never an arbitrary raw query parameter.');
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
@@ -59,12 +64,20 @@ $rejectDelete = strpos($transfer6, 'self::delete_chunks((int) $row->id)');
 $assert($rejectUpdate !== false && $rejectDelete !== false && $rejectUpdate < $rejectDelete, 'Rejected transfer access must be revoked before encrypted chunks are destroyed.');
 $assert(str_contains($transfer7, 'file_transfer_chunk_delete_failed') && str_contains($transfer7, 'file_transfer_chunk_row_delete_failed'), 'Chunk cleanup must retain/audit failed byte or ledger-row deletion rather than discarding retry evidence.');
 $assert(str_contains($transfer7, "status='expired'") && str_contains($transfer7, 'self::delete_chunks((int) $row->id)'), 'Expiry cleanup must enter a terminal access state before byte purge.');
-$assert(str_contains($transfer7, "EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)"), 'Terminal transfers with leftover encrypted chunks must remain eligible for cleanup retries.');
+$assert(str_contains($transfer7, 'EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)'), 'Terminal transfers with leftover encrypted chunks must remain eligible for cleanup retries.');
 $assert(str_contains($transfer8, 'PRIVACY_ERASE_PAGE_SIZE') && str_contains($transfer8, "status='revoked'") && str_contains($transfer8, 'self::delete_chunks((int) $row->id)'), 'Privacy erasure must paginate and revoke sender-owned transfer access before byte removal.');
 $privacyRevoke = strpos($transfer8, "status='revoked'");
 $privacyDelete = strpos($transfer8, 'self::delete_chunks((int) $row->id)');
 $assert($privacyRevoke !== false && $privacyDelete !== false && $privacyRevoke < $privacyDelete, 'Privacy erasure must not delete encrypted transfer bytes before canonical revocation.');
 $assert(str_contains($transfer8, 'file_transfer_privacy_revoke_failed') && str_contains($transfer8, 'file_transfer_privacy_recipient_erase_failed'), 'Privacy erasure must report failed canonical sender/recipient mutations instead of claiming complete deletion.');
+
+// Round 60: presentation ownership checks must remain callable and use each
+// surface's canonical owner marker. The previous review introduced calls to a
+// private Messages helper that would have been a runtime fatal on page render.
+$assert(!str_contains($transfer1, 'SN_Messages::is_owned_page') && !str_contains($presentation, 'SN_Messages::is_owned_page'), 'Cross-class presentation code must not call the private Messages page-ownership helper.');
+$assert(str_contains($transfer1, "'_sn_messages_owned'") && str_contains($transfer1, "'_sn_smail_owned'"), 'Brand scoping must use the canonical Messages and Smail page ownership markers.');
+$assert(str_contains($smail3, 'private static function is_owned_page') && str_contains($smail3, 'self::PAGE_OWNER_META'), 'Smail content/cache/URL checks must remain bound to its own page marker.');
+$assert(str_contains($readme, '47 PHP review suites') && str_contains($status, '47 explicit PHP review suites'), 'Repository-facing QA documentation must report the actual 47 explicit PHP review suites.');
 
 foreach (range('a', 'o') as $suffix) {
     $path = "includes/class-sn-future24-review-hardening-{$suffix}.php";
