@@ -1,6 +1,6 @@
 Repository coding-completion candidate; not staging-accepted, not live-deployed, not production-operational.
 File 17 — Sabri Network and Messages 2.1.0
-حقیقی repository حیثیت — 11 اگست 2026ء
+حقیقی repository حیثیت — 13 اگست 2026ء
 
 حاکم audit basis:
 1) Current consolidated central governing plan
@@ -9,23 +9,24 @@ File 17 — Sabri Network and Messages 2.1.0
 
 Specified: موجودہ دونوں حاکم منصوبوں کے File-17 repository scope کی traceable specification
 Coded Candidate: 2.1.0 current two-plan completion source
-Coding Completion: known repository-owned gaps implemented; exact-head CI اور fresh review ابھی فیصلہ کن gates ہیں
+Coding Completion: known repository-owned gaps implemented; exact-head CI اور fresh review فیصلہ کن gates ہیں
 Packaged: deterministic 2.1.0 ZIP، exact staged manifest اور SHA-256 workflow؛ exact-head CI artifact evidence لازم
-Automated QA: 46 explicit PHP review suites، PHP 8.1/8.3 jobs، 6 JavaScript syntax checks، shell/CSS/hygiene، source-manifest اور deterministic double-build gates
+Automated QA: 46 explicit PHP review suites، PHP 8.1/8.3 jobs، 8 JavaScript syntax checks، shell/CSS/hygiene، source-manifest اور deterministic double-build gates
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-2.1.0 میں موجودہ دونوں منصوبوں کے مطابق نئی repository coding:
+2.1.0 میں موجودہ دونوں منصوبوں کے مطابق repository coding:
 - Unknown-sender message requests: accept/decline/report/cancel، sender/recipient rate protection، cooldown، transactional canonical contact/direct conversation acceptance
-- Scheduled messages: encrypted queue، delivery-time authorization revalidation، cancellation/retry state
+- Scheduled messages: encrypted queue، delivery-time authorization revalidation، cancellation/retry state اور post-send finalization reconciliation
 - Polls/checklists: canonical messages، clinical-decision authority نہیں
-- Disappearing messages: legal-hold preservation، private search cleanup، attachment revocation/deletion
+- Disappearing messages: legal-hold preservation، starvation-free cursor expiry scan، private search cleanup، attachment revocation/deletion
 - Fail-closed translation adapter؛ approved provider کے بغیر unavailable
 - Voice-note workflow canonical message/private-file path پر
 - Temporary updates: new text authenticated-encrypted at rest؛ legacy plaintext lazy migration
 - Community rules/onboarding، forum questions، AMA sessions، wiki pages، events/cohorts، responses/best-answer، aggregate community health
-- New personal-data domains privacy export/erasure میں شامل
+- Future-24 privacy pagination، idempotency coverage، interop lifecycle، provider-confirmed breakout cleanup اور template revision atomicity
+- Verified-user private transfer lifecycle میں checked commits، revoke-before-delete، retryable chunk cleanup اور fail-closed erasure ordering
 - File 00/02 identity، File 19 notification، File 20 shell، File 26 global search، File 08/CF-01 clinical truth boundaries برقرار
 
 پہلے 2.0.3 historical forty-round record:
