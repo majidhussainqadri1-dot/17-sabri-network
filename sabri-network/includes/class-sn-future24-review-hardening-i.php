@@ -4,6 +4,9 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 final class SN_Future24_Review_Hardening_I {
+    private const EXPORT_PAGE_SIZE = 100;
+    private const SHARED_SCAN_PAGE_SIZE = 200;
+
     public static function register():void{
         add_filter('wp_privacy_personal_data_exporters',[self::class,'exporters'],2000);
         add_filter('wp_privacy_personal_data_erasers',[self::class,'erasers'],2000);
@@ -11,14 +14,45 @@ final class SN_Future24_Review_Hardening_I {
     public static function exporters(array $e):array{if(isset($e['sabri-network-future']))$e['sabri-network-future']['callback']=[self::class,'privacy_export'];return $e;}
     public static function erasers(array $e):array{if(isset($e['sabri-network-future']))$e['sabri-network-future']['callback']=[self::class,'privacy_erase'];return $e;}
     public static function privacy_export(string $email,int $page=1):array{
-        global $wpdb;$user=get_user_by('email',$email);if(!$user)return ['data'=>[],'done'=>true];$uid=(int)$user->ID;$base=SN_Future_Superset::privacy_export($email,$page);$data=is_array($base['data']??null)?$base['data']:[];
-        if($page===1){$keys=$wpdb->get_results($wpdb->prepare('SELECT device_id,algorithm,fingerprint,state,created_at,updated_at FROM '.$wpdb->prefix.'sn_future_device_keys WHERE user_id=%d ORDER BY id ASC LIMIT 200',$uid));foreach(is_array($keys)?$keys:[] as $k)$data[]=['group_id'=>'sabri-network-future','group_label'=>'Advanced Communication','item_id'=>'future-device-key-'.hash('sha256',(string)$k->device_id),'data'=>[['name'=>'Feature','value'=>'F17-FUT-02'],['name'=>'Device','value'=>(string)$k->device_id],['name'=>'Algorithm','value'=>(string)$k->algorithm],['name'=>'Fingerprint','value'=>(string)$k->fingerprint],['name'=>'State','value'=>(string)$k->state]]];$logs=$wpdb->get_results($wpdb->prepare('SELECT id,device_id,event,fingerprint,previous_fingerprint,created_at FROM '.$wpdb->prefix.'sn_future_key_log WHERE user_id=%d ORDER BY id ASC LIMIT 200',$uid));foreach(is_array($logs)?$logs:[] as $k)$data[]=['group_id'=>'sabri-network-future','group_label'=>'Advanced Communication','item_id'=>'future-key-log-'.(int)$k->id,'data'=>[['name'=>'Feature','value'=>'F17-FUT-03'],['name'=>'Device','value'=>(string)$k->device_id],['name'=>'Event','value'=>(string)$k->event],['name'=>'Fingerprint','value'=>(string)$k->fingerprint],['name'=>'Previous fingerprint','value'=>(string)$k->previous_fingerprint],['name'=>'Created','value'=>(string)$k->created_at]]];
-            $shared=$wpdb->get_results("SELECT * FROM ".$wpdb->prefix."sn_future_records WHERE owner_id=0 AND state NOT IN ('deleted','erased') AND feature_id IN ('F17-FUT-01','F17-FUT-05','F17-FUT-06','F17-FUT-17','F17-FUT-19','F17-FUT-20','F17-FUT-24') ORDER BY id ASC LIMIT 1000");foreach(is_array($shared)?$shared:[] as $row){$view=self::shared_view($row,$uid);if($view===null)continue;$data[]=['group_id'=>'sabri-network-future','group_label'=>'Advanced Communication','item_id'=>'future-shared-'.(int)$row->id,'data'=>[['name'=>'Feature','value'=>(string)$row->feature_id],['name'=>'Scope','value'=>(string)$row->scope_type.':'.(int)$row->scope_id],['name'=>'State','value'=>(string)$row->state],['name'=>'Your scoped data','value'=>wp_json_encode($view)]]];}}
-        return ['data'=>$data,'done'=>(bool)($base['done']??true)];
+        global $wpdb;
+        $user=get_user_by('email',$email);
+        if(!$user)return ['data'=>[],'done'=>true];
+        $uid=(int)$user->ID;
+        $page=max(1,$page);
+        $base=SN_Future_Superset::privacy_export($email,$page);
+        $data=is_array($base['data']??null)?$base['data']:[];
+        $offset=($page-1)*self::EXPORT_PAGE_SIZE;
+
+        $keys=$wpdb->get_results($wpdb->prepare(
+            'SELECT device_id,algorithm,fingerprint,state,created_at,updated_at FROM '.$wpdb->prefix.'sn_future_device_keys WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+            $uid,self::EXPORT_PAGE_SIZE,$offset
+        ));
+        $keys=is_array($keys)?$keys:[];
+        foreach($keys as $k)$data[]=['group_id'=>'sabri-network-future','group_label'=>'Advanced Communication','item_id'=>'future-device-key-'.hash('sha256',(string)$k->device_id),'data'=>[['name'=>'Feature','value'=>'F17-FUT-02'],['name'=>'Device','value'=>(string)$k->device_id],['name'=>'Algorithm','value'=>(string)$k->algorithm],['name'=>'Fingerprint','value'=>(string)$k->fingerprint],['name'=>'State','value'=>(string)$k->state]]];
+
+        $logs=$wpdb->get_results($wpdb->prepare(
+            'SELECT id,device_id,event,fingerprint,previous_fingerprint,created_at FROM '.$wpdb->prefix.'sn_future_key_log WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+            $uid,self::EXPORT_PAGE_SIZE,$offset
+        ));
+        $logs=is_array($logs)?$logs:[];
+        foreach($logs as $k)$data[]=['group_id'=>'sabri-network-future','group_label'=>'Advanced Communication','item_id'=>'future-key-log-'.(int)$k->id,'data'=>[['name'=>'Feature','value'=>'F17-FUT-03'],['name'=>'Device','value'=>(string)$k->device_id],['name'=>'Event','value'=>(string)$k->event],['name'=>'Fingerprint','value'=>(string)$k->fingerprint],['name'=>'Previous fingerprint','value'=>(string)$k->previous_fingerprint],['name'=>'Created','value'=>(string)$k->created_at]]];
+
+        $shared_offset=($page-1)*self::SHARED_SCAN_PAGE_SIZE;
+        $shared=$wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM ".$wpdb->prefix."sn_future_records WHERE owner_id=0 AND state NOT IN ('deleted','erased') AND feature_id IN ('F17-FUT-01','F17-FUT-05','F17-FUT-06','F17-FUT-17','F17-FUT-19','F17-FUT-20','F17-FUT-24') ORDER BY id ASC LIMIT %d OFFSET %d",
+            self::SHARED_SCAN_PAGE_SIZE,$shared_offset
+        ));
+        $shared=is_array($shared)?$shared:[];
+        foreach($shared as $row){$view=self::shared_view($row,$uid);if($view===null)continue;$data[]=['group_id'=>'sabri-network-future','group_label'=>'Advanced Communication','item_id'=>'future-shared-'.(int)$row->id,'data'=>[['name'=>'Feature','value'=>(string)$row->feature_id],['name'=>'Scope','value'=>(string)$row->scope_type.':'.(int)$row->scope_id],['name'=>'State','value'=>(string)$row->state],['name'=>'Your scoped data','value'=>wp_json_encode($view)]]];}
+
+        $extra_done=count($keys)<self::EXPORT_PAGE_SIZE
+            && count($logs)<self::EXPORT_PAGE_SIZE
+            && count($shared)<self::SHARED_SCAN_PAGE_SIZE;
+        return ['data'=>$data,'done'=>(bool)($base['done']??true)&&$extra_done];
     }
     public static function privacy_erase(string $email,int $page=1):array{
         global $wpdb;$user=get_user_by('email',$email);if(!$user)return ['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$uid=(int)$user->ID;$base=SN_Future_Superset::privacy_erase($email,$page);$removed=(bool)($base['items_removed']??false);$retained=(bool)($base['items_retained']??false);$messages=is_array($base['messages']??null)?$base['messages']:[];
-        if($page===1){$deleted=$wpdb->delete($wpdb->prefix.'sn_future_device_keys',['user_id'=>$uid],['%d']);if($deleted>0)$removed=true;$shared_count=0;$rows=$wpdb->get_results("SELECT * FROM ".$wpdb->prefix."sn_future_records WHERE owner_id=0 AND state NOT IN ('deleted','erased') AND feature_id IN ('F17-FUT-01','F17-FUT-05','F17-FUT-06','F17-FUT-17','F17-FUT-19','F17-FUT-20','F17-FUT-24') ORDER BY id ASC LIMIT 1000");foreach(is_array($rows)?$rows:[] as $row)if(self::shared_view($row,$uid)!==null)$shared_count++;$log_count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.$wpdb->prefix.'sn_future_key_log WHERE user_id=%d',$uid));if($shared_count||$log_count){$retained=true;$messages[]='Shared communication governance records and append-only key-transparency integrity entries were retained where unilateral erasure would alter other participants’ or security-integrity records.';}}
+        if($page===1){$deleted=$wpdb->delete($wpdb->prefix.'sn_future_device_keys',['user_id'=>$uid],['%d']);if($deleted>0)$removed=true;$shared_count=0;$rows=$wpdb->get_results("SELECT * FROM ".$wpdb->prefix."sn_future_records WHERE owner_id=0 AND state NOT IN ('deleted','erased') AND feature_id IN ('F17-FUT-01','F17-FUT-05','F17-FUT-06','F17-FUT-17','F17-FUT-19','F17-FUT-20','F17-FUT-24') ORDER BY id ASC LIMIT 1000");foreach(is_array($rows)?$rows:[] as $row)if(self::shared_view($row,$uid)!==null){$shared_count=1;break;}$log_count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.$wpdb->prefix.'sn_future_key_log WHERE user_id=%d',$uid));if($shared_count||$log_count){$retained=true;$messages[]='Shared communication governance records and append-only key-transparency integrity entries were retained where unilateral erasure would alter other participants’ or security-integrity records.';}}
         return ['items_removed'=>$removed,'items_retained'=>$retained,'messages'=>array_values(array_unique($messages)),'done'=>(bool)($base['done']??true)];
     }
     private static function shared_view(object $row,int $uid):?array{
