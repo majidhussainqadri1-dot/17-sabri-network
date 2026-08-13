@@ -12,6 +12,8 @@ $assert = static function (bool $condition, string $message): void {
     if (!$condition) { fwrite(STDERR, "FAIL: {$message}\n"); exit(1); }
 };
 
+$plugin = $read('sabri-network.php');
+$activator = $read('includes/class-sn-activator.php');
 $runtime = $read('includes/class-sn-two-plan-runtime-hardening.php');
 $compat = $read('includes/class-sn-compatibility-hardening.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
@@ -33,6 +35,16 @@ $l = $read('includes/class-sn-future24-review-hardening-l.php');
 $m = $read('includes/class-sn-future24-review-hardening-m.php');
 $n = $read('includes/class-sn-future24-review-hardening-n.php');
 $o = $read('includes/class-sn-future24-review-hardening-o.php');
+
+// Additional fresh cycle — Round 1: bootstrap, canonical routing and global REST isolation.
+$assert(!str_contains($plugin, "\$_GET['sn-network-safe']"), 'Safe standalone rendering must be reachable only through the canonical rewrite query var.');
+$assert(str_contains($plugin, 'SN_Future_Superset::maybe_upgrade();') && str_contains($plugin, 'SN_Future_Superset::install();'), 'Current Future-24 schema must participate in normal upgrade/version reconciliation.');
+$twoPlanInstall = strpos($activator, 'SN_Two_Plan_Completion::install();');
+$futureInstall = strpos($activator, 'SN_Future_Superset::install();');
+$versionPublish = strpos($activator, "update_option('sn_plugin_version', SN_VERSION, false);");
+$assert($twoPlanInstall !== false && $futureInstall !== false && $versionPublish !== false && $twoPlanInstall < $versionPublish && $futureInstall < $versionPublish, 'Activation must install all current schemas before publishing the current plugin version.');
+$assert(str_contains($runtime, "if (!str_starts_with(\$route, '/sabri-network/v2/')) return null;"), 'Global rest_pre_dispatch hardening must ignore non-File-17 namespaces.');
+$assert(str_contains($runtime, '$file_params = $request->get_file_params();') && str_contains($runtime, '$access = SN_Policy::access();'), 'File hashing must revalidate canonical File-17 access before touching uploaded bytes.');
 
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
 $assert(substr_count($compat, 'SN_Future_Superset::register();') === 0, 'Compatibility hardening must not register Future-24 a second time.');
