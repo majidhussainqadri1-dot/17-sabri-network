@@ -40,12 +40,44 @@ trait SN_Smail_Part_4 {
     }
 
     public static function erase_personal_data(string $email, int $page = 1): array {
-        global $wpdb; $user = get_user_by('email', $email);
+        global $wpdb;
+        $user = get_user_by('email', $email);
         if (!$user) return ['items_removed' => false, 'items_retained' => false, 'messages' => [], 'done' => true];
-        $wpdb->delete(self::states_table(), ['user_id' => $user->ID], ['%d']);
+
+        $uid = (int) $user->ID;
         $empty_hash = hash_hmac('sha256', '', wp_salt('auth') . '|sn-sm-draft-blind-v1');
-        $wpdb->query($wpdb->prepare('UPDATE ' . self::drafts_table() . ' SET encrypted_payload=%s,payload_hash=%s,deleted_at=%s,updated_at=%s WHERE owner_id=%d AND deleted_at IS NULL', '', $empty_hash, current_time('mysql', true), current_time('mysql', true), $user->ID));
-        return ['items_removed' => true, 'items_retained' => true, 'messages' => ['Canonical messages remain subject to File-17 conversation retention, legal hold and participant rights.'], 'done' => true];
+        $now = current_time('mysql', true);
+        $wpdb->query('START TRANSACTION');
+        try {
+            $state_delete = $wpdb->delete(self::states_table(), ['user_id' => $uid], ['%d']);
+            if ($state_delete === false) throw new RuntimeException('smail_state_erase_failed');
+            $draft_update = $wpdb->query($wpdb->prepare(
+                'UPDATE ' . self::drafts_table() . ' SET encrypted_payload=%s,payload_hash=%s,deleted_at=%s,updated_at=%s WHERE owner_id=%d AND deleted_at IS NULL',
+                '',
+                $empty_hash,
+                $now,
+                $now,
+                $uid
+            ));
+            if ($draft_update === false) throw new RuntimeException('smail_draft_erase_failed');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('smail_erase_commit_failed');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            SN_DB::audit('smail_privacy_erase_failed', 'user', $uid, 'failure', ['reason' => $e->getMessage(), 'privacy_page' => max(1, $page)], $uid);
+            return [
+                'items_removed' => false,
+                'items_retained' => true,
+                'messages' => ['Smail privacy erasure could not be committed safely and will remain pending for retry.'],
+                'done' => false,
+            ];
+        }
+
+        return [
+            'items_removed' => ($state_delete > 0 || $draft_update > 0),
+            'items_retained' => true,
+            'messages' => ['Canonical messages remain subject to File-17 conversation retention, legal hold and participant rights.'],
+            'done' => true,
+        ];
     }
 
     private static function format_smail(object $row): array { return ['id' => (int) $row->id, 'message_id' => (int) $row->message_id, 'conversation_id' => (int) $row->conversation_id, 'subject' => (string) $row->subject, 'created_at' => (string) $row->created_at]; }
