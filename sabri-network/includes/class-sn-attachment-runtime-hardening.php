@@ -2,6 +2,7 @@
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 require_once SN_DIR . 'includes/class-sn-smail-runtime-hardening.php';
+require_once SN_DIR . 'includes/class-sn-privacy-runtime-hardening.php';
 
 /** Fail-closed private attachment and voice-note corrections. */
 final class SN_Attachment_Runtime_Hardening {
@@ -12,6 +13,7 @@ final class SN_Attachment_Runtime_Hardening {
         add_action('template_redirect', [self::class, 'verify_private_download_integrity'], -101);
         add_action('rest_api_init', [self::class, 'override_routes'], 1950);
         SN_Smail_Runtime_Hardening::register();
+        SN_Privacy_Runtime_Hardening::register();
     }
 
     public static function require_scanner_for_opaque_media($result, string $path, array $meta) {
