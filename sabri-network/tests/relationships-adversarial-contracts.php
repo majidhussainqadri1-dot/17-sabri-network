@@ -4,7 +4,7 @@ declare(strict_types=1);
 $root=dirname(__DIR__);$failures=[];$checks=0;
 function ra_check(bool $c,string $m):void{global $failures,$checks;$checks++;if(!$c)$failures[]=$m;}
 function ra_content(string $f):string{global $root;return (string)file_get_contents($root . '/' . $f);}
-$r=ra_content('includes/class-sn-relationships.php');$p=ra_content('includes/class-sn-policy.php');$rest=ra_content('includes/class-sn-rest.php');$db=ra_content('includes/class-sn-db.php');$js=ra_content('assets/js/network.js');$files=ra_content('includes/class-sn-private-files.php');
+$r=ra_content('includes/class-sn-relationships.php');$rh=ra_content('includes/class-sn-relationship-runtime-hardening.php');$p=ra_content('includes/class-sn-policy.php');$rest=ra_content('includes/class-sn-rest.php');$db=ra_content('includes/class-sn-db.php');$js=ra_content('assets/js/network.js');$files=ra_content('includes/class-sn-private-files.php');
 ra_check(str_contains($r,'viewer_id === $target_id'),'Self-follow/profile-action state must be rejected.');
 ra_check(str_contains($p,'$actor_id === $target_id'),'Self-follow authorization must be rejected.');
 ra_check(str_contains($p,'!get_user_by(\'id\', $target_id)'),'Nonexistent follow targets must be rejected.');
@@ -21,7 +21,7 @@ ra_check(str_contains($r,'$race = SN_DB::follow_record'),'Unique-key races must 
 ra_check(str_contains($r,'WHERE id=%d AND follower_id=%d AND version=%d'),'Unfollow must bind actor and expected version.');
 ra_check(str_contains($r,'(int) $row->followed_id !== $target_id'),'Only the follow target may decide a pending request.');
 ra_check(str_contains($r,'(string) $row->status !== \'pending\''),'Only pending follow requests may be decided.');
-ra_check(str_contains($r,'SN_DB::is_blocked((int) $row->follower_id, $target_id)'),'Block changes must invalidate pending decisions.');
+ra_check(str_contains($rh,"UPDATE $follows SET status='inactive'")&&str_contains($rh,"status IN ('active','pending')")&&str_contains($rh,'SN_Relationships::pair_lock_name($actor,$target)'),'Block changes must invalidate pending follow decisions under the same canonical pair lock.');
 ra_check(str_contains($r,'count($rows) > $limit'),'Pagination must fetch a lookahead row.');
 ra_check(str_contains($r,'array_slice($rows, 0, $limit)'),'Pagination must remain bounded.');
 ra_check(str_contains($r,'(int) ($data[\'user_id\'] ?? 0) !== $user_id'),'Cursor must be user-bound.');
