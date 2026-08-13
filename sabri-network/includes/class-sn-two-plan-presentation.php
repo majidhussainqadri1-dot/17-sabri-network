@@ -14,7 +14,7 @@ final class SN_Two_Plan_Presentation {
     public static function enqueue_messages_assets(): void {
         $page_id = (int) get_option('sn_messages_page_id');
         $standalone = (int) get_query_var('sn_messages_app') === 1 && (string) get_query_var('sn_messages_mode') !== 'settings';
-        $is_messages = ($page_id > 0 && is_page($page_id)) || $standalone;
+        $is_messages = ($page_id > 0 && SN_Messages::is_owned_page($page_id) && is_page($page_id)) || $standalone;
         if (!$is_messages) return;
         $css = SN_DIR . 'assets/css/two-plan-ui.css';
         $js = SN_DIR . 'assets/js/two-plan-ui.js';
