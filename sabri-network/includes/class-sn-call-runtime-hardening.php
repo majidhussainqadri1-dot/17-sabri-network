@@ -20,6 +20,9 @@ final class SN_Call_Runtime_Hardening {
 
     public static function issue_credentials(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $user = get_current_user_id();
+        // The REST permission callback may already have populated the per-request File-00 cache.
+        // Credential issuance is a distinct high-value transition, so force a fresh assertion immediately before it.
+        SN_Membership_Assertions::clear_cache($user);
         $assertion = SN_Membership_Assertions::communication($user);
         if (is_wp_error($assertion)) return $assertion;
         if ($assertion['can_call'] !== true || $assertion['suspended'] === true) {
@@ -27,6 +30,8 @@ final class SN_Call_Runtime_Hardening {
         }
         $result = SN_Conference_Provider::issue_credentials($request);
         if (is_wp_error($result)) return $result;
+        // Never reuse the pre-provider assertion for the delivery decision.
+        SN_Membership_Assertions::clear_cache($user);
         $fresh = SN_Membership_Assertions::communication($user);
         if (is_wp_error($fresh) || $fresh['can_call'] !== true || $fresh['suspended'] === true) {
             return new WP_Error('sn_call_eligibility_changed', 'Calling eligibility changed before credential delivery.', ['status'=>403]);
