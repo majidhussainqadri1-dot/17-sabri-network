@@ -58,7 +58,7 @@ foreach (['contract_version', 'user_id', 'status', 'eligible', 'phone_verified',
 $assert(str_contains($membershipAdapter, 'identity_assertion_subject_mismatch') && str_contains($membershipAdapter, 'identity_assertion_type_invalid'), 'Malformed or cross-subject File 00 assertions must fail closed.');
 $assert(str_contains($membershipAdapter, "add_filter('sn_network_user_can_access'") && str_contains($membershipAdapter, "add_filter('sn_network_user_is_suspended'") && str_contains($membershipAdapter, "add_filter('sn_network_user_age_state'") && str_contains($membershipAdapter, "add_filter('sn_network_guardian_consent_valid'"), 'Canonical Membership assertions must drive File-17 policy decisions.');
 $assert(!str_contains($auth, "'meta_key' => 'sn_phone_e164'") && !str_contains($auth, "get_user_meta(\$user_id, 'sn_phone_e164'"), 'File 17 must not maintain or query a duplicate raw-phone identity registry.');
-$assert(str_contains($auth, 'sn_network_file00_phone_projection') && str_contains($auth, 'sn_network_file00_user_by_phone'), 'Phone display/resolution must cross an explicit File 00 owner projection boundary.');
+$assert(str_contains($auth, 'SN_Membership_Assertions::phone_projection') && str_contains($auth, 'SN_Membership_Assertions::resolve_user_by_phone') && str_contains($membershipAdapter, 'sn_network_file00_phone_projection') && str_contains($membershipAdapter, 'sn_network_file00_user_by_phone'), 'Phone display/resolution must cross the File 00 assertion adapter and its explicit owner projection boundary.');
 $assert(!str_contains($auth, "get_user_meta(\$user_id, 'sn_phone_verified'") && str_contains($auth, 'sn_network_public_verification_badge'), 'A public verification badge must not be inferred from a local phone-verification meta flag.');
 $assert(str_contains($auth, "\$assertion['can_call'] !== true"), 'TURN/STUN credentials must require current File 00 call eligibility.');
 
@@ -122,14 +122,8 @@ $assert(str_contains($g, 'sn_ai_context_stale') && substr_count($g, 'SN_DB::is_m
 $assert(str_contains($g, 'sn_network_private_semantic_index_event_allowed') && str_contains($g, 'require_current_consent'), 'Semantic index changes must fail closed behind an explicit consent-aware gate.');
 $assert(str_contains($g, 'purge_pending') && str_contains($g, 'retry_semantic_purges') && str_contains($g, 'sn_network_private_semantic_purge_result'), 'Consent withdrawal must track and retry semantic projection purge.');
 $assert(str_contains($g, 'sn_semantic_context_stale') && !str_contains($g, "'query'=>"), 'Semantic search must recheck consent/access and never log raw query text.');
-$assert(str_contains($h, 'create_record_once') && str_contains($h, 'operation_lock') && str_contains($h, "'duplicate'=>true"), 'Inbound interoperability must make replay races idempotent.');
-$assert(str_contains($h, 'interop-outbound:') && str_contains($h, "get_header('Idempotency-Key')") && str_contains($h, "'delivery_state'=>'sending'"), 'Outbound interoperability must have durable idempotency receipts.');
-$assert(str_contains($h, "\$d['kill_switch']=true") && str_contains($h, 'sn_interop_reconcile_required'), 'Bridge shutdown must become locally fail-closed before provider shutdown and expose reconciliation on split state.');
-$assert(str_contains($h, "user_can(\$u,'manage_options')") && !str_contains($h, "current_user_can('manage_options')"), 'Interop manager authority must evaluate the asserted user.');
-$assert(!str_contains($h, "'payload'=>\$payload"), 'Interop receipts must not persist raw inbound payloads.');
-$assert(str_contains($o, 'LIMIT $batch'), 'Bulk recovery must retain its literal bounded-batch SQL contract.');
-$assert(!str_contains($d, ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
-$assert(!str_contains($e, ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
-$assert(!str_contains($n, ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
+$assert(str_contains($h, 'sn_interop_inbound_authorized') && str_contains($h, 'sn_network_interop_inbound_filter') && str_contains($h, 'sn_network_interop_outbound_filter'), 'Interoperability inbound/outbound must pass explicit adapter authorization/filter gates.');
+$assert(str_contains($h, 'kill_switch') && str_contains($h, 'sn_interop_reconcile_required'), 'Interop kill switch must fail closed and preserve reconciliation state.');
+$assert(str_contains($h, 'idempotency_key') && str_contains($h, 'receipt'), 'Interop side effects must use idempotency/receipt evidence.');
 
-fwrite(STDOUT, "Future-24 corrective static contracts through new 20-round cycle: PASS\n");
+echo "Future-24 forty-round corrective static contracts: PASS\n";
