@@ -14,6 +14,7 @@ $assert = static function (bool $condition, string $message): void {
 
 $plugin = $read('sabri-network.php');
 $runtime = $read('includes/class-sn-two-plan-runtime-hardening.php');
+$rounds = $read('includes/class-sn-rounds41-60-runtime-hardening.php');
 $compat = $read('includes/class-sn-compatibility-hardening.php');
 $firewall = $read('includes/class-sn-two-plan-contract-firewall.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
@@ -27,6 +28,9 @@ $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtim
 $assert(substr_count($compat, 'SN_Future_Superset::register();') === 0, 'Compatibility hardening must not register Future-24 a second time.');
 $assert(str_contains($runtime, "str_starts_with(\$route, '/sabri-network/v2/')"), 'Global REST pre-dispatch hardening must ignore non-File-17 namespaces.');
 $assert(str_contains($runtime, '$file_params = $request->get_file_params();') && str_contains($runtime, '$access = SN_Policy::access();'), 'File hashing must revalidate canonical access before touching uploaded bytes.');
+$assert(str_contains($compat, "class-sn-rounds41-60-runtime-hardening.php") && str_contains($compat, 'SN_Rounds41_60_Runtime_Hardening::register();'), 'Rounds 41-60 runtime corrections must be loaded and registered.');
+$assert(str_contains($rounds, 'reconcile_scheduled_finalization') && str_contains($rounds, "status='processing'") && str_contains($rounds, "hash('sha256', (string) \$row->client_key)"), 'Scheduled sends must reconcile an already-created idempotent message if schedule finalization failed.');
+$assert(str_contains($rounds, 'scheduled_message_finalization_reconciled'), 'Scheduled finalization reconciliation must leave an audit trail.');
 $assert(str_contains($activator, 'SN_Two_Plan_Completion::install();'), 'Fresh activation must install the current two-plan schema before recording the plugin version.');
 $assert(str_contains($activator, 'SN_Future_Superset::install();'), 'Fresh activation must install the Future-24 schema before recording the plugin version.');
 $twoPlanInstall = strpos($activator, 'SN_Two_Plan_Completion::install();');
