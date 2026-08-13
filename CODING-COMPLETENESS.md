@@ -7,6 +7,8 @@
 
 This classification records source implementation of the currently approved File-17-owned communication requirements, including the 24-feature future superset. It does **not** establish provider, staging, deployment or operational acceptance. Exact-commit GitHub Actions checks are the automated-QA evidence for the commit on which they run; a successful older run is never evidence for a later commit.
 
+**Historical/current distinction:** earlier **2.0.3** forty-round evidence remains **historical evidence only**. The current source/release assessment is **2.1.0** plus the independent 20-round corrective cycle below; historical defect counts are not reused as current-cycle counts.
+
 ## Independent 20-round review result
 
 The cycle began from exact reviewed baseline `3b1bfad24743a401f4bf0247b4cd8296527df320` on branch `review/file17-next-20-round-2026-08-13`.
@@ -25,6 +27,7 @@ The corrections cover authority freshness, concurrency/CAS, lifecycle idempotenc
 |---|---:|
 | Runtime candidate | **2.1.0** |
 | Explicit PHP review suites in full gate | **47** |
+| JavaScript files checked for syntax | **8** |
 | Unknown-sender message-request workflow | implemented |
 | Scheduled messages | implemented with encrypted queue + delivery-time revalidation |
 | Polls/checklists | implemented on canonical messages |
