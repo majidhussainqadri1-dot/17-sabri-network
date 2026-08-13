@@ -13,11 +13,10 @@ final class SN_Future24_Review_Hardening_L {
         $reason=mb_substr(sanitize_textarea_field(wp_unslash((string)$r->get_param('reason'))),0,500);if($reason==='')return self::error('sn_handoff_reason_required','A handoff reason is required.',400);
         $expected=absint($r->get_param('expected_version'));if($expected<=0)return self::error('sn_handoff_version_required','Refresh the team inbox and provide its expected version.',400);
         $sla='';$raw_sla=(string)$r->get_param('sla_due_at');if($raw_sla!==''){$ts=strtotime($raw_sla);if(!$ts||$ts<=time()||$ts>time()+90*DAY_IN_SECONDS)return self::error('sn_handoff_sla_invalid','Choose a future SLA due time within 90 days.',400);$sla=gmdate('Y-m-d H:i:s',$ts);}
-        $wpdb->query('START TRANSACTION');
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_handoff_transaction_failed','The handoff transaction could not start safely.',500);
         try{
             $team=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".$wpdb->prefix."sn_future_records WHERE feature_id='F17-FUT-05' AND owner_id=0 AND scope_type='conversation' AND scope_id=%d AND state='active' ORDER BY id DESC LIMIT 1 FOR UPDATE",$conversation));
             if(!$team||$expected!==(int)$team->version)throw new RuntimeException('stale');
-            // Authorization is a transition precondition, not only a request-entry check.
             if(!self::manager_locked($conversation,$actor)||!self::delegated_locked($conversation,$actor,'manage'))throw new RuntimeException('authority_revoked');
             if(!self::delegated_locked($conversation,$target,'work'))throw new RuntimeException('target_revoked');
             $td=self::decode($team);if(is_wp_error($td))throw new RuntimeException('decode');$from=absint($td['assignee_id']??0);
