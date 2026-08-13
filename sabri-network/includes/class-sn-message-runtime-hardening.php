@@ -56,7 +56,10 @@ final class SN_Message_Runtime_Hardening {
             if($wpdb->query('COMMIT')===false)throw new RuntimeException('message_commit_failed');
         }catch(Throwable $e){
             $wpdb->query('ROLLBACK');$race=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE idempotency_key=%s',$idem));
-            if($race)return self::reconcile_existing($race,$user_id,true);
+            if($race){
+                if($attachment && (int)$attachment['id'] !== (int)$race->attachment_id)SN_Private_Files::delete((int)$attachment['id'],$user_id);
+                return self::reconcile_existing($race,$user_id,true);
+            }
             if($attachment)SN_Private_Files::delete((int)$attachment['id'],$user_id);
             SN_DB::audit('message_atomic_send_failed','conversation',$conversation_id,'failure',['reason'=>$e->getMessage()],$user_id);return new WP_Error('message_atomic_send_failed','The message could not be committed with its search and delivery records.',['status'=>500]);
         }
