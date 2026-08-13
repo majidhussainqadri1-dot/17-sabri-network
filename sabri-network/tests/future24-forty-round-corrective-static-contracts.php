@@ -18,9 +18,16 @@ $loader = $read('includes/class-sn-future24-review-hardening.php');
 $future = $read('includes/class-sn-future-superset.php');
 $part1 = $read('includes/class-sn-future-superset-part-1.php');
 $part2 = $read('includes/class-sn-future-superset-part-2.php');
+$activator = $read('includes/class-sn-activator.php');
 
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
 $assert(substr_count($compat, 'SN_Future_Superset::register();') === 0, 'Compatibility hardening must not register Future-24 a second time.');
+$assert(str_contains($activator, 'SN_Two_Plan_Completion::install();'), 'Fresh activation must install the current two-plan schema before recording the plugin version.');
+$assert(str_contains($activator, 'SN_Future_Superset::install();'), 'Fresh activation must install the Future-24 schema before recording the plugin version.');
+$twoPlanInstall = strpos($activator, 'SN_Two_Plan_Completion::install();');
+$futureInstall = strpos($activator, 'SN_Future_Superset::install();');
+$versionCommit = strpos($activator, "update_option('sn_plugin_version', SN_VERSION, false);");
+$assert($twoPlanInstall !== false && $futureInstall !== false && $versionCommit !== false && $twoPlanInstall < $versionCommit && $futureInstall < $versionCommit, 'Activation must not publish the current plugin version before all current schemas are installed.');
 
 foreach (range('a', 'o') as $suffix) {
     $path = "includes/class-sn-future24-review-hardening-{$suffix}.php";
