@@ -39,7 +39,7 @@ $assert(str_contains($part2, "['state'=>'processing'") && str_contains($part2, "
 
 $checks = [
     'includes/class-sn-future24-review-hardening-a.php' => ['smart-views/(?P<id>\\d+)/results', 'community-invites/(?P<id>\\d+)/revoke', 'FOR UPDATE'],
-    'includes/class-sn-future24-review-hardening-b.php' => ['sn_network_mentor_eligible', 'guardian_communication_approved', '/end', 'expiry_pending', 'membership_version'],
+    'includes/class-sn-future24-review-hardening-b.php' => ['sn_network_mentor_eligible', 'guardian_communication_approved', '/end', 'expiry_pending', 'membership_version', 'mentorship-v2:'],
     'includes/class-sn-future24-review-hardening-c.php' => ['sn_network_citation_resolve', 'sn_network_case_discussion_deidentify', 'retention_days'],
     'includes/class-sn-future24-review-hardening-d.php' => ['speaker-queue', 'reorder', "action==='next'", 'bool|WP_Error'],
     'includes/class-sn-future24-review-hardening-e.php' => ['breakouts/move', 'breakouts/close', 'sn_network_sfu_available', 'bool|WP_Error'],
@@ -74,6 +74,9 @@ $assert(str_contains($temp, "'membership_version'=>\$new_member_version"), 'Temp
 $assert(str_contains($temp, '(int)$member->version===$bound_version'), 'Temporary expiry must refuse to revoke a later independently changed membership.');
 $assert(str_contains($temp, "['id'=>(int)$member->id,'status'=>'active','version'=>(int)$member->version]"), 'Temporary expiry must revoke membership with status/version CAS.');
 $assert(str_contains($temp, "sn_space_bans") && str_contains($temp, "SN_DB::table('blocks')") && str_contains($temp, 'FOR UPDATE'), 'Temporary grant must revalidate canonical bans and blocks inside the transaction.');
+$assert(str_contains($temp, "ORDER BY id DESC LIMIT 1 FOR UPDATE") && str_contains($temp, "generation_after_id") && str_contains($temp, "mentorship-v2:"), 'Mentorship creation must serialize pair lifecycle and derive a new generation key after ended/declined records.');
+$assert(str_contains($temp, "['id'=>(int)$latest->id,'status'=>'pending','idempotent'=>true]"), 'A retry of the same pending mentorship must be idempotent rather than create a duplicate generation.');
+$assert(!str_contains($temp, "SN_Future_Superset::create_mentorship($r)"), 'Lifecycle-aware mentorship creation must not fall back to the permanently unique legacy pair key.');
 
 $hardeningO = $read('includes/class-sn-future24-review-hardening-o.php');
 $assert(str_contains($hardeningO, 'LIMIT $batch'), 'Bulk recovery must retain its literal bounded-batch SQL contract.');
