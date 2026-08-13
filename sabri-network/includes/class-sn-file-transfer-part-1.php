@@ -17,12 +17,10 @@ trait SN_File_Transfer_Part_1 {
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'register_eraser']);
     }
 
-
     public static function enqueue_brand_overrides(): void {
+        if (!self::is_file17_surface()) { return; }
         $path = SN_DIR . 'assets/css/brand-green-overrides.css';
-        if (!is_file($path)) {
-            return;
-        }
+        if (!is_file($path)) { return; }
         wp_enqueue_style(
             'sabri-file17-green-brand',
             SN_URL . 'assets/css/brand-green-overrides.css',
@@ -31,6 +29,24 @@ trait SN_File_Transfer_Part_1 {
         );
     }
 
+    private static function is_file17_surface(): bool {
+        $queried = get_queried_object_id();
+        $network_id = (int) get_option('sn_network_page_id');
+        if ($network_id > 0 && SN_Activator::is_owned_page($network_id) && $queried === $network_id) { return true; }
+
+        foreach (['sn_messages_page_id', 'sn_communication_settings_page_id'] as $option) {
+            $id = (int) get_option($option);
+            if ($id > 0 && SN_Messages::is_owned_page($id) && $queried === $id) { return true; }
+        }
+
+        $smail_id = (int) get_option('sn_smail_page_id');
+        if ($smail_id > 0 && (string) get_post_meta($smail_id, '_sn_file17_owned', true) === 'smail' && $queried === $smail_id) { return true; }
+
+        $transfer_id = (int) get_option('sn_file_transfer_page_id');
+        if ($transfer_id > 0 && self::is_owned_page($transfer_id) && $queried === $transfer_id) { return true; }
+
+        return (int) get_query_var('sn_messages_app') === 1 || (int) get_query_var('sn_meet_app') === 1;
+    }
 
     public static function init(): void {
         self::maybe_upgrade(); self::ensure_storage();
@@ -43,7 +59,6 @@ trait SN_File_Transfer_Part_1 {
             'notification_owner' => 'file-19', 'rest_base' => rest_url('sabri-network/v2/transfers/'), 'url' => self::url(),
         ]);
     }
-
 
     public static function install(): void {
         global $wpdb;
@@ -114,11 +129,9 @@ trait SN_File_Transfer_Part_1 {
         update_option('sn_file_transfer_schema_version', self::SCHEMA_VERSION, false);
     }
 
-
     public static function maybe_upgrade(): void {
         if ((string) get_option('sn_file_transfer_schema_version', '') !== self::SCHEMA_VERSION) { self::install(); }
     }
-
 
     public static function register_routes(): void {
         register_rest_route('sabri-network/v2', '/transfers', [
@@ -144,7 +157,6 @@ trait SN_File_Transfer_Part_1 {
             'methods' => 'GET', 'callback' => [self::class, 'health'], 'permission_callback' => [SN_REST::class, 'admin_access'],
         ]);
     }
-
 
     public static function verified_access(): bool|WP_Error {
         $access = SN_Policy::access(); if (is_wp_error($access)) { return $access; }
