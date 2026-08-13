@@ -16,6 +16,8 @@ for file in \
   assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js; do
   node --check "$STAGE/sabri-network/$file"
 done
+# Keep the Meet package contract explicit as well as covered by the complete JS loop.
+node --check "$STAGE/sabri-network/assets/js/meet.js"
 grep -q 'Version: 2.1.0' "$STAGE/sabri-network/sabri-network.php"
 grep -q "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')" "$STAGE/sabri-network/sabri-network.php"
 for file in \
