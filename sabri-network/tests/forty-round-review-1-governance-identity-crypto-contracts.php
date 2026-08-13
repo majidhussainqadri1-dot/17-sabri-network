@@ -10,7 +10,7 @@ $check(strpos($auth,'SN_DB::is_blocked($viewer_id, $target_id)')<strpos($auth,"\
 $check(str_contains($auth,'$blocked')&&str_contains($auth,'$can_see_avatar = !$blocked'),'Profile avatar projection must be block-aware.');
 $check(str_contains($crypto,'V2_SODIUM = "SNC3"')&&str_contains($crypto,'V2_OPENSSL = "SNC4"')&&str_contains($crypto,'sn_network_communication_previous_secrets'),'Private crypto must support versioned rotatable keyring formats.');
 $check(str_contains($crypto,'current_key_id')&&str_contains($crypto,'needs_rotation')&&str_contains($crypto,'rotate('),'Crypto rotation primitives must be explicit.');
-$check(str_contains($transfer,'SN_Policy::identity_authority_available()')&&str_contains($transfer,"sn_network_verified_transfer_user', null")&&str_contains($transfer,'=== true'),'Verified transfer eligibility must fail closed to File 00 authority.');
+$check(str_contains($transfer,'SN_Policy::identity_authority_available()')&&str_contains($transfer,"sn_network_verified_transfer_user',null")&&str_contains($transfer,'===true'),'Verified transfer eligibility must fail closed to File 00 authority.');
 $check(!str_contains($transfer,'sn_phone_verified')&&!str_contains($transfer,'sabri_verified'),'Transfer verification must not use legacy user-meta badges.');
 $check(str_contains($finalize,'finally')&&str_contains($finalize,'$cleanup();'),'Scanner plaintext materialization must have unconditional cleanup.');
 $check(str_contains($presence,'if($viewer===$target)$response[\'active_devices\']'),'Device count may be disclosed only to self.');
