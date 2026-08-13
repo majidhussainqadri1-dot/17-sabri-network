@@ -9,6 +9,7 @@ require_once SN_DIR . 'includes/class-sn-two-plan-presentation.php';
 require_once SN_DIR . 'includes/class-sn-two-plan-runtime-hardening.php';
 require_once SN_DIR . 'includes/class-sn-future-superset.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening.php';
+require_once SN_DIR . 'includes/class-sn-rounds41-60-runtime-hardening.php';
 
 final class SN_Compatibility_Hardening {
     private const MAX_FORWARD_BODY = 10000;
@@ -22,6 +23,7 @@ final class SN_Compatibility_Hardening {
         // SN_Two_Plan_Runtime_Hardening is the single Future-24 registration owner.
         SN_Two_Plan_Runtime_Hardening::register();
         SN_Future24_Review_Hardening::register();
+        SN_Rounds41_60_Runtime_Hardening::register();
     }
 
     public static function override_privacy_exporter(array $exporters): array {
