@@ -87,7 +87,7 @@ $checks = [
     'includes/class-sn-future24-review-hardening-k.php' => ['sn_network_team_inbox_delegation_allowed', '/notes', 'assigned_to_me'],
     'includes/class-sn-future24-review-hardening-l.php' => ['expected_version', 'handoff_reason', 'sla_due_at', 'FOR UPDATE'],
     'includes/class-sn-future24-review-hardening-m.php' => ['timezone_required', 'reschedule', 'cancelled_preflight'],
-    'includes/class-sn-future24-review-hardening-n.php' => ['ALLOWED_VARIABLES', '/preview', '/versions', 'template_revision', 'bool|WP_Error'],
+    'includes/class-sn-future24-review-hardening-n.php' => ['ALLOWED_VARIABLES', '/preview', '/versions', 'template_revision', 'START TRANSACTION', 'ROLLBACK', 'COMMIT', 'sn_template_update_failed', 'bool|WP_Error'],
     'includes/class-sn-future24-review-hardening-o.php' => ['future24_mutation', 'BULK_RECOVERY_BATCH', "state='processing'", 'LIMIT $batch'],
 ];
 foreach ($checks as $file => $needles) {
