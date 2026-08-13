@@ -6,7 +6,7 @@ ftc(str_contains($main,'class-sn-file-transfer.php')&&str_contains($main,'SN_Fil
 ftc(str_contains($src,'MAX_FILE_BYTES = 1073741824'),'Per-file limit is exactly 1 GiB.');
 ftc(str_contains($src,'MIN_CHUNK_BYTES')&&str_contains($src,'MAX_CHUNK_BYTES')&&str_contains($src,'total_chunks'),'Chunked resumable upload is bounded.');
 ftc(str_contains($src,"'methods' => 'PUT'")&&str_contains($src,"/chunks/(?P<index>\\d+)"),'Chunk upload has an authenticated idempotent REST route.');
-ftc(str_contains($src,"get_header('x-chunk-sha256')")&&str_contains($src,"hash('sha256',$body)")&&str_contains($src,'hash_equals($declared,$sha)'),'Every chunk requires SHA-256 integrity.');
+ftc(str_contains($src,"get_header('x-chunk-sha256')")&&str_contains($src,'hash(\'sha256\',$body)')&&str_contains($src,'hash_equals($declared,$sha)'),'Every chunk requires SHA-256 integrity.');
 ftc(str_contains($src,"hash_init('sha256')")&&str_contains($src,'expected_sha256'),'Whole-file SHA-256 is recomputed and optionally compared.');
 ftc(str_contains($src,'SN_Communication_Crypto::write_encrypted_file')&&str_contains($src,'SN_Communication_Crypto::read_encrypted_file'),'Chunks are encrypted at rest.');
 ftc(str_contains($src,'sn_network_transfer_scan_result')&&str_contains($src,'scanner_required'),'Malware scanning is fail-closed and adapter-driven.');
