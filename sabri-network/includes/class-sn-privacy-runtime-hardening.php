@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 defined('ABSPATH') || exit;
+require_once SN_DIR . 'includes/class-sn-safety-runtime-hardening.php';
 
 /** Corrective privacy layer for encrypted communication content and erasure ordering. */
 final class SN_Privacy_Runtime_Hardening {
@@ -10,6 +11,7 @@ final class SN_Privacy_Runtime_Hardening {
     public static function register(): void {
         add_filter('wp_privacy_personal_data_exporters', [self::class, 'override_exporter'], 1400);
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'override_eraser'], 1400);
+        SN_Safety_Runtime_Hardening::register();
     }
 
     public static function override_exporter(array $exporters): array {
@@ -42,8 +44,11 @@ final class SN_Privacy_Runtime_Hardening {
         try{
             $message_result=self::erase_message_batch($uid);if($message_result!==null)return$message_result;
             $update_result=self::erase_update_batch($uid);if($update_result!==null)return$update_result;
-            // Core binary-bearing records are now revoked/deleted in safe order. Let the canonical eraser minimize relational metadata.
+            $safety=SN_Safety_Runtime_Hardening::erase_user_report_data($uid);
+            if(!empty($safety['failed']))return['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Safety/report privacy minimization could not be committed and must be retried.','sabri-network')],'done'=>false];
             $legacy=SN_Privacy::erase($email,1);
+            if((int)($safety['redacted']??0)>0||(int)($safety['held_reporter_minimized']??0)>0)$legacy['items_removed']=true;
+            if((int)($safety['retained']??0)>0){$legacy['items_retained']=true;$legacy['messages'][]=sprintf(__('%d safety/report record(s) remain under legal hold.','sabri-network'),(int)$safety['retained']);}
             $remaining=self::remaining_core_rows($uid);
             if($remaining>0){$legacy['done']=false;$legacy['items_retained']=true;$legacy['messages'][]=__('Some File-17 relational privacy rows remain and require another erasure pass.','sabri-network');}
             return$legacy;
