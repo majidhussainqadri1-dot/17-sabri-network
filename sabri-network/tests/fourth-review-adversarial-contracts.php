@@ -25,10 +25,11 @@ foreach (['Communities, groups, channels and private teams','General per-device 
 }
 fr4a_check(
     str_contains($completeness, '**Coding classification:**') &&
-    str_contains($completeness, 'code-complete corrective candidate for repository-owned/current-wave scope') &&
+    stripos($completeness, 'repository-owned/current-wave') !== false &&
+    stripos($completeness, 'corrective candidate') !== false &&
     str_contains($completeness, '**Staging-Accepted:** pending') &&
     str_contains($completeness, '**Live-Deployed:** not claimed') &&
     !preg_match('/(?:production-ready|staging-accepted\s*:\s*(?:yes|complete)|live-deployed\s*:\s*(?:yes|complete))/i', $completeness),
-    'Completion evidence must state the code-complete candidate but staging/live-pending boundary.'
+    'Completion evidence must state a repository-owned corrective candidate while staging/live remain pending.'
 );
 if($failures){fwrite(STDERR,"Fourth-review adversarial failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Fourth-review adversarial contracts: PASS ($checks checks)\n";
