@@ -38,7 +38,7 @@ trait SN_File_Transfer_Part_3 {
             if ($wpdb->insert(self::chunks_table(), ['transfer_id' => (int) $row->id, 'chunk_index' => $index, 'byte_count' => $bytes, 'sha256' => $sha, 'storage_key' => $storage_key, 'created_at' => $now]) === false) { throw new RuntimeException('chunk_row_failed'); }
             $updated = $wpdb->query($wpdb->prepare('UPDATE ' . self::sessions_table() . ' SET received_chunks=received_chunks+1,received_bytes=received_bytes+%d,version=version+1,updated_at=%s WHERE id=%d AND status=\'uploading\'', $bytes, $now, (int) $row->id));
             if ($updated !== 1) { throw new RuntimeException('chunk_counter_failed'); }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('chunk_commit_failed'); }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             @unlink(self::storage_root() . '/' . $storage_key);
