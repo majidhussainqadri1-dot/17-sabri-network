@@ -1,35 +1,48 @@
-File 17 کو 1.1.0 سے 2.0.0 پر Upgrade کرنے کا دستور
+File 17 — Sabri Network and Messages 2.1.0
+Upgrade، Migration، Rollback اور Parity Verification کا محفوظ دستور
+
+یہ دستاویز موجودہ 2.1.0 candidate کے لیے حاکم عملی upgrade guide ہے۔ سابق 1.1.0 → 2.0.0 ہدایات historical baseline ہیں، موجودہ deployment proof نہیں۔
 
 قبل از Upgrade
 
-1۔ Database، wp-content اور configuration کا verified backup بنائیں۔
-2۔ موجودہ File 17 package، version، checksums اور active integrations درج کریں۔
-3۔ Legacy OTP/SMS/TURN settings کی موجودگی note کریں؛ 2.0.0 انہیں delete کرے گا۔
-4۔ Legacy Media Library attachments کی فہرست بنائیں۔ 2.0 API انہیں public URL نہیں دے گی؛ controlled private migration الگ عمل ہے۔
-5۔ Staging clone پر upgrade کریں۔
+1۔ Live/Staging کے exact active File 17 version، database/schema options، companion dependencies اور deployed package checksum درج کریں۔
+2۔ Database، wp-content، File-17 private storage اور configuration کا verified backup بنائیں اور restore rehearsal کا ثبوت محفوظ کریں۔
+3۔ موجودہ plugin package/source، version، checksums، cron state، private-file inventory اور active integrations freeze کریں۔
+4۔ نئی 2.1.0 ZIP صرف exact reviewed repository HEAD سے بنائیں؛ ZIP SHA-256 اور source MANIFEST.sha256 محفوظ کریں۔
+5۔ Legacy OTP/SMS/static TURN/local-notification artifacts کو production authority نہ سمجھیں؛ current identity File 00/02، notification File 19، shell File 20 اور global search File 26 boundaries نافذ رہیں گی۔
+6۔ Staging clone پر پہلے fresh install اور پھر representative in-place upgrade دونوں آزمائیں۔
 
 Upgrade کے دوران
 
-- Schema 2.0.0 نئی integrity keys، attachment ledger، rate limits اور audit tables بنائے گا۔
-- Direct conversations اور contact pairs کی keys backfill ہوں گی۔
-- ناقص direct conversations archive ہوسکتی ہیں؛ reconciliation report دیکھیں۔
-- Legacy OTP table ختم ہوگا۔
-- Network page صرف File-17-owned page ہونے پر repair ہوگا؛ کسی غیر متعلق /network page کو overwrite نہیں کیا جائے گا۔
+- Core File-17 tables کے ساتھ Two-Plan completion اور Future-24 schema installers مکمل ہونے کے بعد ہی current plugin version record معتبر سمجھا جائے۔
+- Direct conversations/contact keys، encryption envelopes، private-search indexes، scheduled-message state، Future-24 records، Smail اور transfer schema migration health verify کریں۔
+- Existing private files/transfer chunks public Media Library میں migrate نہ کریں؛ approved private storage/ledger ہی canonical ہے۔
+- Network/Messages/Smail/File Transfer pages صرف File-17-owned page ہونے پر repair ہوں؛ unrelated pages overwrite نہ ہوں۔
+- Migration error، partial schema، deferred upgrade یا dependency outage کی صورت میں release روکیں؛ application-level patch سے state نہ چھپائیں۔
 
-Upgrade کے بعد
+Upgrade کے بعد Staging Acceptance
 
-1۔ Network → System Check میں تمام tables، private storage اور identity authority دیکھیں۔
-2۔ Contact request → accept → direct message → read → reaction → report workflow آزمائیں۔
-3۔ Block/unblock، minor/guardian، suspension اور unauthorized IDOR tests کریں۔
-4۔ Image، audio، video، PDF/DOCX/XLSX upload policies آزمائیں۔ Scanner کے بغیر documents fail-closed ہونے چاہییں۔
-5۔ Direct call create/join/decline/end اور duplicate-call race آزمائیں۔
-6۔ Privacy export/erasure اور attachment deletion آزمائیں۔
-7۔ File 20 route، File 19 notification اور File 25 action integrations آزمائیں۔
+1۔ System Check میں database/schema version، storage، identity authority، cron/outbox اور provider health دیکھیں۔
+2۔ Contact/message request → accept → direct message → receipts/reactions/report/appeal workflow آزمائیں۔
+3۔ Scheduled message create/cancel/send/reconcile، disappearing expiry/legal hold اور search-index cleanup آزمائیں۔
+4۔ Minor/guardian، block/unblock، suspension، verification revocation اور unauthorized/IDOR paths آزمائیں۔
+5۔ Smail seven mailboxes اور canonical message reuse آزمائیں۔
+6۔ Verified-user private transfer: resumable chunks، checksum، scanner quarantine، finalize، grant/range resume، revoke، expiry، erasure اور failed-cleanup retry آزمائیں۔
+7۔ Calls: create/join/decline/end، host/cohost transfer، breakout provider confirmation، TURN/SFU degraded mode اور duplicate/race paths آزمائیں۔
+8۔ Privacy export/erasure، retention/legal hold، outbox/inbox retries/dead-letter اور audit evidence آزمائیں۔
+9۔ File 08/CF-01، 19، 20، 24، 25، 26 integrations اور dependency-degraded behavior آزمائیں۔
+10۔ RTL/LTR، keyboard/accessibility، mobile/browser/device، cache/no-store/noindex، load/soak اور backup/restore tests مکمل کریں۔
 
 Rollback
 
-- نئی writes روکیں۔
-- 2.0.0 deactivate کریں۔
-- verified pre-upgrade database/files restore کریں۔
-- restore کے بعد identity، messages، attachments، cron اور page routes کی smoke testing کریں۔
-- 1.1.0 کو نئے 2.0 data پر براہِ راست چلانا محفوظ rollback نہیں؛ database restore لازم ہے۔
+1۔ نئی writes روکیں اور incident/release evidence freeze کریں۔
+2۔ Exact failed deployed package/version/schema state محفوظ کریں؛ فوراً historical GitHub HEAD کو live truth نہ فرض کریں۔
+3۔ Plugin deactivate کریں صرف جب rollback plan اور data-consistency impact واضح ہو۔
+4۔ verified pre-upgrade database، private storage/files اور configuration restore کریں۔
+5۔ سابق compatible plugin package اسی backup epoch کے ساتھ restore کریں؛ نئی schema/data پر پرانا runtime براہِ راست چلانا محفوظ rollback نہیں۔
+6۔ Restore کے بعد identity، messages، attachments/transfers، Smail، cron/outbox، calls، routes اور companion integrations کی smoke testing کریں۔
+7۔ Deployment package checksum اور restored repository/package parity دوبارہ ثابت کریں۔
+
+Live Deployment Rule
+
+Staging acceptance کے بعد Founder approval کے ساتھ approved package production میں deploy کریں۔ پھر exact deployed version/package checksum، DB/schema version، migration state اور live smoke tests محفوظ کریں۔ GitHub green یا ZIP build کو live completion نہ سمجھیں۔
