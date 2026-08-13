@@ -21,5 +21,6 @@ final class SN_File_Transfer {
     private const DEFAULT_CHUNK_BYTES = 8388608;
     private const MAX_RECIPIENTS = 256;
     private const GRANT_TTL = 600;
+    private const PRIVACY_ERASE_PAGE_SIZE = 100;
     use SN_File_Transfer_Part_1, SN_File_Transfer_Part_2, SN_File_Transfer_Part_3, SN_File_Transfer_Part_4, SN_File_Transfer_Part_5, SN_File_Transfer_Part_6, SN_File_Transfer_Part_7, SN_File_Transfer_Part_8;
 }
