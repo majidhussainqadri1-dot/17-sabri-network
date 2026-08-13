@@ -9,9 +9,9 @@ trait SN_File_Transfer_Part_8 {
             return ['items_removed' => false, 'items_retained' => false, 'messages' => [], 'done' => true];
         }
 
-        // Keep the batch size local: trait constants are unavailable on the
-        // plugin's PHP 8.1 minimum runtime.
-        $page_size = 100;
+        // The batch constant lives on SN_File_Transfer rather than the trait so
+        // this remains valid on the plugin's PHP 8.1 minimum runtime.
+        $page_size = self::PRIVACY_ERASE_PAGE_SIZE;
         $uid = (int) $user->ID;
         $page = max(1, $page);
         $offset = ($page - 1) * $page_size;
