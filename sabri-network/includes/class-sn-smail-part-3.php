@@ -95,37 +95,53 @@ trait SN_Smail_Part_3 {
     }
 
     public static function force_content(string $content): string {
-        if (!in_the_loop() || !is_main_query() || get_queried_object_id() !== (int) get_option('sn_smail_page_id')) return $content;
+        $page_id = (int) get_option('sn_smail_page_id');
+        if (!in_the_loop() || !is_main_query() || $page_id <= 0 || !self::is_owned_page($page_id) || get_queried_object_id() !== $page_id) return $content;
         return do_shortcode('[sabri_smail]');
     }
 
     public static function disable_cache(): void {
-        if (get_queried_object_id() !== (int) get_option('sn_smail_page_id')) return;
+        $page_id = (int) get_option('sn_smail_page_id');
+        if ($page_id <= 0 || !self::is_owned_page($page_id) || get_queried_object_id() !== $page_id) return;
         if (!defined('DONOTCACHEPAGE')) define('DONOTCACHEPAGE', true);
         nocache_headers(); header('X-Robots-Tag: noindex, noarchive', true); header('X-Content-Type-Options: nosniff', true);
     }
 
     public static function ensure_page(bool $repair): int {
         $id = (int) get_option('sn_smail_page_id'); $page = $id ? get_post($id) : null;
-        if ($page instanceof WP_Post && (string) get_post_meta($id, self::PAGE_OWNER_META, true) === 'smail') {
-            if ($repair || !has_shortcode((string) $page->post_content, 'sabri_smail')) wp_update_post(['ID' => $id, 'post_title' => 'Smail', 'post_content' => '[sabri_smail]', 'post_status' => 'publish']);
+        if ($page instanceof WP_Post && self::is_owned_page($id)) {
+            if ($repair || !has_shortcode((string) $page->post_content, 'sabri_smail') || (string) $page->post_status !== 'publish') wp_update_post(['ID' => $id, 'post_title' => 'Smail', 'post_content' => '[sabri_smail]', 'post_status' => 'publish']);
             return $id;
         }
         $candidate = get_page_by_path('smail', OBJECT, 'page');
-        if ($candidate instanceof WP_Post && (string) get_post_meta((int) $candidate->ID, self::PAGE_OWNER_META, true) !== 'smail') return 0;
+        if ($candidate instanceof WP_Post && !self::is_owned_page((int) $candidate->ID)) return 0;
         $created = $candidate instanceof WP_Post ? (int) $candidate->ID : wp_insert_post(['post_title' => 'Smail', 'post_name' => 'smail', 'post_content' => '[sabri_smail]', 'post_status' => 'publish', 'post_type' => 'page', 'comment_status' => 'closed'], true);
         if (is_wp_error($created)) return 0;
         $id = (int) $created;
-        if ($id > 0) { update_post_meta($id, self::PAGE_OWNER_META, 'smail'); update_option('sn_smail_page_id', $id, false); }
+        if ($id > 0) {
+            update_post_meta($id, self::PAGE_OWNER_META, 'smail');
+            update_option('sn_smail_page_id', $id, false);
+            if ($candidate instanceof WP_Post && ($repair || !has_shortcode((string) $candidate->post_content, 'sabri_smail') || (string) $candidate->post_status !== 'publish')) {
+                wp_update_post(['ID' => $id, 'post_title' => 'Smail', 'post_content' => '[sabri_smail]', 'post_status' => 'publish']);
+            }
+        }
         return $id;
     }
 
     public static function url(): string {
-        $id = (int) get_option('sn_smail_page_id'); $url = $id ? get_permalink($id) : false;
-        return $url ? (string) $url : home_url('/smail/');
+        $id = (int) get_option('sn_smail_page_id');
+        if ($id > 0 && self::is_owned_page($id) && get_post_status($id) === 'publish') {
+            $url = get_permalink($id);
+            if ($url) return (string) $url;
+        }
+        return home_url('/smail/');
     }
 
     public static function register_exporter(array $exporters): array {
         $exporters['sabri-network-smail'] = ['exporter_friendly_name' => 'Sabri Smail', 'callback' => [self::class, 'export_personal_data']]; return $exporters;
+    }
+
+    private static function is_owned_page(int $page_id): bool {
+        return $page_id > 0 && (string) get_post_meta($page_id, self::PAGE_OWNER_META, true) === 'smail';
     }
 }
