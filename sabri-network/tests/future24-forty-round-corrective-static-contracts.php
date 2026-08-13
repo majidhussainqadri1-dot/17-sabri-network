@@ -22,6 +22,12 @@ $future = $read('includes/class-sn-future-superset.php');
 $part1 = $read('includes/class-sn-future-superset-part-1.php');
 $part2 = $read('includes/class-sn-future-superset-part-2.php');
 $activator = $read('includes/class-sn-activator.php');
+$transfer3 = $read('includes/class-sn-file-transfer-part-3.php');
+$transfer4 = $read('includes/class-sn-file-transfer-part-4.php');
+$transfer5 = $read('includes/class-sn-file-transfer-part-5.php');
+$transfer6 = $read('includes/class-sn-file-transfer-part-6.php');
+$transfer7 = $read('includes/class-sn-file-transfer-part-7.php');
+$transfer8 = $read('includes/class-sn-file-transfer-part-8.php');
 
 $assert(!str_contains($plugin, "\$_GET['sn-network-safe']"), 'Safe standalone rendering must only activate through the canonical rewrite query var, never an arbitrary raw query parameter.');
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
@@ -40,6 +46,25 @@ $twoPlanInstall = strpos($activator, 'SN_Two_Plan_Completion::install();');
 $futureInstall = strpos($activator, 'SN_Future_Superset::install();');
 $versionCommit = strpos($activator, "update_option('sn_plugin_version', SN_VERSION, false);");
 $assert($twoPlanInstall !== false && $futureInstall !== false && $versionCommit !== false && $twoPlanInstall < $versionCommit && $futureInstall < $versionCommit, 'Activation must not publish the current plugin version before all current schemas are installed.');
+
+// Round 57: verified-user 1 GiB private transfer lifecycle must never report
+// success across ambiguous commits or destroy bytes before canonical revocation.
+$assert(str_contains($transfer3, 'chunk_commit_failed') && str_contains($transfer3, "if (\$wpdb->query('COMMIT') === false)"), 'Chunk upload must fail closed when the transaction commit fails.');
+$assert(str_contains($transfer4, 'transfer_recipient_ready_failed') && str_contains($transfer4, 'transfer_finalize_commit_failed'), 'Transfer finalization must atomically persist recipient readiness and check COMMIT.');
+$assert(str_contains($transfer4, 'commit_reconciled'), 'Finalization must reconcile an ambiguous commit by rereading canonical transfer state.');
+$assert(str_contains($transfer5, 'revoke_recipients_failed') && str_contains($transfer5, 'revoke_commit_failed'), 'Transfer revocation must check recipient projection and COMMIT.');
+$assert(str_contains($transfer6, 'transfer_rejection_persist_failed'), 'Unsafe transfer rejection must persist canonical state before deleting encrypted chunks.');
+$rejectUpdate = strpos($transfer6, "status='rejected'");
+$rejectDelete = strpos($transfer6, 'self::delete_chunks((int) $row->id)');
+$assert($rejectUpdate !== false && $rejectDelete !== false && $rejectUpdate < $rejectDelete, 'Rejected transfer access must be revoked before encrypted chunks are destroyed.');
+$assert(str_contains($transfer7, 'file_transfer_chunk_delete_failed') && str_contains($transfer7, 'file_transfer_chunk_row_delete_failed'), 'Chunk cleanup must retain/audit failed byte or ledger-row deletion rather than discarding retry evidence.');
+$assert(str_contains($transfer7, "status='expired'") && str_contains($transfer7, 'self::delete_chunks((int) $row->id)'), 'Expiry cleanup must enter a terminal access state before byte purge.');
+$assert(str_contains($transfer7, "EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)"), 'Terminal transfers with leftover encrypted chunks must remain eligible for cleanup retries.');
+$assert(str_contains($transfer8, 'PRIVACY_ERASE_PAGE_SIZE') && str_contains($transfer8, "status='revoked'") && str_contains($transfer8, 'self::delete_chunks((int) $row->id)'), 'Privacy erasure must paginate and revoke sender-owned transfer access before byte removal.');
+$privacyRevoke = strpos($transfer8, "status='revoked'");
+$privacyDelete = strpos($transfer8, 'self::delete_chunks((int) $row->id)');
+$assert($privacyRevoke !== false && $privacyDelete !== false && $privacyRevoke < $privacyDelete, 'Privacy erasure must not delete encrypted transfer bytes before canonical revocation.');
+$assert(str_contains($transfer8, 'file_transfer_privacy_revoke_failed') && str_contains($transfer8, 'file_transfer_privacy_recipient_erase_failed'), 'Privacy erasure must report failed canonical sender/recipient mutations instead of claiming complete deletion.');
 
 foreach (range('a', 'o') as $suffix) {
     $path = "includes/class-sn-future24-review-hardening-{$suffix}.php";
