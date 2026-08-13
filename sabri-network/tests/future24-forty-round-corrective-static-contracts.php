@@ -39,7 +39,7 @@ $assert(str_contains($part2, "['state'=>'processing'") && str_contains($part2, "
 
 $checks = [
     'includes/class-sn-future24-review-hardening-a.php' => ['smart-views/(?P<id>\\d+)/results', 'community-invites/(?P<id>\\d+)/revoke', 'FOR UPDATE'],
-    'includes/class-sn-future24-review-hardening-b.php' => ['sn_network_mentor_eligible', 'guardian_communication_approved', '/end'],
+    'includes/class-sn-future24-review-hardening-b.php' => ['sn_network_mentor_eligible', 'guardian_communication_approved', '/end', 'expiry_pending', 'membership_version'],
     'includes/class-sn-future24-review-hardening-c.php' => ['sn_network_citation_resolve', 'sn_network_case_discussion_deidentify', 'retention_days'],
     'includes/class-sn-future24-review-hardening-d.php' => ['speaker-queue', 'reorder', "action==='next'", 'bool|WP_Error'],
     'includes/class-sn-future24-review-hardening-e.php' => ['breakouts/move', 'breakouts/close', 'sn_network_sfu_available', 'bool|WP_Error'],
@@ -67,6 +67,16 @@ $assert(str_contains($qr, '[\'id\'=>(int)$m->id,\'version\'=>(int)$m->version]')
 $assert(str_contains($qr, 'user_can($user,\'manage_options\')'), 'Manager authority must be evaluated for the asserted manager, not the requester.');
 $assert(!str_contains($qr, "current_user_can('manage_options')"), 'Arbitrary issuer authority checks must not inherit the current requester capability.');
 
+$temp = $read('includes/class-sn-future24-review-hardening-b.php');
+$assert(str_contains($temp, "add_action('sn_cleanup_hourly',[self::class,'expire_temporary_memberships'],5)"), 'Temporary expiry safety must claim due rows before legacy cleanup.');
+$assert(str_contains($temp, "SET state='expiry_pending'") && str_contains($temp, "state='expiry_pending'"), 'All due temporary grants must enter a crash-safe pending-expiry state before bounded processing.');
+$assert(str_contains($temp, "'membership_version'=>\$new_member_version"), 'Temporary grants must bind expiry authority to the exact membership version they created.');
+$assert(str_contains($temp, '(int)$member->version===$bound_version'), 'Temporary expiry must refuse to revoke a later independently changed membership.');
+$assert(str_contains($temp, "['id'=>(int)$member->id,'status'=>'active','version'=>(int)$member->version]"), 'Temporary expiry must revoke membership with status/version CAS.');
+$assert(str_contains($temp, "sn_space_bans") && str_contains($temp, "SN_DB::table('blocks')") && str_contains($temp, 'FOR UPDATE'), 'Temporary grant must revalidate canonical bans and blocks inside the transaction.');
+
+$hardeningO = $read('includes/class-sn-future24-review-hardening-o.php');
+$assert(str_contains($hardeningO, 'LIMIT $batch'), 'Bulk recovery must retain its literal bounded-batch SQL contract.');
 $assert(!str_contains($read('includes/class-sn-future24-review-hardening-g.php'), "'query'=>"), 'Semantic search must not log raw private query text.');
 $assert(!str_contains($read('includes/class-sn-future24-review-hardening-h.php'), "'payload'=>\$payload"), 'Interop receipts must not persist raw inbound payloads.');
 $assert(!str_contains($read('includes/class-sn-future24-review-hardening-d.php'), ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
