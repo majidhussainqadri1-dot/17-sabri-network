@@ -10,6 +10,8 @@ $runtime=$read($root.'/includes/class-sn-two-plan-runtime-hardening.php');
 $completion=$read($root.'/includes/class-sn-two-plan-completion.php');
 $firewall=$read($root.'/includes/class-sn-two-plan-contract-firewall.php');
 $future=$read($root.'/includes/class-sn-future-superset.php').$read($root.'/includes/class-sn-future-superset-part-1.php').$read($root.'/includes/class-sn-future-superset-part-2.php').$read($root.'/includes/class-sn-future-superset-part-3.php').$read($root.'/includes/class-sn-future-superset-core.php');
+$review_loader=$read($root.'/includes/class-sn-future24-review-hardening.php');
+$review_o=$read($root.'/includes/class-sn-future24-review-hardening-o.php');
 $future_js=$read($root.'/assets/js/future-superset.js');$future_css=$read($root.'/assets/css/future-superset.css');
 $quality=$read($root.'/tools/quality-check.sh');
 
@@ -58,5 +60,12 @@ $check(str_contains($future_css,'prefers-reduced-motion')&&str_contains($future_
 $check(str_contains($future,"usort(\$participants")&&str_contains($future,"'f17-safety-v1|'"),'Safety-number derivation must canonically order both peers so both directions match.');
 $check(str_contains($firewall,'/future/e2ee-policy')&&str_contains($firewall,'/future/community-invites')&&str_contains($firewall,'/future/ai-assistant')&&str_contains($firewall,'/future/interop'),'Future-24 mutations must be covered by the canonical caller-supplied idempotency firewall.');
 
-if($checks!==66)$fail[]='Expected 66 checks, got '.$checks;
+$check(substr_count($runtime,'SN_Future_Superset::register();')===1,'Runtime hardening must be the single Future-24 registration owner.');
+$check(substr_count($compat,'SN_Future_Superset::register();')===0,'Compatibility hardening must not register Future-24 a second time.');
+$check(str_contains($review_loader,"class-sn-future24-review-hardening-o.php")&&str_contains($review_loader,'SN_Future24_Review_Hardening_O::register()'),'Round-38 hardening O must be loaded and registered.');
+$check(str_contains($review_o,'future24_mutation')&&str_contains($review_o,'sn_future24_rate_limited'),'Advanced Future-24 mutations must have a global abuse budget.');
+$check(str_contains($review_o,"feature_id='F17-FUT-10'")&&str_contains($review_o,"state='processing'")&&str_contains($review_o,"state='queued'")&&str_contains($review_o,'cleanup_breakouts'),'Bulk-job crash recovery and breakout-expiry ordering must be hardened.');
+$check(str_contains($review_o,'BULK_RECOVERY_BATCH = 200')&&str_contains($review_o,"state='queued' AND expires_at")&&str_contains($review_o,"state='processing' AND updated_at<%s AND expires_at")&&substr_count($review_o,'LIMIT $batch')===3,'Round-40 recovery must be bounded and must not expire an active processing worker solely on wall-clock expiry.');
+
+if($checks!==72)$fail[]='Expected 72 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Two-plan completion failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Two-plan completion contracts: PASS ($checks checks)\n";

@@ -44,17 +44,43 @@ final class SN_Future_Superset {
         'F17-FUT-24'=>['slug'=>'interop-gateway','phase'=>'advanced-trust','provider'=>'interop','label'=>'Standards-Based Interoperability Gateway'],
     ]; }
 
+    private static function client(WP_REST_Request $request, int $user_id, string $purpose): string {
+        $candidate = strtolower(trim((string) $request->get_param('client_id')));
+        if (preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $candidate)) return $user_id . ':' . $purpose . ':' . $candidate;
+        $params = $request->get_params(); unset($params['client_id']);
+        $normalize = static function (&$value) use (&$normalize): void { if (!is_array($value)) return; if (!array_is_list($value)) ksort($value, SORT_STRING); foreach ($value as &$nested) $normalize($nested); unset($nested); };
+        $normalize($params);
+        $json = wp_json_encode($params, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return $user_id . ':' . $purpose . ':auto-' . substr(hash('sha256', (string) $json), 0, 48);
+    }
+
+    public static function cleanup(): void {
+        global $wpdb; $now = self::now();
+        $stale = gmdate('Y-m-d H:i:s', time() - 15 * MINUTE_IN_SECONDS);
+        $wpdb->query($wpdb->prepare("UPDATE " . self::records_table() . " SET state='active',updated_at=%s,version=version+1 WHERE feature_id='F17-FUT-07' AND state='firing' AND updated_at<%s", $now, $stale));
+        $due = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-07' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
+        foreach (is_array($due) ? $due : [] as $record) {
+            $data = self::decode($record); if (is_wp_error($data)) continue;
+            $claimed = $wpdb->update(self::records_table(), ['state'=>'firing','updated_at'=>$now,'version'=>(int)$record->version+1], ['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]); if ($claimed !== 1) continue;
+            try {
+                do_action('sn_network_notification_requested', ['owner'=>'file-17','recipient_id'=>(int)$record->owner_id,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>(int)$record->scope_id,'message_id'=>(int)($data['message_id']??0),'idempotency_key'=>'file17-future-reminder:' . (int)$record->id]);
+                $wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+            } catch (Throwable $error) {
+                $wpdb->update(self::records_table(), ['state'=>'active','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                SN_DB::audit('future_reminder_handoff_failed','future_record',(int)$record->id,'failure',['reason'=>$error->getMessage()],(int)$record->owner_id);
+            }
+        }
+        self::process_bulk_jobs($now);
+        $temp = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-13' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
+        foreach (is_array($temp) ? $temp : [] as $record) self::expire_temp($record);
+        $wpdb->query($wpdb->prepare("UPDATE " . self::records_table() . " SET state='expired',updated_at=%s,version=version+1 WHERE state='active' AND expires_at IS NOT NULL AND expires_at<%s AND feature_id NOT IN ('F17-FUT-07','F17-FUT-10','F17-FUT-13')", $now, $now));
+    }
+
     public static function register(): void {
-        add_action('init',[self::class,'maybe_upgrade'],28);
-        add_action('rest_api_init',[self::class,'register_routes'],1700);
-        add_action('sn_cleanup_hourly',[self::class,'cleanup']);
-        add_filter('rest_pre_dispatch',[self::class,'pre_dispatch'],8,3);
-        add_filter('rest_post_dispatch',[self::class,'post_dispatch'],8,3);
-        add_filter('wp_privacy_personal_data_exporters',[self::class,'register_exporter']);
-        add_filter('wp_privacy_personal_data_erasers',[self::class,'register_eraser']);
-        add_action('wp_enqueue_scripts',[self::class,'register_assets'],6);
-        add_shortcode('sabri_communication_advanced',[self::class,'render_workspace']);
-        add_action('sn_network_future_contract_request',[self::class,'emit_contract']);
+        add_action('init',[self::class,'maybe_upgrade'],28); add_action('rest_api_init',[self::class,'register_routes'],1700); add_action('sn_cleanup_hourly',[self::class,'cleanup']);
+        add_filter('rest_pre_dispatch',[self::class,'pre_dispatch'],8,3); add_filter('rest_post_dispatch',[self::class,'post_dispatch'],8,3);
+        add_filter('wp_privacy_personal_data_exporters',[self::class,'register_exporter']); add_filter('wp_privacy_personal_data_erasers',[self::class,'register_eraser']);
+        add_action('wp_enqueue_scripts',[self::class,'register_assets'],6); add_shortcode('sabri_communication_advanced',[self::class,'render_workspace']); add_action('sn_network_future_contract_request',[self::class,'emit_contract']);
     }
     public static function maybe_upgrade(): void { if((string)get_option('sn_future_superset_schema_version','')!==self::SCHEMA_VERSION) self::install(); }
     public static function install(): void {
@@ -75,6 +101,7 @@ final class SN_Future_Superset {
         register_rest_route('sabri-network/v2','/future/reminders',[['methods'=>'GET','callback'=>[self::class,'list_reminders'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'create_reminder'],'permission_callback'=>$a]]);
         register_rest_route('sabri-network/v2','/future/templates',[['methods'=>'GET','callback'=>[self::class,'list_templates'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'save_template'],'permission_callback'=>$a]]);
         self::route('/future/messages/(?P<id>\d+)/versions','GET','message_versions',$a); self::route('/future/conversations/bulk','POST','bulk_conversations',$a);
+        register_rest_route('sabri-network/v2','/future/conversations/bulk/(?P<id>\d+)',[['methods'=>'GET','callback'=>[self::class,'bulk_job_status'],'permission_callback'=>$a],['methods'=>'DELETE','callback'=>[self::class,'cancel_bulk_job'],'permission_callback'=>$a]]);
         register_rest_route('sabri-network/v2','/future/smart-views',[['methods'=>'GET','callback'=>[self::class,'list_smart_views'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'save_smart_view'],'permission_callback'=>$a]]);
         self::route('/future/community-invites','POST','create_qr_invite',$a); self::route('/future/community-invites/redeem','POST','redeem_qr_invite',$a); self::route('/future/temporary-memberships','POST','grant_temporary_membership',$a);
         register_rest_route('sabri-network/v2','/future/mentorships',[['methods'=>'GET','callback'=>[self::class,'list_mentorships'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'create_mentorship'],'permission_callback'=>$a]]); self::route('/future/mentorships/(?P<id>\d+)','POST','decide_mentorship',$a);

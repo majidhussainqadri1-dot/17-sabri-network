@@ -32,7 +32,7 @@ tests=(
  smail-static-contracts.php smail-adversarial-contracts.php transfer-static-contracts.php transfer-adversarial-contracts.php
  four-plan-review-1-governance-contracts.php four-plan-review-2-transfer-concurrency-contracts.php four-plan-review-3-message-smail-security-contracts.php four-plan-review-4-fresh-release-contracts.php
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
- two-plan-completion-contracts.php
+ two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)
