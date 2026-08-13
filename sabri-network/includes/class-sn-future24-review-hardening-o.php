@@ -2,6 +2,7 @@
 /** Review hardening — mutation budgets, message serialization and bounded scheduler recovery. */
 declare(strict_types=1);
 defined('ABSPATH') || exit;
+require_once SN_DIR . 'includes/class-sn-space-runtime-hardening.php';
 
 final class SN_Future24_Review_Hardening_O {
     private const BULK_RECOVERY_BATCH = 200;
@@ -14,6 +15,7 @@ final class SN_Future24_Review_Hardening_O {
         add_action('sn_cleanup_hourly',[self::class,'bulk_job_preflight'],0);
         remove_action('sn_cleanup_hourly',[SN_Future24_Review_Hardening_E::class,'cleanup_breakouts'],40);
         add_action('sn_cleanup_hourly',[SN_Future24_Review_Hardening_E::class,'cleanup_breakouts'],2);
+        SN_Space_Runtime_Hardening::register();
     }
 
     public static function mutation_budget($result,$server,WP_REST_Request $request){
