@@ -50,22 +50,58 @@ trait SN_File_Transfer_Part_7 {
 
     private static function delete_chunks(int $transfer_id): void {
         global $wpdb;
-        $rows = $wpdb->get_results($wpdb->prepare('SELECT storage_key FROM ' . self::chunks_table() . ' WHERE transfer_id=%d', $transfer_id));
-        foreach ($rows as $row) {
-            $path = self::existing_storage_path((string) $row->storage_key);
-            if (is_wp_error($path)) {
+        $rows = $wpdb->get_results($wpdb->prepare('SELECT chunk_index,storage_key FROM ' . self::chunks_table() . ' WHERE transfer_id=%d ORDER BY chunk_index ASC', $transfer_id));
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $key = str_replace('\\', '/', trim((string) $row->storage_key));
+            if ($key === '' || str_contains($key, "\0") || str_starts_with($key, '/') || preg_match('~(^|/)\.\.(/|$)~', $key)) {
                 SN_DB::audit('file_transfer_chunk_delete_path_rejected', 'file_transfer', $transfer_id, 'failure', ['storage_key_hash' => hash('sha256', (string) $row->storage_key)]);
                 continue;
             }
-            @unlink($path);
+            $raw = self::storage_root() . '/' . $key;
+            if (file_exists($raw)) {
+                $path = self::existing_storage_path($key);
+                if (is_wp_error($path)) {
+                    SN_DB::audit('file_transfer_chunk_delete_path_rejected', 'file_transfer', $transfer_id, 'failure', ['storage_key_hash' => hash('sha256', $key)]);
+                    continue;
+                }
+                if (!@unlink($path)) {
+                    SN_DB::audit('file_transfer_chunk_delete_failed', 'file_transfer', $transfer_id, 'failure', ['chunk_index' => (int) $row->chunk_index, 'storage_key_hash' => hash('sha256', $key)]);
+                    continue;
+                }
+            }
+            $deleted = $wpdb->delete(self::chunks_table(), ['transfer_id' => $transfer_id, 'chunk_index' => (int) $row->chunk_index], ['%d', '%d']);
+            if ($deleted === false) {
+                SN_DB::audit('file_transfer_chunk_row_delete_failed', 'file_transfer', $transfer_id, 'failure', ['chunk_index' => (int) $row->chunk_index, 'storage_key_hash' => hash('sha256', $key)]);
+            }
         }
-        $wpdb->delete(self::chunks_table(), ['transfer_id' => $transfer_id], ['%d']);
     }
 
     public static function cleanup(): void {
         global $wpdb; $now = current_time('mysql', true);
-        $rows = $wpdb->get_results($wpdb->prepare('SELECT id FROM ' . self::sessions_table() . ' WHERE expires_at<%s AND status NOT IN (\'expired\',\'revoked\',\'rejected\') LIMIT 100', $now));
-        foreach ($rows as $row) { self::delete_chunks((int) $row->id); $wpdb->query($wpdb->prepare('UPDATE ' . self::sessions_table() . " SET status='expired',version=version+1,updated_at=%s WHERE id=%d", $now, (int) $row->id)); }
+        $sessions = self::sessions_table(); $chunks = self::chunks_table();
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.id,s.status,s.version FROM $sessions s WHERE s.expires_at<%s AND (s.status NOT IN ('expired','revoked','rejected') OR EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)) ORDER BY s.id ASC LIMIT 100",
+            $now
+        ));
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $terminal = in_array((string) $row->status, ['expired','revoked','rejected'], true);
+            if (!$terminal) {
+                $updated = $wpdb->query($wpdb->prepare(
+                    "UPDATE $sessions SET status='expired',version=version+1,updated_at=%s WHERE id=%d AND version=%d AND status NOT IN ('expired','revoked','rejected')",
+                    $now,
+                    (int) $row->id,
+                    (int) $row->version
+                ));
+                if ($updated !== 1) {
+                    SN_DB::audit('file_transfer_expiry_revoke_failed', 'file_transfer', (int) $row->id, 'failure', [], 0);
+                    continue;
+                }
+            }
+            // Bytes are removed only after access has already been revoked by a
+            // terminal canonical state. Failed byte/row deletion remains in the
+            // chunk ledger so the next hourly cleanup can retry it.
+            self::delete_chunks((int) $row->id);
+        }
     }
 
     public static function health(): WP_REST_Response {
