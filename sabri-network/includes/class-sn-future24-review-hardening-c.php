@@ -27,7 +27,21 @@ final class SN_Future24_Review_Hardening_C {
         $redacted=mb_substr(sanitize_textarea_field((string)$screen['summary']),0,12000);if($redacted==='')return self::error('sn_case_discussion_pii','No safe case content remained after de-identification.',400);
         if(!(bool)apply_filters('sn_network_case_discussion_professional_allowed',false,$actor,$conversation))return self::error('sn_case_discussion_forbidden','Professional case-discussion permission is required.',403);
         $r->set_param('summary',$redacted);$r->set_param('consent_asserted',true);
-        $response=SN_Future_Superset::create_case_discussion($r);if(is_wp_error($response))return $response;$data=$response->get_data();$id=absint($data['id']??0);if($id>0){$days=max(1,min(2555,(int)apply_filters('sn_network_case_discussion_retention_days',365,$actor,$conversation)));$expires=gmdate('Y-m-d H:i:s',time()+$days*DAY_IN_SECONDS);$wpdb->update($wpdb->prefix.'sn_future_records',['expires_at'=>$expires,'updated_at'=>current_time('mysql',true)],['id'=>$id,'feature_id'=>'F17-FUT-16']);SN_DB::audit('future_case_discussion_deidentified','future_record',$id,'success',['conversation_id'=>$conversation,'retention_days'=>$days,'clinical_authority_inferred'=>false],$actor);$data['expires_at']=$expires;$data['clinical_authority_inferred']=false;return rest_ensure_response($data);}return $response;
+        $days=max(1,min(2555,(int)apply_filters('sn_network_case_discussion_retention_days',365,$actor,$conversation)));$new_expiry=gmdate('Y-m-d H:i:s',time()+$days*DAY_IN_SECONDS);
+        $wpdb->query('START TRANSACTION');
+        try{
+            // Recheck current access at the storage transition.
+            $member=$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$conversation,$actor));if(!$member)throw new RuntimeException('membership_changed');
+            if(!(bool)apply_filters('sn_network_case_discussion_professional_allowed',false,$actor,$conversation))throw new RuntimeException('authority_changed');
+            $response=SN_Future_Superset::create_case_discussion($r);if(is_wp_error($response)){$wpdb->query('ROLLBACK');return $response;}
+            $data=$response->get_data();$id=absint($data['id']??0);if($id<=0)throw new RuntimeException('record_missing');
+            $row=$wpdb->get_row($wpdb->prepare("SELECT id,state,expires_at FROM ".$wpdb->prefix."sn_future_records WHERE id=%d AND feature_id='F17-FUT-16' LIMIT 1 FOR UPDATE",$id));if(!$row||(string)$row->state!=='active')throw new RuntimeException('record_missing');
+            // Idempotent retry must not extend a previously established retention boundary.
+            $expiry=(string)($row->expires_at??'');
+            if($expiry===''){$changed=$wpdb->update($wpdb->prefix.'sn_future_records',['expires_at'=>$new_expiry,'updated_at'=>current_time('mysql',true)],['id'=>$id,'feature_id'=>'F17-FUT-16','state'=>'active','expires_at'=>null]);if($changed!==1)throw new RuntimeException('retention_write');$expiry=$new_expiry;}
+            if($wpdb->query('COMMIT')===false)throw new RuntimeException('commit');
+            SN_DB::audit('future_case_discussion_deidentified','future_record',$id,'success',['conversation_id'=>$conversation,'retention_days'=>$days,'clinical_authority_inferred'=>false],$actor);$data['expires_at']=$expiry;$data['clinical_authority_inferred']=false;return rest_ensure_response($data);
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');$code=$e->getMessage();if($code==='membership_changed'||$code==='authority_changed')return self::error('sn_case_discussion_forbidden','Case-discussion authority changed before storage.',403);return self::error('sn_case_retention_failed','The case discussion was not stored because its retention boundary could not be committed.',500);}
     }
     private static function same_site(string $url):bool{$home=wp_parse_url(home_url('/'));$target=wp_parse_url($url);return is_array($home)&&is_array($target)&&strtolower((string)($home['host']??''))===strtolower((string)($target['host']??''));}
     private static function not_found():WP_Error{return self::error('not_found','Requested communication object is unavailable.',404);}private static function error(string $c,string $m,int $s):WP_Error{return new WP_Error($c,$m,['status'=>$s]);}
