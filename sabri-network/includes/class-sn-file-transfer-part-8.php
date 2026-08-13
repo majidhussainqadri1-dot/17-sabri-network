@@ -2,14 +2,12 @@
 defined('ABSPATH') || exit;
 
 trait SN_File_Transfer_Part_8 {
-    private const PRIVACY_ERASE_PAGE_SIZE = 100;
-
     public static function erase_personal_data(string $email,int $page=1): array {
         global $wpdb;$user=get_user_by('email',$email);if(!$user)return['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$uid=(int)$user->ID;
         if((bool)apply_filters('sn_network_retention_prevents_erasure',false,$uid))return['items_removed'=>false,'items_retained'=>true,'messages'=>['Private transfer records are retained under an approved legal or safety hold.'],'done'=>true];
-        $sessions=self::sessions_table();$recipients=self::recipients_table();$now=current_time('mysql',true);
-        $sent=array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT id FROM $sessions WHERE sender_id=%d AND status NOT IN ('revoked','expired','rejected') ORDER BY id ASC LIMIT %d",$uid,self::PRIVACY_ERASE_PAGE_SIZE))?:[]);
-        $received=array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT id FROM $recipients WHERE user_id=%d AND state<>'erased' ORDER BY id ASC LIMIT %d",$uid,self::PRIVACY_ERASE_PAGE_SIZE))?:[]);
+        $sessions=self::sessions_table();$recipients=self::recipients_table();$now=current_time('mysql',true);$page_size=self::privacy_erase_page_size();
+        $sent=array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT id FROM $sessions WHERE sender_id=%d AND status NOT IN ('revoked','expired','rejected') ORDER BY id ASC LIMIT %d",$uid,$page_size))?:[]);
+        $received=array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT id FROM $recipients WHERE user_id=%d AND state<>'erased' ORDER BY id ASC LIMIT %d",$uid,$page_size))?:[]);
         $removed=false;
         if($wpdb->query('START TRANSACTION')===false)return['items_removed'=>false,'items_retained'=>true,'messages'=>['Private transfer erasure could not start and must be retried.'],'done'=>false];
         try{
@@ -25,6 +23,7 @@ trait SN_File_Transfer_Part_8 {
         return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Minimum integrity, legal-hold and abuse evidence may be retained under the approved retention policy.'],'done'=>!$more_sent&&!$more_received&&!$leftover_chunks];
     }
 
+    private static function privacy_erase_page_size(): int{return 100;}
     private static function sessions_table(): string{return SN_DB::table('transfer_sessions');}
     private static function chunks_table(): string{return SN_DB::table('transfer_chunks');}
     private static function recipients_table(): string{return SN_DB::table('transfer_recipients');}
