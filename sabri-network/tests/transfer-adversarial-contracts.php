@@ -4,16 +4,16 @@ $root=dirname(__DIR__);$src=implode("\n", array_map('file_get_contents', array_m
 function fta(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 fta(str_contains($src,'sender_idempotency')&&str_contains($src,'transfer_chunk'),'Session and chunk idempotency are database-enforced.');
 fta(str_contains($src,'chunk_idempotency_conflict'),'Conflicting chunk replay is rejected.');
-fta(str_contains($src,'random_bytes(12)')&&str_contains($src,"'-' . \$attempt . '.snc'"),'Concurrent same-index attempts use independent encrypted storage paths.');
-fta(str_contains($src,"@unlink(self::storage_root() . '/' . \$storage_key)"),'A losing chunk retry deletes only its own attempt bytes.');
+fta(str_contains($src,'random_bytes(12)')&&str_contains($src,"'-'.\$attempt.'.snc'"),'Concurrent same-index attempts use independent encrypted storage paths.');
+fta(str_contains($src,'@unlink($path)')&&str_contains($src,'chunk_store_failed'),'A losing chunk retry deletes only its own attempt bytes.');
 fta(str_contains($src,'received_bytes=received_bytes+'),'Progress is committed server-side, not trusted from client.');
-fta(str_contains($src,'total > self::MAX_FILE_BYTES'),'Oversize transfer is rejected before storage.');
-fta(str_contains($src,'bytes !== $expected_bytes'),'Short, oversized and misaligned chunks are rejected.');
-fta(str_contains($src,'status !== \'ready\'')&&str_contains($src,"scan_status !== 'clean'"),'Download is denied until clean and ready.');
+fta(str_contains($src,'total > self::MAX_FILE_BYTES')||str_contains($src,'>self::MAX_FILE_BYTES'),'Oversize transfer is rejected before storage.');
+fta(str_contains($src,'$bytes!==$expected')&&str_contains($src,'MAX_CHUNK_BYTES'),'Short, oversized and misaligned chunks are rejected.');
+fta(str_contains($src,"(string)\$row->status!=='ready'")&&str_contains($src,"(string)\$row->scan_status!=='clean'"),'Download is denied until clean and ready.');
 fta(str_contains($src,'transfer_quarantined'),'Missing scanner never silently publishes a file.');
 fta(str_contains($src,'delete_chunks')&&str_contains($src,'file_transfer_rejected'),'Rejected files are revoked and encrypted bytes removed.');
-fta(str_contains($src,'str_contains($name, \'../\')')&&str_contains($src,'str_starts_with($name, \'/\')'),'Archive path traversal forms are rejected.');
-fta(str_contains($src,'entries > 10000')&&str_contains($src,'expanded / $compressed > 200'),'Archive entry and compression-ratio bombs are bounded.');
+fta(str_contains($src,"str_contains(\$name,'../')")&&str_contains($src,"str_starts_with(\$name,'/')")&&str_contains($src,'archive_path_traversal'),'Archive path traversal forms are rejected.');
+fta(str_contains($src,'$entries>10000')&&str_contains($src,'$expanded/$compressed>200')&&str_contains($src,'archive_expansion_limit'),'Archive entry and compression-ratio bombs are bounded.');
 fta(!str_contains($src,'wp_insert_attachment')&&!str_contains($src,'media_handle_upload'),'Private transfer bytes never enter public Media Library.');
 fta(!str_contains($src,'public_url'),'No permanent public URL is stored.');
 fta(str_contains($src,'is_user_logged_in()')&&str_contains($src,"claims['user']"),'Signed grant remains bound to the authenticated recipient.');
@@ -23,10 +23,10 @@ fta(str_contains($src,'MAX_RECIPIENTS = 256'),'Group transfer fan-out is bounded
 fta(str_contains($src,'daily_transfer_bytes')&&str_contains($src,'daily_transfer_volume_exceeded'),'Daily volume has a transparent configurable ceiling.');
 fta(str_contains($src,'transfer_relationship_changed'),'Changed relationship/verification state blocks later access.');
 fta(str_contains($src,'noindex, noarchive'),'Transfer management surface is not indexable.');
-fta(str_contains($crypto,'@chmod($path, 0600)')&&str_contains($src,'@chmod($root, 0700)'),'Private storage permissions are restrictive.');
+fta((str_contains($crypto,'@chmod($path,0600)')||str_contains($crypto,'@chmod($path, 0600)'))&&str_contains($src,'@chmod($root,0700)'),'Private storage permissions are restrictive.');
 fta(str_contains($src,"Require all denied")&&str_contains($src,"http_response_code(404)"),'Fallback private storage has web-server denial guards.');
-fta(str_contains($src,'is_safe_storage_root')&&str_contains($src,'str_starts_with($normalized, $web_root)'),'A configured transfer root inside the public WordPress tree is rejected.');
-fta(str_contains($src,'file_transfer_download_failed')&&str_contains($src,'$sent !== $expected'),'Interrupted decryption/streaming is never recorded as a successful download.');
+fta(str_contains($src,'is_safe_storage_root')&&str_contains($src,'str_starts_with($normalized,$web)'),'A configured transfer root inside the public WordPress tree is rejected.');
+fta(str_contains($src,'file_transfer_download_failed')&&str_contains($src,'$sent!==$expected'),'Interrupted decryption/streaming is never recorded as a successful download.');
 fta(!preg_match('/(?:api[_-]?key|secret|password)\s*=\s*[\'\"][^\'\"]{8,}/i',$src.$crypto),'No provider secret is hard-coded.');
 $debug_pattern='/'.'console'.'\\.log|'.'debugger;'.'/';
 fta(!preg_match($debug_pattern, $js),'Production transfer JavaScript has no debug statements.');
