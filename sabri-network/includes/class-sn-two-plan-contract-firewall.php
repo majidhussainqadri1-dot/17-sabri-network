@@ -19,6 +19,7 @@ final class SN_Two_Plan_Contract_Firewall {
         '#^/sabri-network/v2/message-requests/\d+$#' => true,
         '#^/sabri-network/v2/messages/\d+/forward$#' => true,
         '#^/sabri-network/v2/conversations/\d+/scheduled-messages$#' => true,
+        '#^/sabri-network/v2/scheduled-messages/\d+$#' => true,
         '#^/sabri-network/v2/conversations/\d+/polls$#' => true,
         '#^/sabri-network/v2/messages/\d+/poll-vote$#' => true,
         '#^/sabri-network/v2/conversations/\d+/checklists$#' => true,
@@ -26,37 +27,54 @@ final class SN_Two_Plan_Contract_Firewall {
         '#^/sabri-network/v2/messages/\d+/expiry$#' => true,
         '#^/sabri-network/v2/conversations/\d+/voice-notes$#' => true,
         '#^/sabri-network/v2/updates$#' => true,
+        '#^/sabri-network/v2/updates/\d+/view$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-settings$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-artifacts$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-artifacts/\d+/respond$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-artifacts/\d+/moderate$#' => true,
 
-        // Founder-approved Future Communication Superset — every POST/PATCH/DELETE
-        // path below reuses the same canonical encrypted idempotency ledger.
+        // Founder-approved Future Communication Superset — every user-driven
+        // state mutation below reuses the same canonical encrypted idempotency ledger.
         '#^/sabri-network/v2/future/e2ee-policy$#' => true,
         '#^/sabri-network/v2/future/device-keys$#' => true,
+        '#^/sabri-network/v2/future/device-keys/[A-Za-z0-9._:-]+$#' => true,
         '#^/sabri-network/v2/future/conversation-locks/\d+$#' => true,
         '#^/sabri-network/v2/future/team-inbox/\d+$#' => true,
         '#^/sabri-network/v2/future/team-inbox/\d+/handoff$#' => true,
+        '#^/sabri-network/v2/future/team-inbox/\d+/notes$#' => true,
         '#^/sabri-network/v2/future/reminders$#' => true,
+        '#^/sabri-network/v2/future/reminders/\d+$#' => true,
         '#^/sabri-network/v2/future/templates$#' => true,
+        '#^/sabri-network/v2/future/templates/\d+$#' => true,
         '#^/sabri-network/v2/future/conversations/bulk$#' => true,
+        '#^/sabri-network/v2/future/conversations/bulk/\d+$#' => true,
         '#^/sabri-network/v2/future/smart-views$#' => true,
         '#^/sabri-network/v2/future/community-invites$#' => true,
         '#^/sabri-network/v2/future/community-invites/redeem$#' => true,
+        '#^/sabri-network/v2/future/community-invites/\d+/revoke$#' => true,
         '#^/sabri-network/v2/future/temporary-memberships$#' => true,
         '#^/sabri-network/v2/future/mentorships$#' => true,
         '#^/sabri-network/v2/future/mentorships/\d+$#' => true,
+        '#^/sabri-network/v2/future/mentorships/\d+/end$#' => true,
         '#^/sabri-network/v2/future/citations$#' => true,
         '#^/sabri-network/v2/future/case-discussions$#' => true,
         '#^/sabri-network/v2/calls/\d+/lobby$#' => true,
         '#^/sabri-network/v2/calls/\d+/hand-raise$#' => true,
+        '#^/sabri-network/v2/calls/\d+/speaker-queue$#' => true,
         '#^/sabri-network/v2/calls/\d+/breakouts$#' => true,
+        '#^/sabri-network/v2/calls/\d+/breakouts/move$#' => true,
+        '#^/sabri-network/v2/calls/\d+/breakouts/close$#' => true,
+        '#^/sabri-network/v2/calls/\d+/cohosts$#' => true,
         '#^/sabri-network/v2/calls/\d+/host-transfer$#' => true,
+        '#^/sabri-network/v2/calls/\d+/host-transfer/confirm$#' => true,
+        '#^/sabri-network/v2/calls/\d+/host-takeover$#' => true,
         '#^/sabri-network/v2/calls/\d+/network-quality$#' => true,
         '#^/sabri-network/v2/future/ai-assistant$#' => true,
         '#^/sabri-network/v2/future/semantic-search$#' => true,
+        '#^/sabri-network/v2/future/semantic-search/consent$#' => true,
         '#^/sabri-network/v2/future/interop$#' => true,
+        '#^/sabri-network/v2/future/interop/\d+$#' => true,
+        '#^/sabri-network/v2/future/interop/\d+/outbound$#' => true,
         '#^/sabri-network/v2/future/records/\d+$#' => true,
     ];
 
@@ -99,6 +117,13 @@ final class SN_Two_Plan_Contract_Firewall {
         if (!self::requires_idempotency($request)) return null;
         $actor = get_current_user_id();
         if ($actor <= 0) return null;
+
+        // rest_pre_dispatch runs before the route permission callback. Never create
+        // an idempotency reservation for a suspended/denied identity merely because
+        // WordPress has a logged-in session.
+        $access = SN_Policy::access();
+        if (is_wp_error($access)) return $access;
+        if ($access !== true) return new WP_Error('network_access_denied', 'Network access is not permitted for this account.', ['status' => 403]);
 
         $raw_key = trim((string) $request->get_header('Idempotency-Key'));
         if ($raw_key === '') $raw_key = trim((string) $request->get_param('client_id'));
@@ -261,18 +286,25 @@ final class SN_Two_Plan_Contract_Firewall {
     public static function register_eraser(array $erasers): array {
         $erasers['sabri-network-two-plan-idempotency'] = [
             'eraser_friendly_name' => 'Sabri communication request cache',
-            'callback' => [self::class, 'eraser'],
+            'callback' => [self::class, 'privacy_erase'],
         ];
         return $erasers;
     }
 
-    public static function eraser(string $email_address, int $page = 1): array {
+    public static function privacy_erase(string $email_address, int $page = 1): array {
         global $wpdb;
         $user = get_user_by('email', $email_address);
         if (!$user) return ['items_removed' => false, 'items_retained' => false, 'messages' => [], 'done' => true];
-        $removed = $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE actor_id=%d AND state='complete' LIMIT 100", (int) $user->ID));
-        return ['items_removed' => (int) $removed > 0, 'items_retained' => false, 'messages' => [], 'done' => (int) $removed < 100];
+        $removed = false;
+        if ($page === 1) {
+            $count = $wpdb->delete(self::table(), ['actor_id' => (int) $user->ID], ['%d']);
+            $removed = is_int($count) && $count > 0;
+        }
+        return ['items_removed' => $removed, 'items_retained' => false, 'messages' => [], 'done' => true];
     }
 
-    private static function table(): string { return SN_DB::table('two_plan_idempotency'); }
+    private static function table(): string {
+        global $wpdb;
+        return $wpdb->prefix . 'sn_two_plan_idempotency';
+    }
 }
