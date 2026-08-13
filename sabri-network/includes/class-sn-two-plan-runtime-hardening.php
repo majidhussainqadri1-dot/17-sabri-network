@@ -18,6 +18,11 @@ final class SN_Two_Plan_Runtime_Hardening {
     public static function pre_dispatch($result, WP_REST_Server $server, WP_REST_Request $request) {
         if ($result !== null) return $result;
         $route = $request->get_route();
+
+        // This hook is global to the WordPress REST server. File 17 must never
+        // inspect, hash or reject another plugin's upload/request payload.
+        if (!str_starts_with($route, '/sabri-network/v2/')) return null;
+
         $method = $request->get_method();
 
         if ($method === 'POST' && preg_match('#^/sabri-network/v2/messages/\d+/translate$#', $route)) {
@@ -31,8 +36,18 @@ final class SN_Two_Plan_Runtime_Hardening {
             return new WP_Error('sn_public_temporary_update_forbidden', 'Temporary updates are limited to private/contact/group audiences and do not replace public publishing.', ['status' => 400]);
         }
 
+        $file_params = $request->get_file_params();
+        if ($file_params) {
+            // rest_pre_dispatch precedes the route permission callback. Avoid
+            // hashing attacker-controlled uploads for unauthenticated, suspended
+            // or otherwise denied identities.
+            $access = SN_Policy::access();
+            if (is_wp_error($access)) return $access;
+            if ($access !== true) return new WP_Error('network_access_denied', 'Network access is not permitted for this account.', ['status' => 403]);
+        }
+
         $hashes = [];
-        foreach ($request->get_file_params() as $key => $file) {
+        foreach ($file_params as $key => $file) {
             if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) continue;
             if ((int) ($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) return new WP_Error('sn_upload_incomplete', 'The uploaded file is incomplete.', ['status' => 400]);
             $tmp = (string) ($file['tmp_name'] ?? '');
