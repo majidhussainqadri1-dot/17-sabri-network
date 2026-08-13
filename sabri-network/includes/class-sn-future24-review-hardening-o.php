@@ -9,7 +9,6 @@ final class SN_Future24_Review_Hardening_O {
 
     public static function register():void{
         add_filter('rest_pre_dispatch',[self::class,'mutation_budget'],6,3);
-        // Priority 7 is deliberately before Future-Superset edit-history capture at priority 8.
         add_filter('rest_pre_dispatch',[self::class,'serialize_message_version_edit'],7,3);
         add_filter('rest_post_dispatch',[self::class,'release_message_version_edit'],9,3);
         add_action('sn_cleanup_hourly',[self::class,'bulk_job_preflight'],0);
@@ -35,11 +34,6 @@ final class SN_Future24_Review_Hardening_O {
         return $result;
     }
 
-    /**
-     * Serialize all canonical message mutations. The historical name is kept because
-     * the Future-24 version-history layer depends on this hook running before its
-     * snapshot. Locks are released after REST dispatch on the same DB connection.
-     */
     public static function serialize_message_version_edit($result,$server,WP_REST_Request $request){
         if($result!==null)return $result;
         $method=strtoupper($request->get_method());
@@ -57,17 +51,23 @@ final class SN_Future24_Review_Hardening_O {
                     if(count($members)===2)$locks[]=SN_Relationships::pair_lock_name($members[0],$members[1]);
                 }
             }
-        } elseif(in_array($method,['POST','DELETE'],true) && preg_match('#^/sabri-network/v2/messages/(\d+)(?:/(mentions|pin|star|hide))?$#',$route,$match)){
+        } elseif(in_array($method,['POST','DELETE'],true) && preg_match('#^/sabri-network/v2/messages/(\d+)(?:/(mentions|pin|star|hide|expiry|translate))?$#',$route,$match)){
             $message_id=(int)$match[1];
             if($message_id>0){
                 $locks[]='sn:f17:msg-edit:'.$message_id;
                 $conversation=(int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM '.SN_DB::table('messages').' WHERE id=%d',$message_id));
                 if($conversation>0)$locks[]=self::conversation_lock($conversation);
-                if(($match[2]??'')==='mentions'){
+                $suffix=(string)($match[2]??'');
+                if($suffix==='mentions'){
                     $actor=get_current_user_id();
                     foreach(array_slice(array_values(array_unique(array_filter(array_map('absint',(array)$request->get_param('user_ids'))))),0,20) as $target){
                         if($actor>0&&$target>0&&$target!==$actor)$locks[]=SN_Relationships::pair_lock_name($actor,$target);
                     }
+                }
+                if($suffix==='translate' && $conversation>0){
+                    $members=array_values(array_map('intval',$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 3',$conversation))?:[]));
+                    $type=(string)$wpdb->get_var($wpdb->prepare('SELECT type FROM '.SN_DB::table('conversations').' WHERE id=%d',$conversation));
+                    if($type==='direct'&&count($members)===2)$locks[]=SN_Relationships::pair_lock_name($members[0],$members[1]);
                 }
             }
         }
@@ -83,7 +83,6 @@ final class SN_Future24_Review_Hardening_O {
             $held[]=$lock;
         }
         $request->set_param('_sn_future_version_locks',$held);
-        // Backward-compatible marker required by historical regression evidence.
         if(preg_match('#^/sabri-network/v2/messages/\d+$#',$route))$request->set_param('_sn_future_version_lock',$held[0]??'');
         return $result;
     }
