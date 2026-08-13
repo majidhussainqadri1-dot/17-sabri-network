@@ -38,7 +38,14 @@ final class SN_Message_Visibility {
     }
 
     public static function context(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        return self::filter(SN_Message_Search::context($request), 'messages');
+        $response = SN_Message_Search::context($request);
+        if (is_wp_error($response)) return $response;
+        $data = $response->get_data();
+        $target = is_array($data) ? absint($data['target_id'] ?? 0) : 0;
+        if ($target > 0 && SN_Message_Operations::is_hidden(get_current_user_id(), $target)) {
+            return new WP_Error('not_found', 'The requested conversation or message is unavailable.', ['status' => 404]);
+        }
+        return self::filter($response, 'messages');
     }
 
     private static function filter(WP_REST_Response|WP_Error $response, string $key): WP_REST_Response|WP_Error {
