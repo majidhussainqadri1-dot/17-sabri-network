@@ -67,8 +67,23 @@ final class SN_Message_Runtime_Hardening {
     }
 
     private static function reconcile_existing(object $message,int $user,bool $duplicate):WP_REST_Response|WP_Error{
-        global $wpdb;$secured=SN_Message_Body::ensure_encrypted_row($message);if(is_wp_error($secured))return $secured;$message=$secured;if($wpdb->query('START TRANSACTION')===false)return self::database_error();
-        try{$indexed=SN_Message_Search::index_message((int)$message->id);if(is_wp_error($indexed))throw new RuntimeException($indexed->get_error_code());$event=SN_Outbox::enqueue('message.sent','message',(int)$message->id,['message_id'=>(int)$message->id,'conversation_id'=>(int)$message->conversation_id,'sender_id'=>(int)$message->sender_id,'message_type'=>(string)$message->message_type,'created_at'=>(string)$message->created_at],'message.sent:'.(int)$message->id);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());if($wpdb->query('COMMIT')===false)throw new RuntimeException('duplicate_message_commit_failed');do_action('sn_network_event_queued',$event,'message.sent');return rest_ensure_response(['message'=>self::format($message,$user),'duplicate'=>$duplicate]);}catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('message_duplicate_reconciliation_failed','message',(int)$message->id,'failure',['reason'=>$e->getMessage()],$user);return new WP_Error('message_duplicate_reconciliation_failed','The existing message could not be reconciled with its search and delivery records.',['status'=>500]);}
+        global $wpdb;
+        $conversation_id=(int)$message->conversation_id;
+        $conversation=self::conversation($conversation_id);
+        if((int)$message->sender_id!==$user||!$conversation||!SN_DB::is_member($conversation_id,$user))return self::not_found();
+        $post=SN_Policy::can_post_to_conversation($conversation,$user);if(is_wp_error($post))return $post;
+        $contact=self::contact_check($conversation,$conversation_id,$user);if(is_wp_error($contact))return $contact;
+        $secured=SN_Message_Body::ensure_encrypted_row($message);if(is_wp_error($secured))return $secured;$message=$secured;
+        if($wpdb->query('START TRANSACTION')===false)return self::database_error();
+        try{
+            $fresh=self::conversation($conversation_id);if(!$fresh||!SN_DB::is_member($conversation_id,$user))throw new RuntimeException('message_membership_changed');
+            $post=SN_Policy::can_post_to_conversation($fresh,$user);if(is_wp_error($post)){ $wpdb->query('ROLLBACK'); return $post; }
+            $contact=self::contact_check($fresh,$conversation_id,$user);if(is_wp_error($contact)){ $wpdb->query('ROLLBACK'); return $contact; }
+            $indexed=SN_Message_Search::index_message((int)$message->id);if(is_wp_error($indexed))throw new RuntimeException($indexed->get_error_code());
+            $event=SN_Outbox::enqueue('message.sent','message',(int)$message->id,['message_id'=>(int)$message->id,'conversation_id'=>$conversation_id,'sender_id'=>(int)$message->sender_id,'message_type'=>(string)$message->message_type,'created_at'=>(string)$message->created_at],'message.sent:'.(int)$message->id);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());
+            if($wpdb->query('COMMIT')===false)throw new RuntimeException('duplicate_message_commit_failed');
+            do_action('sn_network_event_queued',$event,'message.sent');return rest_ensure_response(['message'=>self::format($message,$user),'duplicate'=>$duplicate]);
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('message_duplicate_reconciliation_failed','message',(int)$message->id,'failure',['reason'=>$e->getMessage()],$user);return new WP_Error('message_duplicate_reconciliation_failed','The existing message could not be reconciled with its search and delivery records.',['status'=>500]);}
     }
 
     private static function contact_check(object $conversation,int $conversation_id,int $actor):bool|WP_Error{$others=self::recipients($conversation_id,$actor);if((string)$conversation->type!=='direct'){foreach($others as $target)if(SN_DB::is_blocked($actor,$target))return new WP_Error('blocked','A conversation member is unavailable.',['status'=>403]);return true;}if(count($others)!==1)return new WP_Error('invalid_direct_conversation','The direct conversation membership is invalid.',['status'=>409]);return SN_Policy::can_contact($actor,$others[0],'message');}
