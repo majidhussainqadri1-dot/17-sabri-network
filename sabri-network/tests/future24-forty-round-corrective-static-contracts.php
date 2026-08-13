@@ -14,6 +14,7 @@ $assert = static function (bool $condition, string $message): void {
 
 $runtime = $read('includes/class-sn-two-plan-runtime-hardening.php');
 $compat = $read('includes/class-sn-compatibility-hardening.php');
+$firewall = $read('includes/class-sn-two-plan-contract-firewall.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
 $future = $read('includes/class-sn-future-superset.php');
 $part1 = $read('includes/class-sn-future-superset-part-1.php');
@@ -43,6 +44,30 @@ $assert(str_contains($future, "state='firing'"), 'Reminder handoff must claim du
 $assert(str_contains($future, 'file17-future-reminder:'), 'Reminder handoff must expose a stable downstream idempotency key.');
 $assert(str_contains($part2, "'mark_unread','label','assign','export_request'"), 'Bulk operations must include the approved superset actions.');
 $assert(str_contains($part2, "['state'=>'processing'") && str_contains($part2, "['id'=>(int)\$job->id,'state'=>'queued'") && str_contains($part2, "['id'=>(int)\$job->id,'state'=>'processing'"), 'Bulk jobs must claim queued work, process bounded chunks, and use a resumable processing-to-queued state transition.');
+
+foreach ([
+    'scheduled-messages/\\d+$',
+    'updates/\\d+/view',
+    'future/device-keys/[A-Za-z0-9._:-]+',
+    'future/team-inbox/\\d+/notes',
+    'future/reminders/\\d+',
+    'future/templates/\\d+',
+    'future/conversations/bulk/\\d+',
+    'future/community-invites/\\d+/revoke',
+    'future/mentorships/\\d+/end',
+    'calls/\\d+/speaker-queue',
+    'calls/\\d+/breakouts/move',
+    'calls/\\d+/breakouts/close',
+    'calls/\\d+/cohosts',
+    'calls/\\d+/host-transfer/confirm',
+    'calls/\\d+/host-takeover',
+    'future/semantic-search/consent',
+    'future/interop/\\d+',
+    'future/interop/\\d+/outbound',
+] as $routeMarker) {
+    $assert(str_contains($firewall, $routeMarker), "Idempotency firewall is missing a current mutation route: {$routeMarker}");
+}
+$assert(str_contains($firewall, '$access = SN_Policy::access();'), 'Idempotency reservation must revalidate canonical access before creating request-cache state.');
 
 $checks = [
     'includes/class-sn-future24-review-hardening-a.php' => ['smart-views/(?P<id>\\d+)/results', 'community-invites/(?P<id>\\d+)/revoke', 'FOR UPDATE'],
