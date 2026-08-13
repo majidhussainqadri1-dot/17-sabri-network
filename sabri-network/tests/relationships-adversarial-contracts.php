@@ -21,7 +21,7 @@ ra_check(str_contains($r,'$race = SN_DB::follow_record'),'Unique-key races must 
 ra_check(str_contains($r,'WHERE id=%d AND follower_id=%d AND version=%d'),'Unfollow must bind actor and expected version.');
 ra_check(str_contains($r,'(int) $row->followed_id !== $target_id'),'Only the follow target may decide a pending request.');
 ra_check(str_contains($r,'(string) $row->status !== \'pending\''),'Only pending follow requests may be decided.');
-ra_check(str_contains($rh,"UPDATE $follows SET status='inactive'")&&str_contains($rh,"status IN ('active','pending')")&&str_contains($rh,'SN_Relationships::pair_lock_name($actor,$target)'),'Block changes must invalidate pending follow decisions under the same canonical pair lock.');
+ra_check(str_contains($rh,"UPDATE \$follows SET status='inactive'")&&str_contains($rh,"status IN ('active','pending')")&&str_contains($rh,'SN_Relationships::pair_lock_name($actor,$target)'),'Block changes must invalidate pending follow decisions under the same canonical pair lock.');
 ra_check(str_contains($r,'count($rows) > $limit'),'Pagination must fetch a lookahead row.');
 ra_check(str_contains($r,'array_slice($rows, 0, $limit)'),'Pagination must remain bounded.');
 ra_check(str_contains($r,'(int) ($data[\'user_id\'] ?? 0) !== $user_id'),'Cursor must be user-bound.');
