@@ -62,9 +62,9 @@ foreach ($checks as $file => $needles) {
 $qr = $read('includes/class-sn-future24-review-hardening-a.php');
 $assert(str_contains($qr, 'assert_redeem_eligibility($space,$user,$issuer)'), 'QR redemption must revalidate eligibility inside the locked transition.');
 $assert(str_contains($qr, "SN_DB::table('blocks')") && str_contains($qr, 'FOR UPDATE'), 'QR redemption must lock authoritative block/membership state before admission.');
-$assert(str_contains($qr, "status,['banned','blocked']") || str_contains($qr, "status,['banned','blocked'],true") || str_contains($qr, "status,['banned','blocked']"), 'QR admission must refuse banned or blocked membership rows after locking them.');
-$assert(str_contains($qr, "['id'=>(int)$m->id,'version'=>(int)$m->version]"), 'QR membership activation must use version-CAS on an existing membership row.');
-$assert(str_contains($qr, "user_can($user,'manage_options')"), 'Manager authority must be evaluated for the asserted manager, not the requester.');
+$assert(str_contains($qr, 'in_array((string)$m->status,[\'banned\',\'blocked\'],true)'), 'QR admission must refuse banned or blocked membership rows after locking them.');
+$assert(str_contains($qr, '[\'id\'=>(int)$m->id,\'version\'=>(int)$m->version]'), 'QR membership activation must use version-CAS on an existing membership row.');
+$assert(str_contains($qr, 'user_can($user,\'manage_options\')'), 'Manager authority must be evaluated for the asserted manager, not the requester.');
 $assert(!str_contains($qr, "current_user_can('manage_options')"), 'Arbitrary issuer authority checks must not inherit the current requester capability.');
 
 $assert(!str_contains($read('includes/class-sn-future24-review-hardening-g.php'), "'query'=>"), 'Semantic search must not log raw private query text.');
