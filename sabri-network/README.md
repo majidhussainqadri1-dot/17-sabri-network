@@ -11,7 +11,7 @@ File 17 is the Sabri Social Homeopathy Platform's single canonical communication
 
 The 2.1.0 completion candidate is reconciled to the current consolidated central governing plan and the current File 17 Final Harmonized Master Plan. Earlier 2.0.3 forty-round evidence remains historical and does not replace fresh current-plan QA.
 
-The full explicit quality gate now contains **46 PHP review suites**.
+The full explicit quality gate contains **46 PHP review suites**.
 
 ## Canonical boundaries
 
@@ -64,7 +64,7 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The 2.1.0 gate includes **46 PHP review suites**, PHP 8.1/8.3 syntax, six JavaScript syntax checks, shell syntax, CSS/accessibility baselines, repository hygiene, exact staged-source manifest verification and deterministic byte-for-byte packaging.
+The 2.1.0 gate includes **46 PHP review suites**, PHP 8.1/8.3 syntax, **eight JavaScript syntax checks**, shell syntax, CSS/accessibility baselines, repository hygiene, exact staged-source manifest verification and deterministic byte-for-byte packaging. The standalone package builder also validates the current Future-24 JavaScript and release-critical runtime surfaces before producing the ZIP.
 
 ## Completion truth
 
