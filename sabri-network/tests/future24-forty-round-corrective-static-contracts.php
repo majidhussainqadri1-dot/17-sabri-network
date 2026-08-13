@@ -20,6 +20,8 @@ $loader = $read('includes/class-sn-future24-review-hardening.php');
 $future = $read('includes/class-sn-future-superset.php');
 $part1 = $read('includes/class-sn-future-superset-part-1.php');
 $part2 = $read('includes/class-sn-future-superset-part-2.php');
+$membershipAdapter = $read('includes/class-sn-membership-assertions.php');
+$auth = $read('includes/class-sn-auth.php');
 $a = $read('includes/class-sn-future24-review-hardening-a.php');
 $b = $read('includes/class-sn-future24-review-hardening-b.php');
 $c = $read('includes/class-sn-future24-review-hardening-c.php');
@@ -45,6 +47,20 @@ $versionPublish = strpos($activator, "update_option('sn_plugin_version', SN_VERS
 $assert($twoPlanInstall !== false && $futureInstall !== false && $versionPublish !== false && $twoPlanInstall < $versionPublish && $futureInstall < $versionPublish, 'Activation must install all current schemas before publishing the current plugin version.');
 $assert(str_contains($runtime, "if (!str_starts_with(\$route, '/sabri-network/v2/')) return null;"), 'Global rest_pre_dispatch hardening must ignore non-File-17 namespaces.');
 $assert(str_contains($runtime, '$file_params = $request->get_file_params();') && str_contains($runtime, '$access = SN_Policy::access();'), 'File hashing must revalidate canonical File-17 access before touching uploaded bytes.');
+
+// Additional fresh cycle — Round 2: File 00 authority, age/guardian and phone ownership.
+$assert(str_contains($auth, "class-sn-membership-assertions.php"), 'File 17 must load its fail-closed File 00 communication assertion adapter.');
+$assert(str_contains($membershipAdapter, "function_exists('smc_communication_assertions')") && str_contains($membershipAdapter, "function_exists('smc_membership_assertions')"), 'Protected communication must require both canonical File 00 assertion functions.');
+$assert(str_contains($membershipAdapter, "MIN_CONTRACT_VERSION = '1.1.1'") && str_contains($membershipAdapter, 'identity_contract_unsupported'), 'Unknown/legacy Membership contract versions must fail closed.');
+foreach (['contract_version', 'user_id', 'status', 'eligible', 'phone_verified', 'can_message', 'can_call', 'suspended'] as $field) {
+    $assert(str_contains($membershipAdapter, "'{$field}'"), "File 00 communication assertion validation is missing {$field}.");
+}
+$assert(str_contains($membershipAdapter, 'identity_assertion_subject_mismatch') && str_contains($membershipAdapter, 'identity_assertion_type_invalid'), 'Malformed or cross-subject File 00 assertions must fail closed.');
+$assert(str_contains($membershipAdapter, "add_filter('sn_network_user_can_access'") && str_contains($membershipAdapter, "add_filter('sn_network_user_is_suspended'") && str_contains($membershipAdapter, "add_filter('sn_network_user_age_state'") && str_contains($membershipAdapter, "add_filter('sn_network_guardian_consent_valid'"), 'Canonical Membership assertions must drive File-17 policy decisions.');
+$assert(!str_contains($auth, "'meta_key' => 'sn_phone_e164'") && !str_contains($auth, "get_user_meta(\$user_id, 'sn_phone_e164'"), 'File 17 must not maintain or query a duplicate raw-phone identity registry.');
+$assert(str_contains($auth, 'sn_network_file00_phone_projection') && str_contains($auth, 'sn_network_file00_user_by_phone'), 'Phone display/resolution must cross an explicit File 00 owner projection boundary.');
+$assert(!str_contains($auth, "get_user_meta(\$user_id, 'sn_phone_verified'") && str_contains($auth, 'sn_network_public_verification_badge'), 'A public verification badge must not be inferred from a local phone-verification meta flag.');
+$assert(str_contains($auth, "\$assertion['can_call'] !== true"), 'TURN/STUN credentials must require current File 00 call eligibility.');
 
 $assert(substr_count($runtime, 'SN_Future_Superset::register();') === 1, 'Runtime hardening must be the single Future-24 registration owner.');
 $assert(substr_count($compat, 'SN_Future_Superset::register();') === 0, 'Compatibility hardening must not register Future-24 a second time.');
@@ -78,52 +94,39 @@ $assert(!str_contains($b, 'SN_Future_Superset::create_mentorship($r)'), 'Mentors
 
 $assert(str_contains($o, "serialize_message_version_edit") && str_contains($o, "sn:f17:msg-edit:") && str_contains($o, 'SELECT GET_LOCK') && str_contains($o, 'SELECT RELEASE_LOCK'), 'Message edit snapshots must be serialized by a per-message advisory lock.');
 $assert(str_contains($o, "add_filter('rest_pre_dispatch',[self::class,'serialize_message_version_edit'],7,3)"), 'Message edit lock must run before Future-24 version capture.');
-
 $assert(str_contains($j, 'GET_LOCK') && str_contains($j, 'revoke_device_key') && str_contains($j, 'signed_checkpoint'), 'Device key transparency must retain serialized ledger and revocation controls.');
 $assert(str_contains($i, 'sn_future_device_keys') && str_contains($i, 'sn_future_key_log'), 'Device-key storage and key-log contracts must remain present.');
-
 $assert(str_contains($l, 'manager_locked($conversation,$actor)') && str_contains($l, "delegated_locked(\$conversation,\$target,'work')"), 'Team handoff must revalidate actor and target authority inside the transition.');
 $assert(str_contains($l, 'LIMIT 1 FOR UPDATE'), 'Team handoff authority must be backed by locked membership rows.');
-
 $assert(str_contains($m, 'sn_reminder_terminal') && str_contains($m, 'sn_reminder_busy'), 'Reminder lifecycle must reject terminal resurrection and firing-state mutation.');
 $assert(str_contains($m, "['id'=>(int)\$row->id,'state'=>'active','version'=>(int)\$row->version]"), 'Reminder cancel/reschedule mutation must use active-state version CAS.');
-
 $assert(str_contains($n, 'may_edit_locked($row,$actor)') && str_contains($n, "'template_manage'"), 'Team template edit/delete must revalidate delegated authority while locked.');
 $assert(str_contains($n, 'START TRANSACTION') && str_contains($n, 'template_revision'), 'Template revision and mutation must remain atomic.');
-
 $assert(str_contains($part2, 'bulk_assign_delegation_changed') && str_contains($part2, "sn_network_team_inbox_delegation_allowed"), 'Bulk assignment must enforce Team Inbox delegation.');
 $assert(str_contains($part2, "START TRANSACTION") && str_contains($part2, "F17-FUT-05") && str_contains($part2, "F17-FUT-06"), 'Bulk team/assignment writes must share an atomic transaction.');
-
 $assert(str_contains($a, 'smart-views/(?P<id>\\d+)/results') && str_contains($a, 'sn_smart_view_verification_provider_unavailable'), 'Smart private views must retain fail-closed verified filtering.');
 $assert(str_contains($c, 'sn_network_citation_resolve') && str_contains($c, "empty(\$resolved['current'])") && str_contains($c, "empty(\$resolved['allowed'])"), 'Citation cards must resolve current canonical owner access.');
-
 $assert(str_contains($c, 'sn_case_retention_failed') && str_contains($c, 'START TRANSACTION'), 'Case discussions must fail closed if retention cannot commit atomically.');
 $assert(str_contains($c, "'expires_at'=>null") && str_contains($c, 'Idempotent retry must not extend'), 'Case retention must bind once and not extend on idempotent retry.');
-
 $assert(str_contains($d, 'sn:f17:speaker-queue:') && str_contains($d, 'SELECT GET_LOCK') && str_contains($d, 'START TRANSACTION'), 'Speaker queue must use a per-call lock plus DB transaction.');
 $assert(str_contains($d, "feature_rows('F17-FUT-18',\$call,true)") && str_contains($d, 'no partial update was committed'), 'Speaker reorder/next must lock rows and fail without partial updates.');
-
 $assert(str_contains($e, "'provisioning'") && str_contains($e, "'moving'") && str_contains($e, "'closing'") && str_contains($e, "'reconcile_required'"), 'Breakouts must expose recoverable provider lifecycle states.');
 $assert(str_contains($e, "SET state='expiry_pending'") && str_contains($e, 'sn_network_breakout_move_rollback_result'), 'Breakout expiry/move must be provider-aware and compensatable.');
 $assert(str_contains($e, 'sn:f17:breakout:') && str_contains($e, "user_can(\$u,'manage_options')"), 'Breakout lifecycle must be per-call serialized and asserted-user authorized.');
-
 $assert(str_contains($f, 'transfer_preparing') && str_contains($f, 'transfer_committing') && str_contains($f, 'takeover_committing') && str_contains($f, 'reconcile_required'), 'Host lifecycle must use explicit transition/reconciliation states.');
 $assert(str_contains($f, 'sn_network_call_host_transfer_rollback') && str_contains($f, 'sn_network_call_host_takeover_rollback'), 'Provider host changes must have compensation contracts.');
 $assert(str_contains($f, 'sn:f17:host:') && str_contains($f, "user_can(\$u,'manage_options')") && !str_contains($f, "current_user_can('manage_options')"), 'Host lifecycle must be serialized and asserted-user authorized.');
-
 $assert(str_contains($g, 'telemetry_consent') && str_contains($g, 'packet_loss_bucket') && str_contains($g, 'sn_network_quality_retention_hours'), 'Network-quality telemetry must stay consented, bucketed and short-lived.');
 $assert(str_contains($g, 'sn_ai_task_invalid') && str_contains($g, 'File 16 AI governance has not authorized this exact task'), 'AI governance must authorize the exact executed task.');
 $assert(str_contains($g, 'sn_ai_context_stale') && substr_count($g, 'SN_DB::is_member($conversation,$user)') >= 2 && str_contains($g, 'SN_Message_Operations::is_hidden($user,$id)'), 'AI private context must revalidate membership and selected-message visibility at provider handoff.');
 $assert(str_contains($g, 'sn_network_private_semantic_index_event_allowed') && str_contains($g, 'require_current_consent'), 'Semantic index changes must fail closed behind an explicit consent-aware gate.');
 $assert(str_contains($g, 'purge_pending') && str_contains($g, 'retry_semantic_purges') && str_contains($g, 'sn_network_private_semantic_purge_result'), 'Consent withdrawal must track and retry semantic projection purge.');
 $assert(str_contains($g, 'sn_semantic_context_stale') && !str_contains($g, "'query'=>"), 'Semantic search must recheck consent/access and never log raw query text.');
-
 $assert(str_contains($h, 'create_record_once') && str_contains($h, 'operation_lock') && str_contains($h, "'duplicate'=>true"), 'Inbound interoperability must make replay races idempotent.');
 $assert(str_contains($h, 'interop-outbound:') && str_contains($h, "get_header('Idempotency-Key')") && str_contains($h, "'delivery_state'=>'sending'"), 'Outbound interoperability must have durable idempotency receipts.');
 $assert(str_contains($h, "\$d['kill_switch']=true") && str_contains($h, 'sn_interop_reconcile_required'), 'Bridge shutdown must become locally fail-closed before provider shutdown and expose reconciliation on split state.');
 $assert(str_contains($h, "user_can(\$u,'manage_options')") && !str_contains($h, "current_user_can('manage_options')"), 'Interop manager authority must evaluate the asserted user.');
 $assert(!str_contains($h, "'payload'=>\$payload"), 'Interop receipts must not persist raw inbound payloads.');
-
 $assert(str_contains($o, 'LIMIT $batch'), 'Bulk recovery must retain its literal bounded-batch SQL contract.');
 $assert(!str_contains($d, ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
 $assert(!str_contains($e, ':true|WP_Error'), 'PHP 8.1 compatibility forbids literal true return types.');
