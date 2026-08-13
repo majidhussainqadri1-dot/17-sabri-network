@@ -81,7 +81,7 @@ $checks = [
     'includes/class-sn-future24-review-hardening-e.php' => ['breakouts/move', 'breakouts/close', 'sn_network_sfu_available', 'bool|WP_Error'],
     'includes/class-sn-future24-review-hardening-f.php' => ['host-transfer/confirm', 'host-takeover', 'pending_transfer'],
     'includes/class-sn-future24-review-hardening-g.php' => ['telemetry_consent', 'explicit_consent', 'semantic-search/consent', 'exported_to_file26'],
-    'includes/class-sn-future24-review-hardening-h.php' => ['interop_inbound', 'quarantine', 'kill_switch', 'event_id'],
+    'includes/class-sn-future24-review-hardening-h.php' => ['interop_inbound', 'quarantine', 'kill_switch', 'event_id', 'sn_interop_bridge_exists', "str_starts_with(\$client,'interop-bridge:')", "['id'=>(int)\$existing->id,'version'=>(int)\$existing->version]"],
     'includes/class-sn-future24-review-hardening-i.php' => ['sn_future_device_keys', 'sn_future_key_log', 'items_retained', 'EXPORT_PAGE_SIZE', 'SHARED_SCAN_PAGE_SIZE', 'OFFSET %d', 'extra_done'],
     'includes/class-sn-future24-review-hardening-j.php' => ['GET_LOCK', 'revoke_device_key', 'signed_checkpoint'],
     'includes/class-sn-future24-review-hardening-k.php' => ['sn_network_team_inbox_delegation_allowed', '/notes', 'assigned_to_me'],
