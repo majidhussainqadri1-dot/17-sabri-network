@@ -32,6 +32,15 @@ fr4_check(
     !preg_match('/(?:production-ready|staging-accepted\s*:\s*(?:yes|complete)|live-deployed\s*:\s*(?:yes|complete))/i', $completeness),
     'Repository evidence must state a current repository-owned corrective candidate without claiming staging/live/operational completion.'
 );
-fr4_check(str_contains($status, 'Repository coding-completion candidate; not staging-accepted') && str_contains($readme, '**Coded:** 2.1.0 repository completion candidate.') && str_contains($readme, '**Staging-Accepted:** pending'), 'Installable documentation must preserve the current coded/staging-pending boundary.');
+fr4_check(
+    stripos($status, 'repository') !== false &&
+    stripos($status, 'not staging-accepted') !== false &&
+    stripos($status, 'not live-deployed') !== false &&
+    str_contains($readme, '**Coded:** 2.1.0 repository corrective candidate.') &&
+    str_contains($readme, '**Staging-Accepted:** pending') &&
+    str_contains($readme, '**Live-Deployed:** not claimed') &&
+    !preg_match('/(?:production-ready|staging-accepted\s*:\s*(?:yes|complete)|live-deployed\s*:\s*(?:yes|complete))/i', $status . "\n" . $readme),
+    'Installable documentation must semantically preserve the current coded/staging/live boundary without depending on stale exact wording.'
+);
 if ($failures) { fwrite(STDERR, "Fourth-review static failures (" . count($failures) . "/$checks):\n - " . implode("\n - ", $failures) . "\n"); exit(1); }
 echo "Fourth-review static contracts: PASS ($checks checks)\n";
