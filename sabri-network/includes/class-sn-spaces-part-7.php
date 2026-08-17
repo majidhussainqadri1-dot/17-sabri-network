@@ -40,12 +40,28 @@ trait SN_Spaces_Part_7 {
     }
 
     public static function erase_data(string $email,int $page=1): array {
-        global $wpdb;$user=get_user_by('email',$email);if(!$user)return ['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$uid=(int)$user->ID;$owners=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::members_table()." WHERE user_id=%d AND role='owner' AND status='active'",$uid));
+        global $wpdb;$user=get_user_by('email',$email);if(!$user)return ['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$uid=(int)$user->ID;
+        $owners=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::members_table()." WHERE user_id=%d AND role='owner' AND status='active'",$uid));
         if($owners>0)return ['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Active space ownership must be transferred before erasure.','sabri-network')],'done'=>true];
-        $now=self::now();$changed=$wpdb->query($wpdb->prepare("UPDATE ".self::members_table()." SET status='left',left_at=COALESCE(left_at,%s),updated_at=%s,version=version+1 WHERE user_id=%d AND status='active' LIMIT 500",$now,$now,$uid));
-        $wpdb->query($wpdb->prepare("UPDATE ".self::invites_table()." SET status='cancelled',active_key=NULL,cancelled_at=COALESCE(cancelled_at,%s),updated_at=%s,version=version+1 WHERE (invitee_id=%d OR inviter_id=%d) AND status='pending' LIMIT 500",$now,$now,$uid,$uid));
-        $wpdb->query($wpdb->prepare("UPDATE ".self::requests_table()." SET status='cancelled',active_key=NULL,updated_at=%s,version=version+1 WHERE requester_id=%d AND status='pending' LIMIT 500",$now,$uid));
-        return ['items_removed'=>$changed>0,'items_retained'=>false,'messages'=>[],'done'=>true];
+        $limit=100;$now=self::now();
+        $rows=$wpdb->get_results($wpdb->prepare('SELECT m.id,m.space_id,m.version,s.conversation_id FROM '.self::members_table().' m INNER JOIN '.self::spaces_table().' s ON s.id=m.space_id WHERE m.user_id=%d AND m.status=\'active\' ORDER BY m.id ASC LIMIT %d',$uid,$limit));
+        if($wpdb->query('START TRANSACTION')===false)return ['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Space privacy erasure could not start and must be retried.','sabri-network')],'done'=>false];
+        $removed=false;
+        try{
+            foreach(is_array($rows)?$rows:[] as $row){
+                $changed=$wpdb->update(self::members_table(),['status'=>'left','left_at'=>$now,'updated_at'=>$now,'version'=>(int)$row->version+1],['id'=>(int)$row->id,'user_id'=>$uid,'status'=>'active','version'=>(int)$row->version]);
+                if($changed!==1)throw new RuntimeException('space_privacy_membership_conflict');
+                if((int)$row->conversation_id>0)self::remove_conversation_member((int)$row->conversation_id,$uid,$now);
+                $removed=true;
+            }
+            $q=$wpdb->query($wpdb->prepare("UPDATE ".self::invites_table()." SET status='cancelled',active_key=NULL,cancelled_at=COALESCE(cancelled_at,%s),updated_at=%s,version=version+1 WHERE (invitee_id=%d OR inviter_id=%d) AND status='pending' LIMIT 500",$now,$now,$uid,$uid));if($q===false)throw new RuntimeException('space_privacy_invites_failed');
+            $q=$wpdb->query($wpdb->prepare("UPDATE ".self::requests_table()." SET status='cancelled',active_key=NULL,updated_at=%s,version=version+1 WHERE requester_id=%d AND status='pending' LIMIT 500",$now,$uid));if($q===false)throw new RuntimeException('space_privacy_requests_failed');
+            if($wpdb->query('COMMIT')===false)throw new RuntimeException('space_privacy_commit_failed');
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('space_privacy_erase_failed','user',$uid,'failure',['reason'=>$e->getMessage()],$uid);return ['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Space privacy erasure could not be committed and must be retried.','sabri-network')],'done'=>false];}
+        $more_members=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::members_table()." WHERE user_id=%d AND status='active' LIMIT 1",$uid));
+        $more_invites=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::invites_table()." WHERE (invitee_id=%d OR inviter_id=%d) AND status='pending' LIMIT 1",$uid,$uid));
+        $more_requests=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::requests_table()." WHERE requester_id=%d AND status='pending' LIMIT 1",$uid));
+        return ['items_removed'=>$removed,'items_retained'=>false,'messages'=>[],'done'=>!$more_members&&!$more_invites&&!$more_requests];
     }
 
     private static function join_eligibility(?object $space,int $user,bool $invited=false): bool|WP_Error {
