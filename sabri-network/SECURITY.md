@@ -16,6 +16,14 @@
 - no stored OTP, SMS secret, or long-lived TURN credential;
 - no public legacy attachment URL returned by the 2.0 API.
 
+## Durable communication-key boundary
+
+New durable File-17 private ciphertext must not depend on WordPress authentication salts. File 17 therefore uses a dedicated communication master secret for new at-rest encryption writes. The preferred staging/production source is an approved shared secret manager exposed through `SN_COMMUNICATION_MASTER_SECRET` or the approved `sn_network_communication_secret` adapter. If neither is configured, File 17 atomically creates `communication-master.key` in the File-17 private storage directory outside the public web root and restricts file permissions.
+
+The legacy WordPress `secure_auth` salt remains in the bounded decrypt compatibility keyring so existing ciphertext can be read and lazily rotated. It is not used as the authority for new durable encryption. A configured dedicated secret is rejected if it is too short or equals a WordPress authentication/nonce salt.
+
+The communication master secret is disaster-recovery material. Backups, restores, cloned staging environments and multi-node deployments that need existing private ciphertext must preserve/provide the same key. Key loss can make durable private messages, private transfer chunks, encrypted queued data and other File-17 private records unreadable. Staging acceptance therefore requires a restore/decrypt/key-rotation rehearsal and recovery evidence; secrets themselves must never be committed to this repository or copied into public logs.
+
 ## E2EE boundary
 
 Transport security and private storage are not end-to-end encryption. File 17 must not be advertised as E2EE until an independently reviewed protocol provides authenticated device keys, identity verification, forward secrecy, multi-device behavior, lost-device handling, key backup/recovery policy, and cryptographic test evidence.
@@ -24,6 +32,7 @@ Transport security and private storage are not end-to-end encryption. File 17 mu
 
 - HTTPS, secure cookies, WordPress hardening, WAF/CDN where approved, and restricted production administration;
 - File 00/File 02 MFA and session controls;
+- approved shared communication master-secret deployment/recovery or proven safe single private-key store;
 - approved malware scanner for document uploads;
 - approved TURN service with short-lived credentials and an SFU for group calls;
 - penetration testing, dependency review, load/race testing, backup/restore verification, and staging acceptance;
@@ -31,11 +40,10 @@ Transport security and private storage are not end-to-end encryption. File 17 mu
 
 ## Security reporting
 
-Do not place patient data, message bodies, credentials, private file links, or exploit details in public issues. Use the platform's private security-reporting and incident process.
+Do not place patient data, message bodies, credentials, private file links, master-key material or exploit details in public issues. Use the platform's private security-reporting and incident process.
 
 ## Abuse-report evidence and retention
 Reports use a client-generated UUIDv4 for idempotency, a one-way canonical target key, global and same-target throttles, bounded evidence, and a SHA-256 evidence-integrity value. Legal/safety holds may only be changed through the administrator-authorized triage contract. Expired, unheld evidence is first anonymized and later deleted by a bounded locked worker. Ordinary users cannot set a hold or force the internal `expired` state.
-
 
 ## Sabri Meet security boundary
 
