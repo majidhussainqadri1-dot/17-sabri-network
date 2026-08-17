@@ -12,6 +12,7 @@ $lifecycle=$read('includes/class-sn-fourth-fresh-lifecycle-hardening.php');
 $space=$read('includes/class-sn-fourth-fresh-space-hardening.php');
 $realtime=$read('includes/class-sn-fourth-fresh-realtime-hardening.php');
 $call=$read('includes/class-sn-fourth-fresh-call-hardening.php');
+$callruntime=$read('includes/class-sn-call-runtime-hardening.php');
 $smail=$read('includes/class-sn-fourth-fresh-smail-hardening.php');
 $transfer=$read('includes/class-sn-fourth-fresh-transfer-hardening.php');
 $privacy=$read('includes/class-sn-fourth-fresh-privacy-hardening.php');
@@ -20,6 +21,9 @@ $crypto=$read('includes/class-sn-fourth-fresh-crypto-hardening.php');
 $knowledge=$read('includes/class-sn-fourth-fresh-knowledge-hardening.php');
 $interop=$read('includes/class-sn-fourth-fresh-interop-hardening.php');
 $high=$read('includes/class-sn-high-risk.php');
+$round20=$read('includes/class-sn-round20-correction.php');
+$futureui=$read('assets/js/future-superset.js');
+$round20ui=$read('assets/js/round20-correction.js');
 
 foreach([
  'SN_Fourth_Fresh_Review_Hardening','SN_Fourth_Fresh_Search_Hardening','SN_Fourth_Fresh_Media_Hardening',
@@ -48,5 +52,18 @@ $check(str_contains($knowledge,'SN_Message_Operations::is_hidden')&&str_contains
 $check(str_contains($interop,'sn_interop_idempotency_required')&&str_contains($interop,'sn_interop_event_conflict')&&str_contains($interop,'sn_interop_reconciliation_required')&&str_contains($interop,'shutdown_idempotency_hash'),'Round 18 interoperability must bind keys/payloads and preserve uncertain outcomes fail-closed.');
 $check(str_contains($interop,'sn_network_interop_outbound_reconcile_result')&&str_contains($interop,'sn_network_interop_kill_switch_reconcile_result')&&str_contains($interop,"'confirmed'")&&str_contains($interop,"'sanitized_payload'"),'Round 18 provider reconciliation and encrypted inbound replay state must remain explicit.');
 
-if($checks!==32)$fail[]='Expected 32 checks, got '.$checks;
+$check(str_contains($loader,"require_once SN_DIR . 'includes/class-sn-round20-correction.php'")&&str_contains($loader,'SN_Round20_Correction::register()'),'Round 20 corrective closure must be loaded and registered.');
+$check(str_contains($callruntime,'rest_convert_error_to_response')&&str_contains($call,'rest_convert_error_to_response')&&str_contains($round20,'rest_convert_error_to_response'),'Round 20 REST post-dispatch paths must normalize WP_Error into REST responses.');
+$check(str_contains($round20,'typed_bridge')&&str_contains($round20,"feature_id='F17-FUT-24'")&&str_contains($round20,'sn:f17:interop-bridge:')&&str_contains($round20,'conversation_lock'),'Round 20 interoperability must distinguish bridges from receipts and serialize bridge/conversation state.');
+$check(str_contains($round20,'sn_interop_governed_delete_required')&&str_contains($round20,"(string)\$row->feature_id === 'F17-FUT-24'"),'Round 20 generic future-record deletion must not bypass governed interoperability revocation/reconciliation.');
+$check(str_contains($round20,"status='executing'")&&str_contains($round20,"status='expired'")&&str_contains($round20,'claim_token_hash=NULL')&&str_contains($round20,'expires_at<=%s'),'Round 20 stale expired high-risk executions must not remain permanently executing.');
+$check(str_contains($round20,'sn:f17:message-retention:')&&str_contains($round20,"'_mutation_version'")&&str_contains($round20,"$wpdb->prefix.'sn_poll_votes'")&&str_contains($round20,"'message.expired:'"),'Round 20 expiry must preserve mutation version, legal-hold serialization and poll-vote lifecycle cleanup.');
+$check(str_contains($round20,'message_poll_vote_delete_failed')&&str_contains($round20,'message_version_required')&&str_contains($round20,"'message.deleted:'")&&str_contains($round20,"'START TRANSACTION'"),'Round 20 explicit message deletion must atomically remove poll votes under exact-version control.');
+$check(str_contains($round20,"'sn:f17:msg-edit:'")&&str_contains($round20,'Acquire the canonical conversation/message locks together with retention in one sorted set'),'Round 20 delete/poll retention locks must use a deterministic compatible lock order.');
+$check(str_contains($privacy,'sn_poll_votes')&&str_contains($privacy,'Communication poll votes')&&str_contains($privacy,'legal_hold=1'),'Round 20 Two-Plan privacy export/erasure must cover poll votes while preserving held message evidence.');
+$check(str_contains($futureui,"headers['Idempotency-Key']")&&str_contains($futureui,'getRandomValues')&&str_contains($futureui,'client_id'),'Round 20 Future-24 mutation UI must send strong caller idempotency keys.');
+$check(str_contains($round20ui,'expected_version')&&str_contains($round20ui,'messages/${id}/structured')&&str_contains($round20ui,"Idempotency-Key")&&str_contains($round20ui,'getRandomValues'),'Round 20 expiry UI must fetch authoritative CAS version and submit a strong idempotent mutation.');
+$check(str_contains($round20,'future_erase')&&str_contains($round20,"['F17-FUT-03','F17-FUT-24']")&&str_contains($round20,'sn_network_message_version_hold'),'Round 20 Future-24 erasure must preserve governed transparency/interoperability and held integrity evidence.');
+
+if($checks!==44)$fail[]='Expected 44 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Fourth fresh 20-round contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fourth fresh 20-round contracts: PASS ($checks checks)\n";
