@@ -64,7 +64,7 @@ Every defect above was corrected only after its own review round had been comple
 - JavaScript syntax inventory: 8 entry points.
 - `two-plan-completion-contracts.php`: expanded to 89 checks including Round-20 storage/predispatch/search-epoch regressions.
 - Deterministic package: `17-sabri-network-and-messages-2.1.0.zip`.
-- Package SHA-256: `555ccf9f1495f5202320278bbfac458ca8e6c15acc0be1f8f8fde09d739586e24` would be incorrect historical data and is deliberately NOT reused here; the verified Round-20 package SHA is `555ccf9f1495f5202320278bbdcd0b72883877259a6e1038ea766a265a8ccfcb`.
+- Verified package SHA-256: `555ccf9f1495f5202320278bbdcd0b72883877259a6e1038ea766a265a8ccfcb`.
 - Exact implementation head: `4014852c6ed2ab72cca775e9a3c6098e026037c6`.
 - Workflow run: `32022835397`.
 
