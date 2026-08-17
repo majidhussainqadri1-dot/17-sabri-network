@@ -22,6 +22,7 @@ $privacy_runtime=$read($root.'/includes/class-sn-privacy-runtime-hardening.php')
 $crypto=$read($root.'/includes/class-sn-communication-crypto.php');
 $system_status=$read($root.'/SYSTEM-STATUS.txt');
 $security_notes=$read($root.'/SECURITY.md');
+$boundary=$read($root.'/includes/class-sn-runtime-boundary-policy.php');
 
 $check(str_contains($main,'Version: 2.1.0')&&str_contains($main,"define('SN_VERSION', '2.1.0')"),'File 17 completion release must have an immutable 2.1.0 runtime identity.');
 $check(str_contains($compat,"require_once SN_DIR . 'includes/class-sn-two-plan-completion.php'")&&str_contains($compat,'SN_Two_Plan_Completion::register()'),'Completion layer must be loaded through the existing canonical backend.');
@@ -88,5 +89,14 @@ $check(str_contains($review_o,'interop_scope_guard')&&str_contains($review_o,'SN
 $check(str_contains($system_status,'47 explicit PHP review suites')&&str_contains($system_status,'8 JavaScript syntax checks'),'Current system-status QA inventory must match the executable quality gate.');
 $check(str_contains($security_notes,'communication-master.key')&&str_contains($security_notes,'disaster-recovery material')&&str_contains($security_notes,'restore/decrypt/key-rotation rehearsal'),'Security documentation must preserve the dedicated communication-key backup/restore boundary.');
 
-if($checks!==82)$fail[]='Expected 82 checks, got '.$checks;
+// Round 20 whole-system boundary regressions.
+$check(str_contains($review_loader,"class-sn-runtime-boundary-policy.php")&&str_contains($review_loader,'SN_Runtime_Boundary_Policy::register()'),'The canonical runtime-boundary policy must be loaded and registered before Future-24 cross-cutting predispatch hooks.');
+$check(str_contains($boundary,'get_home_path()')&&str_contains($boundary,"$_SERVER['DOCUMENT_ROOT']")&&str_contains($boundary,'sn_network_public_document_roots'),'Private storage validation must include WordPress home, server document root and operator-declared public roots.');
+$check(str_contains($boundary,'same_or_within($resolved, $root)')&&str_contains($boundary,'same_or_within($root, $resolved)')&&str_contains($boundary,"return ''"),'Private storage must fail closed when it is inside, equal to, or contains a known public document root.');
+$check(str_contains($boundary,"add_filter('rest_pre_dispatch'")&&str_contains($boundary,'-30000')&&str_contains($boundary,'SN_Policy::access()'),'File-17 mutation authorization must run before later predispatch reservations, locks, snapshots or provider hooks.');
+$check(str_contains($boundary,'SN_REST::admin_access()')&&str_contains($boundary,'SN_DB::is_member($conversation, $actor)'),'Early predispatch governance must preserve administrator and object-membership boundaries.');
+$check(str_contains($boundary,"SEARCH_EPOCH_OPTION")&&str_contains($boundary,"TRUNCATE TABLE")&&str_contains($boundary,"sn_message_search_backfill_after")&&str_contains($boundary,'SN_Message_Search::backfill()'),'Private-message search must detect HMAC-key epoch changes, reset only the derived index and trigger rebuild.');
+$check(str_contains($boundary,'sn_message_search_rebuilding')&&str_contains($boundary,'SEARCH_CONTINUE_HOOK')&&str_contains($boundary,'wp_schedule_single_event'),'Private search must fail visibly during key-epoch rebuild and continue bounded asynchronous reconstruction instead of returning false-empty results.');
+
+if($checks!==89)$fail[]='Expected 89 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Two-plan completion failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Two-plan completion contracts: PASS ($checks checks)\n";
