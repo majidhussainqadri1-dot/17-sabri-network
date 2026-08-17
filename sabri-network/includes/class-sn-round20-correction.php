@@ -128,6 +128,7 @@ final class SN_Round20_Correction {
             $meta = json_decode((string)$row->metadata, true); $meta = is_array($meta) ? $meta : [];
             $version = max(1, absint($meta['_mutation_version'] ?? 1));
             if ($version !== $expected) throw new UnexpectedValueException('version_conflict');
+            if (self::message_has_legal_hold($id)) throw new UnexpectedValueException('legal_hold');
             if (!SN_Policy::can_delete_message($row, $actor)) throw new UnexpectedValueException('delete_forbidden');
             $attachment = (string)$row->attachment_source === 'private' ? (int)$row->attachment_id : 0;
             $meta['_mutation_version'] = $expected + 1;
@@ -140,7 +141,7 @@ final class SN_Round20_Correction {
             $event = SN_Outbox::enqueue('message.deleted','message',$id,['message_id'=>$id,'conversation_id'=>$conversation,'sender_id'=>(int)$row->sender_id,'deleted_by'=>$actor,'deleted_at'=>$deleted_at,'version'=>$expected+1], 'message.deleted:' . $id . ':v' . ($expected+1));
             if (is_wp_error($event)) throw new RuntimeException($event->get_error_code());
             if ($wpdb->query('COMMIT') === false) throw new RuntimeException('message_delete_commit_failed');
-            if ($attachment > 0) SN_Private_Files::delete($attachment, $actor);
+            if ($attachment > 0) SN_Private_Files::delete($attachment, (int)$row->sender_id);
             SN_DB::audit('message_deleted','message',$id,'success',['conversation_id'=>$conversation,'version'=>$expected+1],$actor);
             do_action('sn_network_event_queued',$event,'message.deleted');
             return rest_ensure_response(['deleted'=>true,'version'=>$expected+1]);
@@ -148,6 +149,7 @@ final class SN_Round20_Correction {
             $wpdb->query('ROLLBACK');
             if ($e instanceof DomainException) return self::not_found();
             if ($e instanceof UnexpectedValueException && $e->getMessage()==='version_conflict') return new WP_Error('message_version_conflict','The message changed. Reload the authoritative version and retry.',['status'=>409]);
+            if ($e instanceof UnexpectedValueException && $e->getMessage()==='legal_hold') return new WP_Error('message_legal_hold','This message is preserved by an active safety or legal hold and cannot be deleted.',['status'=>409]);
             if ($e instanceof UnexpectedValueException && $e->getMessage()==='delete_forbidden') return new WP_Error('delete_forbidden','This message can no longer be deleted.',['status'=>403]);
             SN_DB::audit('message_atomic_delete_failed','message',$id,'failure',['reason'=>$e->getMessage()],$actor);
             return new WP_Error('message_atomic_delete_failed','The message deletion could not be committed.',['status'=>500]);
