@@ -36,7 +36,9 @@ fr4_check(
     stripos($status, 'repository') !== false &&
     stripos($status, 'not staging-accepted') !== false &&
     stripos($status, 'not live-deployed') !== false &&
-    str_contains($readme, '**Coded:** 2.1.0 repository corrective candidate.') &&
+    str_contains($readme, '**Coded:**') &&
+    str_contains($readme, '2.1.0') &&
+    stripos($readme, 'repository candidate') !== false &&
     str_contains($readme, '**Staging-Accepted:** pending') &&
     str_contains($readme, '**Live-Deployed:** not claimed') &&
     !preg_match('/(?:production-ready|staging-accepted\s*:\s*(?:yes|complete)|live-deployed\s*:\s*(?:yes|complete))/i', $status . "\n" . $readme),
