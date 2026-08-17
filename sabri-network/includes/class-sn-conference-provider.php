@@ -89,9 +89,12 @@ final class SN_Conference_Provider {
     public static function issue_credentials(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;$call_id=absint($request['id']);$user=get_current_user_id();
         $call=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('calls').' WHERE id=%d',$call_id));if(!$call)return self::error('sn_call_missing','The call is unavailable.',404);
+        if((int)$call->conversation_id<=0||!SN_DB::is_member((int)$call->conversation_id,$user))return self::error('sn_call_membership_required','Current conversation membership is required for media credentials.',403);
         $member=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".SN_DB::table('call_members')." WHERE call_id=%d AND user_id=%d AND status NOT IN ('left','removed') LIMIT 1",$call_id,$user));if(!$member)return self::error('sn_call_membership_required','An active call membership is required.',403);
         if(!in_array((string)$call->status,['ringing','accepted','connected','reconnecting','scheduled','live'],true))return self::error('sn_call_state_unavailable','Media credentials are unavailable for this call state.',409);
-        $type=sanitize_key((string)$request->get_param('provider_type'));if(!in_array($type,self::TYPES,true))$type=(string)$call->call_type==='group'?'sfu':'turn';
+        // Group calls are never permitted to select STUN/TURN as a substitute for the approved SFU.
+        $type=(string)$call->call_type==='group'?'sfu':sanitize_key((string)$request->get_param('provider_type'));
+        if((string)$call->call_type!=='group'&&!in_array($type,['stun','turn'],true))$type='turn';
         $provider=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::table()." WHERE provider_type=%s AND status='healthy' ORDER BY health_checked_at DESC,id ASC LIMIT 1",$type));
         if(!$provider)return self::error('sn_conference_provider_unavailable','The required conference infrastructure is unavailable.',503);
         if(!$provider->health_checked_at||strtotime((string)$provider->health_checked_at.' UTC')<time()-15*MINUTE_IN_SECONDS)return self::error('sn_conference_provider_health_stale','The provider health evidence is stale.',503);
