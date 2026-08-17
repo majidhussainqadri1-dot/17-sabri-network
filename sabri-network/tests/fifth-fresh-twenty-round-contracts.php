@@ -22,6 +22,7 @@ $conference = $read('includes/class-sn-conference-provider.php');
 $privacy5 = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 $integration5 = $read('includes/class-sn-fifth-fresh-integration-hardening.php');
 $feature5 = $read('includes/class-sn-fifth-fresh-feature-hardening.php');
+$knowledge5 = $read('includes/class-sn-fifth-fresh-knowledge-hardening.php');
 $futureLoader = $read('includes/class-sn-future24-review-hardening.php');
 
 // Round 3 — group/channel conversation membership must be owned by canonical spaces.
@@ -69,6 +70,11 @@ $check(str_contains($feature5, 'transcript_cipher') && str_contains($feature5, '
 $check(str_contains($feature5, 'migrate_legacy_voice_transcripts') && str_contains($feature5, "unset(\$meta['voice_note']['transcript'])"), 'R15: legacy plaintext transcript metadata must have a bounded encrypted migration.');
 $check(str_contains($feature5, 'SN_Round20_Correction::structured_message($request)') && str_contains($feature5, 'SN_Communication_Crypto::decrypt'), 'R15: only authorized structured-message reads may decrypt the protected transcript.');
 $check(str_contains($futureLoader, 'SN_Fifth_Fresh_Feature_Hardening::register()'), 'R15: protected Future feature hardening must be active.');
+
+// Round 17 — final REST route ownership must preserve the strongest AI/semantic governance.
+$check(str_contains($knowledge5, "add_action('rest_api_init', [self::class, 'override_routes'], 3100)") && str_contains($knowledge5, "SN_Future24_Review_Hardening_G::ai_assistant(\$request)"), 'R17: the final AI route must run after older overlays and delegate to File16/redaction/minor/stale-context governance.');
+$check(str_contains($knowledge5, "SN_Future24_Review_Hardening_G::semantic_search(\$request)") && str_contains($knowledge5, "SN_Message_Operations::is_hidden"), 'R17: the final semantic route must retain explicit consent and final message-visibility governance.');
+$check(str_contains($futureLoader, "class-sn-fifth-fresh-knowledge-hardening.php") && str_contains($futureLoader, 'SN_Fifth_Fresh_Knowledge_Hardening::register()'), 'R17: fifth-fresh final knowledge route ownership must be loaded and registered.');
 
 if ($fail) {
     fwrite(STDERR, "Fifth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
