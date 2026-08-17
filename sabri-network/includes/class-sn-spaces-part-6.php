@@ -46,7 +46,13 @@ trait SN_Spaces_Part_6 {
             if($wpdb->update(self::members_table(),['role'=>'administrator','updated_at'=>$now,'version'=>(int)$owner_member->version+1],['id'=>(int)$owner_member->id,'role'=>'owner','version'=>(int)$owner_member->version])!==1)throw new RuntimeException('owner_role_change_failed');
             if($wpdb->update(self::members_table(),['role'=>'owner','updated_at'=>$now,'version'=>(int)$target_member->version+1],['id'=>(int)$target_member->id,'version'=>(int)$target_member->version])!==1)throw new RuntimeException('successor_role_change_failed');
             if($wpdb->update(self::spaces_table(),['owner_user_id'=>$target,'updated_at'=>$now,'version'=>(int)$space->version+1],['id'=>$space_id,'owner_user_id'=>$current_owner,'version'=>(int)$space->version])!==1)throw new RuntimeException('space_owner_change_failed');
-            if((int)$space->conversation_id>0){self::sync_conversation_member((int)$space->conversation_id,$current_owner,'administrator',$actor,$now);self::sync_conversation_member((int)$space->conversation_id,$target,'owner',$actor,$now);}
+            if((int)$space->conversation_id>0){
+                $conversation=$wpdb->get_row($wpdb->prepare('SELECT id,owner_id FROM '.SN_DB::table('conversations').' WHERE id=%d FOR UPDATE',(int)$space->conversation_id));
+                if(!$conversation)throw new RuntimeException('space_conversation_missing');
+                self::sync_conversation_member((int)$space->conversation_id,$current_owner,'administrator',$actor,$now);
+                self::sync_conversation_member((int)$space->conversation_id,$target,'owner',$actor,$now);
+                if($wpdb->update(SN_DB::table('conversations'),['owner_id'=>$target,'updated_at'=>$now],['id'=>(int)$space->conversation_id])===false)throw new RuntimeException('space_conversation_owner_sync_failed');
+            }
             $event=SN_Outbox::enqueue('space.ownership_transferred','space',$space_id,['space_id'=>$space_id,'former_owner_id'=>$current_owner,'new_owner_id'=>$target],'space.ownership_transferred:'.$space_id.':'.$target.':'.$now);
             if(is_wp_error($event))throw new RuntimeException($event->get_error_code());
             $completed=SN_High_Risk::complete($action_id,$actor,(string)$claim['claim_token'],['space_id'=>$space_id,'new_owner_id'=>$target]);if(is_wp_error($completed))throw new RuntimeException($completed->get_error_code());
