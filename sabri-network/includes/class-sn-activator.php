@@ -7,33 +7,20 @@ final class SN_Activator {
     public static function activate(): void {
         self::set_defaults();
         self::retire_legacy_secrets();
-        SN_DB::install();
-        SN_High_Risk::install();
-        SN_Spaces::install();
-        SN_Presence_Devices::install();
-        SN_Message_Operations::install();
-        SN_Context_Adapters::install();
-        SN_CF01_Clinical_Context::install();
-        SN_Conference_Provider::install();
-        SN_Messages::install();
-        SN_File_Transfer::install();
-        SN_Smail::install();
-        SN_Message_Search::install();
-        SN_Outbox::install();
-        SN_Meet::install();
-        SN_Two_Plan_Completion::install();
-        SN_Future_Superset::install();
+        $migration = SN_Fifth_Fresh_Migration_Hardening::upgrade(true);
+        if (is_wp_error($migration)) {
+            throw new RuntimeException($migration->get_error_message());
+        }
         SN_Messages::register_rewrites();
         SN_Meet::register_rewrites();
-        SN_Private_Files::ensure_storage();
-        SN_File_Transfer::ensure_storage();
-        self::ensure_network_page();
+        if (!SN_Private_Files::ensure_storage()) throw new RuntimeException('File 17 private message storage is unavailable.');
+        if (!SN_File_Transfer::ensure_storage()) throw new RuntimeException('File 17 transfer storage is unavailable.');
+        if (self::ensure_network_page() <= 0) throw new RuntimeException('File 17 Network page could not be created safely.');
         SN_Messages::ensure_pages();
-        SN_File_Transfer::ensure_page();
-        SN_Smail::ensure_page();
+        if (SN_File_Transfer::ensure_page(false) <= 0) throw new RuntimeException('File 17 transfer page could not be created safely.');
+        if (SN_Smail::ensure_page(false) <= 0) throw new RuntimeException('File 17 Smail page could not be created safely.');
         SN_Messages::mark_routes_current();
         self::ensure_cleanup_schedule();
-        update_option('sn_plugin_version', SN_VERSION, false);
         flush_rewrite_rules(false);
     }
 
@@ -56,9 +43,7 @@ final class SN_Activator {
         $page_id = (int) get_option('sn_network_page_id');
         if ($page_id && self::is_owned_page($page_id) && get_post_status($page_id) === 'publish') {
             $url = get_permalink($page_id);
-            if ($url) {
-                return (string) $url;
-            }
+            if ($url) return (string) $url;
         }
         return self::safe_url();
     }
@@ -99,9 +84,7 @@ final class SN_Activator {
             'post_type' => 'page',
             'comment_status' => 'closed',
         ], true);
-        if (is_wp_error($new_id) || !$new_id) {
-            return 0;
-        }
+        if (is_wp_error($new_id) || !$new_id) return 0;
         update_post_meta((int) $new_id, self::PAGE_OWNER_META, 'file-17');
         update_option('sn_network_page_id', (int) $new_id, false);
         return (int) $new_id;
@@ -113,19 +96,9 @@ final class SN_Activator {
 
     public static function retire_legacy_secrets(): void {
         foreach ([
-            'sn_sms_webhook_url',
-            'sn_sms_auth_header',
-            'sn_sms_payload_template',
-            'sn_sms_message_template',
-            'sn_turn_url',
-            'sn_turn_username',
-            'sn_turn_credential',
-            'sn_enable_staging_otp',
-            'sn_otp_expiry_minutes',
-            'sn_auto_menu_button',
-        ] as $key) {
-            delete_option($key);
-        }
+            'sn_sms_webhook_url','sn_sms_auth_header','sn_sms_payload_template','sn_sms_message_template',
+            'sn_turn_url','sn_turn_username','sn_turn_credential','sn_enable_staging_otp','sn_otp_expiry_minutes','sn_auto_menu_button',
+        ] as $key) delete_option($key);
         update_option('sn_legacy_identity_secrets_retired', gmdate('c'), false);
     }
 
@@ -137,9 +110,7 @@ final class SN_Activator {
             'sn_stun_urls' => '',
         ];
         foreach ($defaults as $key => $value) {
-            if (get_option($key, null) === null) {
-                add_option($key, $value, '', false);
-            }
+            if (get_option($key, null) === null) add_option($key, $value, '', false);
         }
     }
 }
