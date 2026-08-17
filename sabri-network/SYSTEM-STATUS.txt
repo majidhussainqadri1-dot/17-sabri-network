@@ -1,51 +1,49 @@
 Repository coding/review candidate; not staging-accepted, not live-deployed, not production-operational.
 File 17 — Sabri Network and Messages 2.1.0
-حقیقی repository حیثیت — current repository evidence; exact immutable HEAD/run is recorded by the active audit ledger and CI
+حقیقی repository حیثیت — exact immutable HEAD/run from the active cycle and CI are the only current repository evidence.
 
 حاکم audit basis:
-1) Current consolidated central governing plan
-2) Current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24
-3) Earlier review ledgers only as historical non-conflicting evidence; every later cycle has its own independent ledger/counts
+1) Current consolidated central governing plan.
+2) Current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24.
+3) Earlier review ledgers are historical evidence only for their own exact commits.
 
-Specified: موجودہ حاکم منصوبوں کے File-17 repository scope کی traceable specification
-Coded Candidate: 2.1.0 current corrective source
-Coding Completion: known repository-owned gaps are reviewed/corrected sequentially; exact-head CI and current-cycle ledger are decisive repository gates
-Packaged: deterministic 2.1.0 ZIP, exact staged manifest and SHA-256 workflow; only an exact-head successful workflow proves the artifact for that SHA
-Automated QA: 47 explicit PHP review suites, PHP 8.1/8.3 jobs, 8 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates
+Specified: current governing-plan File-17 repository scope is traceable.
+Coded Candidate: 2.1.0 current corrective source.
+Packaged: deterministic 2.1.0 ZIP + source manifest only when produced by the exact-head workflow.
+Automated QA: 48 explicit PHP review suites, PHP 8.1/8.3 jobs, 8 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates.
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-Current coded domains:
-- relationships, contacts, follows, blocks, discovery, message requests, communities/groups/channels
-- canonical conversations/messages, scheduled messages, polls/checklists, disappearing lifecycle
-- private attachments, voice notes, reactions/replies, receipts, private indexed search, folders/pins/stars/hide-for-self
-- authenticated server-side at-rest message encryption, queued/pending communication encryption, bounded migration/key rotation
-- encrypted temporary updates
-- Messages, Communication Settings, internal Smail seven mailboxes
-- verified-user private transfer ≤1 GiB/file, resumability, SHA-256, MIME/archive/scanner/quarantine, signed grants, range resume, revoke/retention/audit
-- multi-device presence, calls/Sabri Meet, STUN/TURN/SFU provider governance
-- community rules/forum/AMA/wiki/events/cohorts/health
-- reports/appeals/legal-safety holds, retention, privacy export/erasure, audit
-- transactional outbox/inbox, retries/dead-letter/idempotency
-- File 08/18/21 and CF-01 opaque contexts
-- File 19 single notification owner; File 20 single shell; File 26 global search/ranking owner
-- Founder-approved Future Communication Superset 24 with provider-dependent features fail-closed until approved adapters/acceptance exist
+Fourth fresh 20-round cycle — 17 August 2026:
+- Frozen starting main: 04ba7406cf06ecba48d24e36f13a16dfe5ccb044.
+- Review method: complete review round -> frozen defect ledger -> fix every proved defect -> exact-head retest -> only then next round.
+- First-ten defect rounds: 2, 4, 5, 6, 7, 8, 9, 10. Clean: 1, 3.
+- Round 19 adds the permanent fourth-cycle regression suite and makes every fourth-cycle hardening class a required source/package surface.
+- Final round-20 exact SHA/run/package evidence is deliberately not predeclared here; it is established only after that round and its exact-head CI complete.
 
-Communication-key lifecycle:
-- New durable private-communication encryption writes use a File-17-specific master secret independent from WordPress authentication salts.
-- Preferred production/staging configuration is a shared approved secret-manager value exposed as SN_COMMUNICATION_MASTER_SECRET or the approved sn_network_communication_secret adapter.
-- If no approved external secret is injected, File 17 atomically creates communication-master.key in its private storage outside the public web root and uses restrictive file permissions.
-- Legacy wp_salt('secure_auth') remains decrypt-only compatibility material so old ciphertext can be read and lazily rotated; it is not the authority for new durable encryption writes.
-- Backup/restore and multi-node staging must preserve/provide the same File-17 master secret. Losing it can make durable private ciphertext unreadable. Key rotation/restore must therefore be tested before staging acceptance.
+Current coded domains include one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
 
-External acceptance gates still pending:
-- real WordPress/PHP/MySQL fresh install, upgrade/migration/race tests
-- File 00/02/08/18/19/20/21/24/25/26, CF-01, CF-04 integration/degraded acceptance
-- Hostinger staging, cron, approved scanner/private storage/translation provider, LiteSpeed, browser/device, RTL/LTR/accessibility
-- shared File-17 master-secret/backup/restore proof and old-key migration/rotation rehearsal
-- approved WSS/STUN/TURN/SFU, load/soak, penetration testing
-- backup/restore, rollback rehearsal, Founder sign-off, live deployment, monitoring/support/SLO evidence
+Fourth-cycle repository hardening additionally requires:
+- authorization before pre-dispatch side effects and serialized object mutations;
+- caller-supplied retry identities for message/Smail/transfer/interoperability mutations where proved necessary;
+- exact message/draft/report versioning for stale-state-sensitive mutations;
+- lossless private-search rebuild across key-epoch changes;
+- private audio/video validation and encrypted voice transcript storage;
+- high-risk dual control for conversation ownership, report closure and legal-hold release;
+- short-lived meeting media credentials and post-provider File-00 eligibility revalidation;
+- native File-17 legal holds as privacy-erasure blockers;
+- strong dedicated communication-master-secret/file hygiene;
+- AI/semantic per-viewer visibility, canonical File 06/12 citation resolution and case de-identification gates;
+- interoperability payload-bound idempotency and fail-closed provider-outcome reconciliation.
+
+External acceptance still pending:
+- real WordPress/PHP/MySQL fresh install, upgrade/migration/race/rollback tests;
+- current File 00/02/08/18/19/20/21/24/25/26 and CF-01/CF-04 integration/degraded acceptance;
+- Hostinger staging, cron, approved scanner/private storage/translation/media/AI/interop providers, LiteSpeed, browser/device, RTL/LTR/accessibility;
+- communication-key backup/restore/rotation proof;
+- approved WSS/STUN/TURN/SFU, load/soak and penetration testing;
+- Founder staging sign-off, live deployment, deployed-artifact parity and operational monitoring/support/SLO evidence.
 
 This status does not claim E2EE certification, staging acceptance, live deployment, production readiness or operational completion.
 
