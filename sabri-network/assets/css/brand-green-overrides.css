@@ -1,52 +1,122 @@
+/* File 17 F17-CEN-02: exact Sabri Green primary. Legacy orange may remain secondary only. */
 :root {
-  --sn-brand-green: var(--sabri-primary, #137a46);
-  --sn-brand-green-strong: #0d5933;
-  --sn-brand-green-soft: #e9f6ee;
+  --sn-brand-green: var(--sabri-primary, #087A4E);
+  --sn-brand-green-strong: #06613e;
+  --sn-brand-green-soft: #e9f6ef;
   --sn-secondary-orange: #ff8a1f;
 }
 
-.sn-network-root {
+:where(.sn-network-app,.sn-network-root,.snm-app,.sn-messages-root,.sn-communication-settings-root,.sn-meet-shell,.sn-meet,body.sn-meet-page,.sn-smail-app,.sn-sm,.sn-transfer-app,.sn-ft,.snms-panel) {
   --sn-primary: var(--sn-brand-green);
+  --sn-primary-dark: var(--sn-brand-green-strong);
   --sn-primary-strong: var(--sn-brand-green-strong);
   --sn-primary-soft: var(--sn-brand-green-soft);
-}
-
-.sn-network-root .sn-btn-primary,
-.sn-network-root .sn-send-btn,
-.sn-network-root .sn-brand-mark,
-.sn-network-root .sn-list-meta b,
-.sn-network-root .sn-spinner {
-  --sn-primary: var(--sn-brand-green);
-}
-
-.sn-messages-root,
-.sn-communication-settings-root {
+  --sn-focus-ring: rgba(8,122,78,.28);
   --snm-orange: var(--sn-brand-green);
   --snm-orange-dark: var(--sn-brand-green-strong);
   --snm-primary: var(--sn-brand-green);
 }
 
-.snms-panel {
-  --snm-primary: var(--sn-brand-green);
+/* Network shell and messaging controls. */
+.sn-network-app .sn-brand-mark,
+.sn-network-app .sn-avatar,
+.sn-network-app .sn-status-dot,
+.sn-network-app .sn-sidebar-toggle,
+.sn-network-app .sn-compose-trigger,
+.sn-network-app .sn-call-accept,
+.sn-network-app .sn-call-control.sn-call-video-toggle,
+.sn-network-app .sn-call-overlay.sn-video .sn-call-control.sn-call-video-toggle {
+  background: var(--sn-brand-green) !important;
+  color: #fff !important;
 }
+.sn-network-app .sn-brand-mark { border-color: #b8dfcb !important; }
+.sn-network-app .sn-button-primary,
+.sn-network-app .sn-tab.is-active {
+  background: var(--sn-brand-green) !important;
+  border-color: var(--sn-brand-green) !important;
+  color: #fff !important;
+}
+.sn-network-app .sn-tab.is-active { background: var(--sn-brand-green-soft) !important; color: #055b39 !important; }
+.sn-network-app .sn-message.sn-own .sn-message-bubble { background: #e3f3eb !important; }
+.sn-network-app .sn-message-author { color: #055b39 !important; }
+.sn-network-app .sn-button-primary:hover,
+.sn-network-app .sn-compose-trigger:hover,
+.sn-network-app .sn-sidebar-toggle:hover { background: var(--sn-brand-green-strong) !important; }
 
+/* Dedicated Messages / private search. */
+.snm-app,
+.snms-panel { --snm-orange: #087A4E; --snm-orange-dark: #06613e; --snm-focus: rgba(8,122,78,.28); }
+.snm-button-primary,
+.snm-icon-button.is-active,
+.snm-compose-submit,
+.snms-panel .snm-button-primary {
+  background: #087A4E !important;
+  border-color: #087A4E !important;
+  color: #fff !important;
+}
+.snm-button-primary:hover,
+.snm-compose-submit:hover { background: #06613e !important; }
+.snm-conversation.is-active,
+.snm-message.is-own .snm-message-bubble,
+.snms-result:hover,
+.snms-result:focus-visible { background: #e9f6ef !important; }
+.snm-conversation.is-active { border-color: #9fd2b8 !important; }
+
+/* Sabri Meet. */
+.sn-meet-shell,
 .sn-meet,
-body.sn-meet-page {
-  --sn-meet-orange: var(--sn-brand-green);
-  --sn-meet-orange-strong: var(--sn-brand-green-strong);
+body.sn-meet-page { --sn-meet-accent: #087A4E; --sn-meet-orange: #087A4E; --sn-meet-orange-strong: #06613e; --sn-meet-accent-soft: #e9f6ef; }
+.sn-meet-primary,
+.sn-meet-control.is-active,
+.sn-meet-action-primary {
+  background: #087A4E !important;
+  border-color: #087A4E !important;
+  color: #fff !important;
 }
+.sn-meet-primary:hover,
+.sn-meet-action-primary:hover { background: #06613e !important; }
+.sn-meet-card[aria-current="true"],
+.sn-meet-waiting { border-color: #9fd2b8 !important; }
 
-.sn-sm,
-.sn-ft {
-  --sn-primary: var(--sn-brand-green);
+/* Smail. */
+.sn-smail-app,
+.sn-sm { --sns-primary: #087A4E; --sns-primary-dark: #06613e; --sns-focus: rgba(8,122,78,.28); }
+.sns-compose,
+.sns-primary,
+.sns-folder.is-active {
+  background: #087A4E !important;
+  border-color: #087A4E !important;
+  color: #fff !important;
+}
+.sns-compose:hover,
+.sns-primary:hover { background: #06613e !important; }
+.sns-item.is-active { border-inline-start-color: #087A4E !important; background: #e9f6ef !important; }
+
+/* Verified private transfer. */
+.sn-transfer-app,
+.sn-ft { --snt-primary: #087A4E; --snt-primary-dark: #06613e; --snt-focus: rgba(8,122,78,.28); }
+.snt-primary,
+.snt-progress > span {
+  background: #087A4E !important;
+  border-color: #087A4E !important;
+  color: #fff !important;
+}
+.snt-primary:hover { background: #06613e !important; }
+
+/* Keep keyboard focus obvious on every File-17 surface. */
+:where(.sn-network-app,.sn-network-root,.snm-app,.sn-messages-root,.sn-communication-settings-root,.sn-meet-shell,.sn-meet,.sn-smail-app,.sn-sm,.sn-transfer-app,.sn-ft,.snms-panel) :focus-visible {
+  outline: 3px solid #087A4E !important;
+  outline-offset: 2px;
 }
 
 /* File 19 owns the single notification center; File 20 owns its global bell slot. */
-#sn-notifications-button {
-  display: none !important;
-}
+#sn-notifications-button { display: none !important; }
 
 /* Orange remains available only as a secondary semantic accent. */
-.sn-file17-secondary-accent {
-  color: var(--sn-secondary-orange);
+.sn-file17-secondary-accent { color: var(--sn-secondary-orange); }
+
+@media (forced-colors: active) {
+  :where(.sn-network-app,.sn-network-root,.snm-app,.sn-messages-root,.sn-communication-settings-root,.sn-meet-shell,.sn-meet,.sn-smail-app,.sn-sm,.sn-transfer-app,.sn-ft,.snms-panel) :focus-visible {
+    outline-color: Highlight !important;
+  }
 }
