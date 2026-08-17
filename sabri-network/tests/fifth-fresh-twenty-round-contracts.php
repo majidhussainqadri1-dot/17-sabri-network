@@ -20,6 +20,7 @@ $transfer6 = $read('includes/class-sn-file-transfer-part-6.php');
 $smail2 = $read('includes/class-sn-smail-part-2.php');
 $conference = $read('includes/class-sn-conference-provider.php');
 $privacy5 = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
+$integration5 = $read('includes/class-sn-fifth-fresh-integration-hardening.php');
 $futureLoader = $read('includes/class-sn-future24-review-hardening.php');
 
 // Round 3 — group/channel conversation membership must be owned by canonical spaces.
@@ -56,6 +57,11 @@ $check(str_contains($privacy5, 'sn_privacy_future_version_cursor_') && str_conta
 $check(str_contains($privacy5, 'smail_erase_commit_failed') && str_contains($privacy5, 'Presence-device erasure failed and must be retried.'), 'R12: Smail and presence erasers must surface database failure as retryable rather than false success.');
 $check(str_contains($privacy5, "sender_id=0,conversation_id=0") && str_contains($privacy5, 'transfer_recipient_erase_failed'), 'R12: transfer erasure must revoke bytes and remove/anonymize user linkage when no hold blocks erasure.');
 $check(str_contains($futureLoader, "class-sn-fifth-fresh-privacy-hardening.php") && str_contains($futureLoader, 'SN_Fifth_Fresh_Privacy_Hardening::register()'), 'R12: fifth-fresh privacy governance must be loaded and registered.');
+
+// Round 14 — cross-file context references must not report false-success erasure.
+$check(str_contains($integration5, "sabri-network-contexts") && str_contains($integration5, 'context_attribution_erase_commit_failed'), 'R14: File08/18/21 context attribution erasure must be bounded, transactional and commit-checked.');
+$check(str_contains($integration5, "sabri-network-cf01-references") && str_contains($integration5, 'cf01_reference_erase_commit_failed'), 'R14: CF-01 reference revocation must be bounded, versioned and commit-checked.');
+$check(str_contains($integration5, "'done'=>!\$more") && str_contains($futureLoader, 'SN_Fifth_Fresh_Integration_Hardening::register()'), 'R14: cross-file erasers must stay retryable until no eligible records remain and the hardening layer must be active.');
 
 if ($fail) {
     fwrite(STDERR, "Fifth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
