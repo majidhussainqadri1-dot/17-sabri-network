@@ -1,16 +1,15 @@
 # Changelog
 
-## 2.1.0 — 2026-08-11 — Current two-plan repository completion candidate
+## 2.1.0 — 2026-08-11 onward — Current governing-plan repository corrective candidate
 
 ### Governing reconciliation
-- Reopened coding completeness against the newly governing consolidated central plan and the current File 17 Final Harmonized Master Plan instead of treating the historical 2.0.3 review as present-plan proof.
+- Reopened coding completeness against the governing consolidated central plan, the current File 17 Final Harmonized Master Plan and the Founder-approved Future Communication Superset 24 instead of treating historical review cycles as present-head proof.
 - Preserved File 17 as the only communication owner and retained File 00/02 identity, File 19 notification, File 20 shell, File 26 global-search and File 08/CF-01 clinical ownership boundaries.
+- Later fresh review cycles remain independently counted/audited; a green workflow for one SHA is never reused as evidence for another.
 
-### Message requests and abuse protection
+### Message requests and messaging completion
 - Added unknown-sender message requests with encrypted first-message storage, incoming/outgoing queues, accept/decline/report/cancel decisions, sender and recipient rate limits and post-decline/report cooldown.
 - Acceptance is transactional: request state, canonical contact state, canonical direct conversation membership and first canonical encrypted message succeed together or roll back.
-
-### Messaging completion
 - Added encrypted scheduled-message storage with cancellation, bounded retry state and delivery-time authorization revalidation.
 - Added canonical polls and collaborative checklists while explicitly preventing clinical-decision authority.
 - Added disappearing-message expiry with legal-hold preservation, private-search removal, reaction cleanup and attachment revocation/deletion.
@@ -21,11 +20,22 @@
 - Replaced plaintext persistence for new temporary-update text with authenticated encryption and lazy authorized migration of legacy plaintext values.
 - Added community rules/onboarding questions/orientation, forum questions, expert AMA sessions, wiki pages, events/cohorts, responses, best-answer/close/archive/reopen moderation and privacy-minimized aggregate community health.
 
+### Fresh corrective hardening retained in 2.1.0
+- Revalidated authorization on idempotent message replay and secured concurrent attachment cleanup.
+- Forced genuinely fresh File-00 calling eligibility around media-credential issuance and serialized current call/direct-peer relationship state for call creation/join/media mutations.
+- Removed File-17 shadow ownership of File-03 public profile fields.
+- Revalidated and serialized forwarding inside the committing transaction.
+- Corrected active-device cap semantics so expired historical presence rows do not consume the live device budget.
+- Required exact version CAS for existing Team Inbox mutations.
+- Hardened privacy erasure so File-17 erasers respect legal/safety holds, retry failed Meet erasure, do not erase File-03 fields, and do not destroy active non-direct conversation ownership.
+- Decoupled new durable File-17 private encryption from WordPress authentication salts while retaining bounded legacy decrypt/lazy-rotation compatibility; staging/restore must preserve the dedicated File-17 master secret.
+- Enforced current private-conversation membership plus owner/moderator scope before interoperability create/list/revoke/outbound dispatch.
+
 ### Privacy, QA and release truth
 - Added privacy exporter/eraser participation for new personal-data domains.
-- Added `two-plan-completion-contracts.php` and expanded the explicit full quality inventory from 45 to **46 PHP review suites**.
-- Promoted current runtime/package identity to **2.1.0** with deterministic `17-sabri-network-and-messages-2.1.0.zip` packaging.
-- Historical 2.0.3 forty-round evidence remains historical; staging, live and operational acceptance remain separate external gates.
+- Current explicit full quality inventory is **47 PHP review suites** and **8 JavaScript syntax checks**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
+- Historical review evidence remains historical; staging, live and operational acceptance remain separate external gates.
 
 ## 2.0.3 — 2026-08-07 — Forty-round corrective release candidate
 
