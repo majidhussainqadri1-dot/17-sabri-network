@@ -37,8 +37,9 @@ The cycle has hardened pre-side-effect authorization, conversation ownership dua
 ## Current coded domains
 
 - One canonical File-17 relationship/contact/follow/block/restriction graph and communication authorization model.
-- Communities, groups, channels, invitations, joins, roles, succession and lifecycle under serialized governance.
-- Direct/group/channel conversations and canonical messages, reactions, replies, edits/deletes, receipts, scheduled/disappearing messages, polls/checklists and private search.
+- **Communities, groups, channels and private teams** with invitations, joins, roles, succession and lifecycle under serialized governance.
+- Direct/group/channel conversations and canonical messages with reactions, replies, edits/deletes, **native recipient/device message receipts**, scheduled/disappearing messages, polls/checklists and **secure indexed search**.
+- **Governed mentions and audience-minimized forwarding**, including current relationship/contact authorization and private-attachment non-reuse across audiences.
 - Caller-supplied retry identities where a replay could otherwise duplicate an irreversible mutation or provider side effect.
 - Exact stale-state versions for message, draft and high-risk report mutations where blind overwrite is unsafe.
 - Authenticated server-side encryption at rest for canonical message bodies and queued/private communication payloads; no unsupported E2EE claim.
@@ -46,10 +47,10 @@ The cycle has hardened pre-side-effect authorization, conversation ownership dua
 - Private attachments and voice notes with web-root exclusion, malware/media validation, image-bomb bounds, encrypted transcript metadata and authorized delivery.
 - Internal Smail with seven mailboxes and exact-version draft mutation.
 - Verified-user private transfer up to **1,073,741,824 bytes** per file with resumability, integrity, scanning/quarantine, authorization, range delivery, revocation, retention and serialized quota initiation.
-- Multi-device presence, typing and revocation with bounded lifetime and relationship/membership serialization.
-- Direct calls, Sabri Meet and provider-gated media controls with short-lived credentials and fresh File-00 eligibility before delivery.
+- **General per-device presence** plus typing and device revocation with bounded lifetime and relationship/membership serialization.
+- Direct calls and Sabri Meet with **Secret-free STUN/TURN/SFU provider governance**, short-lived media credentials, provider gating and fresh File-00 eligibility before credential delivery.
 - Reports, appeals, legal/safety holds, privacy export/erasure and dual-control report closure/legal-hold release.
-- Reliable outbox/inbox event delivery, retries and dead-letter semantics.
+- **Transactional outbox/inbox** reliable event delivery with idempotent consumption, retries and dead-letter semantics.
 - File 08/18/21 and CF-01 opaque context bridges without copying native domain truth.
 - File 19 notification-transport boundary, File 20 shell boundary, File 24 assurance boundary, File 25 presentation boundary and File 26 global-search/ranking boundary.
 - Explicit-consent File-16 AI bridge and File-17 private semantic search with per-viewer hidden-message exclusion.
