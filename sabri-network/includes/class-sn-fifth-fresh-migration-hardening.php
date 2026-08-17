@@ -8,19 +8,34 @@ final class SN_Fifth_Fresh_Migration_Hardening {
     private const LOCK_TIMEOUT = 15;
     private const STATE_OPTION = 'sn_migration_state';
 
+    public static function register(): void {
+        // Run before module-level init/maybe_upgrade hooks so no partial schema state
+        // can be published or used by a later File-17 runtime callback.
+        add_action('init', [self::class, 'enforce'], -1000);
+    }
+
+    public static function enforce(): void {
+        $result = self::upgrade(false);
+        if (!is_wp_error($result)) return;
+        if (wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST)) {
+            status_header(503);
+        }
+        wp_die(
+            esc_html($result->get_error_message()),
+            esc_html__('Sabri Network migration unavailable', 'sabri-network'),
+            ['response'=>503]
+        );
+    }
+
     /** Run every repository-owned schema installer under one lock and publish version truth only after verification. */
     public static function upgrade(bool $force = false): true|WP_Error {
         global $wpdb;
-        if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) {
-            return true;
-        }
+        if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) return true;
         $locked = (int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)', self::LOCK, self::LOCK_TIMEOUT));
         if ($locked !== 1) return new WP_Error('sn_migration_busy','File 17 schema upgrade is already running. Retry after it completes.',['status'=>503]);
         $snapshot = self::version_snapshot();
         $from = (string)get_option('sn_plugin_version','');
-        update_option(self::STATE_OPTION, [
-            'status'=>'running','from'=>$from,'to'=>SN_VERSION,'started_at'=>gmdate('c'),
-        ], false);
+        update_option(self::STATE_OPTION, ['status'=>'running','from'=>$from,'to'=>SN_VERSION,'started_at'=>gmdate('c')], false);
         try {
             if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) return true;
             self::preserve_legacy_otp_table();
@@ -33,7 +48,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             update_option('sn_plugin_version', SN_VERSION, false);
             update_option(self::STATE_OPTION, [
                 'status'=>'complete','from'=>$from,'to'=>SN_VERSION,'completed_at'=>gmdate('c'),
-                'verification'=>'critical-tables-and-columns-pass',
+                'verification'=>'critical-current-wave-tables-and-columns-pass',
             ], false);
             return true;
         } catch (Throwable $e) {
@@ -51,31 +66,30 @@ final class SN_Fifth_Fresh_Migration_Hardening {
 
     public static function verify_schema(): bool {
         global $wpdb;
+        // Exact table suffixes/columns below are taken from the active File-17
+        // installers. This is deliberately narrower than a guessed schema manifest:
+        // false verification is worse than refusing an incomplete migration.
         $required = [
             'conversations'=>['id','type','owner_id','direct_key','status'],
             'members'=>['conversation_id','user_id','role','left_at'],
             'messages'=>['conversation_id','sender_id','body','metadata','deleted_at'],
             'reports'=>['message_id','legal_hold','appeal_status','version'],
-            'attachments'=>['owner_id','storage_key','scan_status','deleted_at'],
             'calls'=>['conversation_id','call_type','status','active_key'],
             'call_members'=>['call_id','user_id','status'],
             'spaces'=>['owner_user_id','conversation_id','type','visibility','state','version'],
             'space_members'=>['space_id','user_id','role','status','version'],
             'space_invites'=>['space_id','invitee_id','status','token_hash','version'],
             'space_join_requests'=>['space_id','requester_id','status','version'],
-            'presence_devices'=>['user_id','device_key','status','expires_at'],
-            'message_search_tokens'=>['message_id','conversation_id','token_hash'],
-            'outbox'=>['event_type','entity_type','entity_id','status'],
-            'file_transfers'=>['public_id','sender_id','total_bytes','status','scan_status','version'],
-            'file_transfer_recipients'=>['transfer_id','user_id','state','revoked_at'],
+            'presence_devices'=>['user_id','device_key','state','expires_at','revoked_at','version'],
+            'high_risk_actions'=>['action_type','requester_id','approver_id','executor_id','status','version'],
+            'conference_providers'=>['provider_key','provider_type','status','version'],
+            'transfer_sessions'=>['public_id','sender_id','total_bytes','status','scan_status','version'],
+            'transfer_chunks'=>['transfer_id','chunk_index','storage_key','sha256'],
+            'transfer_recipients'=>['transfer_id','user_id','state','revoked_at'],
             'smail_messages'=>['message_id','conversation_id','sender_id','client_key'],
             'smail_states'=>['smail_message_id','user_id','updated_at'],
             'smail_drafts'=>['public_id','owner_id','encrypted_payload','payload_hash','version'],
-            'high_risk_actions'=>['action_type','requester_id','approver_id','executor_id','status','version'],
-            'conference_providers'=>['provider_key','provider_type','status','version'],
-            'future_records'=>['feature_id','owner_id','scope_type','scope_id','state','payload_cipher','version'],
-            'scheduled_messages'=>['conversation_id','sender_id','deliver_at','status'],
-            'poll_votes'=>['message_id','user_id','option_index'],
+            'future_records'=>['feature_id','owner_id','scope_type','scope_id','state','payload_cipher'],
             'conversation_contexts'=>['conversation_id','provider','external_id','attached_by','version'],
             'cf01_context_refs'=>['conversation_id','context_ref','issued_by','status','version'],
         ];
@@ -83,7 +97,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             $table = SN_DB::table($name);
             $exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
             if ($exists !== $table) return false;
-            $actual = array_map('strval', $wpdb->get_col("SHOW COLUMNS FROM `" . esc_sql($table) . "`", 0)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            $actual = array_map('strval', $wpdb->get_col('SHOW COLUMNS FROM `' . esc_sql($table) . '`', 0)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             foreach ($columns as $column) if (!in_array($column,$actual,true)) return false;
         }
         return true;
@@ -109,7 +123,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         $legacy_exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($legacy))) === $legacy;
         $backup_exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($backup))) === $backup;
         if ($legacy_exists && !$backup_exists) {
-            $ok = $wpdb->query("RENAME TABLE `" . esc_sql($legacy) . "` TO `" . esc_sql($backup) . "`"); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            $ok = $wpdb->query('RENAME TABLE `' . esc_sql($legacy) . '` TO `' . esc_sql($backup) . '`'); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             if ($ok === false) throw new RuntimeException('legacy_otp_preservation_failed');
         }
     }
@@ -120,11 +134,12 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'sn_presence_devices_schema_version','sn_message_operations_schema_version','sn_context_adapters_schema_version',
             'sn_cf01_context_schema_version','sn_conference_provider_schema_version','sn_messages_schema_version',
             'sn_file_transfer_schema_version','sn_smail_schema_version','sn_message_search_schema_version',
-            'sn_outbox_schema_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_future_schema_version',
+            'sn_event_delivery_schema_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_future_schema_version',
             'sn_future_superset_schema_version','sn_central_plan_schema_version',
         ];
+        $sentinel = new stdClass();
         $out=[];
-        foreach($keys as $key) $out[$key]=['exists'=>get_option($key,null)!==null,'value'=>get_option($key,null)];
+        foreach($keys as $key){$value=get_option($key,$sentinel);$out[$key]=['exists'=>$value!==$sentinel,'value'=>$value!==$sentinel?$value:null];}
         return $out;
     }
 
