@@ -28,11 +28,10 @@ require_once SN_DIR . 'includes/class-sn-fourth-fresh-realtime-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-call-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-smail-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-transfer-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-privacy-hardening.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
-        // Register common File-17 boundaries before later pre-dispatch reservation,
-        // lock, snapshot, provider and Future-24 hooks.
         SN_Runtime_Boundary_Policy::register();
         SN_Fourth_Fresh_Review_Hardening::register();
         SN_Fourth_Fresh_Search_Hardening::register();
@@ -43,6 +42,7 @@ final class SN_Future24_Review_Hardening {
         SN_Fourth_Fresh_Call_Hardening::register();
         SN_Fourth_Fresh_Smail_Hardening::register();
         SN_Fourth_Fresh_Transfer_Hardening::register();
+        SN_Fourth_Fresh_Privacy_Hardening::register();
         SN_Future24_Review_Hardening_A::register();
         SN_Future24_Review_Hardening_B::register();
         SN_Future24_Review_Hardening_C::register();
