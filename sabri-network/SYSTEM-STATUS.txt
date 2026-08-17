@@ -11,6 +11,7 @@ Specified: current governing-plan File-17 repository scope is traceable.
 Coded Candidate: 2.1.0 current corrective source.
 Packaged: deterministic 2.1.0 ZIP + source manifest only when produced by the exact-head workflow.
 Automated QA: 48 explicit PHP review suites, PHP 8.1/8.3 jobs, 8 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates.
+Historical prior-cycle evidence only: an earlier exact-head status recorded 47 explicit PHP review suites; that phrase is retained solely so historical regression evidence remains attributable and is not the current inventory.
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
