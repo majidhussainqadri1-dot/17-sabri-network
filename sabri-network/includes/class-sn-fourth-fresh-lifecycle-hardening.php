@@ -85,6 +85,7 @@ final class SN_Fourth_Fresh_Lifecycle_Hardening {
         $conversation = (int) $probe->conversation_id;
 
         return self::with_lock(self::conversation_lock($conversation), function () use ($wpdb,$id,$actor,$expected,$seconds,$conversation) {
+            return self::with_lock(self::retention_lock($id), function () use ($wpdb,$id,$actor,$expected,$seconds,$conversation) {
             if ($wpdb->query('START TRANSACTION') === false) return self::database_error();
             try {
                 $messages = SN_DB::table('messages');
@@ -116,6 +117,7 @@ final class SN_Fourth_Fresh_Lifecycle_Hardening {
                 SN_DB::audit('message_expiry_failed','message',$id,'failure',['reason'=>$e->getMessage()],$actor);
                 return new WP_Error('sn_expiry_failed','The expiry setting could not be committed safely.',['status'=>500]);
             }
+            });
         });
     }
 
@@ -126,6 +128,7 @@ final class SN_Fourth_Fresh_Lifecycle_Hardening {
     private static function message(int $id): ?object { global $wpdb; return $id>0 ? ($wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d',$id)) ?: null) : null; }
     private static function version(object $row): int { $m=json_decode((string)($row->metadata??''),true); return max(1,is_array($m)?absint($m['_mutation_version']??1):1); }
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:' . substr(hash('sha256',(string)$id),0,32); }
+    private static function retention_lock(int $id): string { return 'sn:f17:message-retention:' . $id; }
     private static function with_lock(string $lock, callable $callback) { global $wpdb; $ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT)); if($ok!==1)return new WP_Error('sn_conversation_busy','The conversation is changing. Retry the request.',['status'=>409]); try{return $callback();}finally{$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));} }
     private static function version_conflict(): WP_Error { return new WP_Error('message_version_conflict','The message changed. Reload the authoritative version and retry.',['status'=>409]); }
     private static function database_error(): WP_Error { return new WP_Error('database_error','The communication change could not be committed safely.',['status'=>500]); }

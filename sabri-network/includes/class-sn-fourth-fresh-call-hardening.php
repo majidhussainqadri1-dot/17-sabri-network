@@ -91,7 +91,7 @@ final class SN_Fourth_Fresh_Call_Hardening {
         $fresh = SN_Membership_Assertions::communication($actor);
         if (is_wp_error($fresh) || ($fresh['can_call'] ?? false) !== true || ($fresh['suspended'] ?? true) === true) {
             SN_DB::audit('meet_media_delivery_revoked', 'meeting', 0, 'failure', ['route'=>'join'], $actor);
-            return new WP_Error('sn_call_eligibility_changed', 'Calling eligibility changed before media credential delivery.', ['status'=>403]);
+            return rest_convert_error_to_response(new WP_Error('sn_call_eligibility_changed', 'Calling eligibility changed before media credential delivery.', ['status'=>403]));
         }
         return $response;
     }
