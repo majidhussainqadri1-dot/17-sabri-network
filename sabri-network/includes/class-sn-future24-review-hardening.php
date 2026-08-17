@@ -26,6 +26,7 @@ require_once SN_DIR . 'includes/class-sn-fourth-fresh-lifecycle-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-space-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-realtime-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-call-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-smail-hardening.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -39,6 +40,7 @@ final class SN_Future24_Review_Hardening {
         SN_Fourth_Fresh_Space_Hardening::register();
         SN_Fourth_Fresh_Realtime_Hardening::register();
         SN_Fourth_Fresh_Call_Hardening::register();
+        SN_Fourth_Fresh_Smail_Hardening::register();
         SN_Future24_Review_Hardening_A::register();
         SN_Future24_Review_Hardening_B::register();
         SN_Future24_Review_Hardening_C::register();
