@@ -36,7 +36,9 @@ trait SN_File_Transfer_Part_2 {
         $retention_days = min(365, max(1, (int) apply_filters('sn_network_transfer_retention_days', 30, $sender_id, $recipients)));
         $retention = gmdate('Y-m-d H:i:s', time() + $retention_days * DAY_IN_SECONDS);
         $upload_expiry = gmdate('Y-m-d H:i:s', time() + min(7, max(1, (int) get_option('sn_transfer_upload_expiry_days', 2))) * DAY_IN_SECONDS);
-        $wpdb->query('START TRANSACTION');
+        $transfer_id = 0;
+        $event = null;
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('transfer_initiation_failed', 'The private transfer transaction could not start.', ['status'=>500]);
         try {
             if ($wpdb->insert(self::sessions_table(), [
                 'public_id' => $public_id, 'sender_id' => $sender_id, 'conversation_id' => $conversation_id,
@@ -52,11 +54,19 @@ trait SN_File_Transfer_Part_2 {
             }
             $event = SN_Outbox::enqueue('file-transfer.initiated', 'file_transfer', $transfer_id, ['transfer_id' => $transfer_id, 'sender_id' => $sender_id, 'recipient_count' => count($recipients), 'total_bytes' => $total], 'file-transfer-initiated-' . $transfer_id);
             if (is_wp_error($event)) { throw new RuntimeException('transfer_event_failed'); }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('transfer_commit_failed');
         } catch (Throwable $e) {
-            $wpdb->query('ROLLBACK'); return new WP_Error('transfer_initiation_failed', 'The private transfer session could not be created.', ['status' => 500]);
+            $wpdb->query('ROLLBACK');
+            $race = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND idempotency_key=%s', $sender_id, $idempotency));
+            if ($race) {
+                $recipient_count = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . self::recipients_table() . ' WHERE transfer_id=%d', (int)$race->id));
+                if ($recipient_count === count($recipients)) return rest_ensure_response(['transfer'=>self::format($race,$sender_id),'duplicate'=>true,'commit_reconciled'=>true]);
+            }
+            SN_DB::audit('file_transfer_initiation_failed','file_transfer',$transfer_id,'failure',['reason'=>$e->getMessage()],$sender_id);
+            return new WP_Error('transfer_initiation_failed', 'The private transfer session could not be created.', ['status' => 500]);
         }
         self::ensure_storage();
+        if ($event !== null) do_action('sn_network_event_queued', $event, 'file-transfer.initiated');
         SN_DB::audit('file_transfer_initiated', 'file_transfer', $transfer_id, 'success', ['recipients' => count($recipients), 'bytes' => $total]);
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE id=%d', $transfer_id));
         return rest_ensure_response(['transfer' => self::format($row, $sender_id)]);
