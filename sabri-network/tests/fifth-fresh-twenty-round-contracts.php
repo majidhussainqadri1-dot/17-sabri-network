@@ -21,6 +21,7 @@ $smail2 = $read('includes/class-sn-smail-part-2.php');
 $conference = $read('includes/class-sn-conference-provider.php');
 $privacy5 = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 $integration5 = $read('includes/class-sn-fifth-fresh-integration-hardening.php');
+$feature5 = $read('includes/class-sn-fifth-fresh-feature-hardening.php');
 $futureLoader = $read('includes/class-sn-future24-review-hardening.php');
 
 // Round 3 — group/channel conversation membership must be owned by canonical spaces.
@@ -62,6 +63,12 @@ $check(str_contains($futureLoader, "class-sn-fifth-fresh-privacy-hardening.php")
 $check(str_contains($integration5, "sabri-network-contexts") && str_contains($integration5, 'context_attribution_erase_commit_failed'), 'R14: File08/18/21 context attribution erasure must be bounded, transactional and commit-checked.');
 $check(str_contains($integration5, "sabri-network-cf01-references") && str_contains($integration5, 'cf01_reference_erase_commit_failed'), 'R14: CF-01 reference revocation must be bounded, versioned and commit-checked.');
 $check(str_contains($integration5, "'done'=>!\$more") && str_contains($futureLoader, 'SN_Fifth_Fresh_Integration_Hardening::register()'), 'R14: cross-file erasers must stay retryable until no eligible records remain and the hardening layer must be active.');
+
+// Round 15 — voice-note transcripts are private message content and must not remain plaintext metadata.
+$check(str_contains($feature5, 'transcript_cipher') && str_contains($feature5, 'SN_Communication_Crypto::encrypt($transcript, self::transcript_context($row))'), 'R15: new voice-note transcripts must be encrypted at rest with message-bound context.');
+$check(str_contains($feature5, 'migrate_legacy_voice_transcripts') && str_contains($feature5, "unset(\$meta['voice_note']['transcript'])"), 'R15: legacy plaintext transcript metadata must have a bounded encrypted migration.');
+$check(str_contains($feature5, 'SN_Round20_Correction::structured_message($request)') && str_contains($feature5, 'SN_Communication_Crypto::decrypt'), 'R15: only authorized structured-message reads may decrypt the protected transcript.');
+$check(str_contains($futureLoader, 'SN_Fifth_Fresh_Feature_Hardening::register()'), 'R15: protected Future feature hardening must be active.');
 
 if ($fail) {
     fwrite(STDERR, "Fifth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
