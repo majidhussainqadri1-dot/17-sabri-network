@@ -22,6 +22,7 @@ require_once SN_DIR . 'includes/class-sn-runtime-boundary-policy.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-review-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-search-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-media-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-lifecycle-hardening.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -31,6 +32,7 @@ final class SN_Future24_Review_Hardening {
         SN_Fourth_Fresh_Review_Hardening::register();
         SN_Fourth_Fresh_Search_Hardening::register();
         SN_Fourth_Fresh_Media_Hardening::register();
+        SN_Fourth_Fresh_Lifecycle_Hardening::register();
         SN_Future24_Review_Hardening_A::register();
         SN_Future24_Review_Hardening_B::register();
         SN_Future24_Review_Hardening_C::register();
