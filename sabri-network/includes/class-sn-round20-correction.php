@@ -51,15 +51,15 @@ final class SN_Round20_Correction {
         if (($method === 'DELETE' && preg_match('#^/sabri-network/v2/messages/(\d+)$#', $route, $m))
             || ($method === 'POST' && preg_match('#^/sabri-network/v2/messages/(\d+)/poll-vote$#', $route, $m))) {
             $message_id = (int)$m[1];
-            $locks[] = self::retention_lock($message_id);
-            if (str_ends_with($route, '/poll-vote')) {
-                global $wpdb;
-                $conversation = (int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $message_id));
-                if ($conversation > 0) {
-                    $locks[] = 'sn:f17:msg-edit:' . $message_id;
-                    $locks[] = self::conversation_lock($conversation);
-                }
+            global $wpdb;
+            $conversation = (int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $message_id));
+            if ($conversation > 0) {
+                // Acquire the canonical conversation/message locks together with retention in one sorted set.
+                // This keeps delete/poll-vote lock order compatible with expiry and legal-hold mutations.
+                $locks[] = self::conversation_lock($conversation);
+                $locks[] = 'sn:f17:msg-edit:' . $message_id;
             }
+            $locks[] = self::retention_lock($message_id);
         }
 
         if ($method === 'POST' && $request->has_param('legal_hold') && preg_match('#^/sabri-network/v2/admin/reports/(\d+)$#', $route, $m)) {
