@@ -17,6 +17,7 @@ $round20 = $read('includes/class-sn-round20-correction.php');
 $transfer2 = $read('includes/class-sn-file-transfer-part-2.php');
 $transfer6 = $read('includes/class-sn-file-transfer-part-6.php');
 $smail2 = $read('includes/class-sn-smail-part-2.php');
+$conference = $read('includes/class-sn-conference-provider.php');
 
 // Round 3 — group/channel conversation membership must be owned by canonical spaces.
 $check(str_contains($relationships, "if (\$type !== 'direct')") && str_contains($relationships, 'space_required'), 'R3: non-direct conversation creation must require a canonical space.');
@@ -41,6 +42,10 @@ $check(substr_count($transfer6, 'SN_Policy::can_contact(') >= 3 && str_contains(
 $check(str_contains($smail2, "smail_projection_commit_failed") && str_contains($smail2, "if (\$wpdb->query('COMMIT') === false)"), 'R9: Smail projection must verify the database commit.');
 $check(str_contains($smail2, 'draft_version') && str_contains($smail2, 'trash_draft_exact') && str_contains($smail2, 'draft_cleanup_pending'), 'R9: sending from a draft must use exact-version cleanup and preserve a concurrently edited draft.');
 $check(str_contains($smail2, 'state_count') && str_contains($smail2, 'commit_reconciled'), 'R9: uncertain Smail commit reconciliation must confirm mailbox-state completeness.');
+
+// Round 11 — current membership and approved-SFU group call boundary.
+$check(str_contains($conference, '!SN_DB::is_member((int)$call->conversation_id,$user)') && str_contains($conference, 'Current conversation membership is required for media credentials.'), 'R11: media credentials must recheck current canonical conversation membership.');
+$check(str_contains($conference, "(string)\$call->call_type==='group'?'sfu'") && str_contains($conference, "(string)\$call->call_type!=='group'&&!in_array(\$type,['stun','turn'],true)"), 'R11: group calls must be SFU-only and direct calls must not request SFU through the generic credential selector.');
 
 if ($fail) {
     fwrite(STDERR, "Fifth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
