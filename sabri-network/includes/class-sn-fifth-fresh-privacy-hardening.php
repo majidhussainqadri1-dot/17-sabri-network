@@ -17,7 +17,7 @@ final class SN_Fifth_Fresh_Privacy_Hardening {
             'sabri-network-future' => 'erase_future',
             'sabri-network-smail' => 'erase_smail',
             'sabri-network-presence-devices' => 'erase_presence',
-            'sabri-network-file-transfer' => 'erase_transfers',
+            'sabri-network-transfers' => 'erase_transfers',
         ];
         foreach ($map as $key => $method) {
             if (isset($erasers[$key])) $erasers[$key]['callback'] = [self::class, $method];
@@ -133,50 +133,62 @@ final class SN_Fifth_Fresh_Privacy_Hardening {
         return ['items_removed'=>$deleted>0,'items_retained'=>false,'messages'=>[],'done'=>true];
     }
 
+    /** Use File-17's canonical transfer eraser for byte destruction, then remove personal linkage once it is complete. */
     public static function erase_transfers(string $email, int $page = 1): array {
         global $wpdb;
         $user = get_user_by('email', $email);
         if (!$user) return self::done();
         $uid = (int)$user->ID;
-        $sessions = SN_DB::table('file_transfers');
-        $recipients = SN_DB::table('file_transfer_recipients');
+        if ((bool)apply_filters('sn_network_retention_prevents_erasure', false, $uid)) {
+            return SN_File_Transfer::erase_personal_data($email, $page);
+        }
+        $base = SN_File_Transfer::erase_personal_data($email, $page);
+        if (empty($base['done'])) return $base;
+
+        $sessions = SN_DB::table('transfer_sessions');
+        $recipients = SN_DB::table('transfer_recipients');
         $now = current_time('mysql', true);
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id,public_id FROM $sessions WHERE sender_id=%d AND status IN ('revoked','expired','rejected') ORDER BY id ASC LIMIT %d",
+            $uid,
+            self::BATCH
+        ));
+        $recipient_rows = array_map('intval', $wpdb->get_col($wpdb->prepare(
+            "SELECT id FROM $recipients WHERE user_id=%d ORDER BY id ASC LIMIT %d",
+            $uid,
+            self::BATCH
+        )) ?: []);
+        if ($wpdb->query('START TRANSACTION') === false) return self::retry('Transfer privacy anonymization could not start.');
         $removed = 0;
-        $sent = $wpdb->get_results($wpdb->prepare("SELECT * FROM $sessions WHERE sender_id=%d ORDER BY id ASC LIMIT %d", $uid, self::BATCH));
-        $recipient_rows = $wpdb->get_results($wpdb->prepare("SELECT id,transfer_id FROM $recipients WHERE user_id=%d ORDER BY id ASC LIMIT %d", $uid, self::BATCH));
-        $chunk_cleanup = [];
-        if ($wpdb->query('START TRANSACTION') === false) return self::retry('Transfer privacy erasure could not start.');
         try {
-            foreach (is_array($sent) ? $sent : [] as $row) {
-                $id=(int)$row->id;
-                $wpdb->get_row($wpdb->prepare("SELECT id FROM $sessions WHERE id=%d AND sender_id=%d FOR UPDATE",$id,$uid));
-                $q=$wpdb->query($wpdb->prepare("UPDATE $recipients SET state='revoked',revoked_at=COALESCE(revoked_at,%s),updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL",$now,$now,$id));
-                if($q===false)throw new RuntimeException('transfer_recipient_revoke_failed');
-                $blind=hash('sha256','erased-transfer|'.$id.'|'.(string)$row->public_id);
-                $q=$wpdb->query($wpdb->prepare(
-                    "UPDATE $sessions SET sender_id=0,conversation_id=0,original_name='',safe_name='',declared_mime='',detected_mime='',expected_sha256='',actual_sha256='',idempotency_key=%s,status='revoked',scan_status='revoked',failure_code='privacy_erased',revoked_at=COALESCE(revoked_at,%s),updated_at=%s,version=version+1 WHERE id=%d AND sender_id=%d",
-                    $blind,$now,$now,$id,$uid
+            foreach (is_array($rows) ? $rows : [] as $row) {
+                $blind = hash('sha256','erased-transfer|' . (int)$row->id . '|' . (string)$row->public_id);
+                $changed = $wpdb->query($wpdb->prepare(
+                    "UPDATE $sessions SET sender_id=0,conversation_id=0,original_name='',safe_name='',declared_mime='',detected_mime='',expected_sha256='',actual_sha256='',idempotency_key=%s,failure_code='privacy_erased',updated_at=%s,version=version+1 WHERE id=%d AND sender_id=%d AND status IN ('revoked','expired','rejected')",
+                    $blind,
+                    $now,
+                    (int)$row->id,
+                    $uid
                 ));
-                if($q!==1)throw new RuntimeException('transfer_sender_anonymize_failed');
-                $chunk_cleanup[]=$id;$removed++;
+                if ($changed !== 1) throw new RuntimeException('transfer_sender_anonymize_failed');
+                $removed++;
             }
-            foreach (is_array($recipient_rows) ? $recipient_rows : [] as $row) {
-                $q=$wpdb->delete($recipients,['id'=>(int)$row->id,'user_id'=>$uid],['%d','%d']);
-                if($q===false)throw new RuntimeException('transfer_recipient_erase_failed');
-                if($q===1)$removed++;
+            foreach ($recipient_rows as $id) {
+                $changed = $wpdb->delete($recipients,['id'=>$id,'user_id'=>$uid],['%d','%d']);
+                if ($changed === false) throw new RuntimeException('transfer_recipient_erase_failed');
+                if ($changed === 1) $removed++;
             }
-            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('transfer_privacy_commit_failed');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('transfer_privacy_anonymize_commit_failed');
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
-            return self::retry('Transfer privacy erasure could not be committed.');
+            return self::retry('Transfer privacy anonymization could not be committed.');
         }
-        foreach(array_unique($chunk_cleanup) as $id) SN_File_Transfer::delete_chunks((int)$id);
-        $more_sent=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $sessions WHERE sender_id=%d LIMIT 1",$uid));
-        $more_received=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $recipients WHERE user_id=%d LIMIT 1",$uid));
+        $more_sent = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $sessions WHERE sender_id=%d AND status IN ('revoked','expired','rejected') LIMIT 1",$uid));
+        $more_received = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $recipients WHERE user_id=%d LIMIT 1",$uid));
         return [
-            'items_removed'=>$removed>0,
-            'items_retained'=>false,
-            'messages'=>[],
+            'items_removed'=>!empty($base['items_removed']) || $removed>0,
+            'items_retained'=>!empty($base['items_retained']),
+            'messages'=>(array)($base['messages'] ?? []),
             'done'=>!$more_sent&&!$more_received,
         ];
     }
