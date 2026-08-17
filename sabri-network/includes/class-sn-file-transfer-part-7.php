@@ -2,7 +2,37 @@
 defined('ABSPATH') || exit;
 
 trait SN_File_Transfer_Part_7 {
-    private static function format(object $row,int $viewer): array{return['id'=>(string)$row->public_id,'sender_id'=>(int)$row->sender_id,'conversation_id'=>(int)$row->conversation_id,'name'=>(string)$row->safe_name,'mime'=>(string)($row->detected_mime?:$row->declared_mime),'size'=>(int)$row->total_bytes,'chunk_size'=>(int)$row->chunk_bytes,'total_chunks'=>(int)$row->total_chunks,'received_chunks'=>(int)$row->received_chunks,'received_bytes'=>(int)$row->received_bytes,'sha256'=>(int)$row->sender_id===$viewer?(string)($row->actual_sha256?:$row->expected_sha256):(string)$row->actual_sha256,'status'=>(string)$row->status,'scan_status'=>(string)$row->scan_status,'failure_code'=>(string)$row->failure_code,'expires_at'=>(string)$row->expires_at,'created_at'=>(string)$row->created_at,'recipients'=>(int)$row->sender_id===$viewer?self::recipient_ids((int)$row->id):[]];}
+    private static function format(object $row,int $viewer): array {
+        return [
+            'id'=>(string)$row->public_id,
+            'sender_id'=>(int)$row->sender_id,
+            'conversation_id'=>(int)$row->conversation_id,
+            'name'=>(string)$row->safe_name,
+            'mime'=>(string)($row->detected_mime?:$row->declared_mime),
+            'size'=>(int)$row->total_bytes,
+            'chunk_size'=>(int)$row->chunk_bytes,
+            'total_chunks'=>(int)$row->total_chunks,
+            'received_chunks'=>(int)$row->received_chunks,
+            'received_indices'=>self::received_indices((int)$row->id),
+            'received_bytes'=>(int)$row->received_bytes,
+            'sha256'=>(int)$row->sender_id===$viewer?(string)($row->actual_sha256?:$row->expected_sha256):(string)$row->actual_sha256,
+            'status'=>(string)$row->status,
+            'scan_status'=>(string)$row->scan_status,
+            'failure_code'=>(string)$row->failure_code,
+            'expires_at'=>(string)$row->expires_at,
+            'created_at'=>(string)$row->created_at,
+            'recipients'=>(int)$row->sender_id===$viewer?self::recipient_ids((int)$row->id):[],
+        ];
+    }
+
+    private static function received_indices(int $transfer_id): array {
+        global $wpdb;
+        return array_map('intval', $wpdb->get_col($wpdb->prepare(
+            'SELECT chunk_index FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY chunk_index ASC',
+            $transfer_id
+        )) ?: []);
+    }
+
     private static function not_found(): WP_Error{return new WP_Error('transfer_not_found','The private transfer is unavailable.',['status'=>404]);}
 
     public static function ensure_storage(): bool {$root=self::storage_root();if(!self::is_safe_storage_root($root)||(!is_dir($root)&&!wp_mkdir_p($root))||!self::is_safe_storage_root($root))return false;@chmod($root,0700);@file_put_contents($root.'/.htaccess',"Deny from all\nRequire all denied\n",LOCK_EX);@file_put_contents($root.'/index.php',"<?php http_response_code(404); exit;\n",LOCK_EX);return is_dir($root)&&is_writable($root);}
