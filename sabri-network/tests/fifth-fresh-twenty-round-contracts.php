@@ -14,6 +14,8 @@ $relationships = $read('includes/class-sn-relationship-runtime-hardening.php');
 $spaces6 = $read('includes/class-sn-spaces-part-6.php');
 $boundary = $read('includes/class-sn-runtime-boundary-policy.php');
 $round20 = $read('includes/class-sn-round20-correction.php');
+$transfer2 = $read('includes/class-sn-file-transfer-part-2.php');
+$transfer6 = $read('includes/class-sn-file-transfer-part-6.php');
 
 // Round 3 — group/channel conversation membership must be owned by canonical spaces.
 $check(str_contains($relationships, "if (\$type !== 'direct')") && str_contains($relationships, 'space_required'), 'R3: non-direct conversation creation must require a canonical space.');
@@ -28,6 +30,11 @@ $check(str_contains($boundary, 'space_ownership_managed') && str_contains($bound
 // Round 5 — retention/legal hold must dominate ordinary message deletion.
 $check(str_contains($round20, 'message_has_legal_hold($id)') && str_contains($round20, "UnexpectedValueException('legal_hold')"), 'R5: message deletion must recheck legal hold while the retention lock is held.');
 $check(str_contains($round20, 'message_legal_hold') && str_contains($round20, "SN_Private_Files::delete(\$attachment, (int)\$row->sender_id)"), 'R5: held messages must fail closed and attachment cleanup must use canonical sender ownership.');
+
+// Round 8 — verified transfer commit and current membership/relationship state.
+$check(str_contains($transfer2, "if (\$wpdb->query('COMMIT') === false)") && str_contains($transfer2, 'commit_reconciled'), 'R8: transfer initiation must verify COMMIT and reconcile the exact idempotent session after uncertainty.');
+$check(str_contains($transfer6, 'SN_DB::is_member($conversation,(int)$row->sender_id)') && str_contains($transfer6, 'SN_DB::is_member($conversation,$user)'), 'R8: conversation-bound transfer access must recheck current sender and recipient membership.');
+$check(substr_count($transfer6, 'SN_Policy::can_contact(') >= 3 && str_contains($transfer6, 'consent or privacy state changed'), 'R8: non-conversation transfer access must recheck current relationship, consent and privacy policy.');
 
 if ($fail) {
     fwrite(STDERR, "Fifth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
