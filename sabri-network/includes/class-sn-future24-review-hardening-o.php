@@ -9,6 +9,7 @@ final class SN_Future24_Review_Hardening_O {
     private const LOCK_TIMEOUT = 5;
 
     public static function register():void{
+        add_filter('rest_pre_dispatch',[self::class,'interop_scope_guard'],5,3);
         add_filter('rest_pre_dispatch',[self::class,'mutation_budget'],6,3);
         add_filter('rest_pre_dispatch',[self::class,'serialize_message_version_edit'],7,3);
         add_filter('rest_post_dispatch',[self::class,'release_message_version_edit'],9,3);
@@ -16,6 +17,35 @@ final class SN_Future24_Review_Hardening_O {
         remove_action('sn_cleanup_hourly',[SN_Future24_Review_Hardening_E::class,'cleanup_breakouts'],40);
         add_action('sn_cleanup_hourly',[SN_Future24_Review_Hardening_E::class,'cleanup_breakouts'],2);
         SN_Space_Runtime_Hardening::register();
+    }
+
+    /**
+     * Interoperability is a private conversation operation. WordPress administrator
+     * capability is not blanket permission to inspect or bridge another conversation.
+     * Enforce current membership + owner/moderator scope before the legacy route
+     * callbacks can apply any broader manage_options compatibility rule. Provider-auth
+     * inbound delivery is deliberately excluded and is governed by its own adapter gate.
+     */
+    public static function interop_scope_guard($result,$server,WP_REST_Request $request){
+        if($result!==null)return $result;
+        $route=$request->get_route();
+        if(!str_starts_with($route,'/sabri-network/v2/future/interop'))return $result;
+        if(preg_match('#^/sabri-network/v2/future/interop/\d+/inbound$#',$route))return $result;
+        $actor=get_current_user_id();
+        if($actor<=0)return new WP_Error('forbidden','Current conversation management authority is required.',['status'=>403]);
+        $conversation=0;
+        if($route==='/sabri-network/v2/future/interop'){
+            $conversation=absint($request->get_param('conversation_id'));
+            if($conversation<=0)return new WP_Error('forbidden','Current conversation management authority is required.',['status'=>403]);
+        }elseif(preg_match('#^/sabri-network/v2/future/interop/(\d+)(?:/outbound)?$#',$route,$match)){
+            global $wpdb;
+            $conversation=(int)$wpdb->get_var($wpdb->prepare("SELECT scope_id FROM {$wpdb->prefix}sn_future_records WHERE id=%d AND feature_id='F17-FUT-24' AND scope_type='conversation' AND state='active' LIMIT 1",(int)$match[1]));
+            if($conversation<=0)return new WP_Error('not_found','Requested communication object is unavailable.',['status'=>404]);
+        }else return $result;
+        if(!SN_DB::is_member($conversation,$actor)||!in_array(SN_DB::member_role($conversation,$actor),['owner','moderator'],true)){
+            return new WP_Error($route==='/sabri-network/v2/future/interop'?'forbidden':'not_found',$route==='/sabri-network/v2/future/interop'?'Current conversation management authority is required.':'Requested communication object is unavailable.',['status'=>$route==='/sabri-network/v2/future/interop'?403:404]);
+        }
+        return $result;
     }
 
     public static function mutation_budget($result,$server,WP_REST_Request $request){

@@ -25,8 +25,22 @@ $check(str_contains($spaces,'sn_invite_recipient_required')&&str_contains($space
 $check(str_contains($conference,'sn_conference_credentials_audience_invalid')&&str_contains($conference,'sn_conference_credentials_expiry_invalid'),'Credential replay/scope and lifetime attacks must be rejected.');
 $check(str_contains($risk,'sn_high_risk_payload_mismatch')&&str_contains($risk,'hash_equals'),'High-risk payload substitution must be rejected.');
 $check(str_contains($main,"'high_risk_contract' => 'step-up + distinct approval + distinct execution'"),'Published integration contract must disclose high-risk governance.');
-$check(str_contains($status,'Repository coding-completion candidate; not staging-accepted')&&str_contains($status,'Staging Accepted: ابھی نہیں'),'System status must distinguish coding from staging acceptance.');
-$check(str_contains($readme,'**Repository status:** current two-plan repository coding-completion candidate; staging/live/operational acceptance remains separate')&&str_contains($readme,'**Coded:** 2.1.0 repository completion candidate.')&&str_contains($readme,'**Staging-Accepted:** pending')&&str_contains($readme,'**Operational:** not claimed'),'README must state the truthful current completion boundary.');
+$check(
+    stripos($status,'repository')!==false &&
+    stripos($status,'not staging-accepted')!==false &&
+    stripos($status,'not live-deployed')!==false &&
+    str_contains($status,'Staging Accepted: ابھی نہیں') &&
+    str_contains($status,'Live Deployed: ابھی نہیں'),
+    'System status must semantically distinguish repository coding from staging/live acceptance.'
+);
+$check(
+    stripos($readme,'repository coding/review candidate')!==false &&
+    str_contains($readme,'**Coded:** 2.1.0 repository corrective candidate.') &&
+    str_contains($readme,'**Staging-Accepted:** pending') &&
+    str_contains($readme,'**Live-Deployed:** not claimed') &&
+    str_contains($readme,'**Operational:** not claimed'),
+    'README must state the truthful current completion boundary without depending on stale candidate wording.'
+);
 $check(!preg_match('/(?:100% secure|unhackable|E2EE enabled|production-ready)/i',$status.$readme),'Release documentation must not make unsupported security or production claims.');
 if($checks!==22)$failures[]='Review contract count changed: expected 22, got '.$checks;
 if($failures){fwrite(STDERR,"Completion review 4 failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Completion review 4 fresh adversarial/release: PASS ($checks checks)\n";

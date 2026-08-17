@@ -1,59 +1,52 @@
-Repository coding-completion candidate; not staging-accepted, not live-deployed, not production-operational.
+Repository coding/review candidate; not staging-accepted, not live-deployed, not production-operational.
 File 17 — Sabri Network and Messages 2.1.0
-حقیقی repository حیثیت — 11 اگست 2026ء
+حقیقی repository حیثیت — current repository evidence; exact immutable HEAD/run is recorded by the active audit ledger and CI
 
 حاکم audit basis:
 1) Current consolidated central governing plan
-2) Current File 17 Final Harmonized Master Plan
-3) Earlier 2.0.3 forty-round evidence only as historical non-conflicting evidence
+2) Current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24
+3) Earlier review ledgers only as historical non-conflicting evidence; every later cycle has its own independent ledger/counts
 
-Specified: موجودہ دونوں حاکم منصوبوں کے File-17 repository scope کی traceable specification
-Coded Candidate: 2.1.0 current two-plan completion source
-Coding Completion: known repository-owned gaps implemented; exact-head CI اور fresh review ابھی فیصلہ کن gates ہیں
-Packaged: deterministic 2.1.0 ZIP، exact staged manifest اور SHA-256 workflow؛ exact-head CI artifact evidence لازم
-Automated QA: 46 explicit PHP review suites، PHP 8.1/8.3 jobs، 6 JavaScript syntax checks، shell/CSS/hygiene، source-manifest اور deterministic double-build gates
+Specified: موجودہ حاکم منصوبوں کے File-17 repository scope کی traceable specification
+Coded Candidate: 2.1.0 current corrective source
+Coding Completion: known repository-owned gaps are reviewed/corrected sequentially; exact-head CI and current-cycle ledger are decisive repository gates
+Packaged: deterministic 2.1.0 ZIP, exact staged manifest and SHA-256 workflow; only an exact-head successful workflow proves the artifact for that SHA
+Automated QA: 47 explicit PHP review suites, PHP 8.1/8.3 jobs, 8 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-2.1.0 میں موجودہ دونوں منصوبوں کے مطابق نئی repository coding:
-- Unknown-sender message requests: accept/decline/report/cancel، sender/recipient rate protection، cooldown، transactional canonical contact/direct conversation acceptance
-- Scheduled messages: encrypted queue، delivery-time authorization revalidation، cancellation/retry state
-- Polls/checklists: canonical messages، clinical-decision authority نہیں
-- Disappearing messages: legal-hold preservation، private search cleanup، attachment revocation/deletion
-- Fail-closed translation adapter؛ approved provider کے بغیر unavailable
-- Voice-note workflow canonical message/private-file path پر
-- Temporary updates: new text authenticated-encrypted at rest؛ legacy plaintext lazy migration
-- Community rules/onboarding، forum questions، AMA sessions، wiki pages، events/cohorts، responses/best-answer، aggregate community health
-- New personal-data domains privacy export/erasure میں شامل
-- File 00/02 identity، File 19 notification، File 20 shell، File 26 global search، File 08/CF-01 clinical truth boundaries برقرار
-
-پہلے 2.0.3 historical forty-round record:
-- کل rounds: 40
-- defects والے rounds: 18
-- نئے defect کے بغیر rounds: 22
-- اُس freeze پر known unresolved repository/current-wave defects: 0؛ بعد کے نئے plans نے نئی reconciliation لازم کی
-
-موجودہ coded domains:
-- relationships، contacts، follows، blocks، discovery، message requests، communities/groups/channels
-- canonical conversations/messages، scheduled messages، polls/checklists، disappearing lifecycle
-- private attachments، voice notes، reactions/replies، receipts، private indexed search، folders/pins/stars/hide-for-self
-- authenticated at-rest message encryption، queued/pending communication encryption، bounded migration/key rotation
+Current coded domains:
+- relationships, contacts, follows, blocks, discovery, message requests, communities/groups/channels
+- canonical conversations/messages, scheduled messages, polls/checklists, disappearing lifecycle
+- private attachments, voice notes, reactions/replies, receipts, private indexed search, folders/pins/stars/hide-for-self
+- authenticated server-side at-rest message encryption, queued/pending communication encryption, bounded migration/key rotation
 - encrypted temporary updates
-- Messages، Communication Settings، internal Smail seven mailboxes
-- verified-user private transfer ≤1 GiB/file، resumability، SHA-256، MIME/archive/scanner/quarantine، signed grants، range resume، revoke/retention/audit
-- multi-device presence، calls/Sabri Meet، STUN/TURN/SFU provider governance
+- Messages, Communication Settings, internal Smail seven mailboxes
+- verified-user private transfer ≤1 GiB/file, resumability, SHA-256, MIME/archive/scanner/quarantine, signed grants, range resume, revoke/retention/audit
+- multi-device presence, calls/Sabri Meet, STUN/TURN/SFU provider governance
 - community rules/forum/AMA/wiki/events/cohorts/health
-- reports/appeals/legal-safety holds، retention، privacy export/erasure، audit
-- transactional outbox/inbox، retries/dead-letter/idempotency
+- reports/appeals/legal-safety holds, retention, privacy export/erasure, audit
+- transactional outbox/inbox, retries/dead-letter/idempotency
 - File 08/18/21 and CF-01 opaque contexts
-- File 19 single notification owner؛ File 20 single shell؛ File 26 global search/ranking owner
+- File 19 single notification owner; File 20 single shell; File 26 global search/ranking owner
+- Founder-approved Future Communication Superset 24 with provider-dependent features fail-closed until approved adapters/acceptance exist
+
+Communication-key lifecycle:
+- New durable private-communication encryption writes use a File-17-specific master secret independent from WordPress authentication salts.
+- Preferred production/staging configuration is a shared approved secret-manager value exposed as SN_COMMUNICATION_MASTER_SECRET or the approved sn_network_communication_secret adapter.
+- If no approved external secret is injected, File 17 atomically creates communication-master.key in its private storage outside the public web root and uses restrictive file permissions.
+- Legacy wp_salt('secure_auth') remains decrypt-only compatibility material so old ciphertext can be read and lazily rotated; it is not the authority for new durable encryption writes.
+- Backup/restore and multi-node staging must preserve/provide the same File-17 master secret. Losing it can make durable private ciphertext unreadable. Key rotation/restore must therefore be tested before staging acceptance.
 
 External acceptance gates still pending:
-- real WordPress/PHP/MySQL fresh install، upgrade/migration/race tests
-- File 00/02/08/18/19/20/21/24/25/26، CF-01، CF-04 integration/degraded acceptance
-- Hostinger staging، cron، approved scanner/private storage/translation provider، LiteSpeed، browser/device، RTL/LTR/accessibility
-- approved WSS/STUN/TURN/SFU، load/soak، penetration testing
-- backup/restore، rollback rehearsal، Founder sign-off، live deployment، monitoring/support/SLO evidence
+- real WordPress/PHP/MySQL fresh install, upgrade/migration/race tests
+- File 00/02/08/18/19/20/21/24/25/26, CF-01, CF-04 integration/degraded acceptance
+- Hostinger staging, cron, approved scanner/private storage/translation provider, LiteSpeed, browser/device, RTL/LTR/accessibility
+- shared File-17 master-secret/backup/restore proof and old-key migration/rotation rehearsal
+- approved WSS/STUN/TURN/SFU, load/soak, penetration testing
+- backup/restore, rollback rehearsal, Founder sign-off, live deployment, monitoring/support/SLO evidence
 
-یہ status E2EE certification، staging acceptance، live deployment، production readiness یا operational completion کا دعویٰ نہیں کرتا۔
+This status does not claim E2EE certification, staging acceptance, live deployment, production readiness or operational completion.
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔

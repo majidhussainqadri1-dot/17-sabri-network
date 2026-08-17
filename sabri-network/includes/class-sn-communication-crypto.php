@@ -9,24 +9,122 @@ final class SN_Communication_Crypto {
     private const V2_OPENSSL = "SNC4";
     private const KEY_ID_BYTES = 16;
     private const MAX_PREVIOUS_KEYS = 4;
+    private const SECRET_FILE = 'communication-master.key';
+    private const MIN_SECRET_BYTES = 32;
+    private static ?string $durable_secret_cache = null;
 
-    private static function current_secret(): string {
-        $secret = (string) apply_filters('sn_network_communication_secret', wp_salt('secure_auth'));
-        return $secret !== '' ? $secret : wp_salt('secure_auth');
+    /**
+     * A durable File-17 key must be independent from WordPress authentication salts.
+     * Operators may inject it from a real secret manager through the constant/filter.
+     * Otherwise a random key is created atomically in File-17's private storage, which
+     * is outside the public web root. Existing wp_salt encrypted records remain
+     * decryptable as a legacy migration key, but new durable writes never use it.
+     */
+    private static function durable_secret(): string|WP_Error {
+        if (self::$durable_secret_cache !== null) return self::$durable_secret_cache;
+
+        $constant = defined('SN_COMMUNICATION_MASTER_SECRET') ? (string) constant('SN_COMMUNICATION_MASTER_SECRET') : '';
+        $configured = (string) apply_filters('sn_network_communication_secret', $constant);
+        if ($configured !== '') {
+            if (!self::valid_dedicated_secret($configured)) {
+                return new WP_Error('communication_key_invalid', 'The configured private communication key is too weak or is coupled to a WordPress authentication salt.', ['status' => 503]);
+            }
+            self::$durable_secret_cache = $configured;
+            return $configured;
+        }
+
+        if (!class_exists('SN_Private_Files') || !SN_Private_Files::ensure_storage()) {
+            return new WP_Error('communication_key_store_unavailable', 'The private communication key store is unavailable.', ['status' => 503]);
+        }
+        $path = SN_Private_Files::storage_dir() . DIRECTORY_SEPARATOR . self::SECRET_FILE;
+        $existing = self::read_secret_file($path);
+        if (!is_wp_error($existing)) {
+            self::$durable_secret_cache = $existing;
+            return $existing;
+        }
+        if ($existing->get_error_code() !== 'communication_key_missing') return $existing;
+
+        try {
+            $generated = rtrim(strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=');
+        } catch (Throwable $e) {
+            return new WP_Error('communication_key_random_failed', 'Secure random generation for private communication is unavailable.', ['status' => 503]);
+        }
+        if (!self::valid_dedicated_secret($generated)) {
+            return new WP_Error('communication_key_generation_failed', 'A valid private communication key could not be generated.', ['status' => 503]);
+        }
+
+        $handle = @fopen($path, 'x+b');
+        if (is_resource($handle)) {
+            $written = @fwrite($handle, $generated . "\n");
+            @fflush($handle);
+            @fclose($handle);
+            @chmod($path, 0600);
+            if ($written === false || $written < strlen($generated)) {
+                @unlink($path);
+                return new WP_Error('communication_key_write_failed', 'The private communication key could not be stored safely.', ['status' => 503]);
+            }
+            self::$durable_secret_cache = $generated;
+            do_action('sn_network_communication_key_created', hash('sha256', $path));
+            return $generated;
+        }
+
+        // Another worker may have won the atomic create race. Re-read only; never
+        // overwrite an existing key because doing so would orphan prior ciphertext.
+        $race = self::read_secret_file($path);
+        if (is_wp_error($race)) return $race;
+        self::$durable_secret_cache = $race;
+        return $race;
+    }
+
+    private static function read_secret_file(string $path): string|WP_Error {
+        if (!is_file($path)) return new WP_Error('communication_key_missing', 'The private communication key does not exist yet.', ['status' => 503]);
+        if (!is_readable($path)) return new WP_Error('communication_key_unreadable', 'The private communication key store is unreadable.', ['status' => 503]);
+        $secret = trim((string) @file_get_contents($path));
+        if (!self::valid_dedicated_secret($secret)) {
+            return new WP_Error('communication_key_invalid', 'The stored private communication key is invalid.', ['status' => 503]);
+        }
+        return $secret;
+    }
+
+    private static function valid_dedicated_secret(string $secret): bool {
+        if (strlen($secret) < self::MIN_SECRET_BYTES) return false;
+        foreach (['auth', 'secure_auth', 'logged_in', 'nonce'] as $scheme) {
+            if (hash_equals((string) wp_salt($scheme), $secret)) return false;
+        }
+        return true;
+    }
+
+    /** Legacy salt is decrypt/short-lived-token compatibility only, never durable encryption authority. */
+    private static function legacy_secret(): string { return (string) wp_salt('secure_auth'); }
+
+    private static function signing_secret(): string {
+        $durable = self::durable_secret();
+        if (!is_wp_error($durable)) return $durable;
+        // Signed grants are deliberately short-lived. If the durable store is down,
+        // retain legacy token compatibility rather than fabricating a persistent key.
+        do_action('sn_network_communication_signing_degraded', $durable->get_error_code());
+        return self::legacy_secret();
     }
 
     private static function keyring(): array {
-        $ring = [self::current_secret()];
+        $ring = [];
+        $current = self::durable_secret();
+        if (!is_wp_error($current)) $ring[] = $current;
         $previous = apply_filters('sn_network_communication_previous_secrets', []);
         foreach (array_slice(is_array($previous) ? $previous : [], 0, self::MAX_PREVIOUS_KEYS) as $secret) {
             $secret = (string) $secret;
             if ($secret !== '' && !in_array($secret, $ring, true)) $ring[] = $secret;
         }
+        $legacy = self::legacy_secret();
+        if ($legacy !== '' && !in_array($legacy, $ring, true)) $ring[] = $legacy;
         return $ring;
     }
 
     private static function key_id(string $secret): string { return substr(hash('sha256', 'file17-key-id|' . $secret), 0, self::KEY_ID_BYTES); }
-    public static function current_key_id(): string { return self::key_id(self::current_secret()); }
+    public static function current_key_id(): string {
+        $secret = self::durable_secret();
+        return is_wp_error($secret) ? '' : self::key_id($secret);
+    }
     private static function key_for_secret(string $secret, string $context): string { return hash_hmac('sha256', 'file17|' . $context, $secret, true); }
 
     private static function secret_for_id(string $key_id): ?string {
@@ -35,7 +133,9 @@ final class SN_Communication_Crypto {
     }
 
     public static function encrypt(string $plaintext, string $context): string|WP_Error {
-        $secret = self::current_secret(); $key = self::key_for_secret($secret, $context); $key_id = self::key_id($secret);
+        $secret = self::durable_secret();
+        if (is_wp_error($secret)) return $secret;
+        $key = self::key_for_secret($secret, $context); $key_id = self::key_id($secret);
         try {
             if (function_exists('sodium_crypto_secretbox')) {
                 $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
@@ -92,7 +192,8 @@ final class SN_Communication_Crypto {
         $version = substr($ciphertext, 0, 4);
         if (in_array($version, [self::V1_SODIUM, self::V1_OPENSSL], true)) return true;
         if (!in_array($version, [self::V2_SODIUM, self::V2_OPENSSL], true)) return false;
-        return !hash_equals(self::current_key_id(), substr($ciphertext, 4, self::KEY_ID_BYTES));
+        $current = self::current_key_id();
+        return $current === '' || !hash_equals($current, substr($ciphertext, 4, self::KEY_ID_BYTES));
     }
 
     public static function rotate(string $ciphertext, string $context): string|WP_Error {
@@ -126,7 +227,7 @@ final class SN_Communication_Crypto {
 
     public static function sign(array $claims, string $context): string {
         $json = wp_json_encode($claims, JSON_UNESCAPED_SLASHES); $payload = rtrim(strtr(base64_encode((string) $json), '+/', '-_'), '=');
-        $secret = self::current_secret(); $key_id = self::key_id($secret);
+        $secret = self::signing_secret(); $key_id = self::key_id($secret);
         $mac = hash_hmac('sha256', $payload . '.' . $key_id, self::key_for_secret($secret, 'sign|' . $context));
         return $payload . '.' . $key_id . '.' . $mac;
     }

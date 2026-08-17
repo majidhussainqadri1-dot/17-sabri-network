@@ -50,13 +50,19 @@ final class SN_Call_Runtime_Hardening {
         if ($route === '/sabri-network/v2/meetings') {
             $locks[] = 'sn:f17:meet-host:' . substr(hash('sha256', (string)$actor), 0, 32);
             $conversation = absint($request->get_param('conversation_id'));
-            if ($conversation > 0) $locks[] = self::conversation_lock($conversation);
+            if ($conversation > 0) {
+                $locks[] = self::conversation_lock($conversation);
+                self::append_direct_pair_lock($locks, $conversation, $actor);
+            }
         } elseif (preg_match('#^/sabri-network/v2/meetings/([A-Za-z0-9_-]{22,64})(?:/|$)#', $route, $m)) {
             $public = (string)$m[1];
             $locks[] = 'sn:f17:meet:' . substr(hash('sha256', $public), 0, 32);
             $meeting = $wpdb->get_row($wpdb->prepare("SELECT id,host_id,conversation_id FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s", $public));
             if ($meeting) {
-                if ((int)$meeting->conversation_id > 0) $locks[] = self::conversation_lock((int)$meeting->conversation_id);
+                if ((int)$meeting->conversation_id > 0) {
+                    $locks[] = self::conversation_lock((int)$meeting->conversation_id);
+                    self::append_direct_pair_lock($locks, (int)$meeting->conversation_id, $actor);
+                }
                 $targets = $request->get_param('user_ids');
                 if (!is_array($targets)) $targets = [absint($request->get_param('user_id'))];
                 foreach (array_slice(array_values(array_unique(array_filter(array_map('absint', $targets)))), 0, 100) as $target) {
@@ -65,11 +71,23 @@ final class SN_Call_Runtime_Hardening {
                 }
                 if ($actor > 0 && (int)$meeting->host_id > 0 && $actor !== (int)$meeting->host_id) $locks[] = SN_Relationships::pair_lock_name($actor, (int)$meeting->host_id);
             }
+        } elseif ($route === '/sabri-network/v2/calls') {
+            // Call creation previously had no call-runtime lock at all. Serializing the
+            // conversation (and the direct peer relationship) ensures that a concurrent
+            // block/member transition cannot pass a stale preflight and then create media.
+            $conversation = absint($request->get_param('conversation_id'));
+            if ($conversation > 0) {
+                $locks[] = self::conversation_lock($conversation);
+                self::append_direct_pair_lock($locks, $conversation, $actor);
+            }
         } elseif (preg_match('#^/sabri-network/v2/calls/(\d+)(?:/|$)#', $route, $m)) {
             $call = (int)$m[1];
             $locks[] = 'sn:f17:call:' . $call;
             $conversation = (int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM ' . SN_DB::table('calls') . ' WHERE id=%d', $call));
-            if ($conversation > 0) $locks[] = self::conversation_lock($conversation);
+            if ($conversation > 0) {
+                $locks[] = self::conversation_lock($conversation);
+                self::append_direct_pair_lock($locks, $conversation, $actor);
+            }
         }
 
         if (!$locks) return $result;
@@ -80,6 +98,22 @@ final class SN_Call_Runtime_Hardening {
             $held[]=$lock;
         }
         $request->set_param('_sn_call_runtime_locks',$held);
+
+        // Permission callbacks run before this hook and can populate the File-00 cache.
+        // Once the relationship/call locks are held, refresh eligibility for mutations
+        // that create/join/use media. Exit/decline/leave paths stay available so a newly
+        // restricted account is never trapped in an active communication session.
+        if (self::requires_fresh_call_eligibility($route, $request)) {
+            SN_Membership_Assertions::clear_cache($actor);
+            $assertion = SN_Membership_Assertions::communication($actor);
+            if (is_wp_error($assertion) || ($assertion['can_call'] ?? false) !== true || ($assertion['suspended'] ?? true) === true) {
+                self::release($held);
+                $request->set_param('_sn_call_runtime_locks', []);
+                return is_wp_error($assertion)
+                    ? $assertion
+                    : new WP_Error('sn_call_eligibility_denied', 'Current File 00 communication eligibility does not permit this call action.', ['status'=>403]);
+            }
+        }
         return $result;
     }
 
@@ -99,6 +133,29 @@ final class SN_Call_Runtime_Hardening {
         } finally {
             $held=$request->get_param('_sn_call_runtime_locks');if(is_array($held)&&$held)self::release($held);$request->set_param('_sn_call_runtime_locks',[]);
         }
+    }
+
+    private static function append_direct_pair_lock(array &$locks, int $conversation, int $actor): void {
+        global $wpdb;
+        if ($conversation <= 0 || $actor <= 0) return;
+        $type = (string)$wpdb->get_var($wpdb->prepare('SELECT type FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', $conversation));
+        if ($type !== 'direct') return;
+        $peer = (int)$wpdb->get_var($wpdb->prepare(
+            'SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 1',
+            $conversation,
+            $actor
+        ));
+        if ($peer > 0) $locks[] = SN_Relationships::pair_lock_name($actor, $peer);
+    }
+
+    private static function requires_fresh_call_eligibility(string $route, WP_REST_Request $request): bool {
+        if ($route === '/sabri-network/v2/calls' || $route === '/sabri-network/v2/meetings') return true;
+        if (preg_match('#^/sabri-network/v2/calls/\d+/status$#', $route)) {
+            return sanitize_key((string)$request->get_param('status')) === 'joined';
+        }
+        if (preg_match('#^/sabri-network/v2/calls/\d+/(?:signals|media-credentials|hand-raise|speaker-queue|breakouts|host-transfer|network-quality)#', $route)) return true;
+        if (preg_match('#^/sabri-network/v2/meetings/[A-Za-z0-9_-]{22,64}/(?:join|heartbeat|invite|moderate|signals)#', $route)) return true;
+        return false;
     }
 
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:' . substr(hash('sha256',(string)$id),0,32); }

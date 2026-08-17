@@ -59,34 +59,92 @@ final class SN_Compatibility_Hardening {
 
     public static function secure_forward_message(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
-        $source_id = absint($request['id']); $actor = get_current_user_id(); $target_id = absint($request->get_param('conversation_id'));
-        $source = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $source_id));
-        if (!$source || !empty($source->deleted_at) || !SN_DB::is_member((int) $source->conversation_id, $actor) || !SN_DB::is_member($target_id, $actor)) return self::not_found();
-        $target = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', $target_id)); if (!$target) return self::not_found();
-        $post = SN_Policy::can_post_to_conversation($target, $actor); if (is_wp_error($post)) return $post;
-        if ((string) $target->type === 'direct') {
-            $peer = (int) $wpdb->get_var($wpdb->prepare('SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 1', $target_id, $actor));
-            if ($peer <= 0) return self::not_found(); $contact = SN_Policy::can_contact($actor, $peer, 'message'); if (is_wp_error($contact)) return $contact;
-        }
+        $source_id = absint($request['id']);
+        $actor = get_current_user_id();
+        $target_id = absint($request->get_param('conversation_id'));
+        if ($source_id <= 0 || $target_id <= 0) return self::not_found();
+
+        // Cheap preflight only. The authoritative source, membership, File-00 and
+        // posting/contact checks are repeated after the transaction locks are held.
+        $source_probe = $wpdb->get_row($wpdb->prepare('SELECT id,conversation_id,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $source_id));
+        $target_probe = $wpdb->get_row($wpdb->prepare('SELECT id,type,status FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', $target_id));
+        if (!$source_probe || !empty($source_probe->deleted_at) || !$target_probe || (string) $target_probe->status !== 'active'
+            || !SN_DB::is_member((int) $source_probe->conversation_id, $actor) || !SN_DB::is_member($target_id, $actor)) return self::not_found();
         if (!SN_Policy::consume_rate_limit('message_forward', (string) $actor, 60, MINUTE_IN_SECONDS)) return new WP_Error('sn_forward_rate_limited', 'Too many forwards were requested.', ['status' => 429]);
-        if ((int) $source->attachment_id > 0 && (string) $source->attachment_source === 'private') return new WP_Error('sn_forward_private_attachment_requires_resend', 'Private attachments must be re-uploaded rather than reused across audiences.', ['status' => 409]);
-        $plain = SN_Message_Body::decrypt_row($source); if (is_wp_error($plain)) return $plain; $plain = mb_substr((string) $plain, 0, self::MAX_FORWARD_BODY); if ($plain === '') return new WP_Error('sn_forward_empty', 'There is no permitted content to forward.', ['status' => 409]);
-        $stored = SN_Message_Body::encrypt($plain, $target_id, $actor); if (is_wp_error($stored)) return $stored;
-        $client = strtolower(trim((string) $request->get_param('client_id'))) ?: wp_generate_uuid4(); if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client)) return new WP_Error('sn_forward_client_id_invalid', 'A valid idempotency key is required.', ['status' => 400]);
-        $idem = hash('sha256', $actor . ':' . $target_id . ':forward:' . $source_id . ':' . $client); $existing = $wpdb->get_row($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE idempotency_key=%s', $idem)); if ($existing) return rest_ensure_response(['message_id' => (int) $existing->id, 'duplicate' => true]);
-        $shared = self::target_audience_is_source_authorized((int) $source->conversation_id, $target_id); $source_hash = hash_hmac('sha256', $source_id . '|' . (int) $source->conversation_id . '|' . (string) $source->created_at, wp_salt('auth') . '|sn-forward-source-v1'); $metadata = ['forwarded' => true, 'source_scope_hash' => $source_hash]; if ($shared) $metadata['source_message_id'] = $source_id; $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
+
+        $client = strtolower(trim((string) $request->get_param('client_id'))) ?: wp_generate_uuid4();
+        if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client)) return new WP_Error('sn_forward_client_id_invalid', 'A valid idempotency key is required.', ['status' => 400]);
+        $idem = hash('sha256', $actor . ':' . $target_id . ':forward:' . $source_id . ':' . $client);
+        $existing = $wpdb->get_row($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE idempotency_key=%s', $idem));
+        if ($existing) {
+            $target = $wpdb->get_row($wpdb->prepare("SELECT * FROM " . SN_DB::table('conversations') . " WHERE id=%d AND status='active'", $target_id));
+            if (!$target || !SN_DB::is_member($target_id, $actor)) return self::not_found();
+            SN_Membership_Assertions::clear_cache($actor);
+            $post = SN_Policy::can_post_to_conversation($target, $actor); if (is_wp_error($post)) return $post;
+            return rest_ensure_response(['message_id' => (int) $existing->id, 'duplicate' => true]);
+        }
+
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('sn_forward_failed', 'The forward could not be committed safely.', ['status' => 500]);
         try {
-            $space = SN_Spaces::assert_post_allowed_in_transaction($target_id, $actor); if (is_wp_error($space)) { $wpdb->query('ROLLBACK'); return $space; }
-            if ($wpdb->insert(SN_DB::table('messages'), ['conversation_id' => $target_id, 'sender_id' => $actor, 'message_type' => 'text', 'body' => $stored, 'attachment_id' => 0, 'attachment_source' => 'none', 'reply_to' => 0, 'idempotency_key' => $idem, 'metadata' => (string) wp_json_encode($metadata), 'created_at' => $now]) === false) throw new RuntimeException('forward_insert_failed');
+            $messages = SN_DB::table('messages');
+            $conversations = SN_DB::table('conversations');
+            $members = SN_DB::table('members');
+            $source = $wpdb->get_row($wpdb->prepare("SELECT * FROM $messages WHERE id=%d FOR UPDATE", $source_id));
+            $target = $wpdb->get_row($wpdb->prepare("SELECT * FROM $conversations WHERE id=%d FOR UPDATE", $target_id));
+            if (!$source || !empty($source->deleted_at) || !$target || (string) $target->status !== 'active') throw new DomainException('not_found');
+
+            $source_member = $wpdb->get_row($wpdb->prepare("SELECT id FROM $members WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE", (int) $source->conversation_id, $actor));
+            $target_member = $wpdb->get_row($wpdb->prepare("SELECT id FROM $members WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE", $target_id, $actor));
+            if (!$source_member || !$target_member) throw new DomainException('not_found');
+
+            SN_Membership_Assertions::clear_cache($actor);
+            $access = SN_Policy::access(); if (is_wp_error($access)) throw new UnexpectedValueException($access->get_error_code());
+            $post = SN_Policy::can_post_to_conversation($target, $actor); if (is_wp_error($post)) throw new UnexpectedValueException($post->get_error_code());
+            if ((string) $target->type === 'direct') {
+                $peer = (int) $wpdb->get_var($wpdb->prepare("SELECT user_id FROM $members WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 1 FOR UPDATE", $target_id, $actor));
+                if ($peer <= 0) throw new DomainException('not_found');
+                SN_Membership_Assertions::clear_cache($peer);
+                $contact = SN_Policy::can_contact($actor, $peer, 'message');
+                if (is_wp_error($contact)) throw new UnexpectedValueException($contact->get_error_code());
+            }
+            $space = SN_Spaces::assert_post_allowed_in_transaction($target_id, $actor); if (is_wp_error($space)) throw new UnexpectedValueException($space->get_error_code());
+
+            if ((int) $source->attachment_id > 0 && (string) $source->attachment_source === 'private') throw new LogicException('sn_forward_private_attachment_requires_resend');
+            $plain = SN_Message_Body::decrypt_row($source); if (is_wp_error($plain)) throw new RuntimeException($plain->get_error_code());
+            $plain = mb_substr((string) $plain, 0, self::MAX_FORWARD_BODY); if ($plain === '') throw new LogicException('sn_forward_empty');
+            $stored = SN_Message_Body::encrypt($plain, $target_id, $actor); $plain = '';
+            if (is_wp_error($stored)) throw new RuntimeException($stored->get_error_code());
+
+            $shared = self::target_audience_is_source_authorized((int) $source->conversation_id, $target_id);
+            $source_hash = hash_hmac('sha256', $source_id . '|' . (int) $source->conversation_id . '|' . (string) $source->created_at, wp_salt('auth') . '|sn-forward-source-v1');
+            $metadata = ['forwarded' => true, 'source_scope_hash' => $source_hash]; if ($shared) $metadata['source_message_id'] = $source_id;
+            $now = current_time('mysql', true);
+            if ($wpdb->insert($messages, ['conversation_id' => $target_id, 'sender_id' => $actor, 'message_type' => 'text', 'body' => $stored, 'attachment_id' => 0, 'attachment_source' => 'none', 'reply_to' => 0, 'idempotency_key' => $idem, 'metadata' => (string) wp_json_encode($metadata), 'created_at' => $now]) === false) throw new RuntimeException('forward_insert_failed');
             $new_id = (int) $wpdb->insert_id;
-            if ($wpdb->query($wpdb->prepare('UPDATE ' . SN_DB::table('conversations') . ' SET last_message_id=GREATEST(last_message_id,%d),updated_at=GREATEST(updated_at,%s) WHERE id=%d', $new_id, $now, $target_id)) === false) throw new RuntimeException('forward_pointer_failed');
-            SN_Spaces::mark_posted_for_conversation($target_id, $actor, $now); $indexed = SN_Message_Search::index_message($new_id); if (is_wp_error($indexed)) throw new RuntimeException($indexed->get_error_code());
+            if ($wpdb->query($wpdb->prepare("UPDATE $conversations SET last_message_id=GREATEST(last_message_id,%d),updated_at=GREATEST(updated_at,%s) WHERE id=%d", $new_id, $now, $target_id)) === false) throw new RuntimeException('forward_pointer_failed');
+            SN_Spaces::mark_posted_for_conversation($target_id, $actor, $now);
+            $indexed = SN_Message_Search::index_message($new_id); if (is_wp_error($indexed)) throw new RuntimeException($indexed->get_error_code());
             $event = SN_Outbox::enqueue('message.forwarded', 'message', $new_id, ['message_id' => $new_id, 'conversation_id' => $target_id, 'sender_id' => $actor, 'source_scope_hash' => $source_hash, 'source_visible' => $shared], 'message.forwarded:' . $new_id); if (is_wp_error($event)) throw new RuntimeException($event->get_error_code());
-            SN_DB::audit('message_forwarded', 'message', $new_id, 'success', ['target_conversation_id' => $target_id, 'source_scope_hash' => $source_hash, 'attachment_reused' => false], $actor); if ($wpdb->query('COMMIT') === false) throw new RuntimeException('forward_commit_failed'); do_action('sn_network_event_queued', $event, 'message.forwarded');
+            SN_DB::audit('message_forwarded', 'message', $new_id, 'success', ['target_conversation_id' => $target_id, 'source_scope_hash' => $source_hash, 'attachment_reused' => false], $actor);
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('forward_commit_failed');
+            do_action('sn_network_event_queued', $event, 'message.forwarded');
             return new WP_REST_Response(['message_id' => $new_id, 'source_visible' => $shared, 'private_attachment_forwarded' => false], 201);
         } catch (Throwable $e) {
-            $wpdb->query('ROLLBACK'); $race = $wpdb->get_row($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE idempotency_key=%s', $idem)); if ($race) return rest_ensure_response(['message_id' => (int) $race->id, 'duplicate' => true]); SN_DB::audit('message_forward_failed', 'message', $source_id, 'failure', ['target_conversation_id' => $target_id, 'reason' => $e->getMessage()], $actor); return new WP_Error('sn_forward_failed', 'The forward could not be committed safely.', ['status' => 500]);
+            $wpdb->query('ROLLBACK');
+            $race = $wpdb->get_row($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE idempotency_key=%s', $idem));
+            if ($race) {
+                $target = $wpdb->get_row($wpdb->prepare("SELECT * FROM " . SN_DB::table('conversations') . " WHERE id=%d AND status='active'", $target_id));
+                if (!$target || !SN_DB::is_member($target_id, $actor)) return self::not_found();
+                SN_Membership_Assertions::clear_cache($actor);
+                $post = SN_Policy::can_post_to_conversation($target, $actor); if (is_wp_error($post)) return $post;
+                return rest_ensure_response(['message_id' => (int) $race->id, 'duplicate' => true]);
+            }
+            if ($e instanceof DomainException) return self::not_found();
+            if ($e instanceof LogicException && $e->getMessage() === 'sn_forward_private_attachment_requires_resend') return new WP_Error('sn_forward_private_attachment_requires_resend', 'Private attachments must be re-uploaded rather than reused across audiences.', ['status' => 409]);
+            if ($e instanceof LogicException && $e->getMessage() === 'sn_forward_empty') return new WP_Error('sn_forward_empty', 'There is no permitted content to forward.', ['status' => 409]);
+            if ($e instanceof UnexpectedValueException) return new WP_Error($e->getMessage(), 'Current authorization no longer permits this forward.', ['status' => 403]);
+            SN_DB::audit('message_forward_failed', 'message', $source_id, 'failure', ['target_conversation_id' => $target_id, 'reason' => $e->getMessage()], $actor);
+            return new WP_Error('sn_forward_failed', 'The forward could not be committed safely.', ['status' => 500]);
         }
     }
 
