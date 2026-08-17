@@ -12,12 +12,15 @@ $check = static function (bool $ok, string $message) use (&$fail, &$checks): voi
 
 $relationships = $read('includes/class-sn-relationship-runtime-hardening.php');
 $spaces6 = $read('includes/class-sn-spaces-part-6.php');
+$spaces7 = $read('includes/class-sn-spaces-part-7.php');
 $boundary = $read('includes/class-sn-runtime-boundary-policy.php');
 $round20 = $read('includes/class-sn-round20-correction.php');
 $transfer2 = $read('includes/class-sn-file-transfer-part-2.php');
 $transfer6 = $read('includes/class-sn-file-transfer-part-6.php');
 $smail2 = $read('includes/class-sn-smail-part-2.php');
 $conference = $read('includes/class-sn-conference-provider.php');
+$privacy5 = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
+$futureLoader = $read('includes/class-sn-future24-review-hardening.php');
 
 // Round 3 — group/channel conversation membership must be owned by canonical spaces.
 $check(str_contains($relationships, "if (\$type !== 'direct')") && str_contains($relationships, 'space_required'), 'R3: non-direct conversation creation must require a canonical space.');
@@ -46,6 +49,13 @@ $check(str_contains($smail2, 'state_count') && str_contains($smail2, 'commit_rec
 // Round 11 — current membership and approved-SFU group call boundary.
 $check(str_contains($conference, '!SN_DB::is_member((int)$call->conversation_id,$user)') && str_contains($conference, 'Current conversation membership is required for media credentials.'), 'R11: media credentials must recheck current canonical conversation membership.');
 $check(str_contains($conference, "(string)\$call->call_type==='group'?'sfu'") && str_contains($conference, "(string)\$call->call_type!=='group'&&!in_array(\$type,['stun','turn'],true)"), 'R11: group calls must be SFU-only and direct calls must not request SFU through the generic credential selector.');
+
+// Round 12 — privacy erasure must preserve canonical projections, progress and retries.
+$check(str_contains($spaces7, 'remove_conversation_member((int)$row->conversation_id,$uid,$now)') && str_contains($spaces7, "'done'=>!\$more_members&&!\$more_invites&&!\$more_requests"), 'R12: space erasure must synchronize linked conversation membership and remain retryable until all batches finish.');
+$check(str_contains($privacy5, 'sn_privacy_future_version_cursor_') && str_contains($privacy5, "feature_id NOT IN ('F17-FUT-03','F17-FUT-24')"), 'R12: Future-24 erasure must make monotonic progress without retained-row starvation.');
+$check(str_contains($privacy5, 'smail_erase_commit_failed') && str_contains($privacy5, 'Presence-device erasure failed and must be retried.'), 'R12: Smail and presence erasers must surface database failure as retryable rather than false success.');
+$check(str_contains($privacy5, "sender_id=0,conversation_id=0") && str_contains($privacy5, 'transfer_recipient_erase_failed'), 'R12: transfer erasure must revoke bytes and remove/anonymize user linkage when no hold blocks erasure.');
+$check(str_contains($futureLoader, "class-sn-fifth-fresh-privacy-hardening.php") && str_contains($futureLoader, 'SN_Fifth_Fresh_Privacy_Hardening::register()'), 'R12: fifth-fresh privacy governance must be loaded and registered.');
 
 if ($fail) {
     fwrite(STDERR, "Fifth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
