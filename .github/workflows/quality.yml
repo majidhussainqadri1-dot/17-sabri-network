@@ -73,6 +73,7 @@ jobs:
           run_test forty-round-review-4-release-truth-contracts.php
           run_test two-plan-completion-contracts.php
           run_test future24-forty-round-corrective-static-contracts.php
+          run_test fourth-fresh-twenty-round-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -102,6 +103,7 @@ jobs:
             exit 1
           fi
           php sabri-network/tests/future24-forty-round-corrective-static-contracts.php
+          php sabri-network/tests/fourth-fresh-twenty-round-contracts.php
       - name: Upload governed 2.1.0 candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
