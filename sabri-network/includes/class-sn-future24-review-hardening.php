@@ -20,6 +20,7 @@ require_once SN_DIR . 'includes/class-sn-future24-review-hardening-n.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-o.php';
 require_once SN_DIR . 'includes/class-sn-runtime-boundary-policy.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-review-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-search-hardening.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -27,6 +28,7 @@ final class SN_Future24_Review_Hardening {
         // lock, snapshot, provider and Future-24 hooks.
         SN_Runtime_Boundary_Policy::register();
         SN_Fourth_Fresh_Review_Hardening::register();
+        SN_Fourth_Fresh_Search_Hardening::register();
         SN_Future24_Review_Hardening_A::register();
         SN_Future24_Review_Hardening_B::register();
         SN_Future24_Review_Hardening_C::register();
