@@ -33,6 +33,7 @@ require_once SN_DIR . 'includes/class-sn-fourth-fresh-safety-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-crypto-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-knowledge-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fourth-fresh-interop-hardening.php';
+require_once SN_DIR . 'includes/class-sn-round20-correction.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -66,5 +67,6 @@ final class SN_Future24_Review_Hardening {
         SN_Future24_Review_Hardening_M::register();
         SN_Future24_Review_Hardening_N::register();
         SN_Future24_Review_Hardening_O::register();
+        SN_Round20_Correction::register();
     }
 }
