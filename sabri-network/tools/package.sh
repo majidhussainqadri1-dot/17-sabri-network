@@ -29,6 +29,14 @@ required=(
   includes/class-sn-call-runtime-hardening.php includes/class-sn-smail-runtime-hardening.php
   includes/class-sn-privacy-runtime-hardening.php includes/class-sn-safety-runtime-hardening.php
   includes/class-sn-future-superset.php includes/class-sn-future24-review-hardening.php
+  includes/class-sn-runtime-boundary-policy.php
+  includes/class-sn-fourth-fresh-review-hardening.php includes/class-sn-fourth-fresh-search-hardening.php
+  includes/class-sn-fourth-fresh-media-hardening.php includes/class-sn-fourth-fresh-lifecycle-hardening.php
+  includes/class-sn-fourth-fresh-space-hardening.php includes/class-sn-fourth-fresh-realtime-hardening.php
+  includes/class-sn-fourth-fresh-call-hardening.php includes/class-sn-fourth-fresh-smail-hardening.php
+  includes/class-sn-fourth-fresh-transfer-hardening.php includes/class-sn-fourth-fresh-privacy-hardening.php
+  includes/class-sn-fourth-fresh-safety-hardening.php includes/class-sn-fourth-fresh-crypto-hardening.php
+  includes/class-sn-fourth-fresh-knowledge-hardening.php includes/class-sn-fourth-fresh-interop-hardening.php
   assets/js/two-plan-ui.js assets/js/future-superset.js
   assets/css/two-plan-ui.css assets/css/future-superset.css
   templates/smail-app.php templates/file-transfer-app.php
