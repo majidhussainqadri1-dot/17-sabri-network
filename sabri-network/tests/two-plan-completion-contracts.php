@@ -91,7 +91,7 @@ $check(str_contains($security_notes,'communication-master.key')&&str_contains($s
 
 // Round 20 whole-system boundary regressions.
 $check(str_contains($review_loader,"class-sn-runtime-boundary-policy.php")&&str_contains($review_loader,'SN_Runtime_Boundary_Policy::register()'),'The canonical runtime-boundary policy must be loaded and registered before Future-24 cross-cutting predispatch hooks.');
-$check(str_contains($boundary,'get_home_path()')&&str_contains($boundary,"$_SERVER['DOCUMENT_ROOT']")&&str_contains($boundary,'sn_network_public_document_roots'),'Private storage validation must include WordPress home, server document root and operator-declared public roots.');
+$check(str_contains($boundary,'get_home_path()')&&str_contains($boundary,'DOCUMENT_ROOT')&&str_contains($boundary,'sn_network_public_document_roots'),'Private storage validation must include WordPress home, server document root and operator-declared public roots.');
 $check(str_contains($boundary,'same_or_within($resolved, $root)')&&str_contains($boundary,'same_or_within($root, $resolved)')&&str_contains($boundary,"return ''"),'Private storage must fail closed when it is inside, equal to, or contains a known public document root.');
 $check(str_contains($boundary,"add_filter('rest_pre_dispatch'")&&str_contains($boundary,'-30000')&&str_contains($boundary,'SN_Policy::access()'),'File-17 mutation authorization must run before later predispatch reservations, locks, snapshots or provider hooks.');
 $check(str_contains($boundary,'SN_REST::admin_access()')&&str_contains($boundary,'SN_DB::is_member($conversation, $actor)'),'Early predispatch governance must preserve administrator and object-membership boundaries.');
