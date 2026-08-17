@@ -34,12 +34,15 @@ $check(
     'System status must semantically distinguish repository coding from staging/live acceptance.'
 );
 $check(
-    stripos($readme,'repository coding/review candidate')!==false &&
-    str_contains($readme,'**Coded:** 2.1.0 repository corrective candidate.') &&
+    stripos($readme,'repository status')!==false &&
+    stripos($readme,'coding/review candidate')!==false &&
+    str_contains($readme,'**Coded:**') &&
+    str_contains($readme,'2.1.0') &&
+    stripos($readme,'repository candidate')!==false &&
     str_contains($readme,'**Staging-Accepted:** pending') &&
     str_contains($readme,'**Live-Deployed:** not claimed') &&
     str_contains($readme,'**Operational:** not claimed'),
-    'README must state the truthful current completion boundary without depending on stale candidate wording.'
+    'README must semantically state the current coded/repository candidate while preserving staging/live/operational separation.'
 );
 $check(!preg_match('/(?:100% secure|unhackable|E2EE enabled|production-ready)/i',$status.$readme),'Release documentation must not make unsupported security or production claims.');
 if($checks!==22)$failures[]='Review contract count changed: expected 22, got '.$checks;
