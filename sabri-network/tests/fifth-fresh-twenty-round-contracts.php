@@ -17,13 +17,19 @@ $boundary = $read('includes/class-sn-runtime-boundary-policy.php');
 $round20 = $read('includes/class-sn-round20-correction.php');
 $transfer2 = $read('includes/class-sn-file-transfer-part-2.php');
 $transfer6 = $read('includes/class-sn-file-transfer-part-6.php');
+$transfer7 = $read('includes/class-sn-file-transfer-part-7.php');
 $smail2 = $read('includes/class-sn-smail-part-2.php');
 $conference = $read('includes/class-sn-conference-provider.php');
 $privacy5 = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 $integration5 = $read('includes/class-sn-fifth-fresh-integration-hardening.php');
 $feature5 = $read('includes/class-sn-fifth-fresh-feature-hardening.php');
 $knowledge5 = $read('includes/class-sn-fifth-fresh-knowledge-hardening.php');
+$ui5 = $read('includes/class-sn-fifth-fresh-ui-hardening.php');
 $futureLoader = $read('includes/class-sn-future24-review-hardening.php');
+$greenCss = $read('assets/css/brand-green-overrides.css');
+$uiJs = $read('assets/js/fifth-fresh-ui.js');
+$smailJs = $read('assets/js/smail.js');
+$transferJs = $read('assets/js/file-transfer.js');
 
 // Round 3 — group/channel conversation membership must be owned by canonical spaces.
 $check(str_contains($relationships, "if (\$type !== 'direct')") && str_contains($relationships, 'space_required'), 'R3: non-direct conversation creation must require a canonical space.');
@@ -75,6 +81,12 @@ $check(str_contains($futureLoader, 'SN_Fifth_Fresh_Feature_Hardening::register()
 $check(str_contains($knowledge5, "add_action('rest_api_init', [self::class, 'override_routes'], 3100)") && str_contains($knowledge5, "SN_Future24_Review_Hardening_G::ai_assistant(\$request)"), 'R17: the final AI route must run after older overlays and delegate to File16/redaction/minor/stale-context governance.');
 $check(str_contains($knowledge5, "SN_Future24_Review_Hardening_G::semantic_search(\$request)") && str_contains($knowledge5, "SN_Message_Operations::is_hidden"), 'R17: the final semantic route must retain explicit consent and final message-visibility governance.');
 $check(str_contains($futureLoader, "class-sn-fifth-fresh-knowledge-hardening.php") && str_contains($futureLoader, 'SN_Fifth_Fresh_Knowledge_Hardening::register()'), 'R17: fifth-fresh final knowledge route ownership must be loaded and registered.');
+
+// Round 19 — exact Sabri Green, accessible dialogs, Smail draft CAS and sparse transfer resume.
+$check(str_contains($greenCss, '#087A4E') && str_contains($ui5, "wp_enqueue_style('sn-file17-brand-green')") && str_contains($futureLoader, 'SN_Fifth_Fresh_UI_Hardening::register()'), 'R19: exact Sabri Green override must be active on File-17 surfaces.');
+$check(str_contains($uiJs, "event.key !== 'Tab'") && str_contains($uiJs, 'restoreModalFocus') && str_contains($uiJs, 'aria-expanded'), 'R19: custom dialogs/search controls must preserve keyboard focus and expanded-state accessibility.');
+$check(str_contains($smailJs, 'draft_version:Number(form.elements.version.value||0)') && str_contains($smailJs, 'Secure random identifiers are unavailable.'), 'R19: Smail UI must send the exact draft CAS version and use strong mutation identifiers.');
+$check(str_contains($transfer7, "'received_indices'=>self::received_indices") && str_contains($transferJs, 'received=new Set((t.received_indices||[]).map(Number))') && str_contains($transferJs, 'if(received.has(i))continue'), 'R19: resumable transfer UI must use exact sparse received-chunk state rather than a chunk count.');
 
 if ($fail) {
     fwrite(STDERR, "Fifth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
