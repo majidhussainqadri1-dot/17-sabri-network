@@ -24,10 +24,32 @@ trait SN_File_Transfer_Part_6 {
         if(!$ids||count($ids)>self::MAX_RECIPIENTS)return new WP_Error('invalid_transfer_recipients','Select a permitted individual or authorized group.',['status'=>400]);foreach($ids as $id){if(!self::is_verified_user($id))return new WP_Error('recipient_verification_required','Every transfer recipient must have a current verified account.',['status'=>403]);if(SN_Policy::is_suspended($id)||SN_DB::is_blocked($sender,$id))return new WP_Error('recipient_unavailable','A selected transfer recipient is unavailable.',['status'=>403]);if(!$conversation){$contact=SN_Policy::can_contact($sender,$id,count($ids)>1?'group':'message');if(is_wp_error($contact))return $contact;}}return $ids;
     }
 
+    /** Recheck the current authorization/consent relationship before every protected transfer action. */
     private static function revalidate(object $row,int $user,bool $sender): bool|WP_Error {
         if(!self::is_verified_user($user)||SN_Policy::is_suspended($user))return new WP_Error('transfer_account_unavailable','The verified transfer account is no longer eligible.',['status'=>403]);
-        if($sender){foreach(self::recipient_ids((int)$row->id) as $recipient){if(!self::is_verified_user($recipient)||SN_Policy::is_suspended($recipient)||SN_DB::is_blocked($user,$recipient))return new WP_Error('transfer_relationship_changed','Recipient verification, relationship, consent or safety state changed.',['status'=>403]);}}
-        else{if(!self::is_verified_user((int)$row->sender_id)||SN_DB::is_blocked((int)$row->sender_id,$user)||SN_Policy::is_suspended((int)$row->sender_id))return new WP_Error('transfer_relationship_changed','Sender verification, relationship, consent or safety state changed.',['status'=>403]);}
+        $conversation=(int)($row->conversation_id??0);
+        $recipients=self::recipient_ids((int)$row->id);
+        if($conversation>0){
+            if(!SN_DB::is_member($conversation,(int)$row->sender_id))return new WP_Error('transfer_relationship_changed','The transfer sender is no longer an active member of the bound conversation.',['status'=>403]);
+            if($sender){
+                if($user!==(int)$row->sender_id)return new WP_Error('transfer_relationship_changed','The sender identity no longer matches this transfer.',['status'=>403]);
+                foreach($recipients as $recipient){
+                    if(!SN_DB::is_member($conversation,$recipient)||!self::is_verified_user($recipient)||SN_Policy::is_suspended($recipient)||SN_DB::is_blocked($user,$recipient))return new WP_Error('transfer_relationship_changed','Recipient verification, membership, consent or safety state changed.',['status'=>403]);
+                }
+            }else{
+                if(!in_array($user,$recipients,true)||!SN_DB::is_member($conversation,$user)||!self::is_verified_user((int)$row->sender_id)||SN_DB::is_blocked((int)$row->sender_id,$user)||SN_Policy::is_suspended((int)$row->sender_id))return new WP_Error('transfer_relationship_changed','Sender verification, membership, consent or safety state changed.',['status'=>403]);
+            }
+        }else{
+            if($sender){
+                foreach($recipients as $recipient){
+                    if(!self::is_verified_user($recipient)||SN_Policy::is_suspended($recipient)||SN_DB::is_blocked($user,$recipient))return new WP_Error('transfer_relationship_changed','Recipient verification, relationship, consent or safety state changed.',['status'=>403]);
+                    $contact=SN_Policy::can_contact($user,$recipient,count($recipients)>1?'group':'message');if(is_wp_error($contact))return new WP_Error('transfer_relationship_changed','Recipient relationship, consent or privacy state changed.',['status'=>403]);
+                }
+            }else{
+                if(!in_array($user,$recipients,true)||!self::is_verified_user((int)$row->sender_id)||SN_DB::is_blocked((int)$row->sender_id,$user)||SN_Policy::is_suspended((int)$row->sender_id))return new WP_Error('transfer_relationship_changed','Sender verification, relationship, consent or safety state changed.',['status'=>403]);
+                $contact=SN_Policy::can_contact((int)$row->sender_id,$user,count($recipients)>1?'group':'message');if(is_wp_error($contact))return new WP_Error('transfer_relationship_changed','Sender relationship, consent or privacy state changed.',['status'=>403]);
+            }
+        }
         $allowed=apply_filters('sn_network_transfer_policy_allowed',true,$row,$user,$sender?'sender':'recipient');return $allowed===true?true:(is_wp_error($allowed)?$allowed:new WP_Error('transfer_policy_denied','The transfer is not permitted by the current copyright, clinical-confidentiality or abuse policy.',['status'=>403]));
     }
 
