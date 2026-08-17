@@ -14,6 +14,14 @@ $review_loader=$read($root.'/includes/class-sn-future24-review-hardening.php');
 $review_o=$read($root.'/includes/class-sn-future24-review-hardening-o.php');
 $future_js=$read($root.'/assets/js/future-superset.js');$future_css=$read($root.'/assets/css/future-superset.css');
 $quality=$read($root.'/tools/quality-check.sh');
+$auth=$read($root.'/includes/class-sn-auth.php');
+$presence=$read($root.'/includes/class-sn-presence-devices.php');
+$call_runtime=$read($root.'/includes/class-sn-call-runtime-hardening.php');
+$team_inbox=$read($root.'/includes/class-sn-future24-review-hardening-k.php');
+$privacy_runtime=$read($root.'/includes/class-sn-privacy-runtime-hardening.php');
+$crypto=$read($root.'/includes/class-sn-communication-crypto.php');
+$system_status=$read($root.'/SYSTEM-STATUS.txt');
+$security_notes=$read($root.'/SECURITY.md');
 
 $check(str_contains($main,'Version: 2.1.0')&&str_contains($main,"define('SN_VERSION', '2.1.0')"),'File 17 completion release must have an immutable 2.1.0 runtime identity.');
 $check(str_contains($compat,"require_once SN_DIR . 'includes/class-sn-two-plan-completion.php'")&&str_contains($compat,'SN_Two_Plan_Completion::register()'),'Completion layer must be loaded through the existing canonical backend.');
@@ -67,5 +75,18 @@ $check(str_contains($review_o,'future24_mutation')&&str_contains($review_o,'sn_f
 $check(str_contains($review_o,"feature_id='F17-FUT-10'")&&str_contains($review_o,"state='processing'")&&str_contains($review_o,"state='queued'")&&str_contains($review_o,'cleanup_breakouts'),'Bulk-job crash recovery and breakout-expiry ordering must be hardened.');
 $check(str_contains($review_o,'BULK_RECOVERY_BATCH = 200')&&str_contains($review_o,"state='queued' AND expires_at")&&str_contains($review_o,"state='processing' AND updated_at<%s AND expires_at")&&substr_count($review_o,'LIMIT $batch')===3,'Round-40 recovery must be bounded and must not expire an active processing worker solely on wall-clock expiry.');
 
-if($checks!==72)$fail[]='Expected 72 checks, got '.$checks;
+// Fresh third-cycle permanent regressions (2026-08-17). These checks protect
+// the end-of-round fixes without changing historical round ledgers.
+$check(!str_contains($auth,"get_user_meta(\$user_id, 'sn_about'")&&!str_contains($auth,"get_user_meta(\$user_id, 'sn_role_label'")&&str_contains($auth,'sn_network_public_user_projection'),'File 17 must not revive File-03 profile-field shadow ownership.');
+$check(str_contains($compat,'SELECT * FROM $messages WHERE id=%d FOR UPDATE')&&str_contains($compat,'SN_Membership_Assertions::clear_cache($actor)')&&str_contains($compat,"SN_Policy::can_contact(\$actor, \$peer, 'message')"),'Forwarding must revalidate source/target membership, File-00 and direct-contact authority inside the committing transaction.');
+$check(str_contains($presence,"revoked_at IS NULL AND expires_at>%s"),'Presence device budget must count only currently active, non-revoked device rows.');
+$check(str_contains($call_runtime,"\$route === '/sabri-network/v2/calls'")&&str_contains($call_runtime,'requires_fresh_call_eligibility')&&str_contains($call_runtime,'SN_Membership_Assertions::clear_cache($actor)'),'Call creation/join/media mutations must serialize current relationship state and refresh File-00 call eligibility.');
+$check(str_contains($team_inbox,'sn_team_inbox_version_required')&&str_contains($team_inbox,"if(\$row&&\$expected!==(int)\$row->version)"),'Existing Team Inbox updates must require explicit exact-version CAS.');
+$check(str_contains($privacy_runtime,'guard_all_erasers')&&!str_contains($privacy_runtime,'SN_Privacy::erase($email,$page)')&&!str_contains($privacy_runtime,"delete_user_meta(\$uid,'sn_about')")&&str_contains($privacy_runtime,'owned_non_direct'),'Privacy erasure must be hold-consistent, owner-safe and must not erase File-03 profile truth.');
+$check(str_contains($crypto,'SN_COMMUNICATION_MASTER_SECRET')&&str_contains($crypto,"SECRET_FILE = 'communication-master.key'")&&str_contains($crypto,'valid_dedicated_secret')&&str_contains($crypto,"private static function legacy_secret()"),'Durable File-17 encryption must use a dedicated master secret while retaining bounded legacy decrypt compatibility.');
+$check(str_contains($review_o,'interop_scope_guard')&&str_contains($review_o,'SN_DB::is_member($conversation,$actor)')&&str_contains($review_o,"['owner','moderator']"),'Interoperability mutations must require current private-conversation membership and owner/moderator scope before dispatch.');
+$check(str_contains($system_status,'47 explicit PHP review suites')&&str_contains($system_status,'8 JavaScript syntax checks'),'Current system-status QA inventory must match the executable quality gate.');
+$check(str_contains($security_notes,'communication-master.key')&&str_contains($security_notes,'disaster-recovery material')&&str_contains($security_notes,'restore/decrypt/key-rotation rehearsal'),'Security documentation must preserve the dedicated communication-key backup/restore boundary.');
+
+if($checks!==82)$fail[]='Expected 82 checks, got '.$checks;
 if($fail){fwrite(STDERR,"Two-plan completion failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Two-plan completion contracts: PASS ($checks checks)\n";
