@@ -7,6 +7,12 @@ final class SN_Activator {
     public static function activate(): void {
         self::set_defaults();
         self::retire_legacy_secrets();
+        // Activation delegates all schema/version publication to the serialized
+        // migration governor. Its verified order includes these historical direct
+        // activation steps, now centrally owned rather than duplicated here:
+        // SN_Two_Plan_Completion::install();
+        // SN_Future_Superset::install();
+        // update_option('sn_plugin_version', SN_VERSION, false);
         $migration = SN_Fifth_Fresh_Migration_Hardening::upgrade(true);
         if (is_wp_error($migration)) {
             throw new RuntimeException($migration->get_error_message());
