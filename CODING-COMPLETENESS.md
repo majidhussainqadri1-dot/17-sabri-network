@@ -41,6 +41,23 @@ The sixth fresh cycle began from exact fifth-cycle reviewed source `a3a435b16216
 - Standalone Messages and communication-settings routes receive the same exact Sabri Green/accessibility hardening as the rest of File 17.
 - Release gates now invoke the previously omitted fifth-cycle closure/release-truth suites, the permanent sixth-cycle regression suite, and require the sixth-cycle runtime privacy layer in both quality and deterministic package surfaces.
 
+## Current coded domains retained and reverified
+
+- **Communities, groups, channels and private teams** share the canonical File-17 relationship/space/conversation model and do not create a second communication backend.
+- Direct, group and channel conversations retain canonical messages with reactions, replies, edits/deletes and **native recipient/device message receipts**.
+- Authorized File-17 private message discovery uses **secure indexed search** and excludes viewer-hidden/private-ineligible content from results and context.
+- **General per-device presence** remains bounded, revocable and relationship/membership governed, with typing and current-device lifecycle controls.
+- **Governed mentions and audience-minimized forwarding** remain inside the canonical message authorization path and do not reuse private attachments across audiences.
+- Direct calls and Sabri Meet retain **Secret-free STUN/TURN/SFU provider governance**: credentials are provider-gated/scoped/short-lived and group media requires an approved SFU path.
+- Internal Smail remains a mailbox projection over canonical encrypted File-17 messages, with seven mailboxes, exact-version drafts and caller-owned retry identity.
+- Verified-user private transfer remains capped at 1,073,741,824 bytes per file with resumability, exact chunk state, SHA-256 integrity, scanning/quarantine, private storage, signed grants, revocation and retention.
+- Canonical message bodies, queued/private communication payloads and protected transcripts retain authenticated server-side encryption at rest without an unsupported E2EE claim.
+- Reports, appeals, legal/safety holds, privacy export/erasure and retention remain native File-17 responsibilities with retry-safe privacy progress.
+- **Transactional outbox/inbox** event delivery remains the reliable communication-event path with idempotency, retry and dead-letter semantics.
+- File 19 notification transport, File 20 shell, File 24 assurance, File 25 presentation and File 26 global search/ranking remain external owners; private messages and contacts are not exported into File 26.
+- File 08/18/21 and CF-01 integrations remain opaque context/reference bridges without copying native-domain truth.
+- Founder-approved Future Communication Superset 24 remains represented in repository capability paths; provider-dependent/high-risk features remain fail-closed until their separate acceptance gates pass.
+
 Earlier fifth-cycle and prior-cycle corrections remain part of the current source unless explicitly superseded; their historical counts and hashes remain evidence only for their own exact commits.
 
 ## Seven separate statuses
