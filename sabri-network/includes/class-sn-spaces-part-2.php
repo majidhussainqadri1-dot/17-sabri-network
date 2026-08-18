@@ -5,30 +5,35 @@ defined('ABSPATH') || exit;
 trait SN_Spaces_Part_2 {
     public static function update_space(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
-        $id=absint($request['id']);$actor=get_current_user_id();$space=self::space($id);
-        if(!$space)return self::error('sn_space_not_found','The space is unavailable.',404);
-        if(!self::can_manage($id,$actor,'settings'))return self::error('sn_space_manage_forbidden','Space settings permission is required.',403);
-        $expected=absint($request->get_param('version'));
-        if($expected!==(int)$space->version)return self::error('sn_space_version_conflict','The space changed. Reload and retry.',409);
-        $allowed=[];
-        foreach(['name'=>191,'description'=>4000,'rules'=>8000,'region'=>80,'subtype'=>40] as $key=>$max){if($request->has_param($key))$allowed[$key]=self::text((string)$request->get_param($key),$max);}
-        if($request->has_param('language'))$allowed['language']=self::locale((string)$request->get_param('language'));
-        if($request->has_param('categories'))$allowed['categories']=self::json_list($request->get_param('categories'),20,60);
-        if($request->has_param('visibility'))$allowed['visibility']=self::enum((string)$request->get_param('visibility'),self::VISIBILITIES,(string)$space->visibility);
-        if($request->has_param('join_policy'))$allowed['join_policy']=self::enum((string)$request->get_param('join_policy'),self::JOIN_POLICIES,(string)$space->join_policy);
-        if(isset($allowed['visibility'])&&$allowed['visibility']==='hidden')$allowed['join_policy']='invite';
-        if($request->has_param('posting_policy'))$allowed['posting_policy']=self::enum((string)$request->get_param('posting_policy'),self::POSTING_POLICIES,(string)$space->posting_policy);
-        if($request->has_param('history_policy'))$allowed['history_policy']=self::enum((string)$request->get_param('history_policy'),['full','from_join','limited','none'],(string)$space->history_policy);
-        if($request->has_param('member_limit'))$allowed['member_limit']=self::bounded_int($request->get_param('member_limit'),2,100000,(int)$space->member_limit);
-        if($request->has_param('slow_mode_seconds'))$allowed['slow_mode_seconds']=self::bounded_int($request->get_param('slow_mode_seconds'),0,86400,(int)$space->slow_mode_seconds);
-        if($request->has_param('new_member_delay_seconds'))$allowed['new_member_delay_seconds']=self::bounded_int($request->get_param('new_member_delay_seconds'),0,604800,(int)$space->new_member_delay_seconds);
-        foreach(['invite_pause_until','anti_raid_until','media_pause_until','call_pause_until'] as $key){if($request->has_param($key)){$dt=self::future_or_null((string)$request->get_param($key),30*DAY_IN_SECONDS);if(is_wp_error($dt))return $dt;$allowed[$key]=$dt;}}
-        if(!$allowed)return rest_ensure_response(['space'=>self::format_space($space,$actor)]);
-        $allowed['updated_at']=self::now();$allowed['version']=$expected+1;
-        $changed=$wpdb->update(self::spaces_table(),$allowed,['id'=>$id,'version'=>$expected]);
-        if($changed!==1)return self::error('sn_space_update_conflict','A concurrent space update was detected.',409);
-        self::record($id,$actor,'space_settings_updated','space',$id,'',['fields'=>array_keys($allowed)]);
-        return rest_ensure_response(['space'=>self::format_space(self::space($id),$actor)]);
+        $id=absint($request['id']);$actor=get_current_user_id();$expected=absint($request->get_param('version'));
+        $wpdb->query('START TRANSACTION');
+        try{
+            $space=self::space($id,true);
+            if(!$space){$wpdb->query('ROLLBACK');return self::error('sn_space_not_found','The space is unavailable.',404);}
+            $access=self::assert_manage_locked($id,$actor,'settings');
+            if(is_wp_error($access)){$wpdb->query('ROLLBACK');return self::error('sn_space_manage_forbidden','Current space settings permission is required.',403);}
+            if($expected!==(int)$space->version){$wpdb->query('ROLLBACK');return self::error('sn_space_version_conflict','The space changed. Reload and retry.',409);}
+            $allowed=[];
+            foreach(['name'=>191,'description'=>4000,'rules'=>8000,'region'=>80,'subtype'=>40] as $key=>$max){if($request->has_param($key))$allowed[$key]=self::text((string)$request->get_param($key),$max);}
+            if($request->has_param('language'))$allowed['language']=self::locale((string)$request->get_param('language'));
+            if($request->has_param('categories'))$allowed['categories']=self::json_list($request->get_param('categories'),20,60);
+            if($request->has_param('visibility'))$allowed['visibility']=self::enum((string)$request->get_param('visibility'),self::VISIBILITIES,(string)$space->visibility);
+            if($request->has_param('join_policy'))$allowed['join_policy']=self::enum((string)$request->get_param('join_policy'),self::JOIN_POLICIES,(string)$space->join_policy);
+            if(isset($allowed['visibility'])&&$allowed['visibility']==='hidden')$allowed['join_policy']='invite';
+            if($request->has_param('posting_policy'))$allowed['posting_policy']=self::enum((string)$request->get_param('posting_policy'),self::POSTING_POLICIES,(string)$space->posting_policy);
+            if($request->has_param('history_policy'))$allowed['history_policy']=self::enum((string)$request->get_param('history_policy'),['full','from_join','limited','none'],(string)$space->history_policy);
+            if($request->has_param('member_limit'))$allowed['member_limit']=self::bounded_int($request->get_param('member_limit'),2,100000,(int)$space->member_limit);
+            if($request->has_param('slow_mode_seconds'))$allowed['slow_mode_seconds']=self::bounded_int($request->get_param('slow_mode_seconds'),0,86400,(int)$space->slow_mode_seconds);
+            if($request->has_param('new_member_delay_seconds'))$allowed['new_member_delay_seconds']=self::bounded_int($request->get_param('new_member_delay_seconds'),0,604800,(int)$space->new_member_delay_seconds);
+            foreach(['invite_pause_until','anti_raid_until','media_pause_until','call_pause_until'] as $key){if($request->has_param($key)){$dt=self::future_or_null((string)$request->get_param($key),30*DAY_IN_SECONDS);if(is_wp_error($dt)){$wpdb->query('ROLLBACK');return $dt;}$allowed[$key]=$dt;}}
+            if(!$allowed){$wpdb->query('COMMIT');return rest_ensure_response(['space'=>self::format_space($space,$actor)]);}
+            $allowed['updated_at']=self::now();$allowed['version']=$expected+1;
+            $changed=$wpdb->update(self::spaces_table(),$allowed,['id'=>$id,'version'=>$expected]);
+            if($changed!==1)throw new RuntimeException('space_update_conflict');
+            self::record($id,$actor,'space_settings_updated','space',$id,'',['fields'=>array_keys($allowed)]);
+            if($wpdb->query('COMMIT')===false)throw new RuntimeException('space_update_commit_failed');
+            return rest_ensure_response(['space'=>self::format_space(self::space($id),$actor)]);
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_space_update_conflict','The space settings could not be committed safely.',409);}
     }
 
     public static function join_space(WP_REST_Request $request): WP_REST_Response|WP_Error {
