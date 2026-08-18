@@ -24,9 +24,8 @@ trait SN_Smail_Part_2 {
             return new WP_Error('smail_rate_limited', 'Too many Smail messages were sent. Try again later.', ['status' => 429]);
         }
         $client_id = strtolower(trim((string) $request->get_param('client_id')));
-        if ($client_id === '') { $client_id = wp_generate_uuid4(); }
-        if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client_id)) {
-            return new WP_Error('invalid_client_id', 'A valid Smail idempotency key is required.', ['status' => 400]);
+        if ($client_id === '' || !preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client_id)) {
+            return new WP_Error('invalid_client_id', 'A caller-supplied Smail idempotency key is required.', ['status' => 400]);
         }
         $draft_id = sanitize_text_field((string) $request->get_param('draft_id'));
         $draft_version = absint($request->get_param('draft_version'));
