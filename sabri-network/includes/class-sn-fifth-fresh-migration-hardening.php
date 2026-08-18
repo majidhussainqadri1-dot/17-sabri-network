@@ -28,7 +28,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
     }
 
     /** Run every repository-owned schema installer under one lock and publish version truth only after verification. */
-    public static function upgrade(bool $force = false): true|WP_Error {
+    public static function upgrade(bool $force = false): bool|WP_Error {
         global $wpdb;
         if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) return true;
         $locked = (int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)', self::LOCK, self::LOCK_TIMEOUT));
