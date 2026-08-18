@@ -8,7 +8,7 @@ fpr1(str_contains($hard,"add_filter('sn_network_notification_handled'")&&str_con
 fpr1(str_contains($hard,"do_action('sn_network_notification_requested'")&&!str_contains($hard,"'body' => sanitize_text_field"),'Fallback emits metadata-only notification facts without message bodies.');
 fpr1(str_contains($hard,"register_rest_route('sabri-network/v2', '/notifications'")&&str_contains($hard,"'owner' => 'file-19'"),'Historical notification routes are compatibility-only File-19 projections.');
 fpr1(str_contains($css,'#sn-notifications-button')&&str_contains($css,'display: none !important'),'File-17 local notification bell is not rendered as a second global bell.');
-fpr1(str_contains($css,'--sn-brand-green')&&str_contains($css,'#137a46'),'Current primary brand is green.');
+fpr1(str_contains($css,'--sn-brand-green')&&str_contains(strtolower($css),'#087a4e'),'Current primary brand is exact Sabri Green #087A4E.');
 fpr1(str_contains($css,'--sn-secondary-orange'),'Orange remains only as an explicit secondary accent.');
 fpr1(str_contains($main,"'owner' => 'file-17'")&&str_contains($main,"'messages_url' => SN_Messages::messages_url()"),'File 17 remains the canonical communication owner while exposing distinct Network/Messages surfaces.');
 fpr1(str_contains($main,'SN_Central_Plan_Hardening::register()')&&str_contains($main,'SN_Central_Plan_Hardening::maybe_upgrade()'),'Central-plan hardening is active for runtime and migration.');
