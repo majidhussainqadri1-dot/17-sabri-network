@@ -43,11 +43,15 @@ jobs:
             fi
           done
           node --check sabri-network/assets/js/future-superset.js
+          node --check sabri-network/assets/js/fifth-fresh-ui.js
           python3 - <<'PY'
           from pathlib import Path
           css=Path('sabri-network/assets/css/future-superset.css').read_text(encoding='utf-8')
           assert css.count('{') == css.count('}')
           assert 'prefers-reduced-motion' in css and '44px' in css and '#087a4e' in css
+          green=Path('sabri-network/assets/css/brand-green-overrides.css').read_text(encoding='utf-8').lower()
+          assert green.count('{') == green.count('}')
+          assert '#087a4e' in green and '#ff8a1f' in green
           PY
           run_test() {
             local file="$1" output
@@ -74,6 +78,8 @@ jobs:
           run_test two-plan-completion-contracts.php
           run_test future24-forty-round-corrective-static-contracts.php
           run_test fourth-fresh-twenty-round-contracts.php
+          run_test fifth-fresh-twenty-round-contracts.php
+          run_test fifth-fresh-migration-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -98,12 +104,15 @@ jobs:
         run: |
           set -o pipefail
           node --check sabri-network/assets/js/future-superset.js
+          node --check sabri-network/assets/js/fifth-fresh-ui.js
           if ! bash sabri-network/tools/quality-check.sh 2>&1 | tee /tmp/file17-quality.log; then
             tail -n 80 /tmp/file17-quality.log | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::error file=sabri-network\/tools\/quality-check.sh::/'
             exit 1
           fi
           php sabri-network/tests/future24-forty-round-corrective-static-contracts.php
           php sabri-network/tests/fourth-fresh-twenty-round-contracts.php
+          php sabri-network/tests/fifth-fresh-twenty-round-contracts.php
+          php sabri-network/tests/fifth-fresh-migration-contracts.php
       - name: Upload governed 2.1.0 candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
