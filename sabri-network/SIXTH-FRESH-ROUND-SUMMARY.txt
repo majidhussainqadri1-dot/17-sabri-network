@@ -1,0 +1,1 @@
+R1 clean; R2 defect; R3 clean; R4 clean; R5 defect; R6 defect; R7 clean; R8 defect; R9 defect; R10 clean; R11 clean; R12 defect; R13 clean; R14 clean; R15 clean; R16 clean; R17 clean; R18 defect; R19 defect; R20 defect.
