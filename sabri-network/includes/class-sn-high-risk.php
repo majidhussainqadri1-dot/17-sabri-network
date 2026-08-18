@@ -10,7 +10,7 @@ final class SN_High_Risk {
     private const EXECUTION_STALE_SECONDS = 10 * MINUTE_IN_SECONDS;
     private const MAX_PAYLOAD_BYTES = 8192;
     private const TYPES = [
-        'space_ownership_transfer', 'space_emergency_recovery', 'space_destructive_purge',
+        'space_ownership_transfer', 'conversation_ownership_transfer', 'space_emergency_recovery', 'space_destructive_purge',
         'legal_hold_release', 'provider_configuration', 'provider_key_rotation',
         'mass_moderation', 'retention_override',
     ];

@@ -11,7 +11,7 @@ if find "$STAGE/sabri-network" -type l -print -quit | grep -q .; then echo 'Pack
 find "$STAGE/sabri-network" -type d -exec chmod 0755 {} +
 find "$STAGE/sabri-network" -type f -exec chmod 0644 {} +
 find "$STAGE/sabri-network" -type f -name '*.php' -print0 | sort -z | xargs -0 -n1 php -l >/dev/null
-for file in network.js meet.js messages.js message-search.js smail.js file-transfer.js two-plan-ui.js future-superset.js; do
+for file in network.js meet.js messages.js message-search.js smail.js file-transfer.js two-plan-ui.js future-superset.js fifth-fresh-ui.js; do
   node --check "$STAGE/sabri-network/assets/js/$file"
 done
 grep -q 'Version: 2.1.0' "$STAGE/sabri-network/sabri-network.php"
@@ -29,8 +29,20 @@ required=(
   includes/class-sn-call-runtime-hardening.php includes/class-sn-smail-runtime-hardening.php
   includes/class-sn-privacy-runtime-hardening.php includes/class-sn-safety-runtime-hardening.php
   includes/class-sn-future-superset.php includes/class-sn-future24-review-hardening.php
-  assets/js/two-plan-ui.js assets/js/future-superset.js
-  assets/css/two-plan-ui.css assets/css/future-superset.css
+  includes/class-sn-runtime-boundary-policy.php
+  includes/class-sn-fourth-fresh-review-hardening.php includes/class-sn-fourth-fresh-search-hardening.php
+  includes/class-sn-fourth-fresh-media-hardening.php includes/class-sn-fourth-fresh-lifecycle-hardening.php
+  includes/class-sn-fourth-fresh-space-hardening.php includes/class-sn-fourth-fresh-realtime-hardening.php
+  includes/class-sn-fourth-fresh-call-hardening.php includes/class-sn-fourth-fresh-smail-hardening.php
+  includes/class-sn-fourth-fresh-transfer-hardening.php includes/class-sn-fourth-fresh-privacy-hardening.php
+  includes/class-sn-fourth-fresh-safety-hardening.php includes/class-sn-fourth-fresh-crypto-hardening.php
+  includes/class-sn-fourth-fresh-knowledge-hardening.php includes/class-sn-fourth-fresh-interop-hardening.php
+  includes/class-sn-fifth-fresh-privacy-hardening.php includes/class-sn-fifth-fresh-integration-hardening.php
+  includes/class-sn-fifth-fresh-feature-hardening.php includes/class-sn-fifth-fresh-knowledge-hardening.php
+  includes/class-sn-fifth-fresh-migration-hardening.php includes/class-sn-fifth-fresh-ui-hardening.php
+  includes/class-sn-sixth-fresh-privacy-hardening.php
+  assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js
+  assets/css/two-plan-ui.css assets/css/future-superset.css assets/css/brand-green-overrides.css
   templates/smail-app.php templates/file-transfer-app.php
 )
 for file in "${required[@]}"; do test -f "$STAGE/sabri-network/$file" || { echo "Missing governed package surface: $file" >&2; exit 1; }; done

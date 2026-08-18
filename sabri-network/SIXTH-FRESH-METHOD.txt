@@ -1,0 +1,1 @@
+Review method: complete each round uninterrupted; freeze all findings after the review; correct all proved defects; retest exact corrected state; only then begin the next round. No mid-review patching.

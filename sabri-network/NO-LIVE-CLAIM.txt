@@ -1,0 +1,1 @@
+Exact deployed code is unverified. Repository evidence must not be represented as staging, live, DB/migration or operational truth.

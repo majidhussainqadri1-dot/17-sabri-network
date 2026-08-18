@@ -1,0 +1,1 @@
+Specified, Coded, Packaged, Automated-QA Green, Staging-Accepted, Live-Deployed and Operational are separate statuses. Green CI/ZIP is not production completion.

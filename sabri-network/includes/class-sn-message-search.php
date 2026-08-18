@@ -147,11 +147,12 @@ final class SN_Message_Search {
         if (!is_array($rows)) return new WP_Error('search_unavailable', 'Message search is temporarily unavailable.', ['status' => 500]);
         $has_more = count($rows) > $limit;
         if ($has_more) array_pop($rows);
-        $rows = array_values(array_filter($rows, [self::class, 'indexable']));
+        $page_tail = $rows ? (int) end($rows)->id : 0;
+        $rows = array_values(array_filter($rows, static fn(object $row): bool => self::indexable($row) && !SN_Message_Operations::is_hidden($viewer_id, (int) $row->id)));
         $items = array_map(fn(object $row): array => self::format_message($row, $viewer_id, $snapshot), $rows);
-        $next = $has_more && $rows ? self::encode_cursor('search', [
+        $next = $has_more && $page_tail > 0 ? self::encode_cursor('search', [
             'viewer' => $viewer_id, 'conversation' => $conversation_id, 'filter' => $filter_hash,
-            'snapshot' => $snapshot, 'before' => (int) end($rows)->id,
+            'snapshot' => $snapshot, 'before' => $page_tail,
         ]) : null;
         SN_DB::audit('message_search_executed', 'conversation', $conversation_id, 'success', [
             'filter_hash' => $filter_hash, 'term_count' => count($hashes), 'result_count' => count($items), 'snapshot' => $snapshot,
@@ -172,10 +173,10 @@ final class SN_Message_Search {
         $snapshot = (int) $state['snapshot'];
         $messages = SN_DB::table('messages');
         $target = $wpdb->get_row($wpdb->prepare("SELECT * FROM $messages WHERE id=%d AND conversation_id=%d AND id<=%d AND deleted_at IS NULL", $target_id, $conversation_id, $snapshot));
-        if (!$target || !self::indexable($target)) return self::not_found();
+        if (!$target || !self::indexable($target) || SN_Message_Operations::is_hidden($viewer_id, $target_id)) return self::not_found();
         $before = array_reverse($wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id<%d AND id<=%d AND deleted_at IS NULL ORDER BY id DESC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT)) ?: []);
         $after = $wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT)) ?: [];
-        $rows = array_values(array_filter(array_merge($before, [$target], $after), [self::class, 'indexable']));
+        $rows = array_values(array_filter(array_merge($before, [$target], $after), static fn(object $row): bool => self::indexable($row) && !SN_Message_Operations::is_hidden($viewer_id, (int) $row->id)));
         return rest_ensure_response(['target_id' => $target_id, 'snapshot' => $snapshot, 'messages' => array_map(fn(object $row): array => self::format_message($row, $viewer_id, $snapshot), $rows)]);
     }
 

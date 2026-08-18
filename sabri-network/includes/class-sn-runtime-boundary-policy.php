@@ -17,11 +17,6 @@ final class SN_Runtime_Boundary_Policy {
         add_action('sn_cleanup_hourly', [self::class, 'finish_search_rebuild'], 9999);
     }
 
-    /**
-     * Fail closed if a private-storage candidate resolves inside, equals, or contains
-     * a known public document root. This covers WordPress-in-a-subdirectory installs
-     * where dirname(ABSPATH) can still be the web server's public document root.
-     */
     public static function validate_private_storage_dir(string $candidate): string {
         $candidate = trim($candidate);
         if ($candidate === '') return '';
@@ -36,12 +31,6 @@ final class SN_Runtime_Boundary_Policy {
         return $candidate;
     }
 
-    /**
-     * rest_pre_dispatch runs before WordPress route permission callbacks. Every File-17
-     * mutation must therefore pass the same File-00-backed general access gate before
-     * any later pre-dispatch hook can reserve idempotency rows, capture revisions,
-     * invoke providers, or acquire advisory locks.
-     */
     public static function pre_dispatch_access_gate($result, WP_REST_Server $server, WP_REST_Request $request) {
         if ($result !== null) return $result;
         $route = $request->get_route();
@@ -75,10 +64,22 @@ final class SN_Runtime_Boundary_Policy {
         if ($conversation > 0 && !SN_DB::is_member($conversation, $actor)) {
             return new WP_Error('not_found', 'The requested communication object is unavailable.', ['status' => 404]);
         }
+
+        // A space conversation is a projection of SN_Spaces membership/ownership.
+        // It must never acquire an independent owner through the generic conversation route.
+        if ($method === 'POST' && preg_match('#^/sabri-network/v2/conversations/(\d+)/owner$#', $route, $m)) {
+            global $wpdb;
+            $space_id = (int) $wpdb->get_var($wpdb->prepare(
+                'SELECT id FROM ' . SN_DB::table('spaces') . ' WHERE conversation_id=%d LIMIT 1',
+                (int) $m[1]
+            ));
+            if ($space_id > 0) {
+                return new WP_Error('space_ownership_managed', 'Transfer ownership through the canonical File-17 space ownership workflow.', ['status' => 409]);
+            }
+        }
         return $result;
     }
 
-    /** Derived private-search HMAC tokens are rebuildable, but salt rotation must never silently return false-empty results. */
     public static function reconcile_search_epoch(): void {
         if (!class_exists('SN_Message_Search') || !class_exists('SN_DB')) return;
         global $wpdb;

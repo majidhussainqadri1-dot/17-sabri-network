@@ -5,37 +5,37 @@
 ### Governing reconciliation
 - Reopened coding completeness against the governing consolidated central plan, the current File 17 Final Harmonized Master Plan and the Founder-approved Future Communication Superset 24 instead of treating historical review cycles as present-head proof.
 - Preserved File 17 as the only communication owner and retained File 00/02 identity, File 19 notification, File 20 shell, File 26 global-search and File 08/CF-01 clinical ownership boundaries.
-- Later fresh review cycles remain independently counted/audited; a green workflow for one SHA is never reused as evidence for another.
+- Fresh review cycles remain independently counted/audited; a green workflow for one SHA is never reused as evidence for another.
 
-### Message requests and messaging completion
-- Added unknown-sender message requests with encrypted first-message storage, incoming/outgoing queues, accept/decline/report/cancel decisions, sender and recipient rate limits and post-decline/report cooldown.
-- Acceptance is transactional: request state, canonical contact state, canonical direct conversation membership and first canonical encrypted message succeed together or roll back.
-- Added encrypted scheduled-message storage with cancellation, bounded retry state and delivery-time authorization revalidation.
-- Added canonical polls and collaborative checklists while explicitly preventing clinical-decision authority.
-- Added disappearing-message expiry with legal-hold preservation, private-search removal, reaction cleanup and attachment revocation/deletion.
-- Added fail-closed transient message translation through an approved adapter only.
-- Added voice-note workflow on the canonical message-integrity/private-file path with playback/transcript capability metadata.
+### Current sixth fresh 20-round cycle — 2026-08-18
+- Frozen starting reviewed source: `a3a435b162167c9078ded22b08d6c8fb39b6ca27`.
+- Defect rounds: **R2, R5, R6, R8, R9, R12, R18, R19, R20**.
+- Clean rounds: **R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17**.
+- Preserved canonical File-00/09 phone and verification truth after File-03 presentation enrichment.
+- Required caller-supplied stable retry identities for canonical message and Smail sends.
+- Kept hidden-for-self messages out of private search/context and corrected pagination after visibility filtering.
+- Bound verified-transfer idempotency to exact file/chunk/conversation/hash/recipient semantics.
+- Made Future message-version privacy erasure failure-safe so cursor progress cannot skip a failed deletion.
+- Restored exact Sabri Meet `sn_meet_db_version` rollback truth in migration failure handling.
+- Extended exact Sabri Green/accessibility hardening to standalone Messages/communication-settings surfaces.
+- Added `sixth-fresh-twenty-round-contracts.php`, restored omitted fifth closure/release-truth suites to the full gate, and required the sixth runtime privacy layer in quality/package surfaces.
 
-### Temporary updates and community capabilities
-- Replaced plaintext persistence for new temporary-update text with authenticated encryption and lazy authorized migration of legacy plaintext values.
-- Added community rules/onboarding questions/orientation, forum questions, expert AMA sessions, wiki pages, events/cohorts, responses, best-answer/close/archive/reopen moderation and privacy-minimized aggregate community health.
-
-### Fresh corrective hardening retained in 2.1.0
-- Revalidated authorization on idempotent message replay and secured concurrent attachment cleanup.
-- Forced genuinely fresh File-00 calling eligibility around media-credential issuance and serialized current call/direct-peer relationship state for call creation/join/media mutations.
-- Removed File-17 shadow ownership of File-03 public profile fields.
-- Revalidated and serialized forwarding inside the committing transaction.
-- Corrected active-device cap semantics so expired historical presence rows do not consume the live device budget.
-- Required exact version CAS for existing Team Inbox mutations.
-- Hardened privacy erasure so File-17 erasers respect legal/safety holds, retry failed Meet erasure, do not erase File-03 fields, and do not destroy active non-direct conversation ownership.
-- Decoupled new durable File-17 private encryption from WordPress authentication salts while retaining bounded legacy decrypt/lazy-rotation compatibility; staging/restore must preserve the dedicated File-17 master secret.
-- Enforced current private-conversation membership plus owner/moderator scope before interoperability create/list/revoke/outbound dispatch.
-
-### Privacy, QA and release truth
-- Added privacy exporter/eraser participation for new personal-data domains.
-- Current explicit full quality inventory is **47 PHP review suites** and **8 JavaScript syntax checks**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+### Current quality and release truth
+- Current explicit full quality inventory is **53 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
 - Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
+- Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
 - Historical review evidence remains historical; staging, live and operational acceptance remain separate external gates.
+
+### 2.1.0 capability line retained
+- Unknown-sender message requests with encrypted first-message storage and transactional acceptance.
+- Encrypted scheduled-message storage, cancellation and delivery-time authorization revalidation.
+- Canonical polls/checklists and disappearing-message lifecycle with legal-hold precedence.
+- Fail-closed translation adapters, encrypted temporary updates and voice-note workflow.
+- Communities/groups/channels with rules, onboarding, forum/AMA/wiki/events/cohorts and moderation.
+- Authenticated server-side encryption at rest, dedicated communication-key lifecycle and bounded legacy compatibility.
+- Verified-user private transfer up to 1 GiB/file with resumability, integrity, scanning/quarantine, signed grants, ranges, revocation, retention and audit.
+- Direct calls/Sabri Meet with fresh File-00 eligibility and approved-provider STUN/TURN/SFU boundaries.
+- Privacy export/erasure, reports/appeals/legal holds, reliable outbox/inbox events, File-16 AI/private semantic bridges and governed interoperability.
 
 ## 2.0.3 — 2026-08-07 — Forty-round corrective release candidate
 
@@ -63,18 +63,17 @@
 ### Verified private transfer
 - Made current File-00 verification assertion the sole verified-user authority for transfer sender/recipients; removed local phone/badge fallback semantics.
 - Guaranteed synchronous scanner plaintext cleanup with `finally` and fail-closed secure-random error handling.
-- Added filesystem-containment validation for encrypted chunk reads, scans, downloads and deletion: absolute paths, NUL, traversal and out-of-root realpaths are rejected.
+- Added filesystem-containment validation for encrypted chunk reads, scans, downloads and deletion.
 - Preserved the exact 1,073,741,824-byte limit, resumability, SHA-256, MIME/magic/archive controls, quarantine, signed expiring grants, ranges, revocation and audit.
 
 ### Messages, forwarding and Smail
 - Added defense-in-depth forwarding protection using authorized transient decrypt, target-context re-encryption, idempotency and audience-minimized source metadata; private attachment IDs cannot be reused across audiences.
-- Smail mailbox projection now decrypts authorized canonical message bodies rather than exposing stored ciphertext.
+- Smail mailbox projection decrypts authorized canonical message bodies rather than exposing stored ciphertext.
 - Smail drafts lazily rotate encryption keys and use keyed HMAC blind hashes instead of ordinary plaintext SHA-256 fingerprints.
-- Core WordPress message privacy exports and Smail draft exports now provide readable authorized data-subject values without weakening encryption at rest.
+- Core WordPress message privacy exports and Smail draft exports provide readable authorized data-subject values without weakening encryption at rest.
 
 ### Release truth and packaging
 - Promoted substantive corrections from immutable historical 2.0.2 to **2.0.3**.
-- Aligned plugin header/runtime, WordPress readme, repository status, coding assessment, package script, workflow artifact identity and release tests to 2.0.3.
 - Deterministic package identity: `17-sabri-network-and-messages-2.0.3.zip`.
 - Staging, live and operational acceptance remain separate external gates.
 

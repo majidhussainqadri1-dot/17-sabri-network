@@ -24,13 +24,23 @@ trait SN_Smail_Part_2 {
             return new WP_Error('smail_rate_limited', 'Too many Smail messages were sent. Try again later.', ['status' => 429]);
         }
         $client_id = strtolower(trim((string) $request->get_param('client_id')));
-        if ($client_id === '') { $client_id = wp_generate_uuid4(); }
-        if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client_id)) {
-            return new WP_Error('invalid_client_id', 'A valid Smail idempotency key is required.', ['status' => 400]);
+        if ($client_id === '' || !preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client_id)) {
+            return new WP_Error('invalid_client_id', 'A caller-supplied Smail idempotency key is required.', ['status' => 400]);
         }
+        $draft_id = sanitize_text_field((string) $request->get_param('draft_id'));
+        $draft_version = absint($request->get_param('draft_version'));
+        if ($draft_id !== '') {
+            $draft = self::draft_row($draft_id, $sender_id);
+            if (!$draft) return new WP_Error('draft_not_found', 'The Smail draft is unavailable.', ['status'=>404]);
+            if ($draft_version <= 0 || $draft_version !== (int)$draft->version) return new WP_Error('draft_conflict', 'The Smail draft changed on another device. Reload and retry.', ['status'=>409]);
+        }
+
         $client_key = hash('sha256', $sender_id . '|' . $client_id);
         $existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::messages_table() . ' WHERE client_key=%s', $client_key));
-        if ($existing) { return rest_ensure_response(['smail' => self::format_smail($existing), 'duplicate' => true]); }
+        if ($existing) {
+            $cleanup = $draft_id === '' ? true : self::trash_draft_exact($draft_id, $sender_id, $draft_version);
+            return rest_ensure_response(['smail' => self::format_smail($existing), 'duplicate' => true, 'draft_cleanup_pending' => !$cleanup]);
+        }
 
         // The Smail idempotency key reserves/reuses the same canonical conversation,
         // including multi-recipient mail after an interrupted projection attempt.
@@ -42,6 +52,7 @@ trait SN_Smail_Part_2 {
         // Smail is a mailbox projection over the canonical File-17 message. Do not
         // bypass the atomic search/outbox/encryption path by calling SN_REST directly.
         $message_request = new WP_REST_Request('POST', '/sabri-network/v2/conversations/' . $conversation_id . '/messages');
+        $message_request->set_url_params(['id'=>$conversation_id]);
         $message_request->set_param('id', $conversation_id);
         $message_request->set_param('body', $body);
         $message_request->set_param('message_type', 'text');
@@ -53,7 +64,9 @@ trait SN_Smail_Part_2 {
         if (!$message_id) { return new WP_Error('smail_message_failed', 'The canonical message could not be created.', ['status' => 500]); }
 
         $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
+        $smail_id = 0;
+        $event = null;
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('smail_projection_failed','The canonical message was created but the mailbox transaction could not start.',['status'=>500]);
         try {
             $inserted = $wpdb->insert(self::messages_table(), [
                 'message_id' => $message_id, 'conversation_id' => $conversation_id, 'sender_id' => $sender_id,
@@ -72,23 +85,40 @@ trait SN_Smail_Part_2 {
                 'sender_id' => $sender_id, 'recipient_count' => count($recipients),
             ], 'smail-sent-' . $smail_id);
             if (is_wp_error($event)) { throw new RuntimeException('smail_event_failed'); }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('smail_projection_commit_failed');
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
-            SN_DB::audit('smail_projection_failed', 'message', $message_id, 'failure', ['conversation_id' => $conversation_id]);
+            SN_DB::audit('smail_projection_failed', 'message', $message_id, 'failure', ['conversation_id' => $conversation_id,'reason'=>$e->getMessage()]);
             $race = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::messages_table() . ' WHERE client_key=%s', $client_key));
-            if ($race) { return rest_ensure_response(['smail' => self::format_smail($race), 'message' => $message_data['message'] ?? null, 'duplicate' => true]); }
+            if ($race) {
+                $expected_states = count(array_unique(array_merge([$sender_id],$recipients)));
+                $state_count = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::states_table().' WHERE smail_message_id=%d',(int)$race->id));
+                if ($state_count === $expected_states) {
+                    $cleanup = $draft_id === '' ? true : self::trash_draft_exact($draft_id,$sender_id,$draft_version);
+                    return rest_ensure_response(['smail'=>self::format_smail($race),'message'=>$message_data['message']??null,'duplicate'=>true,'commit_reconciled'=>true,'draft_cleanup_pending'=>!$cleanup]);
+                }
+            }
             return new WP_Error('smail_projection_failed', 'The canonical message was created but its Smail mailbox projection could not be completed.', ['status' => 500]);
         }
         foreach ($recipients as $recipient_id) {
             SN_DB::add_notification($recipient_id, 'smail_received', 'New Smail message', '', 'smail', $smail_id);
         }
+        if ($event !== null) do_action('sn_network_event_queued',$event,'smail.sent');
         SN_DB::audit('smail_sent', 'smail', $smail_id, 'success', ['conversation_id' => $conversation_id, 'recipients' => count($recipients)]);
-        if ($draft_id = sanitize_text_field((string) $request->get_param('draft_id'))) { self::trash_draft_by_public_id($draft_id, $sender_id); }
+        $cleanup = $draft_id === '' ? true : self::trash_draft_exact($draft_id, $sender_id, $draft_version);
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::messages_table() . ' WHERE id=%d', $smail_id));
-        return rest_ensure_response(['smail' => self::format_smail($row), 'message' => $message_data['message'] ?? null]);
+        return rest_ensure_response(['smail' => self::format_smail($row), 'message' => $message_data['message'] ?? null, 'draft_cleanup_pending'=>!$cleanup]);
     }
 
+    private static function trash_draft_exact(string $public_id,int $owner_id,int $expected_version): bool {
+        global $wpdb;
+        if($public_id===''||$expected_version<=0)return false;
+        $now=current_time('mysql',true);
+        return $wpdb->query($wpdb->prepare(
+            'UPDATE '.self::drafts_table().' SET deleted_at=%s,encrypted_payload=%s,payload_hash=%s,version=version+1,updated_at=%s WHERE public_id=%s AND owner_id=%d AND version=%d AND deleted_at IS NULL',
+            $now,'',hash_hmac('sha256','',wp_salt('auth').'|sn-sm-draft-blind-v1'),$now,sanitize_text_field($public_id),$owner_id,$expected_version
+        ))===1;
+    }
 
     public static function update_state(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
@@ -107,7 +137,6 @@ trait SN_Smail_Part_2 {
         SN_DB::audit('smail_state_updated', 'smail', $id, 'success', ['field' => $field, 'value' => $value]);
         return rest_ensure_response(['updated' => true, 'field' => $field, 'value' => $value]);
     }
-
 
     public static function list_drafts(WP_REST_Request $request): WP_REST_Response {
         global $wpdb;

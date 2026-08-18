@@ -1,5 +1,5 @@
 <?php
-/** Fresh 40-round corrective overlays for the Founder-approved Future-24 scope. */
+/** Fresh corrective overlays for the Founder-approved Future-24 and current File-17 boundary scope. */
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
@@ -19,13 +19,46 @@ require_once SN_DIR . 'includes/class-sn-future24-review-hardening-m.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-n.php';
 require_once SN_DIR . 'includes/class-sn-future24-review-hardening-o.php';
 require_once SN_DIR . 'includes/class-sn-runtime-boundary-policy.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-review-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-search-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-media-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-lifecycle-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-space-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-realtime-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-call-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-smail-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-transfer-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-privacy-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-safety-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-crypto-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-knowledge-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fourth-fresh-interop-hardening.php';
+require_once SN_DIR . 'includes/class-sn-round20-correction.php';
+require_once SN_DIR . 'includes/class-sn-fifth-fresh-privacy-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fifth-fresh-integration-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fifth-fresh-feature-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fifth-fresh-knowledge-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fifth-fresh-migration-hardening.php';
+require_once SN_DIR . 'includes/class-sn-fifth-fresh-ui-hardening.php';
+require_once SN_DIR . 'includes/class-sn-sixth-fresh-privacy-hardening.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
-        // Register the common File-17 boundary first so every later Future-24
-        // pre-dispatch reservation/lock/provider hook executes behind current
-        // File-00 access, object membership and storage/search epoch controls.
         SN_Runtime_Boundary_Policy::register();
+        SN_Fourth_Fresh_Review_Hardening::register();
+        SN_Fourth_Fresh_Search_Hardening::register();
+        SN_Fourth_Fresh_Media_Hardening::register();
+        SN_Fourth_Fresh_Lifecycle_Hardening::register();
+        SN_Fourth_Fresh_Space_Hardening::register();
+        SN_Fourth_Fresh_Realtime_Hardening::register();
+        SN_Fourth_Fresh_Call_Hardening::register();
+        SN_Fourth_Fresh_Smail_Hardening::register();
+        SN_Fourth_Fresh_Transfer_Hardening::register();
+        SN_Fourth_Fresh_Privacy_Hardening::register();
+        SN_Fourth_Fresh_Safety_Hardening::register();
+        SN_Fourth_Fresh_Crypto_Hardening::register();
+        SN_Fourth_Fresh_Knowledge_Hardening::register();
+        SN_Fourth_Fresh_Interop_Hardening::register();
         SN_Future24_Review_Hardening_A::register();
         SN_Future24_Review_Hardening_B::register();
         SN_Future24_Review_Hardening_C::register();
@@ -41,5 +74,13 @@ final class SN_Future24_Review_Hardening {
         SN_Future24_Review_Hardening_M::register();
         SN_Future24_Review_Hardening_N::register();
         SN_Future24_Review_Hardening_O::register();
+        SN_Round20_Correction::register();
+        SN_Fifth_Fresh_Privacy_Hardening::register();
+        SN_Fifth_Fresh_Integration_Hardening::register();
+        SN_Fifth_Fresh_Feature_Hardening::register();
+        SN_Fifth_Fresh_Knowledge_Hardening::register();
+        SN_Fifth_Fresh_Migration_Hardening::register();
+        SN_Fifth_Fresh_UI_Hardening::register();
+        SN_Sixth_Fresh_Privacy_Hardening::register();
     }
 }

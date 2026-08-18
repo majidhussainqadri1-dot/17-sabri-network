@@ -1,0 +1,1 @@
+Expected fifth-cycle full quality inventory after final synchronization: all PHP review suites present under tests/ and all nine File-17 JavaScript entry points. Exact counts are asserted by tools/quality-check.sh and current GitHub Actions.

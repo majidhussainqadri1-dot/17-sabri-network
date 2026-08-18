@@ -27,7 +27,7 @@ ftc(str_contains($src,'retention_until')&&str_contains($src,'cleanup'),'Retentio
 ftc(str_contains($src,'register_exporter')&&str_contains($src,'register_eraser'),'Transfer privacy export and erasure exist.');
 ftc(str_contains($tpl,'up to 1 GB')&&str_contains($tpl,'data-ft-progress'),'UI states the limit and exposes progress.');
 ftc(str_contains($js,'crypto.subtle.digest')&&str_contains($js,"'X-Chunk-Sha256'"),'Client calculates chunk hashes.');
-ftc(str_contains($js,'file.slice')&&str_contains($js,'received_chunks'),'Client uploads/resumes by chunks.');
+ftc(str_contains($js,'file.slice')&&str_contains($js,'received_indices')&&str_contains($js,'if(received.has(i))continue'),'Client uploads/resumes exact missing chunks, including sparse interrupted sessions.');
 ftc(str_contains($css,'min-height:44px'),'Transfer controls meet 44px target baseline.');
 ftc(str_contains($css,'@media(max-width:820px)'),'Transfer surface is mobile responsive.');
 ftc(str_contains($css,'prefers-reduced-motion'),'Transfer surface respects reduced motion.');
