@@ -15,7 +15,7 @@ trait SN_Spaces_Part_4 {
                 if((int)$invite->inviter_id!==$actor){
                     $space=self::space((int)$invite->space_id,true);
                     $manager=$space?self::assert_manage_locked((int)$invite->space_id,$actor,'members'):self::error('sn_space_not_found','The space is unavailable.',404);
-                    if(is_wp_error($manager)){$wpdb->query('ROLLBACK');return self::error('sn_invite_cancel_forbidden','Only the inviter or a current space manager may cancel.',403);}
+                    if(is_wp_error($manager)){$wpdb->query('ROLLBACK');return self::error('sn_invite_cancel_forbidden','Only the inviter or a space manager may cancel.',403);}
                 }
                 $status='cancelled';
             }else{
