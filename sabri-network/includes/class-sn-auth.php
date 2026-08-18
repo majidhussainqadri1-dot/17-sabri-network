@@ -45,10 +45,10 @@ final class SN_Auth {
         $can_see_avatar = !$blocked && ($self || $avatar_visibility === 'everyone' || ($avatar_visibility === 'contacts' && SN_DB::are_contacts($viewer_id, $user_id)));
         $verification_badge = apply_filters('sn_network_public_verification_badge', false, $user_id, $viewer_id);
 
-        // File 03 owns public-profile fields. File 17 may carry only identity-safe
-        // fallbacks plus communication-owned phone/privacy state, then consume the
-        // canonical File-03 projection through the integration filter. In particular,
-        // File 17 must not revive legacy sn_about/sn_role_label shadow profile truth.
+        // File 03 owns public-profile presentation fields. File 00/09 remain the
+        // authority for phone/verification and File 17 remains the privacy gate.
+        // The File-03 projection filter may enrich presentation but must never
+        // replace canonical phone or verification truth.
         $projection = [
             'id' => $user_id,
             'name' => sanitize_text_field($user->display_name),
@@ -65,9 +65,9 @@ final class SN_Auth {
             'id' => $user_id,
             'name' => mb_substr(sanitize_text_field((string) ($filtered['name'] ?? $projection['name'])), 0, 191),
             'avatar' => $can_see_avatar ? ($avatar ?: SN_URL . 'assets/network-default-avatar.svg') : SN_URL . 'assets/network-default-avatar.svg',
-            'phone' => $can_see_phone ? mb_substr(sanitize_text_field((string) ($filtered['phone'] ?? $projection['phone'])), 0, 32) : '',
-            'phone_masked' => $can_see_phone ? mb_substr(sanitize_text_field((string) ($filtered['phone_masked'] ?? $projection['phone_masked'])), 0, 32) : '',
-            'verified' => (bool) ($filtered['verified'] ?? $projection['verified']),
+            'phone' => $can_see_phone ? mb_substr(sanitize_text_field((string) $projection['phone']), 0, 32) : '',
+            'phone_masked' => $can_see_phone ? mb_substr(sanitize_text_field((string) $projection['phone_masked']), 0, 32) : '',
+            'verified' => (bool) $projection['verified'],
             'about' => mb_substr(sanitize_textarea_field((string) ($filtered['about'] ?? '')), 0, 500),
             'role_label' => mb_substr(sanitize_text_field((string) ($filtered['role_label'] ?? '')), 0, 100),
         ];
