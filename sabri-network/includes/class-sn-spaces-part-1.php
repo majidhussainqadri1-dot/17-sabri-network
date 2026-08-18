@@ -31,6 +31,18 @@ trait SN_Spaces_Part_1 {
         $now = self::now();
         $wpdb->query('START TRANSACTION');
         try {
+            if ($parent_id > 0) {
+                $parent_locked = self::space($parent_id, true);
+                if (!$parent_locked || (string) $parent_locked->type !== 'community' || !in_array((string) $parent_locked->state, ['active','restricted'], true)) {
+                    $wpdb->query('ROLLBACK');
+                    return self::error('sn_space_parent_invalid', 'The parent community is unavailable.', 409);
+                }
+                $parent_access = self::assert_manage_locked($parent_id, $actor, 'settings');
+                if (is_wp_error($parent_access)) {
+                    $wpdb->query('ROLLBACK');
+                    return self::error('sn_space_parent_forbidden', 'Current parent-community management permission is required.', 403);
+                }
+            }
             $ok = $wpdb->insert(self::spaces_table(), [
                 'public_id'=>wp_generate_uuid4(),'parent_id'=>$parent_id,'owner_user_id'=>$actor,
                 'type'=>$type,'subtype'=>self::text((string)$request->get_param('subtype'),40),'slug'=>$slug,'name'=>$name,
