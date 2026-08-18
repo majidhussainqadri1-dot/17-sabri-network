@@ -1,0 +1,1 @@
+Final exact-head retest required after this closure marker. Do not reuse a prior SHA/run/package as evidence for the final branch head.
