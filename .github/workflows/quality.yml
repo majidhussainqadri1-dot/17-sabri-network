@@ -101,8 +101,15 @@ jobs:
           php-version: '8.3'
           coverage: none
           tools: none
-      - name: Install packaging dependencies
-        run: sudo apt-get update && sudo apt-get install -y zip rsync
+      - name: Verify packaging dependencies
+        run: |
+          set -euo pipefail
+          if ! command -v zip >/dev/null 2>&1 || ! command -v rsync >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y zip rsync
+          fi
+          command -v zip
+          command -v rsync
       - name: Run full quality gate
         run: |
           set -o pipefail
