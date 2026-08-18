@@ -80,6 +80,9 @@ jobs:
           run_test fourth-fresh-twenty-round-contracts.php
           run_test fifth-fresh-twenty-round-contracts.php
           run_test fifth-fresh-migration-contracts.php
+          run_test fifth-fresh-closure-contracts.php
+          run_test fifth-fresh-release-truth-contracts.php
+          run_test sixth-fresh-twenty-round-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -113,6 +116,9 @@ jobs:
           php sabri-network/tests/fourth-fresh-twenty-round-contracts.php
           php sabri-network/tests/fifth-fresh-twenty-round-contracts.php
           php sabri-network/tests/fifth-fresh-migration-contracts.php
+          php sabri-network/tests/fifth-fresh-closure-contracts.php
+          php sabri-network/tests/fifth-fresh-release-truth-contracts.php
+          php sabri-network/tests/sixth-fresh-twenty-round-contracts.php
       - name: Upload governed 2.1.0 candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
