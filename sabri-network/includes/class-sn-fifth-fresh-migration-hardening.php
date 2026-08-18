@@ -134,7 +134,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'sn_presence_devices_schema_version','sn_message_operations_schema_version','sn_context_adapters_schema_version',
             'sn_cf01_context_schema_version','sn_conference_provider_schema_version','sn_messages_schema_version',
             'sn_file_transfer_schema_version','sn_smail_schema_version','sn_message_search_schema_version',
-            'sn_event_delivery_schema_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_future_schema_version',
+            'sn_event_delivery_schema_version','sn_meet_db_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_future_schema_version',
             'sn_future_superset_schema_version','sn_central_plan_schema_version',
         ];
         $sentinel = new stdClass();
