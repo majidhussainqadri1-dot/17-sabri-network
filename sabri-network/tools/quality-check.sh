@@ -22,6 +22,7 @@ required=(
   includes/class-sn-fifth-fresh-privacy-hardening.php includes/class-sn-fifth-fresh-integration-hardening.php
   includes/class-sn-fifth-fresh-feature-hardening.php includes/class-sn-fifth-fresh-knowledge-hardening.php
   includes/class-sn-fifth-fresh-migration-hardening.php includes/class-sn-fifth-fresh-ui-hardening.php
+  includes/class-sn-sixth-fresh-privacy-hardening.php
   templates/network-standalone.php templates/messages-standalone.php templates/meet-app.php templates/smail-app.php templates/file-transfer-app.php
   assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js
   assets/css/network.css assets/css/messages.css assets/css/meet.css assets/css/message-search.css assets/css/smail.css assets/css/file-transfer.css assets/css/brand-green-overrides.css assets/css/two-plan-ui.css assets/css/future-superset.css
@@ -64,7 +65,8 @@ tests=(
  four-plan-review-1-governance-contracts.php four-plan-review-2-transfer-concurrency-contracts.php four-plan-review-3-message-smail-security-contracts.php four-plan-review-4-fresh-release-contracts.php
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
  two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php fourth-fresh-twenty-round-contracts.php
- fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php
+ fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php fifth-fresh-closure-contracts.php fifth-fresh-release-truth-contracts.php
+ sixth-fresh-twenty-round-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)
@@ -108,12 +110,14 @@ complete=read('includes/class-sn-two-plan-completion.php'); firewall=read('inclu
 future='\n'.join(read(p) for p in ['includes/class-sn-future-superset.php','includes/class-sn-future-superset-part-1.php','includes/class-sn-future-superset-part-2.php','includes/class-sn-future-superset-part-3.php','includes/class-sn-future-superset-core.php'])
 future_ui=read('assets/js/future-superset.js'); ui=read('assets/js/two-plan-ui.js')
 relationship=read('includes/class-sn-relationship-runtime-hardening.php'); message_runtime=read('includes/class-sn-message-runtime-hardening.php'); attachment_runtime=read('includes/class-sn-attachment-runtime-hardening.php'); space_runtime=read('includes/class-sn-space-runtime-hardening.php'); realtime_runtime=read('includes/class-sn-realtime-runtime-hardening.php'); call_runtime=read('includes/class-sn-call-runtime-hardening.php'); smail_runtime=read('includes/class-sn-smail-runtime-hardening.php'); privacy_runtime=read('includes/class-sn-privacy-runtime-hardening.php'); safety_runtime=read('includes/class-sn-safety-runtime-hardening.php'); fourth=read('includes/class-sn-fourth-fresh-review-hardening.php'); interop=read('includes/class-sn-fourth-fresh-interop-hardening.php')
-fifth_loader=read('includes/class-sn-future24-review-hardening.php'); fifth_privacy=read('includes/class-sn-fifth-fresh-privacy-hardening.php'); fifth_integration=read('includes/class-sn-fifth-fresh-integration-hardening.php'); fifth_feature=read('includes/class-sn-fifth-fresh-feature-hardening.php'); fifth_knowledge=read('includes/class-sn-fifth-fresh-knowledge-hardening.php'); fifth_migration=read('includes/class-sn-fifth-fresh-migration-hardening.php'); fifth_ui=read('includes/class-sn-fifth-fresh-ui-hardening.php')
+fifth_loader=read('includes/class-sn-future24-review-hardening.php'); fifth_privacy=read('includes/class-sn-fifth-fresh-privacy-hardening.php'); fifth_integration=read('includes/class-sn-fifth-fresh-integration-hardening.php'); fifth_feature=read('includes/class-sn-fifth-fresh-feature-hardening.php'); fifth_knowledge=read('includes/class-sn-fifth-fresh-knowledge-hardening.php'); fifth_migration=read('includes/class-sn-fifth-fresh-migration-hardening.php'); fifth_ui=read('includes/class-sn-fifth-fresh-ui-hardening.php'); sixth_privacy=read('includes/class-sn-sixth-fresh-privacy-hardening.php')
 for marker in ('SN_Smail::register()','SN_File_Transfer::register()',"'file_transfer_max_bytes' => SN_File_Transfer::MAX_FILE_BYTES",'SN_Central_Plan_Hardening::register()','SN_Compatibility_Hardening::register()',"define('SN_VERSION', '2.1.0')"):
     assert marker in main,marker
 for marker in ('smc_communication_assertions','smc_membership_assertions','MIN_CONTRACT_VERSION'):
     assert marker in membership,marker
 assert "get_user_meta($user_id, 'sn_phone_e164'" not in auth
+assert "'phone' => $can_see_phone ? mb_substr(sanitize_text_field((string) $projection['phone'])" in auth
+assert "'verified' => (bool) $projection['verified']" in auth
 for marker in ('SN_Central_Plan_Hardening::resolve_smail_conversation','SN_Message_Integrity::send_message','encrypted_payload LONGTEXT','smail.sent'):
     assert marker in smail,marker
 for marker in ('SN_Message_Runtime_Hardening::send_message','smail_projection_commit_failed','ERASE_BATCH'):
@@ -127,11 +131,12 @@ for marker in ('SNC3','SNC4','sn_network_communication_previous_secrets','needs_
 assert 'sodium_crypto_secretbox' in crypto and 'aes-256-gcm' in crypto and 'hash_equals' in crypto
 assert "PREFIX = 'SNE1:'" in body and 'SN_Communication_Crypto::encrypt' in body and 'SN_Communication_Crypto::decrypt' in body
 assert 'SN_Message_Body::encrypt' in integrity and 'SN_Message_Body::decrypt_row' in search
+assert 'SN_Message_Operations::is_hidden($viewer_id' in search and '$page_tail' in search
 assert "'notification_owner' => 'file-19'" in main and "'global_search_owner' => 'file-26'" in main and 'sn_network_notification_requested' in hard
 assert 'override_privacy_exporter' in compat and 'secure_forward_message' in compat and 'SN_Two_Plan_Completion::register()' in compat and 'SN_Two_Plan_Contract_Firewall::register()' in compat and 'SN_Two_Plan_Presentation::register()' in compat
 for marker in ('START TRANSACTION','SELECT GET_LOCK','contact_request_conflict','space_membership_managed'):
     assert marker in relationship,marker
-for marker in ('message_atomic_send_failed','SN_Message_Search::index_message','SN_Outbox::enqueue'):
+for marker in ('message_atomic_send_failed','SN_Message_Search::index_message','SN_Outbox::enqueue','caller-supplied message idempotency key'):
     assert marker in message_runtime,marker
 for marker in ('scanner_required','attachment_integrity_mismatch','voice_note_metadata_finalize_failed'):
     assert marker in attachment_runtime,marker
@@ -156,15 +161,16 @@ for marker in ('sn_network_e2ee_provider_status','sn_network_step_up_verified','
 assert "'exported_to_file26'=>false" in future and "'ai_owner'=>'file-16'" in future
 assert 'future/capabilities' in future_ui and 'future/reminders' in future_ui and 'future/templates' in future_ui
 assert 'caller-supplied message idempotency key' in fourth and 'sn_interop_reconciliation_required' in interop
-for class_name in ('SN_Fifth_Fresh_Privacy_Hardening','SN_Fifth_Fresh_Integration_Hardening','SN_Fifth_Fresh_Feature_Hardening','SN_Fifth_Fresh_Knowledge_Hardening','SN_Fifth_Fresh_Migration_Hardening','SN_Fifth_Fresh_UI_Hardening'):
+for class_name in ('SN_Fifth_Fresh_Privacy_Hardening','SN_Fifth_Fresh_Integration_Hardening','SN_Fifth_Fresh_Feature_Hardening','SN_Fifth_Fresh_Knowledge_Hardening','SN_Fifth_Fresh_Migration_Hardening','SN_Fifth_Fresh_UI_Hardening','SN_Sixth_Fresh_Privacy_Hardening'):
     assert class_name+'::register()' in fifth_loader,class_name
 assert "'sabri-network-transfers' => 'erase_transfers'" in fifth_privacy and "SN_DB::table('transfer_sessions')" in fifth_privacy
 assert 'context_attribution_erase_commit_failed' in fifth_integration and 'cf01_reference_erase_commit_failed' in fifth_integration
 assert 'transcript_cipher' in fifth_feature and 'migrate_legacy_voice_transcripts' in fifth_feature
 assert 'SN_Future24_Review_Hardening_G::ai_assistant' in fifth_knowledge and 'SN_Future24_Review_Hardening_G::semantic_search' in fifth_knowledge
-assert 'SELECT GET_LOCK' in fifth_migration and 'verify_schema()' in fifth_migration and 'restore_version_snapshot' in fifth_migration
-assert "wp_enqueue_style('sn-file17-brand-green')" in fifth_ui
-print('Private communication, current-plan, Future-24 and fifth-cycle invariants: PASS')
+assert 'SELECT GET_LOCK' in fifth_migration and 'verify_schema()' in fifth_migration and 'restore_version_snapshot' in fifth_migration and 'sn_meet_db_version' in fifth_migration
+assert "wp_enqueue_style('sn-file17-brand-green')" in fifth_ui and "get_query_var('sn_messages_app')" in fifth_ui
+assert 'if ($deleted !== 1)' in sixth_privacy and 'Message-version privacy erasure must be retried.' in sixth_privacy
+print('Private communication, current-plan, Future-24 and sixth-cycle invariants: PASS')
 PY
 
 echo '== Exact staged source manifest and reproducible package =='
