@@ -1,0 +1,1 @@
+Each round: complete review first; freeze all findings; correct that round completely; regression/retest; only then begin the next round.
