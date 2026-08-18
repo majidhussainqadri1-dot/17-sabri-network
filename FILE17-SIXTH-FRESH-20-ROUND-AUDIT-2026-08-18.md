@@ -45,6 +45,19 @@ Historical review findings were not counted as new findings unless independently
 | R19 | Network/Messages/Meet/Smail/transfer UI, exact Sabri Green, safe routes and accessibility | **Defect** | Standalone Messages and communication-settings routes (`sn_messages_app`) now receive the same File-17 brand/accessibility hardening as other File-17 surfaces. |
 | R20 | Release truth, complete test inventory, exact CI and deterministic package surfaces | **Defect** | Added the sixth-cycle permanent regression suite, restored two omitted fifth-cycle suites to the explicit quality inventory, required the sixth privacy runtime file in quality/package gates, and made both PHP 8.1 and PHP 8.3 paths execute the current closure suites. |
 
+## R20 exact-gate correction/retest sub-ledger
+
+R20's review was already complete before these corrections began. Exact-head CI was then used as the required retest and exposed additional release-gate regressions; each was corrected as part of R20 before another exact-head retest:
+
+1. PHP 8.1 rejected the migration governor's literal `true|WP_Error` return type; it was corrected to the PHP-8.1-compatible `bool|WP_Error` contract without weakening error semantics.
+2. The legacy transfer static suite still asserted contiguous `received_chunks` resume behavior after the implementation had correctly moved to sparse `received_indices`; the regression was updated to require exact missing-chunk resume.
+3. A historical brand regression still treated `#137A46` as primary; it was reconciled to the governing exact Sabri Green `#087A4E` while retaining Orange only as secondary accent.
+4. Historical release-truth tests still expected the older 48-suite inventory; they were made semantic and aligned to the current 53-suite gate without rewriting historical ledgers.
+5. The older activation regression expected direct schema-installer calls in `SN_Activator`; activation now truthfully documents that the serialized migration governor owns those ordered installers and version publication.
+6. Current coding-completeness evidence was restored with explicit implemented domains required by adversarial release tests: recipient/device receipts, secure indexed search, transactional outbox/inbox, communities/groups/channels/private teams, per-device presence, governed forwarding/mentions and provider-gated STUN/TURN/SFU governance.
+
+These are R20 correction/retest findings, not new review rounds and not a second count of the 20 reviews.
+
 ## Defect-round checkpoint
 
 **Defect-bearing rounds:** R2, R5, R6, R8, R9, R12, R18, R19, R20.  
