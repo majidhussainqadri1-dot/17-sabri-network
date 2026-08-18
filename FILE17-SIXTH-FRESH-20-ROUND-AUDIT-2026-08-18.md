@@ -43,7 +43,7 @@ Historical review findings were not counted as new findings unless independently
 | R17 | File-16 AI bridge, private semantic search, scholarly/case governance and interop | **Clean** | No new proved repository defect; final route ownership retains the strongest consent/visibility/provider governance. |
 | R18 | Activation, migration serialization, schema verification and rollback version truth | **Defect** | Migration rollback snapshot now includes the actual Sabri Meet option `sn_meet_db_version`, preventing false Meet version truth after migration failure. |
 | R19 | Network/Messages/Meet/Smail/transfer UI, exact Sabri Green, safe routes and accessibility | **Defect** | Standalone Messages and communication-settings routes (`sn_messages_app`) now receive the same File-17 brand/accessibility hardening as other File-17 surfaces. |
-| R20 | Release truth, complete test inventory, exact CI and deterministic package surfaces | **Defect** | Added the sixth-cycle permanent regression suite, restored two omitted fifth-cycle suites to the explicit quality inventory, required the sixth privacy runtime file in quality/package gates, and made both PHP 8.1 and PHP 8.3 paths execute the current closure suites. |
+| R20 | Release truth, complete test inventory, exact CI and deterministic package surfaces | **Defect** | Added the sixth-cycle permanent regression suite, restored omitted closure suites to the explicit quality inventory, required sixth-cycle runtime hardening in quality/package gates, and made both PHP 8.1 and PHP 8.3 paths execute current closure evidence. |
 
 ## R20 exact-gate correction/retest sub-ledger
 
@@ -53,8 +53,12 @@ R20's review was already complete before these corrections began. Exact-head CI 
 2. The legacy transfer static suite still asserted contiguous `received_chunks` resume behavior after the implementation had correctly moved to sparse `received_indices`; the regression was updated to require exact missing-chunk resume.
 3. A historical brand regression still treated `#137A46` as primary; it was reconciled to the governing exact Sabri Green `#087A4E` while retaining Orange only as secondary accent.
 4. Historical release-truth tests still expected the older 48-suite inventory; they were made semantic and aligned to the current 53-suite gate without rewriting historical ledgers.
-5. The older activation regression expected direct schema-installer calls in `SN_Activator`; activation now truthfully documents that the serialized migration governor owns those ordered installers and version publication.
+5. Older activation regressions expected direct schema-installer calls in `SN_Activator`; the tests now verify the serialized migration governor as the canonical installer/version publisher while activation retains storage/page/rewrite binding responsibilities.
 6. Current coding-completeness evidence was restored with explicit implemented domains required by adversarial release tests: recipient/device receipts, secure indexed search, transactional outbox/inbox, communities/groups/channels/private teams, per-device presence, governed forwarding/mentions and provider-gated STUN/TURN/SFU governance.
+7. The PHP 8.3 job had an unnecessary unconditional package-manager network step. The workflow now verifies preinstalled `zip`/`rsync` first and invokes apt only when actually missing, reducing release-gate infrastructure fragility without weakening package prerequisites.
+8. The sixth-cycle regression suite itself emitted PHP interpolation warnings despite returning PASS; the faulty assertion literal was corrected so a successful closure run is warning-free rather than merely exit-code green.
+9. Historical completion/activation architecture tests were reconciled with the migration-governor architecture instead of requiring duplicated direct installer calls that the current design intentionally removed.
+10. Exact-head CI is rerun after the final audit/test correction; only the immutable head carrying a successful PHP 8.1 job, successful PHP 8.3/full-quality job and uploaded deterministic package may be treated as the final automated-QA evidence for this cycle.
 
 These are R20 correction/retest findings, not new review rounds and not a second count of the 20 reviews.
 
