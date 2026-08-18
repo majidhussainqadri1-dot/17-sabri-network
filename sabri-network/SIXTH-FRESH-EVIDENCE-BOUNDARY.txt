@@ -1,0 +1,1 @@
+Exact final branch head must be green on attached GitHub Actions before this sixth cycle may be called Automated-QA Green. Deterministic package/hash evidence belongs to that same immutable head only. Repository evidence does not prove Hostinger staging, live deployment, live DB/schema/migration state, provider acceptance, browser/device/load acceptance, or operational status.
