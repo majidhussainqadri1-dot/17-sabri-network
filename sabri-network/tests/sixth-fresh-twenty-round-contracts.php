@@ -30,7 +30,7 @@ $check(str_contains($auth, "\$filtered['about']") && str_contains($auth, "\$filt
 
 // R5 — message retries must have a caller-owned stable identity.
 $check(str_contains($message, 'A caller-supplied message idempotency key is required.'), 'R5: canonical message send must require a caller-supplied idempotency key.');
-$check(!str_contains($message, "?: strtolower(wp_generate_uuid4())"), 'R5: canonical message send must not silently fabricate retry identity.');
+$check(!str_contains($message, '?: strtolower(wp_generate_uuid4())'), 'R5: canonical message send must not silently fabricate retry identity.');
 
 // R6 — hidden-for-self messages must stay hidden in private search and context.
 $check(substr_count($search, 'SN_Message_Operations::is_hidden($viewer_id') >= 3, 'R6: private search, target context and surrounding context must honor viewer-specific hidden state.');
@@ -43,7 +43,8 @@ $check(str_contains($transfer, '$stored === $requested') && str_contains($transf
 
 // R9 — Smail send retries must also use a caller-owned stable key.
 $check(str_contains($smail, 'A caller-supplied Smail idempotency key is required.'), 'R9: Smail send must require caller-supplied idempotency.');
-$check(!str_contains($smail, "$client_id = strtolower(trim((string) $request->get_param('client_id'))) ?: strtolower(wp_generate_uuid4())"), 'R9: Smail must not fabricate a retry identity.');
+$forbiddenSmailFallback = '$client_id = strtolower(trim((string) $request->get_param(\'client_id\'))) ?: strtolower(wp_generate_uuid4())';
+$check(!str_contains($smail, $forbiddenSmailFallback), 'R9: Smail must not fabricate a retry identity.');
 
 // R12 — privacy progress may never jump past a failed deletion.
 $check(str_contains($privacy, 'if ($deleted !== 1)') && str_contains($privacy, "return self::retry('Message-version privacy erasure must be retried.')"), 'R12: a failed Future message-version delete must return retryable failure.');
