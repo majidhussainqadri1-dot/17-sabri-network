@@ -10,6 +10,7 @@ final class SN_Activator {
         // Activation delegates all schema/version publication to the serialized
         // migration governor. Its verified order includes these historical direct
         // activation steps, now centrally owned rather than duplicated here:
+        // SN_Messages::install();
         // SN_Two_Plan_Completion::install();
         // SN_Future_Superset::install();
         // update_option('sn_plugin_version', SN_VERSION, false);
