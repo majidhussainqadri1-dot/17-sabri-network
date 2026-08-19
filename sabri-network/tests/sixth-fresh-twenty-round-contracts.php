@@ -1,5 +1,5 @@
 <?php
-/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R6 regressions. */
+/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R7 regressions. */
 declare(strict_types=1);
 $root = dirname(__DIR__);
 $fail = [];
@@ -53,6 +53,10 @@ $check(str_contains($compat, 'A caller-supplied valid idempotency key is require
 $check(str_contains($compat, 'return $source_id === $target_id;') && str_contains($compat, 'source_scope_hash'), 'Seventh R6: persistent forwarded source identity must not leak across conversations whose future audience can change.');
 $check(str_contains($messages, 'LIMIT 1 FOR UPDATE') && str_contains($messages, 'receipt_commit_failed') && str_contains($messages, 'Current authorization no longer permits this receipt update.'), 'Seventh R6: receipt writes must serialize current membership/target state and verify commit/authorization.');
 $check(str_contains($messages, 'SN_Membership_Assertions::clear_cache($user_id)') && str_contains($messages, '$access = SN_Policy::access()'), 'Seventh R6: receipt mutation must refresh File-00 assertions inside the serialized transaction.');
+
+// R7 — private 1GB transfer sessions must not be created against unusable storage.
+$check(str_contains($transfer, "if (!self::ensure_storage())") && str_contains($transfer, 'transfer_storage_unavailable'), 'Seventh R7: transfer initiation must fail closed before committing a session if protected storage is unavailable or unsafe.');
+$check(!str_contains($transfer, "self::ensure_storage();\n        if (\$event !== null)"), 'Seventh R7: storage readiness may not be a best-effort check after transfer/session commit.');
 
 // R8 — a transfer idempotency key is bound to the exact request semantics.
 $check(str_contains($transfer, 'A caller-supplied transfer idempotency key is required.'), 'R8: transfer initiation must require a caller-supplied retry key.');
