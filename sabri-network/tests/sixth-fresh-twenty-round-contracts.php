@@ -1,5 +1,5 @@
 <?php
-/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R5 regressions. */
+/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R6 regressions. */
 declare(strict_types=1);
 $root = dirname(__DIR__);
 $fail = [];
@@ -12,6 +12,8 @@ $check = static function (bool $ok, string $message) use (&$fail, &$checks): voi
 
 $auth = $read('includes/class-sn-auth.php');
 $message = $read('includes/class-sn-message-runtime-hardening.php');
+$messages = $read('includes/class-sn-messages.php');
+$compat = $read('includes/class-sn-compatibility-hardening.php');
 $search = $read('includes/class-sn-message-search.php');
 $transfer = $read('includes/class-sn-file-transfer-part-2.php');
 $smail = $read('includes/class-sn-smail-part-2.php');
@@ -44,9 +46,13 @@ $check(str_contains($message, 'request_fingerprint') && str_contains($message, '
 $check(str_contains($message, "hash_file('sha256'") && str_contains($message, 'attachment_sha256') && str_contains($message, 'attachment_size'), 'Seventh R5: message request fingerprint must bind attachment bytes/size when present.');
 $check(substr_count($message, 'reconcile_existing(') >= 3 && substr_count($message, '$fingerprint') >= 5, 'Seventh R5: both pre-existing and race duplicate reconciliation paths must compare the request fingerprint.');
 
-// R6 — hidden-for-self messages must stay hidden in private search and context.
+// R6 — hidden state, forwards and receipts must remain privacy/race safe.
 $check(substr_count($search, 'SN_Message_Operations::is_hidden($viewer_id') >= 3, 'R6: private search, target context and surrounding context must honor viewer-specific hidden state.');
 $check(str_contains($search, '$page_tail = $rows ? (int) end($rows)->id : 0;') && str_contains($search, "'before' => \$page_tail"), 'R6: search pagination must advance from the scanned page tail after visibility filtering.');
+$check(str_contains($compat, 'A caller-supplied valid idempotency key is required.') && !str_contains($compat, "$request->get_param('client_id'))) ?: wp_generate_uuid4()"), 'Seventh R6: secure forwards must require a caller-owned retry key instead of silently generating one.');
+$check(str_contains($compat, 'return $source_id === $target_id;') && str_contains($compat, 'source_scope_hash'), 'Seventh R6: persistent forwarded source identity must not leak across conversations whose future audience can change.');
+$check(str_contains($messages, 'LIMIT 1 FOR UPDATE') && str_contains($messages, 'receipt_commit_failed') && str_contains($messages, 'Current authorization no longer permits this receipt update.'), 'Seventh R6: receipt writes must serialize current membership/target state and verify commit/authorization.');
+$check(str_contains($messages, 'SN_Membership_Assertions::clear_cache($user_id)') && str_contains($messages, '$access = SN_Policy::access()'), 'Seventh R6: receipt mutation must refresh File-00 assertions inside the serialized transaction.');
 
 // R8 — a transfer idempotency key is bound to the exact request semantics.
 $check(str_contains($transfer, 'A caller-supplied transfer idempotency key is required.'), 'R8: transfer initiation must require a caller-supplied retry key.');
