@@ -1,108 +1,53 @@
 <?php
-/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R7 regressions. */
+/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R8 regressions. */
 declare(strict_types=1);
 $root = dirname(__DIR__);
 $fail = [];
 $checks = 0;
 $read = static fn(string $path): string => (string) file_get_contents($root . '/' . $path);
-$check = static function (bool $ok, string $message) use (&$fail, &$checks): void {
-    $checks++;
-    if (!$ok) $fail[] = $message;
-};
-
-$auth = $read('includes/class-sn-auth.php');
-$message = $read('includes/class-sn-message-runtime-hardening.php');
-$messages = $read('includes/class-sn-messages.php');
-$compat = $read('includes/class-sn-compatibility-hardening.php');
-$search = $read('includes/class-sn-message-search.php');
-$transfer = $read('includes/class-sn-file-transfer-part-2.php');
-$smail = $read('includes/class-sn-smail-part-2.php');
-$privacy = $read('includes/class-sn-sixth-fresh-privacy-hardening.php');
-$loader = $read('includes/class-sn-future24-review-hardening.php');
-$migration = $read('includes/class-sn-fifth-fresh-migration-hardening.php');
-$ui = $read('includes/class-sn-fifth-fresh-ui-hardening.php');
-$quality = $read('tools/quality-check.sh');
-$package = $read('tools/package.sh');
-$workflow = $read('../.github/workflows/quality.yml');
-$relationships = $read('includes/class-sn-relationships.php');
-$relationshipRuntime = $read('includes/class-sn-relationship-runtime-hardening.php');
-$spaces1 = $read('includes/class-sn-spaces-part-1.php');
-$spaces2 = $read('includes/class-sn-spaces-part-2.php');
-$spaces3 = $read('includes/class-sn-spaces-part-3.php');
-$spaces4 = $read('includes/class-sn-spaces-part-4.php');
-$spaces5 = $read('includes/class-sn-spaces-part-5.php');
-$spaces6 = $read('includes/class-sn-spaces-part-6.php');
-$spaces8 = $read('includes/class-sn-spaces-part-8.php');
-
-// R2 — File 03 presentation filters may not replace File 00/09 phone/verification truth.
-$check(str_contains($auth, "'phone' => \$can_see_phone ? mb_substr(sanitize_text_field((string) \$projection['phone'])"), 'R2: public-user phone must be emitted from the canonical File-00 projection, not a presentation filter.');
-$check(str_contains($auth, "'verified' => (bool) \$projection['verified']"), 'R2: verification truth must remain the canonical assertion after presentation enrichment.');
-$check(str_contains($auth, "\$filtered['about']") && str_contains($auth, "\$filtered['role_label']"), 'R2: File-03 enrichment remains limited to presentation fields where appropriate.');
-
-// R5 — message retries must have a caller-owned stable identity and exact request semantics.
-$check(str_contains($message, 'A caller-supplied message idempotency key is required.'), 'R5: canonical message send must require a caller-supplied idempotency key.');
-$check(!str_contains($message, '?: strtolower(wp_generate_uuid4())'), 'R5: canonical message send must not silently fabricate retry identity.');
-$check(str_contains($message, 'request_fingerprint') && str_contains($message, 'message_idempotency_conflict'), 'Seventh R5: a reused message idempotency key must be bound to exact request semantics and conflict on mismatch.');
-$check(str_contains($message, "hash_file('sha256'") && str_contains($message, 'attachment_sha256') && str_contains($message, 'attachment_size'), 'Seventh R5: message request fingerprint must bind attachment bytes/size when present.');
-$check(substr_count($message, 'reconcile_existing(') >= 3 && substr_count($message, '$fingerprint') >= 5, 'Seventh R5: both pre-existing and race duplicate reconciliation paths must compare the request fingerprint.');
-
-// R6 — hidden state, forwards and receipts must remain privacy/race safe.
-$check(substr_count($search, 'SN_Message_Operations::is_hidden($viewer_id') >= 3, 'R6: private search, target context and surrounding context must honor viewer-specific hidden state.');
-$check(str_contains($search, '$page_tail = $rows ? (int) end($rows)->id : 0;') && str_contains($search, "'before' => \$page_tail"), 'R6: search pagination must advance from the scanned page tail after visibility filtering.');
-$check(str_contains($compat, 'A caller-supplied valid idempotency key is required.') && !str_contains($compat, "$request->get_param('client_id'))) ?: wp_generate_uuid4()"), 'Seventh R6: secure forwards must require a caller-owned retry key instead of silently generating one.');
-$check(str_contains($compat, 'return $source_id === $target_id;') && str_contains($compat, 'source_scope_hash'), 'Seventh R6: persistent forwarded source identity must not leak across conversations whose future audience can change.');
-$check(str_contains($messages, 'LIMIT 1 FOR UPDATE') && str_contains($messages, 'receipt_commit_failed') && str_contains($messages, 'Current authorization no longer permits this receipt update.'), 'Seventh R6: receipt writes must serialize current membership/target state and verify commit/authorization.');
-$check(str_contains($messages, 'SN_Membership_Assertions::clear_cache($user_id)') && str_contains($messages, '$access = SN_Policy::access()'), 'Seventh R6: receipt mutation must refresh File-00 assertions inside the serialized transaction.');
-
-// R7 — private 1GB transfer sessions must not be created against unusable storage.
-$check(str_contains($transfer, "if (!self::ensure_storage())") && str_contains($transfer, 'transfer_storage_unavailable'), 'Seventh R7: transfer initiation must fail closed before committing a session if protected storage is unavailable or unsafe.');
-$check(!str_contains($transfer, "self::ensure_storage();\n        if (\$event !== null)"), 'Seventh R7: storage readiness may not be a best-effort check after transfer/session commit.');
-
-// R8 — a transfer idempotency key is bound to the exact request semantics.
-$check(str_contains($transfer, 'A caller-supplied transfer idempotency key is required.'), 'R8: transfer initiation must require a caller-supplied retry key.');
-$check(str_contains($transfer, 'same_initiation(') && str_contains($transfer, 'transfer_idempotency_conflict'), 'R8: replay must reject a key reused for different transfer semantics.');
-$check(str_contains($transfer, '$stored === $requested') && str_contains($transfer, '(int) $row->conversation_id === $conversation_id'), 'R8: duplicate reconciliation must bind exact recipients and conversation.');
-
-// R9 — Smail send retries must also use a caller-owned stable key.
-$check(str_contains($smail, 'A caller-supplied Smail idempotency key is required.'), 'R9: Smail send must require caller-supplied idempotency.');
-$forbiddenSmailFallback = '$client_id = strtolower(trim((string) $request->get_param(\'client_id\'))) ?: strtolower(wp_generate_uuid4())';
-$check(!str_contains($smail, $forbiddenSmailFallback), 'R9: Smail must not fabricate a retry identity.');
-
-// R12 — privacy progress may never jump past a failed deletion.
-$check(str_contains($privacy, 'if ($deleted !== 1)') && str_contains($privacy, "return self::retry('Message-version privacy erasure must be retried.')"), 'R12: a failed Future message-version delete must return retryable failure.');
-$failedPos = strpos($privacy, 'if ($deleted !== 1)');
-$cursorPos = strpos($privacy, 'update_option($cursor_key, $vid, false);', $failedPos === false ? 0 : $failedPos);
-$check($failedPos !== false && $cursorPos !== false && $failedPos < $cursorPos, 'R12: the Future privacy cursor must advance only after successful deletion.');
-$check(str_contains($loader, "class-sn-sixth-fresh-privacy-hardening.php") && str_contains($loader, 'SN_Sixth_Fresh_Privacy_Hardening::register()'), 'R12: sixth-cycle failure-safe privacy hardening must be loaded and registered.');
-
-// R18 — migration rollback must restore the actual Sabri Meet version option.
-$check(str_contains($migration, "'sn_meet_db_version'"), 'R18: migration version snapshot must include the actual Sabri Meet DB-version option.');
-
-// R19 — all standalone Messages surfaces receive exact brand/accessibility hardening.
-$check(str_contains($ui, "get_query_var('sn_messages_app')"), 'R19: standalone Messages/communication-settings routes must receive File-17 UI hardening.');
-
-// R20 — release gates must include the entire sixth-cycle correction and every test.
-$check(str_contains($quality, 'includes/class-sn-sixth-fresh-privacy-hardening.php'), 'R20: full quality required-source inventory must include sixth-cycle runtime hardening.');
-$check(str_contains($quality, 'fifth-fresh-closure-contracts.php') && str_contains($quality, 'fifth-fresh-release-truth-contracts.php') && str_contains($quality, 'sixth-fresh-twenty-round-contracts.php'), 'R20: full quality gate must invoke all late fifth-cycle tests plus the sixth-cycle regression suite.');
-$check(str_contains($package, 'includes/class-sn-sixth-fresh-privacy-hardening.php'), 'R20: installable package required-source inventory must include sixth-cycle runtime hardening.');
-$check(str_contains($workflow, 'run_test sixth-fresh-twenty-round-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-closure-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-release-truth-contracts.php'), 'R20: PHP 8.1 exact-head workflow must execute the complete current closure set.');
-$check(substr_count($workflow, 'sixth-fresh-twenty-round-contracts.php') >= 2, 'R20: sixth-cycle regression suite must run in both minimum and full-quality workflow paths.');
-
-// Seventh fresh cycle R3 — File 00 assertion snapshots must be refreshed after canonical relationship serialization.
-$check(str_contains($relationships, 'SN_Membership_Assertions::clear_cache()') && str_contains($relationships, 'SN_Policy::access()'), 'Seventh R3: canonical pair-lock mutations must refresh File-00 assertions after serialization.');
-$check(str_contains($relationshipRuntime, 'SN_Membership_Assertions::clear_cache()') && str_contains($relationshipRuntime, 'SN_Policy::access()'), 'Seventh R3: extended relationship locks must refresh File-00 assertions after serialization.');
-
-// Seventh fresh cycle R4 — space governance must bind authorization to current locked membership state.
-$check(str_contains($spaces8, 'assert_manage_locked') && str_contains($spaces8, 'role_can_manage'), 'Seventh R4: lock-current space-management authorization helpers must exist.');
-$check(str_contains($spaces1, '$parent_locked = self::space($parent_id, true)') && str_contains($spaces1, 'assert_manage_locked($parent_id, $actor'), 'Seventh R4: child-space creation must revalidate parent governance under lock.');
-$check(str_contains($spaces2, 'self::space($id,true)') && str_contains($spaces2, "assert_manage_locked(\$id,\$actor,'settings')"), 'Seventh R4: settings mutation must serialize version and manager authorization.');
-$check(substr_count($spaces3, "assert_manage_locked(\$space_id,\$actor,'members')") >= 2, 'Seventh R4: join decisions and invitations must revalidate current manager role under lock.');
-$check(str_contains($spaces4, "assert_manage_locked((int)\$invite->space_id,\$actor,'members')"), 'Seventh R4: manager invitation cancellation must revalidate under space lock.');
-$check(str_contains($spaces5, "assert_manage_locked(\$space_id,\$actor,'members')") && str_contains($spaces5, "assert_manage_locked(\$space_id,\$actor,'moderation')") && str_contains($spaces5, 'FOR UPDATE'), 'Seventh R4: member and moderation changes must bind authority/hierarchy to locked state.');
-$check(str_contains($spaces6, "assert_manage_locked(\$id,\$actor,'lifecycle')"), 'Seventh R4: lifecycle mutation must use current locked manager authority.');
-
-if ($fail) {
-    fwrite(STDERR, "Sixth/seventh regression contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
-    exit(1);
-}
-echo "Sixth + seventh regression contracts: PASS ($checks checks)\n";
+$check = static function (bool $ok, string $message) use (&$fail, &$checks): void {$checks++;if(!$ok)$fail[]=$message;};
+$auth=$read('includes/class-sn-auth.php');$message=$read('includes/class-sn-message-runtime-hardening.php');$messages=$read('includes/class-sn-messages.php');$compat=$read('includes/class-sn-compatibility-hardening.php');$realtime=$read('includes/class-sn-realtime-runtime-hardening.php');$search=$read('includes/class-sn-message-search.php');$transfer=$read('includes/class-sn-file-transfer-part-2.php');$smail=$read('includes/class-sn-smail-part-2.php');$privacy=$read('includes/class-sn-sixth-fresh-privacy-hardening.php');$loader=$read('includes/class-sn-future24-review-hardening.php');$migration=$read('includes/class-sn-fifth-fresh-migration-hardening.php');$ui=$read('includes/class-sn-fifth-fresh-ui-hardening.php');$quality=$read('tools/quality-check.sh');$package=$read('tools/package.sh');$workflow=$read('../.github/workflows/quality.yml');$relationships=$read('includes/class-sn-relationships.php');$relationshipRuntime=$read('includes/class-sn-relationship-runtime-hardening.php');$spaces1=$read('includes/class-sn-spaces-part-1.php');$spaces2=$read('includes/class-sn-spaces-part-2.php');$spaces3=$read('includes/class-sn-spaces-part-3.php');$spaces4=$read('includes/class-sn-spaces-part-4.php');$spaces5=$read('includes/class-sn-spaces-part-5.php');$spaces6=$read('includes/class-sn-spaces-part-6.php');$spaces8=$read('includes/class-sn-spaces-part-8.php');
+$check(str_contains($auth,"'phone' => \$can_see_phone ? mb_substr(sanitize_text_field((string) \$projection['phone'])"),'R2 canonical phone projection.');
+$check(str_contains($auth,"'verified' => (bool) \$projection['verified']"),'R2 canonical verification projection.');
+$check(str_contains($auth,"\$filtered['about']")&&str_contains($auth,"\$filtered['role_label']"),'R2 File-03 presentation scope.');
+$check(str_contains($message,'A caller-supplied message idempotency key is required.'),'R5 message caller idempotency.');
+$check(!str_contains($message,'?: strtolower(wp_generate_uuid4())'),'R5 no fabricated message retry key.');
+$check(str_contains($message,'request_fingerprint')&&str_contains($message,'message_idempotency_conflict'),'Seventh R5 exact message replay semantics.');
+$check(str_contains($message,"hash_file('sha256'")&&str_contains($message,'attachment_sha256')&&str_contains($message,'attachment_size'),'Seventh R5 attachment fingerprint.');
+$check(substr_count($message,'reconcile_existing(')>=3&&substr_count($message,'$fingerprint')>=5,'Seventh R5 duplicate paths bind fingerprint.');
+$check(substr_count($search,'SN_Message_Operations::is_hidden($viewer_id')>=3,'R6 hidden message search/context.');
+$check(str_contains($search,'$page_tail = $rows ? (int) end($rows)->id : 0;')&&str_contains($search,"'before' => \$page_tail"),'R6 visibility-safe pagination.');
+$check(str_contains($compat,'A caller-supplied valid idempotency key is required.')&&!str_contains($compat,"$request->get_param('client_id'))) ?: wp_generate_uuid4()"),'Seventh R6 stable forwarding retry key.');
+$check(str_contains($compat,'return $source_id === $target_id;')&&str_contains($compat,'source_scope_hash'),'Seventh R6 no cross-conversation source identity leak.');
+$check(str_contains($messages,'LIMIT 1 FOR UPDATE')&&str_contains($messages,'receipt_commit_failed')&&str_contains($messages,'Current authorization no longer permits this receipt update.'),'Seventh R6 serialized receipt writes.');
+$check(str_contains($messages,'SN_Membership_Assertions::clear_cache($user_id)')&&str_contains($messages,'$access = SN_Policy::access()'),'Seventh R6 current File-00 receipt authorization.');
+$check(str_contains($transfer,"if (!self::ensure_storage())")&&str_contains($transfer,'transfer_storage_unavailable'),'Seventh R7 storage fail-closed before session commit.');
+$check(!str_contains($transfer,"self::ensure_storage();\n        if (\$event !== null)"),'Seventh R7 no best-effort post-commit storage check.');
+$check(str_contains($compat,"require_once SN_DIR . 'includes/class-sn-realtime-runtime-hardening.php'")&&str_contains($compat,'SN_Realtime_Runtime_Hardening::register()'),'Seventh R8 serialized realtime runtime must be loaded and registered.');
+$check(str_contains($compat,'SN_Realtime_Runtime_Hardening::heartbeat($forward)')&&str_contains($compat,'SN_Realtime_Runtime_Hardening::aggregate($forward)'),'Seventh R8 legacy presence must use canonical serialized realtime wrappers.');
+$check(str_contains($realtime,'presence_lock($user)')&&str_contains($realtime,'SN_Relationships::pair_lock_name($viewer, $target)')&&substr_count($realtime,'SN_Policy::can_view_presence($viewer, $target)')>=2,'Seventh R8 heartbeat serialization and relationship-locked presence visibility.');
+$check(str_contains($transfer,'A caller-supplied transfer idempotency key is required.'),'Old R8 transfer caller retry key.');
+$check(str_contains($transfer,'same_initiation(')&&str_contains($transfer,'transfer_idempotency_conflict'),'Old R8 transfer replay semantics.');
+$check(str_contains($transfer,'$stored === $requested')&&str_contains($transfer,'(int) $row->conversation_id === $conversation_id'),'Old R8 exact transfer recipients/conversation.');
+$check(str_contains($smail,'A caller-supplied Smail idempotency key is required.'),'R9 Smail caller retry key.');
+$forbiddenSmailFallback='$client_id = strtolower(trim((string) $request->get_param(\'client_id\'))) ?: strtolower(wp_generate_uuid4())';$check(!str_contains($smail,$forbiddenSmailFallback),'R9 Smail no fabricated retry identity.');
+$check(str_contains($privacy,'if ($deleted !== 1)')&&str_contains($privacy,"return self::retry('Message-version privacy erasure must be retried.')"),'R12 privacy delete retry.');
+$failedPos=strpos($privacy,'if ($deleted !== 1)');$cursorPos=strpos($privacy,'update_option($cursor_key, $vid, false);',$failedPos===false?0:$failedPos);$check($failedPos!==false&&$cursorPos!==false&&$failedPos<$cursorPos,'R12 privacy cursor after successful delete.');
+$check(str_contains($loader,'class-sn-sixth-fresh-privacy-hardening.php')&&str_contains($loader,'SN_Sixth_Fresh_Privacy_Hardening::register()'),'R12 privacy hardening loaded.');
+$check(str_contains($migration,"'sn_meet_db_version'"),'R18 actual Meet DB version snapshot.');
+$check(str_contains($ui,"get_query_var('sn_messages_app')"),'R19 standalone Messages UI hardening.');
+$check(str_contains($quality,'includes/class-sn-sixth-fresh-privacy-hardening.php'),'R20 quality source inventory.');
+$check(str_contains($quality,'fifth-fresh-closure-contracts.php')&&str_contains($quality,'fifth-fresh-release-truth-contracts.php')&&str_contains($quality,'sixth-fresh-twenty-round-contracts.php'),'R20 quality late suites.');
+$check(str_contains($package,'includes/class-sn-sixth-fresh-privacy-hardening.php'),'R20 package source inventory.');
+$check(str_contains($workflow,'run_test sixth-fresh-twenty-round-contracts.php')&&str_contains($workflow,'run_test fifth-fresh-closure-contracts.php')&&str_contains($workflow,'run_test fifth-fresh-release-truth-contracts.php'),'R20 PHP 8.1 exact-head closure set.');
+$check(substr_count($workflow,'sixth-fresh-twenty-round-contracts.php')>=2,'R20 regression suite in minimum and full paths.');
+$check(str_contains($relationships,'SN_Membership_Assertions::clear_cache()')&&str_contains($relationships,'SN_Policy::access()'),'Seventh R3 canonical relationship lock refresh.');
+$check(str_contains($relationshipRuntime,'SN_Membership_Assertions::clear_cache()')&&str_contains($relationshipRuntime,'SN_Policy::access()'),'Seventh R3 extended relationship lock refresh.');
+$check(str_contains($spaces8,'assert_manage_locked')&&str_contains($spaces8,'role_can_manage'),'Seventh R4 locked space authorization helpers.');
+$check(str_contains($spaces1,'$parent_locked = self::space($parent_id, true)')&&str_contains($spaces1,'assert_manage_locked($parent_id, $actor'),'Seventh R4 child-space parent lock.');
+$check(str_contains($spaces2,'self::space($id,true)')&&str_contains($spaces2,"assert_manage_locked(\$id,\$actor,'settings')"),'Seventh R4 settings lock.');
+$check(substr_count($spaces3,"assert_manage_locked(\$space_id,\$actor,'members')")>=2,'Seventh R4 join/invite manager lock.');
+$check(str_contains($spaces4,"assert_manage_locked((int)\$invite->space_id,\$actor,'members')"),'Seventh R4 invite cancel manager lock.');
+$check(str_contains($spaces5,"assert_manage_locked(\$space_id,\$actor,'members')")&&str_contains($spaces5,"assert_manage_locked(\$space_id,\$actor,'moderation')")&&str_contains($spaces5,'FOR UPDATE'),'Seventh R4 member/moderation locks.');
+$check(str_contains($spaces6,"assert_manage_locked(\$id,\$actor,'lifecycle')"),'Seventh R4 lifecycle lock.');
+if($fail){fwrite(STDERR,"Sixth/seventh regression contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Sixth + seventh regression contracts: PASS ($checks checks)\n";
