@@ -72,8 +72,8 @@ final class SN_Compatibility_Hardening {
             || !SN_DB::is_member((int) $source_probe->conversation_id, $actor) || !SN_DB::is_member($target_id, $actor)) return self::not_found();
         if (!SN_Policy::consume_rate_limit('message_forward', (string) $actor, 60, MINUTE_IN_SECONDS)) return new WP_Error('sn_forward_rate_limited', 'Too many forwards were requested.', ['status' => 429]);
 
-        $client = strtolower(trim((string) $request->get_param('client_id'))) ?: wp_generate_uuid4();
-        if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client)) return new WP_Error('sn_forward_client_id_invalid', 'A valid idempotency key is required.', ['status' => 400]);
+        $client = strtolower(trim((string) $request->get_param('client_id')));
+        if ($client === '' || !preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client)) return new WP_Error('sn_forward_client_id_invalid', 'A caller-supplied valid idempotency key is required.', ['status' => 400]);
         $idem = hash('sha256', $actor . ':' . $target_id . ':forward:' . $source_id . ':' . $client);
         $existing = $wpdb->get_row($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE idempotency_key=%s', $idem));
         if ($existing) {
@@ -115,6 +115,9 @@ final class SN_Compatibility_Hardening {
             $stored = SN_Message_Body::encrypt($plain, $target_id, $actor); $plain = '';
             if (is_wp_error($stored)) throw new RuntimeException($stored->get_error_code());
 
+            // Persistent source identity is safe only when the source and destination
+            // are the same conversation. Cross-conversation audience membership can
+            // change later, so such forwards expose only an opaque scoped hash.
             $shared = self::target_audience_is_source_authorized((int) $source->conversation_id, $target_id);
             $source_hash = hash_hmac('sha256', $source_id . '|' . (int) $source->conversation_id . '|' . (string) $source->created_at, wp_salt('auth') . '|sn-forward-source-v1');
             $metadata = ['forwarded' => true, 'source_scope_hash' => $source_hash]; if ($shared) $metadata['source_message_id'] = $source_id;
@@ -160,7 +163,7 @@ final class SN_Compatibility_Hardening {
         return rest_ensure_response(['presence' => $presence, 'compatibility_only' => true, 'canonical_owner' => 'presence_devices']);
     }
 
-    private static function target_audience_is_source_authorized(int $source_id, int $target_id): bool { global $wpdb; $targets = array_map('intval', $wpdb->get_col($wpdb->prepare('SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND left_at IS NULL', $target_id))); if (!$targets) return false; foreach ($targets as $user_id) if (!SN_DB::is_member($source_id, $user_id)) return false; return true; }
+    private static function target_audience_is_source_authorized(int $source_id, int $target_id): bool { return $source_id === $target_id; }
     private static function legacy_device_id(int $user_id): string { $session = function_exists('wp_get_session_token') ? (string) wp_get_session_token() : ''; $material = $session !== '' ? $session : ('user:' . $user_id); return 'legacy-web-' . substr(hash_hmac('sha256', $material, wp_salt('auth')), 0, 32); }
     private static function not_found(): WP_Error { return new WP_Error('not_found', 'The requested object is unavailable.', ['status' => 404]); }
 }
