@@ -1,5 +1,5 @@
 <?php
-/** File 17 sixth fresh 20-round permanent repository regression contracts. */
+/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R4 lock-current authorization regressions. */
 declare(strict_types=1);
 $root = dirname(__DIR__);
 $fail = [];
@@ -22,6 +22,15 @@ $ui = $read('includes/class-sn-fifth-fresh-ui-hardening.php');
 $quality = $read('tools/quality-check.sh');
 $package = $read('tools/package.sh');
 $workflow = $read('../.github/workflows/quality.yml');
+$relationships = $read('includes/class-sn-relationships.php');
+$relationshipRuntime = $read('includes/class-sn-relationship-runtime-hardening.php');
+$spaces1 = $read('includes/class-sn-spaces-part-1.php');
+$spaces2 = $read('includes/class-sn-spaces-part-2.php');
+$spaces3 = $read('includes/class-sn-spaces-part-3.php');
+$spaces4 = $read('includes/class-sn-spaces-part-4.php');
+$spaces5 = $read('includes/class-sn-spaces-part-5.php');
+$spaces6 = $read('includes/class-sn-spaces-part-6.php');
+$spaces8 = $read('includes/class-sn-spaces-part-8.php');
 
 // R2 — File 03 presentation filters may not replace File 00/09 phone/verification truth.
 $check(str_contains($auth, "'phone' => \$can_see_phone ? mb_substr(sanitize_text_field((string) \$projection['phone'])"), 'R2: public-user phone must be emitted from the canonical File-00 projection, not a presentation filter.');
@@ -66,8 +75,21 @@ $check(str_contains($package, 'includes/class-sn-sixth-fresh-privacy-hardening.p
 $check(str_contains($workflow, 'run_test sixth-fresh-twenty-round-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-closure-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-release-truth-contracts.php'), 'R20: PHP 8.1 exact-head workflow must execute the complete current closure set.');
 $check(substr_count($workflow, 'sixth-fresh-twenty-round-contracts.php') >= 2, 'R20: sixth-cycle regression suite must run in both minimum and full-quality workflow paths.');
 
+// Seventh fresh cycle R3 — File 00 assertion snapshots must be refreshed after canonical relationship serialization.
+$check(str_contains($relationships, 'SN_Membership_Assertions::clear_cache()') && str_contains($relationships, 'SN_Policy::access()'), 'Seventh R3: canonical pair-lock mutations must refresh File-00 assertions after serialization.');
+$check(str_contains($relationshipRuntime, 'SN_Membership_Assertions::clear_cache()') && str_contains($relationshipRuntime, 'SN_Policy::access()'), 'Seventh R3: extended relationship locks must refresh File-00 assertions after serialization.');
+
+// Seventh fresh cycle R4 — space governance must bind authorization to current locked membership state.
+$check(str_contains($spaces8, 'assert_manage_locked') && str_contains($spaces8, 'role_can_manage'), 'Seventh R4: lock-current space-management authorization helpers must exist.');
+$check(str_contains($spaces1, '$parent_locked = self::space($parent_id, true)') && str_contains($spaces1, 'assert_manage_locked($parent_id, $actor'), 'Seventh R4: child-space creation must revalidate parent governance under lock.');
+$check(str_contains($spaces2, 'self::space($id,true)') && str_contains($spaces2, "assert_manage_locked(\$id,\$actor,'settings')"), 'Seventh R4: settings mutation must serialize version and manager authorization.');
+$check(substr_count($spaces3, "assert_manage_locked(\$space_id,\$actor,'members')") >= 2, 'Seventh R4: join decisions and invitations must revalidate current manager role under lock.');
+$check(str_contains($spaces4, "assert_manage_locked((int)\$invite->space_id,\$actor,'members')"), 'Seventh R4: manager invitation cancellation must revalidate under space lock.');
+$check(str_contains($spaces5, "assert_manage_locked(\$space_id,\$actor,'members')") && str_contains($spaces5, "assert_manage_locked(\$space_id,\$actor,'moderation')") && str_contains($spaces5, 'FOR UPDATE'), 'Seventh R4: member and moderation changes must bind authority/hierarchy to locked state.');
+$check(str_contains($spaces6, "assert_manage_locked(\$id,\$actor,'lifecycle')"), 'Seventh R4: lifecycle mutation must use current locked manager authority.');
+
 if ($fail) {
-    fwrite(STDERR, "Sixth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
+    fwrite(STDERR, "Sixth/seventh regression contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
 }
-echo "Sixth fresh 20-round contracts: PASS ($checks checks)\n";
+echo "Sixth + seventh regression contracts: PASS ($checks checks)\n";
