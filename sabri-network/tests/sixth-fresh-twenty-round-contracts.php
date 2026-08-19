@@ -1,5 +1,5 @@
 <?php
-/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R4 lock-current authorization regressions. */
+/** File 17 sixth fresh 20-round permanent repository regression contracts, extended with seventh-cycle R3-R5 regressions. */
 declare(strict_types=1);
 $root = dirname(__DIR__);
 $fail = [];
@@ -37,9 +37,12 @@ $check(str_contains($auth, "'phone' => \$can_see_phone ? mb_substr(sanitize_text
 $check(str_contains($auth, "'verified' => (bool) \$projection['verified']"), 'R2: verification truth must remain the canonical assertion after presentation enrichment.');
 $check(str_contains($auth, "\$filtered['about']") && str_contains($auth, "\$filtered['role_label']"), 'R2: File-03 enrichment remains limited to presentation fields where appropriate.');
 
-// R5 — message retries must have a caller-owned stable identity.
+// R5 — message retries must have a caller-owned stable identity and exact request semantics.
 $check(str_contains($message, 'A caller-supplied message idempotency key is required.'), 'R5: canonical message send must require a caller-supplied idempotency key.');
 $check(!str_contains($message, '?: strtolower(wp_generate_uuid4())'), 'R5: canonical message send must not silently fabricate retry identity.');
+$check(str_contains($message, 'request_fingerprint') && str_contains($message, 'message_idempotency_conflict'), 'Seventh R5: a reused message idempotency key must be bound to exact request semantics and conflict on mismatch.');
+$check(str_contains($message, "hash_file('sha256'") && str_contains($message, 'attachment_sha256') && str_contains($message, 'attachment_size'), 'Seventh R5: message request fingerprint must bind attachment bytes/size when present.');
+$check(substr_count($message, 'reconcile_existing(') >= 3 && substr_count($message, '$fingerprint') >= 5, 'Seventh R5: both pre-existing and race duplicate reconciliation paths must compare the request fingerprint.');
 
 // R6 — hidden-for-self messages must stay hidden in private search and context.
 $check(substr_count($search, 'SN_Message_Operations::is_hidden($viewer_id') >= 3, 'R6: private search, target context and surrounding context must honor viewer-specific hidden state.');
