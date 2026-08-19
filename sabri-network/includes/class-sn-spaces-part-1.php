@@ -81,16 +81,22 @@ trait SN_Spaces_Part_1 {
         $after = absint($request->get_param('after'));
         $type = sanitize_key((string)$request->get_param('type'));
         $type_sql = in_array($type,self::TYPES,true) ? $wpdb->prepare(' AND s.type=%s',$type) : '';
+        // Mirror can_view() in SQL so inaccessible closed rows cannot consume a page
+        // slot and make later discoverable spaces disappear from cursor traversal.
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT DISTINCT s.* FROM ".self::spaces_table()." s LEFT JOIN ".self::members_table()." m ON m.space_id=s.id AND m.user_id=%d AND m.status='active' WHERE s.id>%d AND s.state NOT IN ('deletion_requested') AND (s.visibility IN ('public','discoverable_private') OR m.id IS NOT NULL) $type_sql ORDER BY s.id ASC LIMIT %d",
+            "SELECT DISTINCT s.* FROM ".self::spaces_table()." s LEFT JOIN ".self::members_table()." m ON m.space_id=s.id AND m.user_id=%d AND m.status='active' WHERE s.id>%d AND s.state<>'deletion_requested' AND (m.id IS NOT NULL OR (s.state<>'closed' AND s.visibility IN ('public','discoverable_private'))) $type_sql ORDER BY s.id ASC LIMIT %d",
             $viewer,$after,$limit+1
         ));
-        $items=[];$next=null;
+        $accessible=[];
         foreach (is_array($rows)?$rows:[] as $row) {
-            if (!self::can_view($row,$viewer)) continue;
-            if (count($items)===$limit){$next=(int)$row->id;break;}
-            $items[]=self::format_space($row,$viewer);
+            if (self::can_view($row,$viewer)) $accessible[]=$row;
         }
+        $has_more=count($accessible)>$limit;
+        if($has_more)$accessible=array_slice($accessible,0,$limit);
+        $items=array_map(static fn($row)=>self::format_space($row,$viewer),$accessible);
+        // The cursor must be the last item actually returned. Using the first unseen
+        // row as an exclusive `after` cursor skips that row permanently.
+        $next=$has_more&&$accessible?(int)end($accessible)->id:null;
         return rest_ensure_response(['items'=>$items,'next_after'=>$next]);
     }
 
