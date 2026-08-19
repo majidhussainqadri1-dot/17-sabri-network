@@ -56,45 +56,65 @@ final class SN_Context_Adapters {
 
     public static function attach_context(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;$conversation=absint($request['id']);$actor=get_current_user_id();
-        if(!SN_DB::is_member($conversation,$actor))return self::not_found();
         $provider=sanitize_key((string)$request->get_param('provider'));if(!in_array($provider,self::PROVIDERS,true))return self::error('sn_context_provider_invalid','Select an approved context provider.',400);
         $object=self::opaque_id((string)$request->get_param('provider_object_id'));if($object==='')return self::error('sn_context_object_invalid','A valid opaque provider object reference is required.',400);
         $purpose=mb_substr(sanitize_text_field(wp_unslash((string)$request->get_param('purpose'))),0,80);
         $expires=self::expiry((string)$request->get_param('expires_at'));if(is_wp_error($expires))return $expires;
-        $authorization=apply_filters('sn_network_context_authorize',new WP_Error('sn_context_provider_unavailable','The context provider is unavailable.',['status'=>503]),$provider,$object,$conversation,$actor,'attach');
-        if(is_wp_error($authorization))return $authorization;if($authorization!==true)return self::error('sn_context_authorization_denied','The context provider denied this attachment.',403);
-        $projection=apply_filters('sn_network_context_projection',null,$provider,$object,$conversation,$actor);
-        $projection=self::validate_projection($projection);if(is_wp_error($projection))return $projection;
-        if($expires!==null&&strtotime($expires.' UTC')<=time())return self::error('sn_context_expired','An already-expired context cannot be attached.',410);
-        $count=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::table()." WHERE conversation_id=%d AND status='active'",$conversation));if($count>=self::MAX_CONTEXTS)return self::error('sn_context_limit','The conversation context limit has been reached.',409);
-        $now=self::now();$wpdb->query('START TRANSACTION');
+        $provider_version=self::version((string)$request->get_param('provider_version'));
+        $now=self::now();
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_context_attach_failed','The context transaction could not start.',500);
         try{
+            $conversation_row=$wpdb->get_row($wpdb->prepare('SELECT id,status FROM '.SN_DB::table('conversations').' WHERE id=%d FOR UPDATE',$conversation));
+            $member=$wpdb->get_row($wpdb->prepare('SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$conversation,$actor));
+            if(!$conversation_row||!$member||(string)$conversation_row->status!=='active'){$wpdb->query('ROLLBACK');return self::not_found();}
+            SN_Membership_Assertions::clear_cache($actor);$access=SN_Policy::access();if(is_wp_error($access)){$wpdb->query('ROLLBACK');return $access;}
+            $authorization=apply_filters('sn_network_context_authorize',new WP_Error('sn_context_provider_unavailable','The context provider is unavailable.',['status'=>503]),$provider,$object,$conversation,$actor,'attach');
+            if(is_wp_error($authorization)){$wpdb->query('ROLLBACK');return $authorization;}if($authorization!==true){$wpdb->query('ROLLBACK');return self::error('sn_context_authorization_denied','The context provider denied this attachment.',403);}
+            $projection=self::validate_projection(apply_filters('sn_network_context_projection',null,$provider,$object,$conversation,$actor));if(is_wp_error($projection)){$wpdb->query('ROLLBACK');return $projection;}
+            if($expires!==null&&strtotime($expires.' UTC')<=time()){$wpdb->query('ROLLBACK');return self::error('sn_context_expired','An already-expired context cannot be attached.',410);}
             $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE conversation_id=%d AND provider=%s AND provider_object_id=%s FOR UPDATE',$conversation,$provider,$object));
+            if(!$existing){$count=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::table()." WHERE conversation_id=%d AND status='active'",$conversation));if($count>=self::MAX_CONTEXTS){$wpdb->query('ROLLBACK');return self::error('sn_context_limit','The conversation context limit has been reached.',409);}}
             if($existing){
-                $changed=$wpdb->update(self::table(),['status'=>'active','provider_version'=>self::version((string)$request->get_param('provider_version')),'purpose'=>$purpose,'attached_by'=>$actor,'expires_at'=>$expires,'detached_at'=>null,'updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'version'=>(int)$existing->version]);if($changed!==1)throw new RuntimeException('context_update_conflict');$id=(int)$existing->id;$uuid=(string)$existing->context_uuid;
+                $changed=$wpdb->update(self::table(),['status'=>'active','provider_version'=>$provider_version,'purpose'=>$purpose,'attached_by'=>$actor,'expires_at'=>$expires,'detached_at'=>null,'updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'version'=>(int)$existing->version]);if($changed!==1)throw new RuntimeException('context_update_conflict');$id=(int)$existing->id;$uuid=(string)$existing->context_uuid;
             }else{
-                $uuid=wp_generate_uuid4();$ok=$wpdb->insert(self::table(),['context_uuid'=>$uuid,'conversation_id'=>$conversation,'provider'=>$provider,'provider_object_id'=>$object,'provider_version'=>self::version((string)$request->get_param('provider_version')),'purpose'=>$purpose,'status'=>'active','attached_by'=>$actor,'expires_at'=>$expires,'created_at'=>$now,'updated_at'=>$now]);if($ok===false)throw new RuntimeException('context_insert_failed');$id=(int)$wpdb->insert_id;
+                $uuid=wp_generate_uuid4();$ok=$wpdb->insert(self::table(),['context_uuid'=>$uuid,'conversation_id'=>$conversation,'provider'=>$provider,'provider_object_id'=>$object,'provider_version'=>$provider_version,'purpose'=>$purpose,'status'=>'active','attached_by'=>$actor,'expires_at'=>$expires,'created_at'=>$now,'updated_at'=>$now]);if($ok===false)throw new RuntimeException('context_insert_failed');$id=(int)$wpdb->insert_id;
             }
             $event=SN_Outbox::enqueue('conversation.context_attached','conversation',$conversation,['conversation_id'=>$conversation,'context_uuid'=>$uuid,'provider'=>$provider,'provider_object_hash'=>hash('sha256',$object),'expires_at'=>$expires],'conversation.context_attached:'.$uuid.':'.$now);
             if(is_wp_error($event))throw new RuntimeException($event->get_error_code());
             SN_DB::audit('conversation_context_attached','conversation',$conversation,'success',['context_uuid'=>$uuid,'provider'=>$provider,'provider_object_hash'=>hash('sha256',$object)],$actor);
             if($wpdb->query('COMMIT')===false)throw new RuntimeException('context_attach_commit_failed');
             return new WP_REST_Response(['context'=>self::format($id,$uuid,$provider,$object,$purpose,$expires,$projection)],201);
-        }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_context_attach_failed','The context and its event evidence could not be committed.',500);}
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('conversation_context_attach_failed','conversation',$conversation,'failure',['provider'=>$provider,'reason'=>$e->getMessage()],$actor);return self::error('sn_context_attach_failed','The context and its event evidence could not be committed.',500);}
     }
 
     public static function get_contexts(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        global $wpdb;$conversation=absint($request['id']);$viewer=get_current_user_id();if(!SN_DB::is_member($conversation,$viewer))return self::not_found();$now=self::now();
-        $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM ".self::table()." WHERE conversation_id=%d AND status='active' AND (expires_at IS NULL OR expires_at>%s) ORDER BY id ASC LIMIT %d",$conversation,$now,self::MAX_CONTEXTS));$items=[];
-        foreach(is_array($rows)?$rows:[] as $row){$auth=apply_filters('sn_network_context_authorize',new WP_Error('sn_context_provider_unavailable','The context provider is unavailable.',['status'=>503]),(string)$row->provider,(string)$row->provider_object_id,$conversation,$viewer,'read');if($auth!==true)continue;$projection=self::validate_projection(apply_filters('sn_network_context_projection',null,(string)$row->provider,(string)$row->provider_object_id,$conversation,$viewer));if(is_wp_error($projection))continue;$items[]=self::format((int)$row->id,(string)$row->context_uuid,(string)$row->provider,(string)$row->provider_object_id,(string)$row->purpose,$row->expires_at?(string)$row->expires_at:null,$projection);}
-        return rest_ensure_response(['items'=>$items]);
+        global $wpdb;$conversation=absint($request['id']);$viewer=get_current_user_id();$now=self::now();
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_context_read_failed','Conversation contexts are temporarily unavailable.',500);
+        try{
+            $conversation_row=$wpdb->get_row($wpdb->prepare('SELECT id,status FROM '.SN_DB::table('conversations').' WHERE id=%d FOR UPDATE',$conversation));
+            $member=$wpdb->get_row($wpdb->prepare('SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$conversation,$viewer));
+            if(!$conversation_row||!$member){$wpdb->query('ROLLBACK');return self::not_found();}
+            SN_Membership_Assertions::clear_cache($viewer);$access=SN_Policy::access();if(is_wp_error($access)){$wpdb->query('ROLLBACK');return $access;}
+            $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM ".self::table()." WHERE conversation_id=%d AND status='active' AND (expires_at IS NULL OR expires_at>%s) ORDER BY id ASC LIMIT %d",$conversation,$now,self::MAX_CONTEXTS));$items=[];
+            foreach(is_array($rows)?$rows:[] as $row){$auth=apply_filters('sn_network_context_authorize',new WP_Error('sn_context_provider_unavailable','The context provider is unavailable.',['status'=>503]),(string)$row->provider,(string)$row->provider_object_id,$conversation,$viewer,'read');if($auth!==true)continue;$projection=self::validate_projection(apply_filters('sn_network_context_projection',null,(string)$row->provider,(string)$row->provider_object_id,$conversation,$viewer));if(is_wp_error($projection))continue;$items[]=self::format((int)$row->id,(string)$row->context_uuid,(string)$row->provider,(string)$row->provider_object_id,(string)$row->purpose,$row->expires_at?(string)$row->expires_at:null,$projection);}
+            if($wpdb->query('COMMIT')===false)throw new RuntimeException('context_read_commit_failed');
+            return rest_ensure_response(['items'=>$items]);
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_context_read_failed','Conversation contexts are temporarily unavailable.',500);}
     }
 
     public static function detach_context(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        global $wpdb;$uuid=strtolower((string)$request['uuid']);$actor=get_current_user_id();$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE context_uuid=%s',$uuid));if(!$row||!SN_DB::is_member((int)$row->conversation_id,$actor))return self::not_found();
-        $auth=apply_filters('sn_network_context_authorize',new WP_Error('sn_context_provider_unavailable','The context provider is unavailable.',['status'=>503]),(string)$row->provider,(string)$row->provider_object_id,(int)$row->conversation_id,$actor,'detach');if(is_wp_error($auth))return $auth;if($auth!==true&&$actor!==(int)$row->attached_by)return self::error('sn_context_detach_forbidden','This context cannot be detached by the current account.',403);
-        if((string)$row->status!=='active')return rest_ensure_response(['status'=>(string)$row->status]);$now=self::now();$wpdb->query('START TRANSACTION');
-        try{$changed=$wpdb->update(self::table(),['status'=>'detached','detached_at'=>$now,'updated_at'=>$now,'version'=>(int)$row->version+1],['id'=>(int)$row->id,'status'=>'active','version'=>(int)$row->version]);if($changed!==1)throw new RuntimeException('context_detach_conflict');$event=SN_Outbox::enqueue('conversation.context_detached','conversation',(int)$row->conversation_id,['conversation_id'=>(int)$row->conversation_id,'context_uuid'=>$uuid,'provider'=>(string)$row->provider],'conversation.context_detached:'.$uuid);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());SN_DB::audit('conversation_context_detached','conversation',(int)$row->conversation_id,'success',['context_uuid'=>$uuid,'provider'=>(string)$row->provider],$actor);if($wpdb->query('COMMIT')===false)throw new RuntimeException('context_detach_commit_failed');return rest_ensure_response(['status'=>'detached']);}catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_context_detach_failed','The context detachment could not be committed.',500);}
+        global $wpdb;$uuid=strtolower((string)$request['uuid']);$actor=get_current_user_id();$probe=$wpdb->get_row($wpdb->prepare('SELECT conversation_id FROM '.self::table().' WHERE context_uuid=%s',$uuid));if(!$probe)return self::not_found();$conversation=(int)$probe->conversation_id;$now=self::now();
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_context_detach_failed','The context detachment could not start.',500);
+        try{
+            $conversation_row=$wpdb->get_row($wpdb->prepare('SELECT id,status FROM '.SN_DB::table('conversations').' WHERE id=%d FOR UPDATE',$conversation));
+            $member=$wpdb->get_row($wpdb->prepare('SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$conversation,$actor));
+            $row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE context_uuid=%s FOR UPDATE',$uuid));
+            if(!$conversation_row||!$member||!$row||(int)$row->conversation_id!==$conversation){$wpdb->query('ROLLBACK');return self::not_found();}
+            SN_Membership_Assertions::clear_cache($actor);$access=SN_Policy::access();if(is_wp_error($access)){$wpdb->query('ROLLBACK');return $access;}
+            $auth=apply_filters('sn_network_context_authorize',new WP_Error('sn_context_provider_unavailable','The context provider is unavailable.',['status'=>503]),(string)$row->provider,(string)$row->provider_object_id,$conversation,$actor,'detach');if(is_wp_error($auth)){$wpdb->query('ROLLBACK');return $auth;}if($auth!==true&&$actor!==(int)$row->attached_by){$wpdb->query('ROLLBACK');return self::error('sn_context_detach_forbidden','This context cannot be detached by the current account.',403);}
+            if((string)$row->status!=='active'){if($wpdb->query('COMMIT')===false)throw new RuntimeException('context_detach_read_commit_failed');return rest_ensure_response(['status'=>(string)$row->status]);}
+            $changed=$wpdb->update(self::table(),['status'=>'detached','detached_at'=>$now,'updated_at'=>$now,'version'=>(int)$row->version+1],['id'=>(int)$row->id,'status'=>'active','version'=>(int)$row->version]);if($changed!==1)throw new RuntimeException('context_detach_conflict');$event=SN_Outbox::enqueue('conversation.context_detached','conversation',$conversation,['conversation_id'=>$conversation,'context_uuid'=>$uuid,'provider'=>(string)$row->provider],'conversation.context_detached:'.$uuid);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());SN_DB::audit('conversation_context_detached','conversation',$conversation,'success',['context_uuid'=>$uuid,'provider'=>(string)$row->provider],$actor);if($wpdb->query('COMMIT')===false)throw new RuntimeException('context_detach_commit_failed');return rest_ensure_response(['status'=>'detached']);
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_context_detach_failed','The context detachment could not be committed.',500);}
     }
 
     public static function cleanup(): void {global $wpdb;$now=self::now();$wpdb->query($wpdb->prepare("UPDATE ".self::table()." SET status='expired',updated_at=%s,version=version+1 WHERE status='active' AND expires_at IS NOT NULL AND expires_at<=%s LIMIT 500",$now,$now));}
