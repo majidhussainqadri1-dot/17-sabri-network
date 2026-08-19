@@ -326,6 +326,12 @@ final class SN_Relationship_Runtime_Hardening {
                 if ($ok !== 1) return new WP_Error('relationship_busy','This relationship is changing. Try again.',['status'=>409]);
                 $held[] = $lock;
             }
+            // Permission callbacks run before this serialized mutation section.
+            // Discard any assertion snapshot they populated and re-check File 00
+            // only after all relationship/conversation locks are held.
+            SN_Membership_Assertions::clear_cache();
+            $access = SN_Policy::access();
+            if (is_wp_error($access)) return $access;
             return $callback();
         } finally {
             foreach (array_reverse($held) as $lock) $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));
