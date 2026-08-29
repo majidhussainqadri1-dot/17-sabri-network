@@ -154,7 +154,7 @@ final class SN_Compatibility_Hardening {
     }
 
     public static function legacy_heartbeat(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        $user_id = get_current_user_id(); $status = sanitize_key((string) $request->get_param('status')); if (!in_array($status, ['online', 'away', 'offline'], true)) $status = 'online';
+        $user_id = get_current_user_id(); $status = sanitize_key((string) $request->get_param('status')); if (!in_array($status, ['online', 'away', 'dnd', 'offline'], true)) return new WP_Error('sn_presence_state_invalid', 'Choose online, away, dnd, or offline.', ['status' => 400]);
         $forward = new WP_REST_Request('POST', '/sabri-network/v2/presence/devices/heartbeat'); $forward->set_param('device_id', self::legacy_device_id($user_id)); $forward->set_param('state', $status); $forward->set_param('ttl', $status === 'offline' ? 30 : 90); $forward->set_param('label', 'Compatibility web session'); $forward->set_param('capabilities', ['realtime']);
         $response = SN_Realtime_Runtime_Hardening::heartbeat($forward); if (is_wp_error($response)) return $response; $data = $response->get_data(); return rest_ensure_response(['presence' => ['user_id' => $user_id, 'status' => $status, 'last_seen_at' => current_time('mysql', true), 'expires_at' => (string) ($data['expires_at'] ?? '')], 'compatibility_only' => true, 'canonical_owner' => 'presence_devices']);
     }
