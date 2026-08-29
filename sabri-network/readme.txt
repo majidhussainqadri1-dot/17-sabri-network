@@ -15,12 +15,12 @@ Identity/authentication/verification remain File 00/File 02 authority. File 19 o
 
 Private message bodies use authenticated server-side encryption at rest, not an audited E2EE claim. Durable File-17 ciphertext uses a dedicated communication master secret. Provider-dependent translation, AI, interoperability and real STUN/TURN/SFU remain fail-closed until approved adapters and separate staging acceptance exist.
 
-== Seventh fresh review cycle ==
-The seventh fresh 20-round sequential review completed each review before freezing and correcting that round's defects, then ran regression/retest before the next round.
+== Eighth fresh review cycle ==
+The eighth fresh 20-round sequential review started from exact seventh-cycle green repository head f3820dfb49021617c4199b1860cd8dc353a5edac. Each review was completed before that round's findings were frozen and corrected; regression/retest completed before the next round started.
 
-Defect rounds: R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20. Clean rounds: R1, R2, R10, R12. First-ten defect rounds: R3, R4, R5, R6, R7, R8, R9.
+Defect rounds: R1, R3, R4, R5, R6, R10, R13, R14, R16, R20. Clean rounds: R2, R7, R8, R9, R11, R12, R15, R17, R18, R19. First-ten defect rounds: R1, R3, R4, R5, R6, R10.
 
-The current explicit QA gate contains 53 PHP review suites and 9 JavaScript syntax entry points. Current hardening includes current-lock authorization, exact message/forwarding/Smail replay semantics, receipt/presence/transfer concurrency, protected transfer storage, approved SFU/provider semantics, legal-hold privacy safety, discovery/context consistency, migration truth, accessible modal focus restoration and release-truth synchronization.
+The current explicit QA gate contains 54 PHP review suites and 9 JavaScript syntax entry points. Current hardening includes idempotent realtime registration, block-direction privacy, fail-closed space actions, canonical message-type validation, visibility-safe pagination, presence-state validation, exact report replay semantics, exact HTTPS context-origin enforcement, active context/CF-01 migration-schema verification and current release-truth synchronization.
 
 == Installation ==
 Install and test on staging. Connect current identity authority, private storage, approved malware/media scanner, File 19 notification fabric, File 20 shell, File 26 federated-search consumer where applicable, approved translation/call/AI/interoperability providers and accepted companion contracts. Complete fresh-install/upgrade/migration, restore/decrypt/key-rotation, rollback, security/privacy, accessibility, real-role, browser/device, load and backup/restore acceptance before live deployment.
@@ -28,8 +28,8 @@ Install and test on staging. Connect current identity authority, private storage
 == Changelog ==
 = 2.1.0 =
 * Current repository corrective line for the governing central plan, File 17 plan and approved Future Communication Superset 24.
-* Seventh fresh 20-round sequential review closed repository defects in authorization/concurrency, exact retry identity, transfer/storage/provider safety, legal-hold privacy, discovery/context behavior, migration truth, accessibility and release evidence.
-* Current explicit quality inventory: 53 PHP review suites plus 9 JavaScript syntax entry points, deterministic source manifest and byte-for-byte package reproduction.
+* Eighth fresh 20-round sequential review closed repository defects in registration, privacy, validation, pagination, concurrency/replay, origin safety, migration truth and release evidence.
+* Current explicit quality inventory: 54 PHP review suites plus 9 JavaScript syntax entry points, deterministic source manifest and byte-for-byte package reproduction.
 
 = 2.0.3 =
 * Historical forty-round corrective line; see repository audit ledger for its exact evidence.
