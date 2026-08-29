@@ -81,3 +81,5 @@ jobs:
           git diff --cached --check
           git commit -m 'R14: revalidate CF01 issuance inside locked transaction'
           git push origin HEAD:review/file17-ninth-fresh-20-round-2026-08-29
+
+# retrigger after workflow became branch-visible
