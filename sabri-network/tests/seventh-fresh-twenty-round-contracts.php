@@ -15,6 +15,7 @@ $search = $read('includes/class-sn-message-search.php');
 $attachment = $read('includes/class-sn-attachment-runtime-hardening.php');
 $transferPrivacy = $read('includes/class-sn-file-transfer-part-8.php');
 $fifthPrivacy = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
+$callRuntime = $read('includes/class-sn-call-runtime-hardening.php');
 
 // R5 — a caller-owned message retry key must also be bound to exact request semantics.
 $check(str_contains($message, "'_idempotency_fingerprint'"), 'R5: canonical messages must persist a request-semantic idempotency fingerprint.');
@@ -49,6 +50,14 @@ $baseDonePos = strpos($fifthPrivacy, "if (empty(\$base['done'])) return \$base;"
 $anonymizePos = strpos($fifthPrivacy, "sender_id=0", $baseDonePos === false ? 0 : $baseDonePos);
 $check($baseDonePos !== false && $anonymizePos !== false && $baseDonePos < $anonymizePos, 'R8: higher-level transfer anonymization must wait for canonical byte-erasure completion.');
 $check(str_contains($transferPrivacy, 'higher-level anonymization must not sever the user link'), 'R8: the retryability/linkage invariant must be explicit in the transfer privacy implementation.');
+
+// R9 — call/Meet protected reads, request idempotency and privacy erasure must revalidate current truth.
+$check(str_contains($callRuntime, 'validate_meeting_idempotency_reuse') && str_contains($callRuntime, 'sn_meet_idempotency_conflict'), 'R9: meeting idempotency-key reuse must be rejected when the retried meeting semantics differ.');
+$check(str_contains($callRuntime, "hash_equals((string)\$row->title, \$title)") && str_contains($callRuntime, "(int)\$row->conversation_id === \$conversation") && str_contains($callRuntime, "(int)\$row->participant_limit === \$limit"), 'R9: meeting idempotency comparison must bind identity to material title/conversation/limit settings.');
+$check(str_contains($callRuntime, 'guard_protected_reads') && str_contains($callRuntime, "meetings/([A-Za-z0-9_-]{22,64})/(participants|signals)") && str_contains($callRuntime, "calls/(\\d+)/signals"), 'R9: protected call/Meet GET reads must pass a current authorization boundary.');
+$check(str_contains($callRuntime, 'SN_Membership_Assertions::clear_cache($actor)') && str_contains($callRuntime, "SN_DB::is_blocked(\$actor, (int)\$meeting->host_id)"), 'R9: protected Meet reads must revalidate File-00 eligibility and live block state.');
+$check(str_contains($callRuntime, 'override_meet_privacy_eraser') && str_contains($callRuntime, 'meet_privacy_erase_retry_safe'), 'R9: the registered Meet privacy eraser must be wrapped by a retry-safe completion boundary.');
+$check(str_contains($callRuntime, "\$result['done'] = false") && str_contains($callRuntime, "failed and must be retried"), 'R9: operational Meet erasure failure must keep WordPress privacy retry alive.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
