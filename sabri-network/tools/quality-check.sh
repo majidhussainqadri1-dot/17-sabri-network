@@ -22,7 +22,7 @@ required=(
   includes/class-sn-fifth-fresh-privacy-hardening.php includes/class-sn-fifth-fresh-integration-hardening.php
   includes/class-sn-fifth-fresh-feature-hardening.php includes/class-sn-fifth-fresh-knowledge-hardening.php
   includes/class-sn-fifth-fresh-migration-hardening.php includes/class-sn-fifth-fresh-ui-hardening.php
-  includes/class-sn-sixth-fresh-privacy-hardening.php
+  includes/class-sn-sixth-fresh-privacy-hardening.php includes/class-sn-ninth-fresh-hardening.php
   templates/network-standalone.php templates/messages-standalone.php templates/meet-app.php templates/smail-app.php templates/file-transfer-app.php
   assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js
   assets/css/network.css assets/css/messages.css assets/css/meet.css assets/css/message-search.css assets/css/smail.css assets/css/file-transfer.css assets/css/brand-green-overrides.css assets/css/two-plan-ui.css assets/css/future-superset.css
@@ -66,7 +66,7 @@ tests=(
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
  two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php fourth-fresh-twenty-round-contracts.php
  fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php fifth-fresh-closure-contracts.php fifth-fresh-release-truth-contracts.php
- sixth-fresh-twenty-round-contracts.php eighth-fresh-twenty-round-contracts.php
+ sixth-fresh-twenty-round-contracts.php eighth-fresh-twenty-round-contracts.php ninth-fresh-twenty-round-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)

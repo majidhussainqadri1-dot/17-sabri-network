@@ -8,32 +8,38 @@ File 17 — Sabri Network and Messages 2.1.0
 3) Earlier review ledgers are historical evidence only for their own exact commits.
 
 Specified: current governing-plan File-17 repository scope is traceable.
-Coded Candidate: 2.1.0 current eighth fresh corrective source.
+Coded Candidate: 2.1.0 current ninth fresh corrective source.
 Packaged: deterministic 2.1.0 ZIP + generated source manifest only when produced by the exact-head workflow.
-Automated QA: current explicit gate covers 54 PHP review suites, PHP 8.1/8.3 jobs, 9 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates.
+Automated QA: current explicit gate covers 55 PHP review suites, PHP 8.1/8.3 jobs, 9 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates.
 Historical prior-cycle inventory only: 47 explicit PHP review suites and 8 JavaScript syntax checks; retained solely for attribution and not current QA truth.
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-Eighth fresh 20-round sequential cycle:
-- Baseline: exact seventh-cycle green repository head f3820dfb49021617c4199b1860cd8dc353a5edac; historical seventh-cycle evidence remains valid only for its own exact commit.
+Ninth fresh 20-round sequential cycle:
+- Baseline: exact eighth-cycle green repository head f3571551075db417254511b4a7f2c45ff1239ff7; historical eighth-cycle evidence remains valid only for its own exact commit.
 - Review method: complete review round -> frozen defect ledger -> fix every proved defect -> regression/retest -> only then next round.
-- Defect rounds: R1, R3, R4, R5, R6, R10, R13, R14, R16, R20.
-- Clean rounds: R2, R7, R8, R9, R11, R12, R15, R17, R18, R19.
-- First-ten defect rounds: R1, R3, R4, R5, R6, R10.
-- Current eighth-cycle regression protection is retained in eighth-fresh-twenty-round-contracts.php.
-- Final exact SHA/run/package evidence is established only after the final eighth-cycle head itself completes attached CI; prior runs/hashes are not reused.
+- Defect rounds: R1, R2, R4, R5, R7, R9, R10, R11, R12, R14, R16, R17, R19, R20.
+- Clean rounds: R3, R6, R8, R13, R15, R18.
+- First-ten defect rounds: R1, R2, R4, R5, R7, R9, R10.
+- Current ninth-cycle regression protection is retained in ninth-fresh-twenty-round-contracts.php.
+- Final exact SHA/run/package evidence is established only after the final ninth-cycle head itself completes attached CI; prior runs/hashes are not reused.
 
-Current eighth-cycle corrections include:
-- idempotent nested realtime/call hardening registration;
-- target-owned block-direction privacy protection;
-- fail-closed unknown space governance actions and canonical message types;
-- viewer-hidden-row-safe message pagination and explicit presence-state validation;
-- serialized native report creation with exact content/evidence replay binding;
-- exact HTTPS same-origin context projection including origin port and no URL credentials;
-- migration verification aligned to active context-adapter and CF-01 schema columns;
-- executable quality/workflow inventory and current release surfaces synchronized to the eighth cycle.
+Current ninth-cycle corrections include:
+- R1 made activation fail closed through the serialized migration governor and verified owned pages/private storage.
+- R2 bound self-only identity projection to the actual viewer and kept phone/verification canonical.
+- R4 closed unsafe space transaction/authorization boundaries.
+- R5 made canonical message edit/delete use locked current authorization and atomic search/outbox mutation.
+- R7 routed voice-note creation through canonical message send and protected metadata finalization.
+- R9 made Sabri Meet/provider mutation transaction boundaries fail closed.
+- R10 made typing clear/read database failures explicit.
+- R11 preserved Sabri Meet erasure retry semantics under the correct privacy-erasure key.
+- R12 restored caller-owned exact Smail replay binding.
+- R14 revalidated CF01 membership/access/issuer/consent inside the locked issuance transaction.
+- R16 expanded the central schema verifier to Message Operations and Sabri Meet owned tables.
+- R17 prevented focus restoration from escaping behind replacement modals.
+- R19 made legacy presence preserve `dnd` and reject unknown states.
+- R20 added ninth permanent regression coverage, 55-suite QA, explicit ninth runtime package governance and synchronized release truth.
 
 Current coded domains continue to include: one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
 

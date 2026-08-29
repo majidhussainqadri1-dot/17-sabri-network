@@ -7,7 +7,28 @@
 - File 00/02 identity, File 19 notification, File 20 shell, File 24 assurance, File 25 presentation, File 26 global-search and native clinical owners remain separate authorities.
 - Fresh review cycles are independently counted; a historical green SHA/run is never reused as current evidence.
 
-### Eighth-fresh closure — 20 sequential rounds
+### Ninth-fresh closure — 20 sequential rounds
+- Baseline: exact eighth-cycle green repository head `f3571551075db417254511b4a7f2c45ff1239ff7`.
+- Mandatory order preserved in every round: full review -> frozen findings -> correction -> regression/retest -> next round.
+- Defect rounds: **R1, R2, R4, R5, R7, R9, R10, R11, R12, R14, R16, R17, R19, R20**.
+- Clean rounds: **R3, R6, R8, R13, R15, R18**.
+- First-ten defect rounds: **R1, R2, R4, R5, R7, R9, R10**.
+- R1 made activation fail closed through the serialized migration governor and verified owned pages/private storage.
+- R2 bound self-only identity projection to the actual viewer and kept phone/verification canonical.
+- R4 closed unsafe space transaction/authorization boundaries.
+- R5 made canonical message edit/delete use locked current authorization and atomic search/outbox mutation.
+- R7 routed voice-note creation through canonical message send and protected metadata finalization.
+- R9 made Sabri Meet/provider mutation transaction boundaries fail closed.
+- R10 made typing clear/read database failures explicit.
+- R11 preserved Sabri Meet erasure retry semantics under the correct privacy-erasure key.
+- R12 restored caller-owned exact Smail replay binding.
+- R14 revalidated CF01 membership/access/issuer/consent inside the locked issuance transaction.
+- R16 expanded the central schema verifier to Message Operations and Sabri Meet owned tables.
+- R17 prevented focus restoration from escaping behind replacement modals.
+- R19 made legacy presence preserve `dnd` and reject unknown states.
+- R20 added ninth permanent regression coverage, 55-suite QA, explicit ninth runtime package governance and synchronized release truth.
+
+### Historical Eighth-fresh closure — 20 sequential rounds
 - Every round completed its full review before findings were frozen; all proved defects were then corrected and regression/retested before the next round began.
 - Baseline: exact seventh-cycle green repository head `f3820dfb49021617c4199b1860cd8dc353a5edac`.
 - Defect rounds: **R1, R3, R4, R5, R6, R10, R13, R14, R16, R20**.
@@ -25,7 +46,7 @@
 - R20 wired the eighth regression suite into all executable gates and synchronized current QA/release evidence.
 
 ### Current quality and release truth
-- Current explicit full quality inventory is **54 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current explicit full quality inventory is **55 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
 - Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
 - Current cycle/package identity is carried by `REVIEW-CYCLE-ID.txt`, `CURRENT-CANDIDATE-BOUNDARY.txt`, `QA-INVENTORY.txt`, `SYSTEM-STATUS.txt` and `NO-LIVE-CLAIM.txt`.
 - Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.

@@ -3,43 +3,47 @@
 **Assessment target:** Sabri Network and Messages 2.1.0  
 **Governing audit set:** current consolidated central governing plan + current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24  
 **Assessment date:** 29 August 2026  
-**Coding classification:** **repository-owned/current-wave eighth fresh 20-round corrective candidate; staging/live/operational completion is not claimed**
+**Coding classification:** **repository-owned/current-wave ninth fresh 20-round corrective candidate; staging/live/operational completion is not claimed**
 
 This document records repository implementation evidence only. It does not establish real provider acceptance, staging acceptance, live deployment, database/migration parity or operational readiness. Exact-commit GitHub Actions is evidence only for the exact commit on which it runs. Historical prior-cycle reviews, hashes and CI runs remain attributable only to their own immutable commits and are not reused as current proof.
 
-## Eighth fresh sequential method
+## Ninth fresh sequential method
 
-The eighth fresh cycle started from exact seventh-cycle green repository head `f3820dfb49021617c4199b1860cd8dc353a5edac`. Each round followed the mandated order: complete the whole review, freeze all findings, correct every proved defect, protect the correction with regression evidence, retest, then begin the next review.
+The ninth fresh cycle started from exact eighth-cycle green repository head `f3571551075db417254511b4a7f2c45ff1239ff7`. Each round followed the mandated order: complete the whole review, freeze all findings, correct every proved defect, protect the correction with regression evidence, retest, then begin the next review.
 
-- **Defect-bearing rounds:** R1, R3, R4, R5, R6, R10, R13, R14, R16, R20.
-- **Clean rounds:** R2, R7, R8, R9, R11, R12, R15, R17, R18, R19.
-- **First-ten defect rounds:** R1, R3, R4, R5, R6, R10.
+- **Defect-bearing rounds:** R1, R2, R4, R5, R7, R9, R10, R11, R12, R14, R16, R17, R19, R20.
+- **Clean rounds:** R3, R6, R8, R13, R15, R18.
+- **First-ten defect rounds:** R1, R2, R4, R5, R7, R9, R10.
 
 ## Current candidate measures
 
 | Measure | Current repository result |
 |---|---:|
 | Runtime candidate | **2.1.0** |
-| Explicit PHP review suites in full quality gate | **54** |
+| Explicit PHP review suites in full quality gate | **55** |
 | JavaScript entry points syntax-checked | **9** |
-| Eighth-cycle regression protection | **`eighth-fresh-twenty-round-contracts.php`** |
+| Ninth-cycle regression protection | **`ninth-fresh-twenty-round-contracts.php`** |
 | Founder-approved Future Communication Superset | **24/24 repository capability paths represented; provider-dependent paths fail closed** |
 | Exact Sabri Green primary | **`#087A4E` enforced on File-17 surfaces** |
 | Final exact-head package/QA proof | **established only for an immutable head after both GitHub Actions jobs pass** |
 | Staging/live/operational acceptance | **pending / unverified** |
 
-## Principal eighth-cycle corrections
+## Principal ninth-cycle corrections
 
-- Nested realtime hardening registration is idempotent so call/realtime filters cannot be duplicated by repeated registration.
-- Relationship state no longer exposes target-owned block direction as if the viewer could unblock it.
-- Unknown space join/member/ban actions fail closed instead of falling through to unintended semantics.
-- Canonical message send rejects unknown message types rather than silently converting them to text.
-- Message pagination scans through viewer-hidden rows so eligible messages are not skipped or pages spuriously shortened.
-- Explicit invalid presence states fail closed rather than becoming an online heartbeat.
-- Native report creation is serialized and replay identity binds exact report content/evidence, not merely the target.
-- Cross-file context projections require exact HTTPS same-origin semantics including the origin port and reject URL credentials.
-- Migration verification now matches active context-adapter and CF-01 schema column names (`provider_object_id` and `reference_uuid`).
-- QA/workflow/release evidence now includes the eighth-cycle regression suite and current 54-suite inventory.
+- R1 made activation fail closed through the serialized migration governor and verified owned pages/private storage.
+- R2 bound self-only identity projection to the actual viewer and kept phone/verification canonical.
+- R4 closed unsafe space transaction/authorization boundaries.
+- R5 made canonical message edit/delete use locked current authorization and atomic search/outbox mutation.
+- R7 routed voice-note creation through canonical message send and protected metadata finalization.
+- R9 made Sabri Meet/provider mutation transaction boundaries fail closed.
+- R10 made typing clear/read database failures explicit.
+- R11 preserved Sabri Meet erasure retry semantics under the correct privacy-erasure key.
+- R12 restored caller-owned exact Smail replay binding.
+- R14 revalidated CF01 membership/access/issuer/consent inside the locked issuance transaction.
+- R16 expanded the central schema verifier to Message Operations and Sabri Meet owned tables.
+- R17 prevented focus restoration from escaping behind replacement modals.
+- R19 made legacy presence preserve `dnd` and reject unknown states.
+- R20 added ninth permanent regression coverage, 55-suite QA, explicit ninth runtime package governance and synchronized release truth.
 
 ## Current coded domains retained and reverified
 
@@ -61,7 +65,7 @@ The eighth fresh cycle started from exact seventh-cycle green repository head `f
 ## Seven separate statuses
 
 1. **Specified:** current File-17 repository scope is represented against the governing plan set.
-2. **Coded:** current 2.1.0 eighth fresh candidate contains the reviewed repository-owned implementation.
+2. **Coded:** current 2.1.0 ninth fresh candidate contains the reviewed repository-owned implementation.
 3. **Packaged:** true only for an exact immutable commit whose deterministic package job succeeds.
 4. **Automated-QA Green:** true only for that exact commit carrying successful PHP 8.1 and PHP 8.3/full-quality jobs.
 5. **Staging-Accepted:** pending real WordPress/MySQL/roles/companions/providers/migration/rollback acceptance.

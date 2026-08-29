@@ -42,7 +42,7 @@ required=(
   includes/class-sn-fifth-fresh-privacy-hardening.php includes/class-sn-fifth-fresh-integration-hardening.php
   includes/class-sn-fifth-fresh-feature-hardening.php includes/class-sn-fifth-fresh-knowledge-hardening.php
   includes/class-sn-fifth-fresh-migration-hardening.php includes/class-sn-fifth-fresh-ui-hardening.php
-  includes/class-sn-sixth-fresh-privacy-hardening.php
+  includes/class-sn-sixth-fresh-privacy-hardening.php includes/class-sn-ninth-fresh-hardening.php
   assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js
   assets/css/two-plan-ui.css assets/css/future-superset.css assets/css/brand-green-overrides.css
   templates/smail-app.php templates/file-transfer-app.php

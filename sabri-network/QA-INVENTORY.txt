@@ -1,6 +1,6 @@
-File 17 v2.1.0 current eighth-fresh repository quality inventory.
-Current executable gate: 54 PHP review suites and 9 JavaScript syntax entry points.
+File 17 v2.1.0 current ninth-fresh repository quality inventory.
+Current executable gate: 55 PHP review suites and 9 JavaScript syntax entry points.
 Every PHP review suite under tests/ is invoked exactly once by tools/quality-check.sh.
-Current eighth-cycle regression protection is retained in eighth-fresh-twenty-round-contracts.php while historical sixth/seventh protections remain attributable to their own earlier suites and commits.
+Current ninth-cycle regression protection is retained in ninth-fresh-twenty-round-contracts.php while historical cycle suites remain attributable to their own commits.
 Exact package/QA truth exists only for the immutable commit on which both GitHub Actions jobs succeed.
 Staging/live/DB/migration/operational acceptance is not established by this inventory.
