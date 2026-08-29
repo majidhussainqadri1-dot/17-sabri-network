@@ -63,3 +63,5 @@ jobs:
           git diff --cached --check
           git commit -m 'R9: fail closed on Meet and provider transaction boundaries'
           git push origin HEAD:review/file17-ninth-fresh-20-round-2026-08-29
+
+# retrigger-frozen-r9-correction
