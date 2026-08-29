@@ -1,0 +1,64 @@
+name: Ninth R20 tested closure commit retry
+
+on:
+  push:
+    branches:
+      - review/file17-ninth-fresh-20-round-2026-08-29
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    if: "${{ startsWith(github.event.head_commit.message, 'R20: retry tested closure with whitespace normalization') }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-ninth-fresh-20-round-2026-08-29
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Reapply tested frozen closure
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('.github/workflows/ninth-r20-nonworkflow-closure.yml').read_text(encoding='utf-8').splitlines()
+          start=next(i for i,line in enumerate(src) if "python3 - <<'PY'" in line)+1
+          end=next(i for i in range(start,len(src)) if src[i].strip()=='PY')
+          body=[]
+          for line in src[start:end]:
+              body.append(line[10:] if line.startswith('          ') else line)
+          Path('/tmp/r20-closure.py').write_text('\n'.join(body)+'\n',encoding='utf-8')
+          PY
+          python3 /tmp/r20-closure.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('STATUS.md')
+          lines=p.read_text(encoding='utf-8').splitlines()
+          p.write_text('\n'.join(line.rstrip(' \t') for line in lines)+'\n',encoding='utf-8')
+          PY
+          bash -n sabri-network/tools/quality-check.sh
+          bash -n sabri-network/tools/package.sh
+          php -l sabri-network/tests/ninth-fresh-twenty-round-contracts.php
+          php sabri-network/tests/ninth-fresh-twenty-round-contracts.php
+          php sabri-network/tests/fifth-fresh-release-truth-contracts.php
+          php sabri-network/tests/four-plan-review-4-fresh-release-contracts.php
+          php sabri-network/tests/forty-round-review-4-release-truth-contracts.php
+      - name: Commit tested frozen closure
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add FILE17-NINTH-FRESH-20-ROUND-AUDIT-2026-08-29.md README.md STATUS.md CODING-COMPLETENESS.md \
+            sabri-network/tools/quality-check.sh sabri-network/tools/package.sh \
+            sabri-network/tests/ninth-fresh-twenty-round-contracts.php \
+            sabri-network/tests/fifth-fresh-release-truth-contracts.php \
+            sabri-network/tests/four-plan-review-4-fresh-release-contracts.php \
+            sabri-network/tests/forty-round-review-4-release-truth-contracts.php \
+            sabri-network/REVIEW-CYCLE-ID.txt sabri-network/QA-INVENTORY.txt sabri-network/CURRENT-CANDIDATE-BOUNDARY.txt \
+            sabri-network/README.md sabri-network/readme.txt sabri-network/SYSTEM-STATUS.txt sabri-network/CHANGELOG.md
+          git diff --cached --check
+          git commit -m 'R20: close ninth fresh release truth and regression gate'
+          git push origin HEAD:review/file17-ninth-fresh-20-round-2026-08-29
