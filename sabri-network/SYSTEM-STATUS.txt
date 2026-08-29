@@ -8,32 +8,32 @@ File 17 — Sabri Network and Messages 2.1.0
 3) Earlier review ledgers are historical evidence only for their own exact commits.
 
 Specified: current governing-plan File-17 repository scope is traceable.
-Coded Candidate: 2.1.0 current sixth-cycle corrective source.
-Packaged: deterministic 2.1.0 ZIP + source manifest only when produced by the exact-head workflow.
+Coded Candidate: 2.1.0 current seventh-fresh corrective source.
+Packaged: deterministic 2.1.0 ZIP + generated source manifest only when produced by the exact-head workflow.
 Automated QA: current explicit gate covers 53 PHP review suites, PHP 8.1/8.3 jobs, 9 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates.
-Historical prior-cycle inventory only: 47 explicit PHP review suites and 8 JavaScript syntax checks; retained solely for attribution and not current QA truth.
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-Sixth fresh 20-round cycle — 18 August 2026:
-- Frozen starting source: a3a435b162167c9078ded22b08d6c8fb39b6ca27.
+Seventh fresh 20-round sequential cycle:
+- Baseline: reviewed sixth-cycle repository line; historical sixth-cycle evidence remains valid only for its own exact commit.
 - Review method: complete review round -> frozen defect ledger -> fix every proved defect -> regression/retest -> only then next round.
-- Defect rounds: R2, R5, R6, R8, R9, R12, R18, R19, R20.
-- Clean rounds: R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17.
-- First-ten defect rounds: R2, R5, R6, R8, R9.
-- Permanent current regression: tests/sixth-fresh-twenty-round-contracts.php.
-- Final exact SHA/run/package evidence is established only after the final sixth-cycle head itself completes attached CI; prior runs/hashes are not reused.
+- Defect rounds: R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20.
+- Clean rounds: R1, R2, R10, R12.
+- First-ten defect rounds: R3, R4, R5, R6, R7, R8, R9.
+- Current seventh-cycle regression protection is retained inside the governed existing review suites.
+- Final exact SHA/run/package evidence is established only after the final seventh-cycle head itself completes attached CI; prior runs/hashes are not reused.
 
-Current sixth-cycle corrections include:
-- canonical File-00/09 phone/verification truth after File-03 presentation enrichment;
-- caller-supplied message and Smail retry identities;
-- viewer-hidden message exclusion from private search/context and correct pagination progression;
-- transfer idempotency bound to exact file/chunk/conversation/hash/recipient request semantics;
-- failure-safe Future privacy deletion progress;
-- exact Sabri Meet migration-version rollback truth;
-- standalone Messages/communication-settings exact Sabri Green and accessibility hardening;
-- complete current review-suite/runtime/package inventory coverage.
+Current seventh-cycle corrections include:
+- refresh of File-00 authorization truth inside relationship and space mutation locks;
+- exact message, forwarding and Smail retry/replay semantics;
+- serialized receipt, presence and transfer authorization/quota decisions;
+- fail-closed protected transfer storage and approved SFU/provider endpoint semantics;
+- legal-hold-safe privacy erasure and current retained-data truth;
+- visibility-safe space discovery pagination and serialized cross-file contexts;
+- current schema/version verification for receipts, search and event outbox/inbox migration truth;
+- accessible focus restoration across active custom modal systems;
+- current release/package evidence synchronized to the seventh cycle and permanently regression-gated.
 
 Current coded domains continue to include one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
 
