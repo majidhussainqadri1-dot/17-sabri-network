@@ -17,6 +17,8 @@ done
 grep -q 'Version: 2.1.0' "$STAGE/sabri-network/sabri-network.php"
 grep -q "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')" "$STAGE/sabri-network/sabri-network.php"
 required=(
+  README.md readme.txt CHANGELOG.md SECURITY.md INSTALLATION-URDU.txt UPGRADE-URDU.txt SYSTEM-STATUS.txt
+  CURRENT-CANDIDATE-BOUNDARY.txt REVIEW-CYCLE-ID.txt QA-INVENTORY.txt NO-LIVE-CLAIM.txt
   includes/class-sn-cf01-clinical-context.php CF01-COMMUNICATION-CONTEXT-CONTRACT.md
   includes/class-sn-smail.php includes/class-sn-file-transfer.php
   includes/class-sn-communication-crypto.php includes/class-sn-message-body.php
