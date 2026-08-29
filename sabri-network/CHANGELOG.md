@@ -3,122 +3,63 @@
 ## 2.1.0 — 2026-08-11 onward — Current governing-plan repository corrective candidate
 
 ### Governing reconciliation
-- Reopened coding completeness against the governing consolidated central plan, the current File 17 Final Harmonized Master Plan and the Founder-approved Future Communication Superset 24 instead of treating historical review cycles as present-head proof.
-- Preserved File 17 as the only communication owner and retained File 00/02 identity, File 19 notification, File 20 shell, File 26 global-search and File 08/CF-01 clinical ownership boundaries.
-- Fresh review cycles remain independently counted/audited; a green workflow for one SHA is never reused as evidence for another.
+- File 17 remains the only communication owner under the consolidated central plan, current File 17 Final Harmonized Master Plan and Founder-approved Future Communication Superset 24.
+- File 00/02 identity, File 19 notification, File 20 shell, File 24 assurance, File 25 presentation, File 26 global-search and native clinical owners remain separate authorities.
+- Fresh review cycles are independently counted; a historical green SHA/run is never reused as current evidence.
 
-### Seventh-fresh closure — 20 sequential rounds
-- Every round completed the whole review before its defect ledger was frozen; all proved defects were then corrected and regression/retested before the next round began.
-- Defect rounds: **R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20**.
-- Clean rounds: **R1, R2, R10, R12**.
-- First-ten defect rounds: **R3, R4, R5, R6, R7, R8, R9**.
-- R3/R4 revalidated File-00 and space-management authority inside current locks instead of relying on pre-lock authorization state.
-- R5/R6 bound canonical message/forwarding retry identities to exact semantics and serialized receipt authorization/state writes.
-- R7/R8 made private transfer storage fail closed before session commit and serialized presence/transfer authorization, idempotency and quota decisions.
-- R9 enforced approved SFU group-call capability and provider-specific endpoint semantics.
-- R11 preserved message legal holds during privacy erasure and made retained-data behavior retry-safe.
-- R13 corrected public/discoverable space pagination so hidden/ineligible rows cannot consume or skip returned page slots.
-- R14 serialized cross-file context membership, authorization and capacity checks.
-- R15 protected transfer/context regressions with permanent contract coverage.
-- R16 made Smail use the final canonical message runtime with exact subject/recipient replay scope, mailbox-state completeness and exact draft cleanup.
-- R17 derived report privacy legal-hold retention truth only from current locked rows and rechecked hold state on target minimization.
-- R18 extended migration version/schema truth to current message receipts, private search and event outbox/inbox surfaces.
-- R19 restored keyboard focus correctly across both active custom modal systems and permanently regression-gated it.
-- R20 synchronized packaged/current repository evidence, installation/upgrade/security guidance and package gates to the seventh cycle; stale fifth/sixth-current and obsolete 2.0 migration claims are no longer release truth.
+### Eighth-fresh closure — 20 sequential rounds
+- Every round completed its full review before findings were frozen; all proved defects were then corrected and regression/retested before the next round began.
+- Baseline: exact seventh-cycle green repository head `f3820dfb49021617c4199b1860cd8dc353a5edac`.
+- Defect rounds: **R1, R3, R4, R5, R6, R10, R13, R14, R16, R20**.
+- Clean rounds: **R2, R7, R8, R9, R11, R12, R15, R17, R18, R19**.
+- First-ten defect rounds: **R1, R3, R4, R5, R6, R10**.
+- R1 made nested realtime/call hardening registration idempotent.
+- R3 hid target-owned block direction from viewer-owned relationship state.
+- R4 made unknown join/member/ban governance actions fail closed.
+- R5 rejected unknown canonical message types instead of silently changing request semantics.
+- R6 made message pagination fill eligible pages across viewer-hidden rows.
+- R10 rejected invalid presence states rather than treating them as online.
+- R13 serialized native report creation and bound replay identity to exact content/evidence.
+- R14 enforced exact HTTPS same-origin context projections, including port and URL-credential rejection.
+- R16 aligned migration verification with active context-adapter/CF-01 schema columns.
+- R20 wired the eighth regression suite into all executable gates and synchronized current QA/release evidence.
 
 ### Current quality and release truth
-- Current explicit full quality inventory is **53 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current explicit full quality inventory is **54 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
 - Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
-- Current cycle/package identity is carried by `REVIEW-CYCLE-ID.txt`, `CURRENT-CANDIDATE-BOUNDARY.txt`, `QA-INVENTORY.txt`, `SYSTEM-STATUS.txt` and `NO-LIVE-CLAIM.txt`, all explicitly required by packaging.
+- Current cycle/package identity is carried by `REVIEW-CYCLE-ID.txt`, `CURRENT-CANDIDATE-BOUNDARY.txt`, `QA-INVENTORY.txt`, `SYSTEM-STATUS.txt` and `NO-LIVE-CLAIM.txt`.
 - Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
 - Repository/package evidence does not establish staging, live DB/migration parity, live deployment or operational acceptance.
+
+### Historical Seventh-fresh closure — 2026-08-29 repository line
+- Historical defect rounds: **R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20**.
+- Historical clean rounds: **R1, R2, R10, R12**.
+- Historical exact green head: `f3820dfb49021617c4199b1860cd8dc353a5edac`.
+- Its 53-suite/9-JavaScript inventory and package hash remain evidence only for that immutable head.
 
 ### Historical sixth fresh 20-round cycle — 2026-08-18
 - Frozen starting reviewed source: `a3a435b162167c9078ded22b08d6c8fb39b6ca27`.
 - Historical defect rounds: **R2, R5, R6, R8, R9, R12, R18, R19, R20**.
 - Historical clean rounds: **R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17**.
-- Preserved canonical File-00/09 phone and verification truth after File-03 presentation enrichment.
-- Required caller-supplied stable retry identities for canonical message and Smail sends.
-- Kept hidden-for-self messages out of private search/context and corrected pagination after visibility filtering.
-- Bound verified-transfer idempotency to exact file/chunk/conversation/hash/recipient semantics.
-- Made Future message-version privacy erasure failure-safe so cursor progress cannot skip a failed deletion.
-- Restored exact Sabri Meet `sn_meet_db_version` rollback truth in migration failure handling.
-- Extended exact Sabri Green/accessibility hardening to standalone Messages/communication-settings surfaces.
-- Added `sixth-fresh-twenty-round-contracts.php`, restored omitted fifth closure/release-truth suites to the full gate, and required the sixth runtime privacy layer in quality/package surfaces.
+- Preserved current File-00/09 phone/verification truth, caller-owned retry identity, hidden-message privacy, exact transfer replay semantics, privacy retry safety, Meet migration truth and current UI hardening for its own immutable line.
 
 ### 2.1.0 capability line retained
-- Unknown-sender message requests with encrypted first-message storage and transactional acceptance.
-- Encrypted scheduled-message storage, cancellation and delivery-time authorization revalidation.
-- Canonical polls/checklists and disappearing-message lifecycle with legal-hold precedence.
-- Fail-closed translation adapters, encrypted temporary updates and voice-note workflow.
-- Communities/groups/channels with rules, onboarding, forum/AMA/wiki/events/cohorts and moderation.
-- Authenticated server-side encryption at rest, dedicated communication-key lifecycle and bounded legacy compatibility.
-- Verified-user private transfer up to 1 GiB/file with resumability, integrity, scanning/quarantine, signed grants, ranges, revocation, retention and audit.
+- Unknown-sender message requests, encrypted scheduled messages, polls/checklists and disappearing-message lifecycle with legal-hold precedence.
+- Private indexed search, internal Smail and verified-user private transfer up to 1 GiB/file with resumability, integrity, scanning/quarantine, signed grants, ranges, revocation, retention and audit.
 - Direct calls/Sabri Meet with fresh File-00 eligibility and approved-provider STUN/TURN/SFU boundaries.
-- Privacy export/erasure, reports/appeals/legal holds, reliable outbox/inbox events, File-16 AI/private semantic bridges and governed interoperability.
+- Authenticated server-side encryption at rest, privacy export/erasure, reports/appeals/legal holds, reliable outbox/inbox events, File-16 AI/private semantic bridges and governed interoperability.
 
 ## 2.0.3 — 2026-08-07 — Forty-round corrective release candidate
-
-### Forty-round review result
-- Completed **40** sequential review/fix rounds against Definitive Master Plan v3.0, Consolidated Recovered Directives, Continuous Value / Top-20 Superset Master Plan and the File 17 Final Harmonized Master Plan.
-- **18** rounds found one or more defects and corrected them in the same cycle; **22** rounds found no new defect.
-- Added four dedicated forty-round suites and expanded the explicit full quality inventory from 41 to **45 PHP review suites**.
-
-### Governance and ownership
-- Declared File 26 as the global Search/Discovery/Ranking owner; File 17 retains authorized private-message search only.
-- Restricted federated File-17 discovery to public/explicitly-consented people/space projections; private messages and contacts are excluded.
-- Preserved File 00/02 identity/verification, File 19 notification delivery, File 20 shell/navigation and native domain ownership boundaries.
-
-### Privacy and identity projection
-- Made phone and avatar projections block-aware, including privacy modes that otherwise permit broad visibility.
-- Removed cross-user active-device counts from presence projection; device counts are self-only.
-- Bridged the legacy `/presence` route to the canonical per-device presence service rather than maintaining a parallel state path.
-
-### Cryptography and key lifecycle
-- Added versioned `SNC3`/`SNC4` communication ciphertext formats with key identifiers and bounded previous-key support while retaining legacy `SNC1`/`SNC2` reads.
-- Added lazy authorized re-encryption for canonical message bodies, private transfer chunks and Smail drafts when an older key is encountered.
-- Versioned signed grants so key rotation can be performed without silently invalidating every in-flight grant.
-- Retained truthful server-side authenticated encryption-at-rest wording; no E2EE claim is made.
-
-### Verified private transfer
-- Made current File-00 verification assertion the sole verified-user authority for transfer sender/recipients; removed local phone/badge fallback semantics.
-- Guaranteed synchronous scanner plaintext cleanup with `finally` and fail-closed secure-random error handling.
-- Added filesystem-containment validation for encrypted chunk reads, scans, downloads and deletion.
-- Preserved the exact 1,073,741,824-byte limit, resumability, SHA-256, MIME/magic/archive controls, quarantine, signed expiring grants, ranges, revocation and audit.
-
-### Messages, forwarding and Smail
-- Added defense-in-depth forwarding protection using authorized transient decrypt, target-context re-encryption, idempotency and audience-minimized source metadata; private attachment IDs cannot be reused across audiences.
-- Smail mailbox projection decrypts authorized canonical message bodies rather than exposing stored ciphertext.
-- Smail drafts lazily rotate encryption keys and use keyed HMAC blind hashes instead of ordinary plaintext SHA-256 fingerprints.
-- Core WordPress message privacy exports and Smail draft exports provide readable authorized data-subject values without weakening encryption at rest.
-
-### Release truth and packaging
-- Promoted substantive corrections from immutable historical 2.0.2 to **2.0.3**.
-- Deterministic package identity: `17-sabri-network-and-messages-2.0.3.zip`.
-- Staging, live and operational acceptance remain separate external gates.
+- Historical forty-round review, ownership/privacy/crypto/transfer/message/Smail corrections and deterministic package evidence remain attributable only to their exact immutable release line.
 
 ## 2.0.2 — 2026-08-07 — Four-plan/four-round corrective release
-- Enforced File 19 single notification-center/delivery ownership and removed File-17 active fallback notification UI/writes.
-- Corrected a destructive concurrent same-index encrypted transfer chunk race.
-- Added authenticated `SNE1` server-side at-rest encryption for canonical message bodies with bounded plaintext migration and private-search reindexing.
-- Routed Smail through canonical message integrity and made multi-recipient reservation retry-safe.
-- Hardened forwarding with authorized transient decrypt, target re-encryption and source minimization.
-- Expanded the explicit quality gate from 37 to 41 PHP review suites and aligned deterministic 2.0.2 packaging.
+- Historical File-19 notification ownership, transfer concurrency, encrypted message storage, Smail/forwarding and quality-gate corrections.
 
 ## 2.0.1 — 2026-08-07 — Smail, verified transfer and recovered-directive completion
-- Added `sn.cf01.communication-context` 1.0.0 with revocable opaque references and fail-closed authorization.
-- Added internal Smail with Inbox, Sent, Drafts, Starred, Archive, Spam and Trash over canonical File-17 conversations/messages.
-- Added verified-user private transfer up to 1 GiB/file with resumable encrypted chunks, SHA-256, MIME/magic/archive controls, mandatory scanner quarantine, signed grants, range resume, revocation, retention, privacy and audit.
-- Added current green primary File-17 visual identity while retaining orange as a secondary accent.
-- Added 37 explicitly enumerated review suites and PHP 8.1/8.3 exact-head CI coverage.
+- Added CF-01 communication context, Smail, verified-user private transfer up to 1 GiB/file, File-17 green identity and explicit PHP 8.1/8.3 CI coverage.
 
 ## 2.0.0 — 2026-08-01 — Canonical communication architecture
-- Unified Network relationships and Messages under one File-17 canonical backend and removed duplicate identity/OTP/global-navigation ownership.
-- Added centralized policy enforcement, minor/guardian restrictions, block/rate-limit/audit/privacy controls and private attachments outside public Media Library.
-- Added unique direct-conversation/contact-pair/message-idempotency/active-call constraints and transactionally locked ownership transfer.
-- Added privacy-scoped presence/typing, message preferences, calls/signaling acknowledgements, reports/appeals/legal holds and retention controls.
-- Added private indexed message search, transactional outbox/inbox retry/dead-letter delivery, Sabri Meet, communities/groups/channels, multi-device presence, context adapters, high-risk dual control and governed conference providers.
-- Historical detailed 2.0.0 implementation batches and evidence remain available in immutable Git history.
+- Unified Network relationships and Messages under one File-17 canonical backend with centralized policy, private attachments, presence, calls, reports/privacy, private search, reliable events, spaces and high-risk/provider governance.
 
 ## Status law
 A successful source review, CI run or deterministic ZIP is not equivalent to staging acceptance, live deployment or operational completion. Those states require separate real-environment evidence and Founder acceptance.
