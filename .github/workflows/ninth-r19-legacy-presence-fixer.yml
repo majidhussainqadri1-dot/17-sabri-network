@@ -1,0 +1,46 @@
+name: Ninth R19 legacy presence fixer
+
+on:
+  push:
+    branches:
+      - review/file17-ninth-fresh-20-round-2026-08-29
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "${{ startsWith(github.event.head_commit.message, 'R19: add legacy presence fixer') }}"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-ninth-fresh-20-round-2026-08-29
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Apply frozen R19 legacy presence correction
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sabri-network/includes/class-sn-compatibility-hardening.php')
+          text=p.read_text(encoding='utf-8')
+          old="$user_id = get_current_user_id(); $status = sanitize_key((string) $request->get_param('status')); if (!in_array($status, ['online', 'away', 'offline'], true)) $status = 'online';"
+          new="$user_id = get_current_user_id(); $status = sanitize_key((string) $request->get_param('status')); if (!in_array($status, ['online', 'away', 'dnd', 'offline'], true)) return new WP_Error('sn_presence_state_invalid', 'Choose online, away, dnd, or offline.', ['status' => 400]);"
+          if old not in text:
+              raise SystemExit('Expected legacy heartbeat normalization not found exactly.')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
+          php -l sabri-network/includes/class-sn-compatibility-hardening.php
+          grep -F "['online', 'away', 'dnd', 'offline']" sabri-network/includes/class-sn-compatibility-hardening.php >/dev/null
+          grep -F "sn_presence_state_invalid" sabri-network/includes/class-sn-compatibility-hardening.php >/dev/null
+      - name: Commit frozen R19 correction
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/includes/class-sn-compatibility-hardening.php
+          git diff --cached --check
+          git commit -m 'R19: fail closed on legacy presence state'
+          git push origin HEAD:review/file17-ninth-fresh-20-round-2026-08-29
