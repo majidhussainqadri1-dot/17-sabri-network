@@ -1,0 +1,53 @@
+name: Ninth R14 runtime harness fixer
+
+on:
+  push:
+    branches:
+      - review/file17-ninth-fresh-20-round-2026-08-29
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "${{ startsWith(github.event.head_commit.message, 'R14: add runtime harness fixer') }}"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-ninth-fresh-20-round-2026-08-29
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Update CF01 runtime test-double for locked authorization
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('sabri-network/tests/cf01-clinical-context-runtime-contracts.php')
+          text = path.read_text(encoding='utf-8')
+          marker = "        if (str_contains($query, 'FROM wp_sn_cf01_context_refs')) {\n"
+          member = "        if (str_contains($query, 'FROM wp_sn_members')) {\n            $conversation = (int) $args[0];\n            $user = (int) $args[1];\n            foreach ($this->members as $row) {\n                if ((int) $row->conversation_id === $conversation && (int) $row->user_id === $user && $row->left_at === null) {\n                    return (object) ['id' => (int) $row->id];\n                }\n            }\n            return null;\n        }\n"
+          if member not in text:
+              if marker not in text:
+                  raise SystemExit('CF01 FakeWpdb insertion marker missing')
+              text = text.replace(marker, member + marker, 1)
+          stub_marker = "final class SN_Outbox {\n"
+          stubs = "final class SN_Membership_Assertions {\n    public static function clear_cache(int $user_id = 0): void {}\n}\nfinal class SN_Policy {\n    public static function access(): bool|WP_Error { return true; }\n}\n"
+          if stubs not in text:
+              if stub_marker not in text:
+                  raise SystemExit('CF01 policy stub insertion marker missing')
+              text = text.replace(stub_marker, stubs + stub_marker, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          php -l sabri-network/tests/cf01-clinical-context-runtime-contracts.php
+          php sabri-network/tests/cf01-clinical-context-runtime-contracts.php
+      - name: Commit R14 runtime harness correction
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/tests/cf01-clinical-context-runtime-contracts.php
+          git diff --cached --check
+          git commit -m 'R14: align CF01 runtime harness with locked authorization'
+          git push origin HEAD:review/file17-ninth-fresh-20-round-2026-08-29
