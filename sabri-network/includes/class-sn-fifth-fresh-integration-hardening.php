@@ -10,6 +10,9 @@ final class SN_Fifth_Fresh_Integration_Hardening {
         // Override the two cross-file reference erasers after their native callbacks,
         // while leaving the global File-17 legal-hold guard at priority 9999 last.
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'override_erasers'], 9600);
+        // A same hostname on a different TCP port is a different web origin. Reject
+        // provider projections that native host-only checks would otherwise accept.
+        add_filter('sn_network_context_projection', [self::class, 'enforce_projection_origin_port'], PHP_INT_MAX, 5);
     }
 
     public static function override_erasers(array $erasers): array {
@@ -20,6 +23,26 @@ final class SN_Fifth_Fresh_Integration_Hardening {
             $erasers['sabri-network-cf01-references']['callback'] = [self::class, 'erase_cf01_references'];
         }
         return $erasers;
+    }
+
+    public static function enforce_projection_origin_port($projection, string $provider, string $object, int $conversation, int $actor) {
+        if (!is_array($projection) || !isset($projection['url'])) return $projection;
+        $parts = wp_parse_url((string) $projection['url']);
+        $home = wp_parse_url(home_url('/'));
+        if (!is_array($parts) || !is_array($home)) return null;
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $home_scheme = strtolower((string) ($home['scheme'] ?? ''));
+        $port = isset($parts['port']) ? (int) $parts['port'] : ($scheme === 'https' ? 443 : 80);
+        $home_port = isset($home['port']) ? (int) $home['port'] : ($home_scheme === 'https' ? 443 : 80);
+        if ($scheme !== 'https'
+            || $home_scheme !== 'https'
+            || strcasecmp((string) ($parts['host'] ?? ''), (string) ($home['host'] ?? '')) !== 0
+            || $port !== $home_port
+            || isset($parts['user'])
+            || isset($parts['pass'])) {
+            return null;
+        }
+        return $projection;
     }
 
     /**
