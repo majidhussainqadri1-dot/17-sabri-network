@@ -8,9 +8,10 @@ fpr3(str_contains($body,'ensure_encrypted_row')&&str_contains($body,'write_cas')
 fpr3(str_contains($integrity,'SN_Message_Body::encrypt($body, $conversation_id, $user_id)'),'New canonical messages encrypt before database insertion.');
 fpr3(str_contains($integrity,'SN_Message_Body::encrypt($body, (int) $message->conversation_id'),'Edits re-encrypt before database update.');
 fpr3(str_contains($search,'SN_Message_Body::decrypt_row($message)')&&str_contains($search,'self::terms($plain'),'Private search tokenizes plaintext only after authorized in-memory decryption.');
-fpr3(str_contains($smail,'SN_Message_Integrity::send_message')&&!str_contains($smail,'SN_REST::send_message'),'Smail cannot bypass the atomic canonical message path.');
+fpr3(str_contains($smail,'SN_Message_Runtime_Hardening::send_message')&&!str_contains($smail,'SN_Message_Integrity::send_message')&&!str_contains($smail,'SN_REST::send_message'),'Smail cannot bypass the final atomic canonical message runtime.');
 fpr3(str_contains($smail,'resolve_smail_conversation'),'Smail retries use an idempotent canonical conversation resolver.');
 fpr3(str_contains($hard,"'recipient_hash' => \$recipient_hash")&&str_contains($hard,'smail_idempotency_conflict'),'Multi-recipient Smail retries bind the same key to the same audience.');
+fpr3(str_contains($smail,'request_scope_hash')&&str_contains($smail,'smail_scope_hash'),'Smail also binds subject and exact recipient scope into canonical message replay semantics.');
 fpr3(str_contains($compat,'SN_Message_Body::decrypt_row($source)')&&str_contains($compat,'SN_Message_Body::encrypt($plain, $target_id, $actor)'),'Active forwarding decrypts only authorized source content in memory and re-encrypts target content.');
 fpr3(str_contains($compat,"'source_visible' => \$shared")&&str_contains($compat,'source_scope_hash'),'Forwarded metadata minimizes source identity across audience boundaries.');
 fpr3(str_contains($hard,'MIGRATION_BATCH = 100'),'At-rest migration is bounded per pass.');
