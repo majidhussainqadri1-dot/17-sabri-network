@@ -6,7 +6,16 @@
     .filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true' && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
   const modal = () => document.getElementById('sn-two-plan-modal');
   const sntpModal = () => document.getElementById('sntp-modal');
+  const hasOpenModal = () => {
+    const primary = modal();
+    return Boolean((primary && !primary.hidden) || sntpModal());
+  };
   const restoreModalFocus = () => {
+    // A dialog may replace another dialog in the same UI action. Restoring focus
+    // while the replacement is already open would move focus behind the active
+    // modal and break the modal focus boundary. Keep the original trigger until
+    // the last modal in the chain has actually closed.
+    if (hasOpenModal()) return;
     const target = lastModalTrigger;
     lastModalTrigger = null;
     if (target && document.contains(target) && typeof target.focus === 'function') target.focus({preventScroll:true});
