@@ -8,7 +8,7 @@ trait SN_Spaces_Part_6 {
         $id=absint($request['id']);$actor=get_current_user_id();$next=self::enum((string)$request->get_param('state'),self::STATES,'');
         if($next==='')return self::error('sn_space_state_invalid','Select a valid lifecycle state.',400);
         $expected=absint($request->get_param('version'));$transitions=['active'=>['restricted','locked','archived','closed','deletion_requested'],'restricted'=>['active','locked','archived','closed'],'locked'=>['active','restricted','archived','closed'],'archived'=>['active','closed'],'closed'=>['active','deletion_requested'],'deletion_requested'=>[]];$now=self::now();
-        $wpdb->query('START TRANSACTION');
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_lifecycle_failed','The lifecycle transaction could not start safely.',500);
         try{
             $space=self::space($id,true);
             $access=$space?self::assert_manage_locked($id,$actor,'lifecycle'):self::error('sn_space_not_found','The space is unavailable.',404);
@@ -36,7 +36,7 @@ trait SN_Spaces_Part_6 {
         $current_owner=(int)$space->owner_user_id;
         $target_member=self::member($space_id,$target);if(!$target_member||!in_array((string)$target_member->role,['administrator','moderator','editor','member'],true))return self::error('sn_space_successor_invalid','Select an eligible active successor.',400);
         $payload=['space_id'=>$space_id,'current_owner_id'=>$current_owner,'new_owner_id'=>$target];
-        $wpdb->query('START TRANSACTION');
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_transfer_failed','The ownership-transfer transaction could not start safely.',500);
         try{
             $space=self::space($space_id,true);if(!$space||(int)$space->owner_user_id!==$current_owner)throw new RuntimeException('owner_changed');
             $claim=SN_High_Risk::claim($action_id,$actor,'space_ownership_transfer',$payload);
