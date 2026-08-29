@@ -37,6 +37,10 @@ final class SN_Auth {
             return [];
         }
         $viewer_id = get_current_user_id();
+        // "Self" is an identity fact, not a caller-controlled presentation hint.
+        // Never let an internal caller accidentally grant self-only phone/avatar
+        // visibility for a different account.
+        $self = $self && $viewer_id > 0 && $viewer_id === $user_id;
         $privacy = SN_Policy::privacy_for($user_id);
         $blocked = !$self && $viewer_id > 0 && $viewer_id !== $user_id && SN_DB::is_blocked($viewer_id, $user_id);
         $phone = SN_Membership_Assertions::phone_projection($user_id, $viewer_id, $self);
