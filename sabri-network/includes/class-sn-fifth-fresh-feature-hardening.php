@@ -35,7 +35,7 @@ final class SN_Fifth_Fresh_Feature_Hardening {
         $forward->set_param('message_type', 'audio');
         $forward->set_param('client_id', (string)$request->get_param('client_id'));
         $forward->set_file_params(['attachment'=>$files['attachment']]);
-        $result = SN_Message_Integrity::send_message($forward);
+        $result = SN_Message_Runtime_Hardening::send_message($forward);
         if (is_wp_error($result)) return $result;
         $data = $result->get_data();
         $message_id = absint($data['message']['id'] ?? 0);
@@ -108,8 +108,6 @@ final class SN_Fifth_Fresh_Feature_Hardening {
             $decoded = SN_Communication_Crypto::decrypt((string)$voice['transcript_cipher'], self::transcript_context($row));
             if (!is_wp_error($decoded)) $plain = (string)$decoded;
         } elseif (!empty($voice['transcript_available']) && isset($voice['transcript'])) {
-            // Legacy rows are readable only to an authorized participant while the
-            // bounded migration below converts them to encrypted metadata.
             $plain = mb_substr((string)$voice['transcript'], 0, 10000);
         }
         $data['voice_note']['transcript'] = $plain;
