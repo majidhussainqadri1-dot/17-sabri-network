@@ -24,11 +24,11 @@ $check(!str_contains($message, 'if($existing)return self::reconcile_existing($ex
 $check(str_contains($search, 'public static function backfill(): bool|WP_Error'), 'R6: search backfill must surface failure rather than silently returning void.');
 $check(str_contains($search, 'if (is_wp_error($indexed)) return self::backfill_failure($indexed, (int) $row->id);'), 'R6: a failed message index must stop the backfill before its cursor advances past that row.');
 $check(str_contains($search, "REBUILDING_OPTION = 'sn_message_search_epoch_rebuilding'") && str_contains($search, 'update_option(self::REBUILDING_OPTION, true, false);'), 'R6: a destructive manual rebuild must enter the same fail-closed rebuilding state used by key-epoch rebuilds.');
-$check(str_contains($search, 'search_rebuild_backfill_failed') && str_contains($search, "update_option(self::REBUILD_ERROR_OPTION, $backfill->get_error_code(), false);"), 'R6: manual rebuild failure must be explicit and persistent until safe retry/completion.');
+$check(str_contains($search, 'search_rebuild_backfill_failed') && str_contains($search, 'update_option(self::REBUILD_ERROR_OPTION, $backfill->get_error_code(), false);'), 'R6: manual rebuild failure must be explicit and persistent until safe retry/completion.');
 $decryptPos = strpos($search, '$plain = SN_Message_Body::decrypt_row($message);');
 $deletePos = strpos($search, 'token_hash NOT IN', $decryptPos === false ? 0 : $decryptPos);
 $check($decryptPos !== false && $deletePos !== false && $decryptPos < $deletePos, 'R6: message plaintext must decrypt and desired tokens must be prepared before stale valid search tokens are reconciled away.');
-$check(str_contains($search, "'rebuilding' => $rebuilding") && str_contains($search, "'error' => $error"), 'R6: search health must expose rebuilding/error state instead of reporting a partial index healthy.');
+$check(str_contains($search, "'rebuilding' => \$rebuilding") && str_contains($search, "'error' => \$error"), 'R6: search health must expose rebuilding/error state instead of reporting a partial index healthy.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
