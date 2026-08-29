@@ -14,4 +14,6 @@ $check(str_contains($spaces2,"['join','cancel']")&&str_contains($spaces2,'sn_spa
 $check(str_contains($spaces5,"['role','remove']")&&str_contains($spaces5,'sn_space_member_action_invalid')&&str_contains($spaces5,"['ban','unban']")&&str_contains($spaces5,'sn_space_ban_action_invalid'),'R4: membership and ban mutations must reject unknown actions.');
 $message=$read($root.'/includes/class-sn-message-runtime-hardening.php');
 $check(str_contains($message,"return new WP_Error('invalid_message_type'")&&!str_contains($message,"))\$type='text';"),'R5: canonical send must reject an unknown message type instead of silently changing request semantics.');
+$visibility=$read($root.'/includes/class-sn-message-visibility.php');
+$check(str_contains($visibility,'MAX_VISIBILITY_SCAN_PAGES')&&str_contains($visibility,'$visible = array_merge($eligible, $visible)')&&str_contains($visibility,'$visible = array_merge($visible, $eligible)'),'R6: message paging must scan across viewer-hidden rows in both older and newer directions.');
 if($fail){fwrite(STDERR,"Eighth fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eighth fresh 20-round contracts: PASS ($checks checks)\n";
