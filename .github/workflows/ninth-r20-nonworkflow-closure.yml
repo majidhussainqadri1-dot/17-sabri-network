@@ -1,0 +1,232 @@
+name: Ninth R20 non-workflow release closure
+
+on:
+  push:
+    branches:
+      - review/file17-ninth-fresh-20-round-2026-08-29
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    if: "${{ startsWith(github.event.head_commit.message, 'R20: run ninth non-workflow release closure') }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-ninth-fresh-20-round-2026-08-29
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply frozen R20 non-workflow closure
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root=Path('.')
+          plugin=root/'sabri-network'
+          baseline='f3571551075db417254511b4a7f2c45ff1239ff7'
+          defect='R1, R2, R4, R5, R7, R9, R10, R11, R12, R14, R16, R17, R19, R20'
+          clean='R3, R6, R8, R13, R15, R18'
+          first10='R1, R2, R4, R5, R7, R9, R10'
+          no_live='Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔'
+
+          def read(path): return Path(path).read_text(encoding='utf-8')
+          def write(path,text): Path(path).write_text(text,encoding='utf-8')
+          def once(text,old,new,label):
+              if old not in text: raise SystemExit('missing marker: '+label)
+              return text.replace(old,new,1)
+
+          # Executable gate and package surface governance. quality.yml was updated directly by authorized GitHub API.
+          path=plugin/'tools/quality-check.sh'; text=read(path)
+          text=once(text,'  includes/class-sn-sixth-fresh-privacy-hardening.php\n','  includes/class-sn-sixth-fresh-privacy-hardening.php includes/class-sn-ninth-fresh-hardening.php\n','quality ninth runtime')
+          text=once(text,' sixth-fresh-twenty-round-contracts.php eighth-fresh-twenty-round-contracts.php\n',' sixth-fresh-twenty-round-contracts.php eighth-fresh-twenty-round-contracts.php ninth-fresh-twenty-round-contracts.php\n','quality ninth suite')
+          write(path,text)
+
+          path=plugin/'tools/package.sh'; text=read(path)
+          text=once(text,'  includes/class-sn-sixth-fresh-privacy-hardening.php\n','  includes/class-sn-sixth-fresh-privacy-hardening.php includes/class-sn-ninth-fresh-hardening.php\n','package ninth runtime')
+          write(path,text)
+
+          suite='''<?php
+          /** Ninth fresh 20-round permanent regression contracts. */
+          declare(strict_types=1);
+          $root=dirname(__DIR__);$repo=dirname($root);$fail=[];$checks=0;
+          $read=static fn(string $p):string=>(string)file_get_contents($p);
+          $check=static function(bool $ok,string $msg)use(&$fail,&$checks):void{$checks++;if(!$ok)$fail[]=$msg;};
+
+          $activator=$read($root.'/includes/class-sn-activator.php');
+          $check(str_contains($activator,'SN_Fifth_Fresh_Migration_Hardening::upgrade(true)')&&str_contains($activator,'verify_owned_surface')&&str_contains($activator,'SN_Private_Files::ensure_storage()')&&str_contains($activator,'SN_File_Transfer::ensure_storage()'),'R1: activation delegates schema truth and fails closed on owned surfaces/storage.');
+
+          $auth=$read($root.'/includes/class-sn-auth.php');
+          $check(str_contains($auth,'Never let an internal caller accidentally grant')&&str_contains($auth,'can_see_phone')&&str_contains($auth,'phone_projection')&&str_contains($auth,'verification_badge'),'R2: self-only identity and canonical phone/verification remain bounded.');
+
+          $spaces=$read($root.'/includes/class-sn-spaces-part-1.php');
+          $check(str_contains($spaces,'space transaction could not start safely')&&str_contains($spaces,'assert_manage_locked')&&str_contains($spaces,'START TRANSACTION'),'R4: space transaction/action-time authority remains fail closed.');
+
+          $ninth=$read($root.'/includes/class-sn-ninth-fresh-hardening.php');
+          $loader=$read($root.'/includes/class-sn-future24-review-hardening.php');
+          $check(str_contains($ninth,'override_message_routes')&&str_contains($ninth,'FOR UPDATE')&&str_contains($ninth,'message.edited')&&str_contains($ninth,'message.deleted')&&str_contains($loader,'SN_Ninth_Fresh_Hardening::register()'),'R5: current message edit/delete uses locked ninth hardening and atomic event semantics.');
+
+          $voice=$read($root.'/includes/class-sn-fifth-fresh-feature-hardening.php');
+          $check(str_contains($voice,'SN_Message_Runtime_Hardening::send_message')&&str_contains($voice,'Retry with the same idempotency key')&&str_contains($voice,'_mutation_version'),'R7: voice-note send/finalization remains canonical and retry safe.');
+
+          $provider=$read($root.'/includes/class-sn-conference-provider.php');
+          $check(str_contains($provider,'provider configuration transaction could not start safely')&&str_contains($provider,'SN_High_Risk::claim')&&str_contains($provider,'SN_High_Risk::complete'),'R9: provider governance remains transactionally fail closed.');
+          $meet=$read($root.'/includes/class-sn-meet.php');
+          $check(str_contains($meet,'START TRANSACTION')&&str_contains($meet,'meet_commit_failed')&&str_contains($meet,'database_error'),'R9: Sabri Meet transaction start/commit failure remains fail closed.');
+
+          $rt=$read($root.'/includes/class-sn-fourth-fresh-realtime-hardening.php');
+          $check(str_contains($rt,'sn_typing_clear_failed')&&str_contains($rt,'sn_typing_read_failed'),'R10: typing DB failures remain explicit.');
+          $check(str_contains($rt,'sabri-meet')&&str_contains($rt,'must be retried')&&str_contains($rt,'done'),'R11: Meet erasure failures remain retryable under the correct key.');
+          $check(str_contains($rt,'guard_smail_replay')&&str_contains($rt,'caller-supplied Smail')&&str_contains($rt,'smail_idempotency_conflict'),'R12: Smail exact caller-owned replay binding remains enforced.');
+
+          $cf=$read($root.'/includes/class-sn-cf01-clinical-context.php');
+          $check(str_contains($cf,'opaque clinical-context reference transaction could not start')&&str_contains($cf,'FOR UPDATE')&&str_contains($cf,'SN_Membership_Assertions::clear_cache')&&substr_count($cf,'sn_cf01_clinical_context_issuer_authorized')>=2&&substr_count($cf,'sn_cf01_clinical_context_consent_authorized')>=2,'R14: CF01 issuance revalidates locked action-time authorization.');
+
+          $mig=$read($root.'/includes/class-sn-fifth-fresh-migration-hardening.php');
+          $check(str_contains($mig,'message_hides')&&str_contains($mig,'message_folders')&&str_contains($mig,'meet_sessions')&&str_contains($mig,'meet_signals'),'R16: central migration verification covers Message Operations and Meet.');
+
+          $ui=$read($root.'/assets/js/fifth-fresh-ui.js');
+          $check(str_contains($ui,'const hasOpenModal = () =>')&&str_contains($ui,'if (hasOpenModal()) return;')&&str_contains($ui,'last modal in the chain'),'R17: replacement-modal focus remains contained.');
+
+          $compat=$read($root.'/includes/class-sn-compatibility-hardening.php');
+          $check(str_contains($compat,'dnd')&&str_contains($compat,'sn_presence_state_invalid')&&str_contains($compat,'Choose online, away, dnd, or offline.'),'R19: legacy presence preserves canonical dnd and rejects unknown states.');
+
+          $quality=$read($root.'/tools/quality-check.sh');
+          $workflow=$read($repo.'/.github/workflows/quality.yml');
+          $package=$read($root.'/tools/package.sh');
+          $cycle=trim($read($root.'/REVIEW-CYCLE-ID.txt'));
+          $qa=$read($root.'/QA-INVENTORY.txt');
+          $check(str_contains($quality,'ninth-fresh-twenty-round-contracts.php')&&substr_count($workflow,'ninth-fresh-twenty-round-contracts.php')>=2,'R20: quality and both CI paths execute ninth regression coverage.');
+          $check(str_contains($quality,'includes/class-sn-ninth-fresh-hardening.php')&&str_contains($package,'includes/class-sn-ninth-fresh-hardening.php'),'R20: ninth runtime hardening is an explicit quality/package surface.');
+          $check($cycle==='FILE17-NINTH-FRESH-20-ROUND-2026-08-29'&&str_contains($qa,'55 PHP review suites'),'R20: current cycle and 55-suite QA truth are synchronized.');
+
+          if($fail){fwrite(STDERR,"Ninth fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Ninth fresh 20-round contracts: PASS ($checks checks)\n";
+          '''
+          suite='\n'.join(line[10:] if line.startswith('          ') else line for line in suite.splitlines())+'\n'
+          write(plugin/'tests/ninth-fresh-twenty-round-contracts.php',suite)
+
+          write(plugin/'REVIEW-CYCLE-ID.txt','FILE17-NINTH-FRESH-20-ROUND-2026-08-29\n')
+          write(plugin/'QA-INVENTORY.txt','''File 17 v2.1.0 current ninth-fresh repository quality inventory.\nCurrent executable gate: 55 PHP review suites and 9 JavaScript syntax entry points.\nEvery PHP review suite under tests/ is invoked exactly once by tools/quality-check.sh.\nCurrent ninth-cycle regression protection is retained in ninth-fresh-twenty-round-contracts.php while historical cycle suites remain attributable to their own commits.\nExact package/QA truth exists only for the immutable commit on which both GitHub Actions jobs succeed.\nStaging/live/DB/migration/operational acceptance is not established by this inventory.\n''')
+          write(plugin/'CURRENT-CANDIDATE-BOUNDARY.txt',f'''Repository-only candidate boundary: File 17 runtime 2.1.0, ninth fresh 20-round sequential review cycle. This file intentionally does not embed its own commit SHA. The exact immutable head and its attached GitHub Actions run/package artifact are external repository evidence. Staging acceptance, deployed version, live DB/schema version, live migration state and operational acceptance remain separately unverified.\n\n{no_live}\n''')
+
+          corrections='''- R1 made activation fail closed through the serialized migration governor and verified owned pages/private storage.\n- R2 bound self-only identity projection to the actual viewer and kept phone/verification canonical.\n- R4 closed unsafe space transaction/authorization boundaries.\n- R5 made canonical message edit/delete use locked current authorization and atomic search/outbox mutation.\n- R7 routed voice-note creation through canonical message send and protected metadata finalization.\n- R9 made Sabri Meet/provider mutation transaction boundaries fail closed.\n- R10 made typing clear/read database failures explicit.\n- R11 preserved Sabri Meet erasure retry semantics under the correct privacy-erasure key.\n- R12 restored caller-owned exact Smail replay binding.\n- R14 revalidated CF01 membership/access/issuer/consent inside the locked issuance transaction.\n- R16 expanded the central schema verifier to Message Operations and Sabri Meet owned tables.\n- R17 prevented focus restoration from escaping behind replacement modals.\n- R19 made legacy presence preserve `dnd` and reject unknown states.\n- R20 added ninth permanent regression coverage, 55-suite QA, explicit ninth runtime package governance and synchronized release truth.'''
+
+          # Root README.
+          path=root/'README.md'; text=read(path)
+          repl=f'''## Ninth fresh 20-round sequential review\n\nThe ninth fresh cycle starts from exact eighth-cycle green repository head `{baseline}`. Every round obeyed the mandatory order: **complete the whole review -> freeze the complete round findings -> correct all proved defects -> regression/retest -> only then start the next round**.\n\n- Defect rounds: **{defect}**.\n- Clean rounds: **{clean}**.\n- First-ten defect rounds: **{first10}**.\n- Current explicit quality inventory: **55 PHP review suites** and **9 JavaScript syntax entry points**.\n\nThe ninth cycle closed activation/identity boundaries, space/message/voice/Meet transaction paths, realtime/privacy/Smail replay failures, CF01 action-time authorization, schema verification gaps, modal focus escape, legacy presence compatibility and current release-truth/QA governance.\n\n## Security and provider truth'''
+          text,n=re.subn(r'## Eighth fresh 20-round sequential review.*?## Security and provider truth',repl,text,flags=re.S)
+          if n!=1: raise SystemExit('root README cycle block')
+          text=text.replace('current 2.1.0 eighth fresh repository candidate','current 2.1.0 ninth fresh repository candidate').replace('Final eighth-cycle SHA/run/package evidence','Final ninth-cycle SHA/run/package evidence')
+          write(path,text)
+
+          # Packaged README.
+          path=plugin/'README.md'; text=read(path)
+          repl=f'''## Ninth fresh 20-round sequential review\n\nThe ninth independent cycle starts from exact eighth-cycle green repository head `{baseline}`. Every round obeyed the mandatory sequence: **complete the entire review -> freeze that round's full findings -> fix every proved defect -> regression/retest -> only then begin the next round**.\n\nDefect-bearing rounds: **{defect}**. Clean rounds: **{clean}**. First-ten defect rounds: **{first10}**.\n\nThe current explicit repository quality inventory is **55 PHP review suites** and **9 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. Ninth-cycle permanent regression protection is `ninth-fresh-twenty-round-contracts.php`.\n\nThe ninth cycle closed activation/identity boundaries, space/message/voice/Meet transaction paths, typing/privacy/Smail replay failures, CF01 locked authorization, Message Operations/Meet migration truth, replacement-modal focus, legacy presence compatibility and current QA/release truth.\n\n## Security and provider truth'''
+          text,n=re.subn(r'## Eighth fresh 20-round sequential review.*?## Security and provider truth',repl,text,flags=re.S)
+          if n!=1: raise SystemExit('plugin README cycle block')
+          text=text.replace('current 2.1.0 eighth-cycle repository candidate','current 2.1.0 ninth-cycle repository candidate')
+          write(path,text)
+
+          # STATUS.
+          path=root/'STATUS.md'; text=read(path)
+          text=text.replace('**State:** eighth fresh 20-round sequential repository review completed through correction; exact-head CI/package evidence is valid only after the final immutable branch head passes both required jobs','**State:** ninth fresh 20-round sequential repository review completed through correction; exact-head CI/package evidence is valid only after the final immutable branch head passes both required jobs')
+          text=text.replace('**Cycle baseline:** exact seventh-cycle green repository head `f3820dfb49021617c4199b1860cd8dc353a5edac`',f'**Cycle baseline:** exact eighth-cycle green repository head `{baseline}`')
+          text=text.replace('**Configured explicit PHP review suites:** **54**','**Configured explicit PHP review suites:** **55**')
+          block=f'''## Ninth fresh sequential method\n\nEvery round followed one sequence: complete the entire review -> freeze all defects found in that round -> correct all of them -> regression/retest -> only then begin the next round. No defect was patched in the middle of its review.\n\n- **Defect rounds:** {defect}.\n- **Clean rounds:** {clean}.\n- **First-ten defect rounds:** {first10}.\n- Current ninth-cycle permanent regression protection is `sabri-network/tests/ninth-fresh-twenty-round-contracts.php`; historical cycle ledgers and suites remain historically attributable.\n\nThe ninth cycle closed activation/identity boundaries, space/message/voice/Meet transaction paths, typing/privacy/Smail replay failures, CF01 locked authorization, Message Operations/Meet schema verification gaps, replacement-modal focus escape, legacy presence compatibility and stale current-cycle QA/release evidence.\n\n## Evidence status'''
+          text,n=re.subn(r'## Eighth fresh sequential method.*?## Evidence status',block,text,flags=re.S)
+          if n!=1: raise SystemExit('STATUS cycle block')
+          text=text.replace('current 2.1.0 eighth-cycle corrective candidate','current 2.1.0 ninth-cycle corrective candidate')
+          write(path,text)
+
+          # CODING-COMPLETENESS.
+          path=root/'CODING-COMPLETENESS.md'; text=read(path)
+          text=text.replace('repository-owned/current-wave eighth fresh 20-round corrective candidate','repository-owned/current-wave ninth fresh 20-round corrective candidate')
+          method=f'''## Ninth fresh sequential method\n\nThe ninth fresh cycle started from exact eighth-cycle green repository head `{baseline}`. Each round followed the mandated order: complete the whole review, freeze all findings, correct every proved defect, protect the correction with regression evidence, retest, then begin the next review.\n\n- **Defect-bearing rounds:** {defect}.\n- **Clean rounds:** {clean}.\n- **First-ten defect rounds:** {first10}.\n\n## Current candidate measures'''
+          text,n=re.subn(r'## Eighth fresh sequential method.*?## Current candidate measures',method,text,flags=re.S)
+          if n!=1: raise SystemExit('coding method block')
+          text=text.replace('| Explicit PHP review suites in full quality gate | **54** |','| Explicit PHP review suites in full quality gate | **55** |').replace('| Eighth-cycle regression protection | **`eighth-fresh-twenty-round-contracts.php`** |','| Ninth-cycle regression protection | **`ninth-fresh-twenty-round-contracts.php`** |')
+          principal='## Principal ninth-cycle corrections\n\n'+corrections+'\n\n## Current coded domains retained and reverified'
+          text,n=re.subn(r'## Principal eighth-cycle corrections.*?## Current coded domains retained and reverified',principal,text,flags=re.S)
+          if n!=1: raise SystemExit('coding corrections block')
+          text=text.replace('current 2.1.0 eighth fresh candidate','current 2.1.0 ninth fresh candidate')
+          write(path,text)
+
+          # WordPress readme.
+          path=plugin/'readme.txt'; text=read(path)
+          cycle=f'''== Ninth fresh review cycle ==\nThe ninth fresh 20-round sequential review started from exact eighth-cycle green repository head {baseline}. Each review was completed before that round's findings were frozen and corrected; regression/retest completed before the next round started.\n\nDefect rounds: {defect}. Clean rounds: {clean}. First-ten defect rounds: {first10}.\n\nThe current explicit QA gate contains 55 PHP review suites and 9 JavaScript syntax entry points. Current hardening includes activation/identity fail-closed boundaries, serialized space/message/voice/Meet mutations, typing/privacy/Smail replay safety, locked CF01 issuance, complete current-wave schema verification, modal focus containment, fail-closed legacy presence and current release-truth synchronization.\n\n== Installation =='''
+          text,n=re.subn(r'== Eighth fresh review cycle ==.*?== Installation ==',cycle,text,flags=re.S)
+          if n!=1: raise SystemExit('readme cycle block')
+          text=text.replace('* Eighth fresh 20-round sequential review closed repository defects in registration, privacy, validation, pagination, concurrency/replay, origin safety, migration truth and release evidence.','* Ninth fresh 20-round sequential review closed repository defects across activation/identity, transactions, replay/privacy, CF01/schema, accessibility compatibility and release evidence.').replace('* Current explicit quality inventory: 54 PHP review suites plus 9 JavaScript syntax entry points','* Current explicit quality inventory: 55 PHP review suites plus 9 JavaScript syntax entry points')
+          write(path,text)
+
+          # SYSTEM-STATUS current cycle.
+          path=plugin/'SYSTEM-STATUS.txt'; text=read(path)
+          text=text.replace('Coded Candidate: 2.1.0 current eighth fresh corrective source.','Coded Candidate: 2.1.0 current ninth fresh corrective source.').replace('current explicit gate covers 54 PHP review suites','current explicit gate covers 55 PHP review suites')
+          cyc=f'''Ninth fresh 20-round sequential cycle:\n- Baseline: exact eighth-cycle green repository head {baseline}; historical eighth-cycle evidence remains valid only for its own exact commit.\n- Review method: complete review round -> frozen defect ledger -> fix every proved defect -> regression/retest -> only then next round.\n- Defect rounds: {defect}.\n- Clean rounds: {clean}.\n- First-ten defect rounds: {first10}.\n- Current ninth-cycle regression protection is retained in ninth-fresh-twenty-round-contracts.php.\n- Final exact SHA/run/package evidence is established only after the final ninth-cycle head itself completes attached CI; prior runs/hashes are not reused.\n\nCurrent ninth-cycle corrections include:\n{corrections}\n\nCurrent coded domains continue to include'''
+          text,n=re.subn(r'Eighth fresh 20-round sequential cycle:.*?Current coded domains continue to include',cyc,text,flags=re.S)
+          if n!=1: raise SystemExit('system status cycle block')
+          write(path,text)
+
+          # CHANGELOG preserve historical eighth and add ninth current.
+          path=plugin/'CHANGELOG.md'; text=read(path)
+          text=text.replace('### Eighth-fresh closure — 20 sequential rounds','### Historical Eighth-fresh closure — 20 sequential rounds',1)
+          ninth=f'''### Ninth-fresh closure — 20 sequential rounds\n- Baseline: exact eighth-cycle green repository head `{baseline}`.\n- Mandatory order preserved in every round: full review -> frozen findings -> correction -> regression/retest -> next round.\n- Defect rounds: **{defect}**.\n- Clean rounds: **{clean}**.\n- First-ten defect rounds: **{first10}**.\n{corrections}\n\n'''
+          marker='### Historical Eighth-fresh closure — 20 sequential rounds'
+          text=once(text,marker,ninth+marker,'changelog ninth insert').replace('Current explicit full quality inventory is **54 PHP review suites**','Current explicit full quality inventory is **55 PHP review suites**')
+          write(path,text)
+
+          # Current release-truth assertions.
+          path=plugin/'tests/fifth-fresh-release-truth-contracts.php'; text=read(path)
+          text=text.replace('current eighth-cycle release-truth closure guards','current ninth-cycle release-truth closure guards').replace('// Eighth fresh R20 — current release evidence must not ship stale seventh-cycle truth.','// Ninth fresh R20 — current release evidence must not ship stale eighth-cycle truth.')
+          text=text.replace("$check($cycle==='FILE17-EIGHTH-FRESH-20-ROUND-2026-08-29','Eighth R20: packaged review-cycle identifier must be current.');","$check($cycle==='FILE17-NINTH-FRESH-20-ROUND-2026-08-29','Ninth R20: packaged review-cycle identifier must be current.');")
+          text=text.replace("str_contains(strtolower($doc),'eighth fresh')","str_contains(strtolower($doc),'ninth fresh')").replace("'Eighth R20:","'Ninth R20:")
+          text=text.replace("!str_contains(strtolower($boundary),'seventh fresh')&&!str_contains(strtolower($boundary),'sixth fresh')","!str_contains(strtolower($boundary),'eighth fresh')&&!str_contains(strtolower($boundary),'seventh fresh')&&!str_contains(strtolower($boundary),'sixth fresh')")
+          text=text.replace("str_contains($qa,'54 PHP review suites')","str_contains($qa,'55 PHP review suites')").replace("str_contains($quality,'eighth-fresh-twenty-round-contracts.php')","str_contains($quality,'ninth-fresh-twenty-round-contracts.php')").replace("str_contains($changelog,'Eighth-fresh closure')","str_contains($changelog,'Ninth-fresh closure')")
+          write(path,text)
+
+          path=plugin/'tests/four-plan-review-4-fresh-release-contracts.php'; text=read(path)
+          text=once(text,"'eighth-fresh-twenty-round-contracts.php']","'eighth-fresh-twenty-round-contracts.php','ninth-fresh-twenty-round-contracts.php']",'four-plan ninth suite').replace("str_contains($status,'**54**')","str_contains($status,'**55**')").replace('current expanded 54-suite gate','current expanded 55-suite gate')
+          write(path,text)
+
+          path=plugin/'tests/forty-round-review-4-release-truth-contracts.php'; text=read(path)
+          text=text.replace("str_contains($status,'**54**')&&str_contains($complete,'review suites')&&str_contains($complete,'**54**')","str_contains($status,'**55**')&&str_contains($complete,'review suites')&&str_contains($complete,'**55**')").replace('current 54-suite gate','current 55-suite gate')
+          write(path,text)
+
+          audit=f'''# File 17 — Ninth Fresh 20-Round Sequential Review Audit — 2026-08-29\n\n## Frozen baseline\n- Exact eighth-cycle reviewed green repository head: `{baseline}`\n- Review branch: `review/file17-ninth-fresh-20-round-2026-08-29`\n- Runtime version: `2.1.0`\n- Repository DB constant: `2.0.4`\n\n## Mandatory method\nEvery round was completed before any correction began. After the whole round review, its defect ledger was frozen; all proved defects from that round were corrected; regression/retest was completed; only then did the next round start.\n\n## Round ledger\n| Round | Result | Frozen review result / correction |\n|---|---|---|\n| R1 | Defect | Activation/page lifecycle could publish false success; activation now delegates schema truth to the serialized migration governor and verifies owned surfaces/private storage. |\n| R2 | Defect | Caller/filter self-only identity projection could overexpose canonical identity fields; self is now bound to actual viewer and phone/verification remain canonical. |\n| R3 | Clean | Relationships/contact/block review found no new proved defect. |\n| R4 | Defect | Space mutation transaction/authorization boundaries were incomplete; transaction start and locked authority checks were hardened. |\n| R5 | Defect | Canonical message edit/delete path diverged from current locked authorization/search/outbox semantics; ninth hardening now owns these mutations. |\n| R6 | Clean | Visibility/search/receipt review found no new proved defect. |\n| R7 | Defect | Voice-note path used a superseded send/finalization pattern; it now uses canonical message send and protected metadata transaction/retry semantics. |\n| R8 | Clean | Verified private-transfer review found no new proved defect. |\n| R9 | Defect | Sabri Meet/provider mutation transaction boundaries could proceed without fail-closed transaction start handling; corrected. |\n| R10 | Defect | Typing clear/read DB failures could be reported as success/empty state; explicit fail-closed errors added. |\n| R11 | Defect | Privacy retry guard targeted the wrong Meet eraser key; `sabri-meet` erasure failures now remain retryable. |\n| R12 | Defect | Higher-priority Smail replay path weakened caller-owned exact idempotency binding; strict caller key/content/recipient reconciliation restored. |\n| R13 | Clean | Safety/reports/legal-hold review found no new proved defect. |\n| R14 | Defect | CF01 issuance used preflight authorization without full locked action-time revalidation and unchecked transaction start; locked membership/access/issuer/consent revalidation added. |\n| R15 | Clean | Outbox/events/notification-ordering review found no new proved defect. |\n| R16 | Defect | Central migration verification omitted Message Operations and Sabri Meet owned schema; verifier expanded to their critical tables/columns. |\n| R17 | Defect | Replacement modal could restore focus behind the active dialog; focus restoration now waits for the last modal in the chain to close. |\n| R18 | Clean | Private storage/download/revocation/stale-reference review found no new proved defect. |\n| R19 | Defect | Legacy `/presence` normalized invalid state and `dnd` to online; compatibility now preserves four canonical states and rejects unknown state. |\n| R20 | Defect | Current QA/release truth was still eighth/54, lacked ninth regression coverage/audit and did not explicitly govern ninth runtime hardening; synchronized to ninth/55. |\n\n## Required summary\n- Defect-bearing rounds: **{defect}**\n- Clean rounds: **{clean}**\n- First-ten defect rounds: **{first10}**\n- Defect-bearing round count: **14**\n- Clean round count: **6**\n- Total fresh rounds: **20**\n\n## Final repository-evidence law\nThe final immutable ninth-cycle SHA, attached GitHub Actions run, deterministic ZIP SHA-256 and artifact identity are valid only after the post-closure exact head passes both required jobs. Historical cycle evidence remains attributable only to its own immutable commits. Staging/live/DB/migration/operational acceptance remains separate.\n\n{no_live}\n'''
+          write(root/'FILE17-NINTH-FRESH-20-ROUND-AUDIT-2026-08-29.md',audit)
+          PY
+
+          bash -n sabri-network/tools/quality-check.sh
+          bash -n sabri-network/tools/package.sh
+          php -l sabri-network/tests/ninth-fresh-twenty-round-contracts.php
+          php sabri-network/tests/ninth-fresh-twenty-round-contracts.php
+          php sabri-network/tests/fifth-fresh-release-truth-contracts.php
+          php sabri-network/tests/four-plan-review-4-fresh-release-contracts.php
+          php sabri-network/tests/forty-round-review-4-release-truth-contracts.php
+          grep -F 'FILE17-NINTH-FRESH-20-ROUND-2026-08-29' sabri-network/REVIEW-CYCLE-ID.txt >/dev/null
+          grep -F '55 PHP review suites' sabri-network/QA-INVENTORY.txt >/dev/null
+          test "$(grep -c 'ninth-fresh-twenty-round-contracts.php' .github/workflows/quality.yml)" -ge 2
+          grep -F 'includes/class-sn-ninth-fresh-hardening.php' sabri-network/tools/package.sh >/dev/null
+
+      - name: Commit frozen R20 closure
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add FILE17-NINTH-FRESH-20-ROUND-AUDIT-2026-08-29.md README.md STATUS.md CODING-COMPLETENESS.md \
+            sabri-network/tools/quality-check.sh sabri-network/tools/package.sh \
+            sabri-network/tests/ninth-fresh-twenty-round-contracts.php \
+            sabri-network/tests/fifth-fresh-release-truth-contracts.php \
+            sabri-network/tests/four-plan-review-4-fresh-release-contracts.php \
+            sabri-network/tests/forty-round-review-4-release-truth-contracts.php \
+            sabri-network/REVIEW-CYCLE-ID.txt sabri-network/QA-INVENTORY.txt sabri-network/CURRENT-CANDIDATE-BOUNDARY.txt \
+            sabri-network/README.md sabri-network/readme.txt sabri-network/SYSTEM-STATUS.txt sabri-network/CHANGELOG.md
+          git diff --cached --check
+          git commit -m 'R20: close ninth fresh release truth and regression gate'
+          git push origin HEAD:review/file17-ninth-fresh-20-round-2026-08-29
