@@ -17,4 +17,6 @@ $check(str_contains($message,"return new WP_Error('invalid_message_type'")&&!str
 $visibility=$read($root.'/includes/class-sn-message-visibility.php');
 $check(str_contains($visibility,'MAX_VISIBILITY_SCAN_PAGES')&&str_contains($visibility,'$visible = array_merge($eligible, $visible)')&&str_contains($visibility,'$visible = array_merge($visible, $eligible)'),'R6: message paging must scan across viewer-hidden rows in both older and newer directions.');
 $check(str_contains($realtime,"sn_presence_state_invalid")&&str_contains($realtime,"['online','away','dnd','offline']"),'R10: explicit invalid presence state must fail closed instead of becoming online.');
+$safety=$read($root.'/includes/class-sn-safety-runtime-hardening.php');
+$check(str_contains($safety,"$route === '/sabri-network/v2/report'")&&str_contains($safety,'report_replay_conflict')&&str_contains($safety,"report_idempotency_conflict"),'R13: native report creation must be serialized and exact replay must bind content/evidence, not target alone.');
 if($fail){fwrite(STDERR,"Eighth fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eighth fresh 20-round contracts: PASS ($checks checks)\n";
