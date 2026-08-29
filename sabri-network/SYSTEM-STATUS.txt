@@ -35,7 +35,7 @@ Current eighth-cycle corrections include:
 - migration verification aligned to active context-adapter and CF-01 schema columns;
 - executable quality/workflow inventory and current release surfaces synchronized to the eighth cycle.
 
-Current coded domains continue to include one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
+Current coded domains continue to include: one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
 
 External acceptance still pending:
 - real WordPress/PHP/MySQL fresh install, upgrade/migration/race/rollback tests;
