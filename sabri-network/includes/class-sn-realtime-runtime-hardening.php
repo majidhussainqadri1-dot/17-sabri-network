@@ -5,8 +5,11 @@ require_once SN_DIR . 'includes/class-sn-call-runtime-hardening.php';
 
 final class SN_Realtime_Runtime_Hardening {
     private const LOCK_TIMEOUT = 5;
+    private static bool $registered = false;
 
     public static function register(): void {
+        if (self::$registered) return;
+        self::$registered = true;
         add_action('rest_api_init', [self::class, 'override_routes'], 1960);
         SN_Call_Runtime_Hardening::register();
     }
