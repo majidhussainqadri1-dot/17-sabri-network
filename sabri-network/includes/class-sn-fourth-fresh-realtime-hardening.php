@@ -25,19 +25,42 @@ final class SN_Fourth_Fresh_Realtime_Hardening {
         $cid=absint($r['id']);$actor=get_current_user_id();
         if($cid<=0)return self::not_found();
         return self::with_locks(self::conversation_locks($cid,$actor),static function()use($r,$cid,$actor){
+            global $wpdb;
             if(!SN_DB::is_member($cid,$actor))return self::not_found();
-            return SN_REST::set_typing($r);
+            $response=SN_REST::set_typing($r);
+            if(is_wp_error($response))return $response;
+            // The legacy canonical clear path did not surface a DELETE failure. Re-run the
+            // idempotent clear while the conversation lock is held and fail closed if the
+            // database still cannot remove the stale typing row. A zero-row delete is valid.
+            if(!rest_sanitize_boolean($r->get_param('typing'))){
+                $deleted=$wpdb->delete(SN_DB::table('typing'),['conversation_id'=>$cid,'user_id'=>$actor],['%d','%d']);
+                if($deleted===false)return new WP_Error('sn_typing_clear_failed','The typing state could not be cleared safely.',['status'=>500]);
+            }
+            return $response;
         });
     }
 
     public static function get_typing(WP_REST_Request $r): WP_REST_Response|WP_Error {
         $cid=absint($r['id']);$actor=get_current_user_id();
         if($cid<=0)return self::not_found();
-        return self::with_locks([self::conversation_lock($cid)],static function()use($r,$cid,$actor){
+        return self::with_locks([self::conversation_lock($cid)],static function()use($cid,$actor){
+            global $wpdb;
             if(!SN_DB::is_member($cid,$actor))return self::not_found();
-            // Reusing the canonical reader inside the conversation lock prevents a
-            // concurrent leave/removal from leaking a stale typing participant row.
-            return SN_REST::get_typing($r);
+            $conversation=$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('conversations').' WHERE id=%d LIMIT 1',$cid));
+            if((string)$wpdb->last_error!=='')return self::read_error();
+            if((int)$conversation!==$cid)return self::not_found();
+            $rows=$wpdb->get_results($wpdb->prepare(
+                'SELECT t.user_id,t.expires_at FROM '.SN_DB::table('typing').' t INNER JOIN '.SN_DB::table('members').' m ON m.conversation_id=t.conversation_id AND m.user_id=t.user_id AND m.left_at IS NULL WHERE t.conversation_id=%d AND t.user_id<>%d AND t.expires_at>%s ORDER BY t.updated_at DESC LIMIT 20',
+                $cid,$actor,current_time('mysql',true)
+            ));
+            if(!is_array($rows)||(string)$wpdb->last_error!=='')return self::read_error();
+            $users=[];
+            foreach($rows as $row){
+                if(SN_DB::is_blocked($actor,(int)$row->user_id))continue;
+                $projection=SN_Auth::public_user((int)$row->user_id);
+                if($projection)$users[]=$projection;
+            }
+            return rest_ensure_response(['typing'=>$users]);
         });
     }
 
@@ -57,6 +80,7 @@ final class SN_Fourth_Fresh_Realtime_Hardening {
     }
     private static function conversation_lock(int $cid):string{return 'sn:f17:conversation:'.substr(hash('sha256',(string)$cid),0,32);}
     private static function presence_lock(int $user):string{return 'sn:f17:presence:'.substr(hash('sha256',(string)$user),0,32);}
-    private static function with_locks(array $locks,callable $cb){global $wpdb;$locks=array_values(array_unique(array_filter($locks)));sort($locks,SORT_STRING);$held=[];try{foreach($locks as $lock){$ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));if($ok!==1)return new WP_Error('sn_realtime_busy','The realtime state is changing. Retry the request.',['status'=>409]);$held[]=$lock;}return $cb();}finally{foreach(array_reverse($held)as$lock)$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));}}
+    private static function with_locks(array $locks,callable $cb){global $wpdb;$locks=array_values(array_unique(array_filter($locks)));sort($locks,SORT_STRING);$held=[];try{foreach($locks as $lock){$ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));if($ok!==1)return new WP_Error('sn_realtime_busy','The realtime state is changing. Retry the request.',['status'=>409]);$held[]=$lock;}return $cb();}finally{foreach(array_reverse($held)as$lock)$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',(string)$lock));}}
     private static function not_found():WP_Error{return new WP_Error('not_found','The requested communication object is unavailable.',['status'=>404]);}
+    private static function read_error():WP_Error{return new WP_Error('sn_typing_read_failed','Typing state is temporarily unavailable.',['status'=>500]);}
 }
