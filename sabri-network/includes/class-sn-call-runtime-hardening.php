@@ -7,8 +7,10 @@ final class SN_Call_Runtime_Hardening {
     private const LOCK_TIMEOUT = 5;
 
     public static function register(): void {
+        add_filter('rest_pre_dispatch', [self::class, 'guard_protected_reads'], -29998, 3);
         add_filter('rest_pre_dispatch', [self::class, 'lock_mutation'], 4, 3);
         add_filter('rest_post_dispatch', [self::class, 'verify_and_release'], 12, 3);
+        add_filter('wp_privacy_personal_data_erasers', [self::class, 'override_meet_privacy_eraser'], PHP_INT_MAX);
         add_action('rest_api_init', [self::class, 'override_routes'], 2050);
     }
 
@@ -20,8 +22,6 @@ final class SN_Call_Runtime_Hardening {
 
     public static function issue_credentials(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $user = get_current_user_id();
-        // The REST permission callback may already have populated the per-request File-00 cache.
-        // Credential issuance is a distinct high-value transition, so force a fresh assertion immediately before it.
         SN_Membership_Assertions::clear_cache($user);
         $assertion = SN_Membership_Assertions::communication($user);
         if (is_wp_error($assertion)) return $assertion;
@@ -30,11 +30,68 @@ final class SN_Call_Runtime_Hardening {
         }
         $result = SN_Conference_Provider::issue_credentials($request);
         if (is_wp_error($result)) return $result;
-        // Never reuse the pre-provider assertion for the delivery decision.
         SN_Membership_Assertions::clear_cache($user);
         $fresh = SN_Membership_Assertions::communication($user);
         if (is_wp_error($fresh) || $fresh['can_call'] !== true || $fresh['suspended'] === true) {
             return new WP_Error('sn_call_eligibility_changed', 'Calling eligibility changed before credential delivery.', ['status'=>403]);
+        }
+        return $result;
+    }
+
+    /** Protected call/meeting reads must not rely on a still-fresh browser/session projection after eligibility revocation. */
+    public static function guard_protected_reads($result, WP_REST_Server $server, WP_REST_Request $request) {
+        if ($result !== null || strtoupper($request->get_method()) !== 'GET') return $result;
+        $route = $request->get_route();
+        $actor = get_current_user_id();
+        if ($actor <= 0) return $result;
+        $is_meet = preg_match('#^/sabri-network/v2/meetings/([A-Za-z0-9_-]{22,64})/(participants|signals)$#', $route, $meet_match) === 1;
+        $is_call = preg_match('#^/sabri-network/v2/calls/(\d+)/signals$#', $route, $call_match) === 1;
+        if (!$is_meet && !$is_call) return $result;
+
+        SN_Membership_Assertions::clear_cache($actor);
+        $assertion = SN_Membership_Assertions::communication($actor);
+        if (is_wp_error($assertion) || ($assertion['can_call'] ?? false) !== true || ($assertion['suspended'] ?? true) === true) {
+            return new WP_Error('sn_call_eligibility_denied', 'Current communication eligibility does not permit this protected call read.', ['status'=>403]);
+        }
+
+        global $wpdb;
+        if ($is_meet) {
+            $meeting = $wpdb->get_row($wpdb->prepare(
+                "SELECT id,host_id,conversation_id,access_mode,status FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s",
+                (string)$meet_match[1]
+            ));
+            if (!$meeting || !in_array((string)$meeting->status, ['scheduled','live'], true)) return self::not_found();
+            $participant = $wpdb->get_row($wpdb->prepare(
+                "SELECT state FROM {$wpdb->prefix}sn_meet_participants WHERE meeting_id=%d AND user_id=%d",
+                (int)$meeting->id,
+                $actor
+            ));
+            if (!$participant || !in_array((string)$participant->state, ['admitted','joined'], true)) return self::not_found();
+            if ((string)$meeting->access_mode === 'conversation' && (int)$meeting->conversation_id > 0
+                && !SN_DB::is_member((int)$meeting->conversation_id, $actor)) return self::not_found();
+            if ((int)$meeting->host_id > 0 && (int)$meeting->host_id !== $actor
+                && (SN_DB::is_blocked($actor, (int)$meeting->host_id) || SN_DB::is_blocked((int)$meeting->host_id, $actor))) return self::not_found();
+            return $result;
+        }
+
+        $call_id = (int)$call_match[1];
+        $call = $wpdb->get_row($wpdb->prepare('SELECT conversation_id,status FROM ' . SN_DB::table('calls') . ' WHERE id=%d', $call_id));
+        if (!$call || !in_array((string)$call->status, ['ringing','active','accepted','connected','reconnecting'], true)
+            || !SN_DB::is_member((int)$call->conversation_id, $actor)) return self::not_found();
+        $member = $wpdb->get_row($wpdb->prepare(
+            "SELECT status FROM " . SN_DB::table('call_members') . " WHERE call_id=%d AND user_id=%d",
+            $call_id,
+            $actor
+        ));
+        if (!$member || !in_array((string)$member->status, ['invited','joined'], true)) return self::not_found();
+        $type = (string)$wpdb->get_var($wpdb->prepare('SELECT type FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', (int)$call->conversation_id));
+        if ($type === 'direct') {
+            $peer = (int)$wpdb->get_var($wpdb->prepare(
+                'SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 1',
+                (int)$call->conversation_id,
+                $actor
+            ));
+            if ($peer <= 0 || SN_DB::is_blocked($actor, $peer) || SN_DB::is_blocked($peer, $actor)) return self::not_found();
         }
         return $result;
     }
@@ -72,9 +129,6 @@ final class SN_Call_Runtime_Hardening {
                 if ($actor > 0 && (int)$meeting->host_id > 0 && $actor !== (int)$meeting->host_id) $locks[] = SN_Relationships::pair_lock_name($actor, (int)$meeting->host_id);
             }
         } elseif ($route === '/sabri-network/v2/calls') {
-            // Call creation previously had no call-runtime lock at all. Serializing the
-            // conversation (and the direct peer relationship) ensures that a concurrent
-            // block/member transition cannot pass a stale preflight and then create media.
             $conversation = absint($request->get_param('conversation_id'));
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
@@ -99,10 +153,15 @@ final class SN_Call_Runtime_Hardening {
         }
         $request->set_param('_sn_call_runtime_locks',$held);
 
-        // Permission callbacks run before this hook and can populate the File-00 cache.
-        // Once the relationship/call locks are held, refresh eligibility for mutations
-        // that create/join/use media. Exit/decline/leave paths stay available so a newly
-        // restricted account is never trapped in an active communication session.
+        if ($route === '/sabri-network/v2/meetings') {
+            $reuse = self::validate_meeting_idempotency_reuse($request, $actor);
+            if (is_wp_error($reuse)) {
+                self::release($held);
+                $request->set_param('_sn_call_runtime_locks', []);
+                return $reuse;
+            }
+        }
+
         if (self::requires_fresh_call_eligibility($route, $request)) {
             SN_Membership_Assertions::clear_cache($actor);
             $assertion = SN_Membership_Assertions::communication($actor);
@@ -135,6 +194,85 @@ final class SN_Call_Runtime_Hardening {
         }
     }
 
+    /** Reject reuse of a meeting idempotency key for materially different meeting semantics. */
+    private static function validate_meeting_idempotency_reuse(WP_REST_Request $request, int $actor): bool|WP_Error {
+        global $wpdb;
+        $raw = trim((string)($request->get_header('X-Idempotency-Key') ?: $request->get_param('idempotency_key')));
+        if (!preg_match('/^[A-Za-z0-9._:-]{16,128}$/', $raw)) return true;
+        $key = hash_hmac('sha256', $actor . ':' . $raw, wp_salt('nonce'));
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}sn_meet_meetings WHERE host_id=%d AND idempotency_key=%s LIMIT 1",
+            $actor,
+            $key
+        ));
+        if (!$row) return true;
+
+        $title = trim(sanitize_text_field((string)$request->get_param('title')));
+        $description = trim(sanitize_textarea_field((string)$request->get_param('description')));
+        $conversation = absint($request->get_param('conversation_id'));
+        $access = $conversation > 0 && sanitize_key((string)$request->get_param('access_mode')) === 'conversation' ? 'conversation' : 'invited';
+        $lobby = $request->has_param('lobby_enabled') ? $request->get_param('lobby_enabled') : true;
+        if (!is_bool($lobby)) return new WP_Error('invalid_boolean', 'Boolean meeting settings must use JSON true or false.', ['status'=>400]);
+        $max = max(2, min(500, (int)apply_filters('sn_network_meet_max_participants', 100, $actor)));
+        $limit = absint($request->get_param('participant_limit'));
+        $limit = min($max, max(2, $limit ?: min(100, $max)));
+        $start = self::normalize_meeting_datetime($request->get_param('scheduled_start'));
+        if (is_wp_error($start)) return $start;
+        $end = self::normalize_meeting_datetime($request->get_param('scheduled_end'));
+        if (is_wp_error($end)) return $end;
+
+        $matches = hash_equals((string)$row->title, $title)
+            && hash_equals((string)$row->description, $description)
+            && (int)$row->conversation_id === $conversation
+            && hash_equals((string)$row->access_mode, $access)
+            && (bool)$row->lobby_enabled === $lobby
+            && (int)$row->participant_limit === $limit
+            && ($end === null ? $row->scheduled_end === null : hash_equals((string)$row->scheduled_end, $end));
+        if ($start !== null) {
+            $matches = $matches && hash_equals((string)$row->scheduled_start, $start);
+        } else {
+            $created = strtotime((string)$row->created_at . ' UTC');
+            $stored_start = strtotime((string)$row->scheduled_start . ' UTC');
+            $matches = $matches && $created !== false && $stored_start !== false && abs($stored_start - $created) <= 2;
+        }
+        return $matches ? true : new WP_Error('sn_meet_idempotency_conflict', 'This meeting idempotency key was already used for a different request.', ['status'=>409]);
+    }
+
+    private static function normalize_meeting_datetime(mixed $value): string|WP_Error|null {
+        $value = trim((string)$value);
+        if ($value === '') return null;
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s\Z', $value, new DateTimeZone('UTC'));
+        $errors = DateTimeImmutable::getLastErrors();
+        if (!$date || ($errors !== false && ((int)$errors['warning_count'] > 0 || (int)$errors['error_count'] > 0)) || $date->format('Y-m-d\TH:i:s\Z') !== $value) {
+            return new WP_Error('invalid_meeting_datetime', 'Meeting dates must use exact UTC ISO-8601 format.', ['status'=>400]);
+        }
+        return $date->format('Y-m-d H:i:s');
+    }
+
+    /** Keep WordPress privacy retries alive when the canonical Meet eraser reports an operational failure. */
+    public static function override_meet_privacy_eraser(array $erasers): array {
+        if (isset($erasers['sabri-meet'])) $erasers['sabri-meet']['callback'] = [self::class, 'meet_privacy_erase_retry_safe'];
+        return $erasers;
+    }
+
+    public static function meet_privacy_erase_retry_safe(string $email, int $page = 1): array {
+        $result = SN_Meet::privacy_erase($email, $page);
+        $messages = array_map('strval', is_array($result['messages'] ?? null) ? $result['messages'] : []);
+        $failure = false;
+        foreach ($messages as $message) {
+            $normalized = strtolower($message);
+            if (str_contains($normalized, 'could not start') || str_contains($normalized, 'failed and must be retried')) {
+                $failure = true;
+                break;
+            }
+        }
+        if ($failure) {
+            $result['done'] = false;
+            $result['items_retained'] = true;
+        }
+        return $result;
+    }
+
     private static function append_direct_pair_lock(array &$locks, int $conversation, int $actor): void {
         global $wpdb;
         if ($conversation <= 0 || $actor <= 0) return;
@@ -160,4 +298,5 @@ final class SN_Call_Runtime_Hardening {
 
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:' . substr(hash('sha256',(string)$id),0,32); }
     private static function release(array $locks): void { global $wpdb; foreach(array_reverse($locks) as $lock)$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',(string)$lock)); }
+    private static function not_found(): WP_Error { return new WP_Error('not_found', 'The requested call or meeting is unavailable.', ['status'=>404]); }
 }
