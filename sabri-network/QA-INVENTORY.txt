@@ -1,1 +1,6 @@
-Expected fifth-cycle full quality inventory after final synchronization: all PHP review suites present under tests/ and all nine File-17 JavaScript entry points. Exact counts are asserted by tools/quality-check.sh and current GitHub Actions.
+File 17 v2.1.0 current seventh-fresh repository quality inventory.
+PHP review suites: 53 files under tests/, each invoked exactly once by tools/quality-check.sh.
+JavaScript syntax entry points: 9.
+Current seventh-cycle regressions are retained inside the governed existing suites, including sixth-fresh-twenty-round-contracts.php and fifth-fresh-release-truth-contracts.php.
+Exact package/QA truth exists only for the immutable commit on which both GitHub Actions jobs succeed.
+Staging/live/DB/migration/operational acceptance is not established by this inventory.
