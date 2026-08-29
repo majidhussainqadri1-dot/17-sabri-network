@@ -1,5 +1,7 @@
 # File 17 — Sabri Network and Messages 2.1.0
 
+**Repository status:** current **coding/review candidate**; not staging-accepted, not live-deployed, not operationally accepted.
+
 This installable plugin is the File-17 repository candidate for the Sabri Social Homeopathy Platform under the current consolidated central governing plan, the current File 17 Final Harmonized Master Plan and the Founder-approved Future Communication Superset 24. Historical review ledgers and CI runs prove only their own exact commits.
 
 ## Canonical scope
