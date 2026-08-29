@@ -4,8 +4,8 @@ $root = dirname(__DIR__); $main = file_get_contents($root.'/sabri-network.php');
 function smc(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 smc(str_contains($main,'class-sn-smail.php')&&str_contains($main,'SN_Smail::register()')&&str_contains($main,'SN_Smail::install()'),'Smail lifecycle is loaded, registered and installed.');
 foreach(['inbox','sent','drafts','starred','archive','spam','trash'] as $box){smc(str_contains($src,"'$box'"),"Mailbox $box is implemented.");}
-smc(str_contains($src,'SN_Central_Plan_Hardening::resolve_smail_conversation')&&str_contains($src,'SN_Message_Integrity::send_message'),'Smail reuses retry-safe canonical conversation resolution and the atomic canonical message service.');
-smc(!str_contains($src,'SN_REST::send_message'),'Smail cannot bypass the canonical message-integrity route.');
+smc(str_contains($src,'SN_Central_Plan_Hardening::resolve_smail_conversation')&&str_contains($src,'SN_Message_Runtime_Hardening::send_message'),'Smail reuses retry-safe canonical conversation resolution and the final atomic canonical message runtime.');
+smc(!str_contains($src,'SN_Message_Integrity::send_message')&&!str_contains($src,'SN_REST::send_message'),'Smail cannot bypass the final canonical message-runtime route.');
 smc(!str_contains($src,'CREATE TABLE')||str_contains($src,'message_id BIGINT UNSIGNED NOT NULL'),'Smail stores message references rather than a second message body truth.');
 smc(str_contains($src,'encrypted_payload LONGTEXT'),'Draft payload is encrypted at rest.');
 smc(str_contains($src,'SN_Communication_Crypto::encrypt')&&str_contains($src,'SN_Communication_Crypto::decrypt'),'Draft encryption and decryption are explicit.');
@@ -13,6 +13,9 @@ smc(str_contains($src,'client_key CHAR(64) NOT NULL')&&str_contains($src,'UNIQUE
 smc(str_contains($src,'SN_Policy::can_contact'),'Every recipient is checked through File-17 contact policy.');
 smc(str_contains($src,'SN_Policy::consume_rate_limit'),'Smail send and draft operations are rate-limited.');
 smc(str_contains($src,"SN_Outbox::enqueue('smail.sent'"),'Smail emits a reliable factual event.');
+smc(str_contains($src,'request_scope_hash')&&str_contains($src,'smail_scope_hash'),'Smail binds canonical message retries to the exact mailbox subject/recipient scope.');
+smc(str_contains($src,'assert_same_projection')&&str_contains($src,'smail_idempotency_conflict'),'Smail duplicate projection reconciliation rejects semantic idempotency conflicts.');
+smc(str_contains($src,'cleanup_matching_draft')&&str_contains($src,'payload_hash=%s AND deleted_at IS NULL'),'Smail retry cleanup can erase only the exact matching draft payload/version.');
 smc(str_contains($src,'register_exporter')&&str_contains($src,'register_eraser'),'Smail has privacy export and erasure contracts.');
 smc(str_contains($src,'X-Robots-Tag: noindex, noarchive'),'Smail surface is noindex and noarchive.');
 smc(str_contains($tpl, "['inbox' => 'Inbox'")&&str_contains($tpl, "'trash' => 'Trash'")&&str_contains($tpl,'data-sm-box'),'All mailbox controls are rendered.');
