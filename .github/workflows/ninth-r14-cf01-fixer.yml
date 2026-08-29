@@ -1,0 +1,83 @@
+name: Ninth R14 CF01 fixer
+
+on:
+  push:
+    branches:
+      - review/file17-ninth-fresh-20-round-2026-08-29
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: "${{ startsWith(github.event.head_commit.message, 'R14: add CF01 transaction fixer') }}"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-ninth-fresh-20-round-2026-08-29
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Apply frozen R14 CF01 corrections
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('sabri-network/includes/class-sn-cf01-clinical-context.php')
+          text = path.read_text(encoding='utf-8')
+          old = """        $wpdb->query('START TRANSACTION');
+        try {
+            $existing = $wpdb->get_row($wpdb->prepare(
+"""
+          new = """        if ($wpdb->query('START TRANSACTION') === false) {
+            return self::error('sn_cf01_reference_issue_failed', 'The opaque clinical-context reference transaction could not start.', 500);
+        }
+        try {
+            $locked_conversation = $wpdb->get_row($wpdb->prepare(
+                'SELECT id,type,owner_id,privacy,status,updated_at FROM ' . SN_DB::table('conversations') . ' WHERE id=%d FOR UPDATE',
+                $conversation_id
+            ));
+            $locked_member = $wpdb->get_row($wpdb->prepare(
+                'SELECT id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',
+                $conversation_id,
+                $actor_id
+            ));
+            if (!$locked_conversation || !$locked_member || (string) $locked_conversation->status !== 'active' || self::direct_conversation_blocked($locked_conversation, $actor_id)) {
+                $wpdb->query('ROLLBACK');
+                return self::not_found();
+            }
+            SN_Membership_Assertions::clear_cache($actor_id);
+            $access = SN_Policy::access();
+            if (is_wp_error($access)) {
+                $wpdb->query('ROLLBACK');
+                return $access;
+            }
+            if (apply_filters('sn_cf01_clinical_context_issuer_authorized', false, $actor_id, $conversation_id, $purpose, $context) !== true) {
+                $wpdb->query('ROLLBACK');
+                return self::error('sn_cf01_issuer_not_authorized', 'The clinical-context issuer is no longer authorized.', 403);
+            }
+            if (apply_filters('sn_cf01_clinical_context_consent_authorized', false, $actor_id, $conversation_id, $purpose, $consent_reference, $context) !== true) {
+                $wpdb->query('ROLLBACK');
+                return self::error('sn_cf01_consent_not_authorized', 'The clinical-context consent is no longer current.', 403);
+            }
+            $conversation = $locked_conversation;
+            $existing = $wpdb->get_row($wpdb->prepare(
+"""
+          if old not in text:
+              raise SystemExit('Expected CF01 issue transaction boundary not found exactly.')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          php -l sabri-network/includes/class-sn-cf01-clinical-context.php
+          grep -F "if (\$wpdb->query('START TRANSACTION') === false)" sabri-network/includes/class-sn-cf01-clinical-context.php >/dev/null
+          grep -F "SELECT id,type,owner_id,privacy,status,updated_at FROM" sabri-network/includes/class-sn-cf01-clinical-context.php >/dev/null
+      - name: Commit frozen R14 correction
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/includes/class-sn-cf01-clinical-context.php
+          git diff --cached --check
+          git commit -m 'R14: revalidate CF01 issuance inside locked transaction'
+          git push origin HEAD:review/file17-ninth-fresh-20-round-2026-08-29
