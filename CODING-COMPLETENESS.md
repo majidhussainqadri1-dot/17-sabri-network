@@ -5,7 +5,7 @@
 **Assessment date:** 29 August 2026  
 **Coding classification:** **repository-owned/current-wave seventh fresh 20-round corrective candidate; staging/live/operational completion is not claimed**
 
-This document records repository implementation evidence only. It does not establish real provider acceptance, Hostinger staging acceptance, live deployment, database/migration parity or operational readiness. Exact-commit GitHub Actions is evidence only for the exact commit on which it runs.
+This document records repository implementation evidence only. It does not establish real provider acceptance, Hostinger staging acceptance, live deployment, database/migration parity or operational readiness. Exact-commit GitHub Actions is evidence only for the exact commit on which it runs. Historical prior-cycle reviews, hashes and CI runs remain attributable only to their own immutable commits and are not reused as current proof.
 
 ## Seventh fresh sequential method
 
