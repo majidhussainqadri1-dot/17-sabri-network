@@ -1,17 +1,22 @@
-فائل 17 — Sabri Network and Messages 2.0.0
+فائل 17 — Sabri Network and Messages 2.1.0
 تنصیب کا محفوظ طریقہ
 
-1۔ پہلے مکمل Database اور Files Backup بنائیں اور Restore Test کا ثبوت محفوظ کریں۔
-2۔ ZIP صرف Staging ویب سائٹ پر نصب کریں؛ Live پر براہِ راست نصب نہ کریں۔
-3۔ Plugin فعال کریں۔
-4۔ WordPress Admin میں Network → System Check کھولیں۔
-5۔ File 00/File 02 کا Identity Adapter منسلک کریں؛ اس کے بغیر Network user actions حفاظتی طور پر بند رہیں گے۔
-6۔ File 19 Notification Adapter منسلک کریں، یا محدود local fallback کو واضح طور پر قبول کریں۔
-7۔ Private Storage ویب روٹ سے باہر قابلِ تحریر ہونا چاہیے۔
-8۔ Document Uploads کے لیے منظور شدہ Malware Scanner Adapter لازم ہے۔
-9۔ Calls کے لیے منظور شدہ STUN ترتیب دیں؛ TURN credentials صرف short-lived adapter سے دیں۔
-10۔ Group Calls اس وقت تک فعال نہ کریں جب تک منظور شدہ SFU دستیاب اور آزمودہ نہ ہو۔
-11۔ Founder، Doctor، Adult Member، Minor، Blocked، Suspended اور Unauthorized account کے عملی tests کریں۔
-12۔ Migration، rollback، privacy export/erasure، attachment delivery، rate limiting، calls اور reports کے tests کامیاب ہونے کے بعد ہی Founder approval لیا جائے۔
+1۔ پہلے مکمل Database، wp-content اور متعلقہ configuration کا verified backup بنائیں اور Restore Test کا ثبوت محفوظ کریں۔
+2۔ exact governed 2.1.0 ZIP صرف Staging ویب سائٹ پر نصب کریں؛ Live پر براہِ راست نصب نہ کریں۔
+3۔ ZIP کا SHA-256 اور generated source manifest اسی exact GitHub Actions artifact سے verify کریں جس commit کو staging کے لیے منتخب کیا گیا ہے۔
+4۔ Plugin فعال کریں۔ activation/migration کے دوران error آئے تو اسے application bug فرض نہ کریں؛ پہلے migration state، DB schema اور deployed artifact parity verify کریں۔
+5۔ WordPress Admin میں Network → System Check کھولیں اور runtime version، DB version، required tables/columns اور private storage verify کریں۔
+6۔ File 00/File 02 کا current Identity Adapter منسلک کریں؛ identity/verification authority File 17 میں duplicate نہ کریں۔
+7۔ File 19 Notification Adapter منسلک کریں؛ notification transport File 19 کی canonical responsibility ہے۔
+8۔ Private Storage ویب روٹ سے باہر قابلِ تحریر اور access-controlled ہونا چاہیے۔
+9۔ Document Uploads کے لیے منظور شدہ Malware Scanner Adapter لازم ہے؛ scanner unavailable ہونے پر protected uploads fail-closed رہیں۔
+10۔ Calls کے لیے approved STUN/TURN provider configuration آزمائیں؛ credentials صرف short-lived participant-scoped adapter سے آئیں۔
+11۔ Group Calls اس وقت تک فعال نہ کریں جب تک approved SFU، group-call capability اور endpoint semantics staging پر ثابت نہ ہوں۔
+12۔ Founder، Doctor، Adult Member، Minor، Blocked، Suspended اور Unauthorized account کے عملی authorization/IDOR tests کریں۔
+13۔ Message/Smail idempotency، receipts، presence، private transfer resume/quota/scanning، reports/legal holds، privacy export/erasure، migration/rollback اور provider-failure tests کامیاب کریں۔
+14۔ Browser/device، RTL/LTR، keyboard/focus accessibility، cron/outbox، backup/restore اور rollback rehearsal مکمل کریں۔
+15۔ Staging acceptance اور Founder sign-off کے بعد ہی الگ production deployment process شروع کیا جائے۔
 
-اہم: یہ نسخہ E2EE، penetration testing، load testing، staging acceptance یا production readiness کا دعویٰ نہیں کرتا۔
+اہم: repository CI یا ZIP خود staging acceptance، live deployment، E2EE certification، penetration/load testing یا production readiness کا ثبوت نہیں ہے۔
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
