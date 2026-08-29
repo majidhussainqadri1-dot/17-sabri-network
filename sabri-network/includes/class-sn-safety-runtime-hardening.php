@@ -98,7 +98,8 @@ final class SN_Safety_Runtime_Hardening {
         $method = strtoupper($request->get_method());
         if (in_array($method, ['GET','HEAD','OPTIONS'], true)) return $result;
         $route = $request->get_route();
-        if (!str_contains($route, '/reports') && !str_contains($route, '/high-risk-actions')) return $result;
+        $new_report = $route === '/sabri-network/v2/report';
+        if (!$new_report && !str_contains($route, '/reports') && !str_contains($route, '/high-risk-actions')) return $result;
         global $wpdb;
         $id = 0;
         if (preg_match('#/(?:reports|high-risk-actions)/(\d+)#', $route, $m)) $id = (int) $m[1];
@@ -106,6 +107,14 @@ final class SN_Safety_Runtime_Hardening {
         $got = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)', $lock, self::LOCK_TIMEOUT));
         if ($got !== 1) return new WP_Error('sn_safety_mutation_busy', 'This safety record is changing. Retry the request.', ['status'=>409]);
         $request->set_param('_sn_safety_lock', $lock);
+        if ($new_report) {
+            $conflict = self::report_replay_conflict($request);
+            if (is_wp_error($conflict)) {
+                $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+                $request->set_param('_sn_safety_lock', '');
+                return $conflict;
+            }
+        }
         return $result;
     }
 
@@ -117,5 +126,39 @@ final class SN_Safety_Runtime_Hardening {
             $request->set_param('_sn_safety_lock', '');
         }
         return $response;
+    }
+
+    private static function report_replay_conflict(WP_REST_Request $request): ?WP_Error {
+        global $wpdb;
+        $reporter = get_current_user_id();
+        $client = strtolower(trim((string) $request->get_param('client_id')));
+        if ($reporter <= 0 || !SN_Safety::valid_uuid($client)) return null;
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT category,details,evidence_hash FROM ' . SN_DB::table('reports') . ' WHERE reporter_id=%d AND client_uuid=%s LIMIT 1',
+            $reporter,
+            $client
+        ));
+        if (!$row) return null;
+        $category = sanitize_key((string) $request->get_param('category'));
+        $details = mb_substr(sanitize_textarea_field((string) $request->get_param('details')), 0, 4000);
+        $evidence_hash = SN_Safety::evidence_hash(self::sanitize_evidence($request->get_param('evidence')));
+        if (!hash_equals((string) $row->category, $category)
+            || !hash_equals((string) $row->details, $details)
+            || !hash_equals((string) $row->evidence_hash, $evidence_hash)) {
+            return new WP_Error('report_idempotency_conflict', 'This report identifier was already used for different report content or evidence.', ['status'=>409]);
+        }
+        return null;
+    }
+
+    private static function sanitize_evidence($evidence): array {
+        if (!is_array($evidence)) return [];
+        $clean = [];
+        foreach (array_slice($evidence, 0, 20, true) as $key => $value) {
+            $key = sanitize_key((string) $key);
+            if ($key !== '' && is_scalar($value)) {
+                $clean[$key] = mb_substr(sanitize_text_field((string) $value), 0, 500);
+            }
+        }
+        return $clean;
     }
 }
