@@ -2,19 +2,18 @@
 
 **Assessment target:** Sabri Network and Messages 2.1.0  
 **Governing audit set:** current consolidated central governing plan + current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24  
-**Assessment date:** 18 August 2026  
-**Coding classification:** **repository-owned/current-wave sixth fresh 20-round corrective candidate; staging/live/operational completion is not claimed**
+**Assessment date:** 29 August 2026  
+**Coding classification:** **repository-owned/current-wave seventh fresh 20-round corrective candidate; staging/live/operational completion is not claimed**
 
 This document records repository implementation evidence only. It does not establish real provider acceptance, Hostinger staging acceptance, live deployment, database/migration parity or operational readiness. Exact-commit GitHub Actions is evidence only for the exact commit on which it runs.
 
-## Sixth fresh sequential method
+## Seventh fresh sequential method
 
-The sixth fresh cycle began from exact fifth-cycle reviewed source `a3a435b162167c9078ded22b08d6c8fb39b6ca27`. Each round followed the Founder-mandated order: complete the whole review, freeze all findings, correct every proved defect, protect the correction with regression evidence, then begin the next review.
+The seventh fresh cycle continued from the reviewed sixth-cycle repository line. Each round followed the mandated order: complete the whole review, freeze all findings, correct every proved defect, protect the correction with regression evidence, retest, then begin the next review.
 
-- **Defect-bearing rounds:** R2, R5, R6, R8, R9, R12, R18, R19, R20.
-- **Clean rounds:** R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17.
-- **First-ten defect rounds:** R2, R5, R6, R8, R9.
-- Full ledger: `FILE17-SIXTH-FRESH-20-ROUND-AUDIT-2026-08-18.md`.
+- **Defect-bearing rounds:** R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20.
+- **Clean rounds:** R1, R2, R10, R12.
+- **First-ten defect rounds:** R3, R4, R5, R6, R7, R8, R9.
 
 ## Current candidate measures
 
@@ -23,23 +22,27 @@ The sixth fresh cycle began from exact fifth-cycle reviewed source `a3a435b16216
 | Runtime candidate | **2.1.0** |
 | Explicit PHP review suites in full quality gate | **53** |
 | JavaScript entry points syntax-checked | **9** |
-| Permanent sixth-cycle regression suite | `sixth-fresh-twenty-round-contracts.php` |
+| Seventh-cycle regression protection | **retained in governed existing suites** |
 | Founder-approved Future Communication Superset | **24/24 repository capability paths represented; provider-dependent paths fail closed** |
 | Exact Sabri Green primary | **`#087A4E` enforced on File-17 surfaces** |
-| Final exact-head package/QA proof | **Established only after the final sixth-cycle head passes both GitHub Actions jobs** |
+| Final exact-head package/QA proof | **established only for an immutable head after both GitHub Actions jobs pass** |
 | Staging/live/operational acceptance | **pending / unverified** |
 
-## Principal sixth-cycle corrections
+## Principal seventh-cycle corrections
 
-- File-03 presentation enrichment can no longer replace canonical File-00 phone or File-00/09 verification truth.
-- Canonical message send now requires a caller-supplied stable idempotency key instead of silently generating one on retry.
-- Viewer-hidden messages remain hidden from File-17 private message search and context; pagination advances from the scanned page tail after visibility filtering.
-- Verified private-transfer retry identity is bound to exact file/chunk/conversation/hash/recipient semantics and mismatched reuse returns a conflict.
-- Smail send requires caller-supplied stable idempotency while preserving exact-version draft cleanup and commit reconciliation.
-- Future message-version privacy erasure does not advance the subject cursor past a failed deletion; ambiguous/failed deletion remains retryable.
-- Migration rollback version truth now includes the actual Sabri Meet `sn_meet_db_version` option.
-- Standalone Messages and communication-settings routes receive the same exact Sabri Green/accessibility hardening as the rest of File 17.
-- Release gates now invoke the previously omitted fifth-cycle closure/release-truth suites, the permanent sixth-cycle regression suite, and require the sixth-cycle runtime privacy layer in both quality and deterministic package surfaces.
+- Relationship and space mutations refresh File-00 authorization/membership truth under the same current locks used for mutation decisions.
+- Canonical message sends bind caller-owned idempotency to exact request semantics, including relevant attachment/projection scope.
+- Forwarding no longer fabricates unstable retry identity or expose source identity across an unauthorized audience boundary.
+- Message receipts and presence writes serialize current authorization/state rather than trusting stale pre-lock state.
+- Verified private-transfer session creation fails closed when protected storage is unavailable and serializes current recipients, File-00 authorization, idempotency and daily quota decisions.
+- Group calls require an approved SFU with explicit group-call capability and provider-type-correct endpoints.
+- Privacy erasure preserves per-message/report legal holds, derives retained report truth only after current rows are locked, and remains retry-safe.
+- Space discovery pagination mirrors visibility/state rules and advances from the last returned eligible row rather than skipping results.
+- Cross-file contexts serialize membership, authorization and capacity checks against current canonical conversation state.
+- Smail uses the final canonical message runtime and binds replay identity to exact subject/recipients, complete mailbox projection and exact draft version/payload cleanup.
+- Migration verification now covers current message receipts, private message-search tokens and transactional event outbox/inbox schemas, and rollback snapshots use the actual receipts schema-version option.
+- File-17 custom modal systems restore keyboard focus to the initiating control and preserve accessible focus/expanded-state behavior.
+- Packaged/current repository evidence, install/upgrade/security guidance and deterministic package requirements now identify the seventh cycle and current 2.1.0 migration truth rather than stale fifth/sixth/2.0 claims.
 
 ## Current coded domains retained and reverified
 
@@ -47,25 +50,23 @@ The sixth fresh cycle began from exact fifth-cycle reviewed source `a3a435b16216
 - Direct, group and channel conversations retain canonical messages with reactions, replies, edits/deletes and **native recipient/device message receipts**.
 - Authorized File-17 private message discovery uses **secure indexed search** and excludes viewer-hidden/private-ineligible content from results and context.
 - **General per-device presence** remains bounded, revocable and relationship/membership governed, with typing and current-device lifecycle controls.
-- **Governed mentions and audience-minimized forwarding** remain inside the canonical message authorization path and do not reuse private attachments across audiences.
-- Direct calls and Sabri Meet retain **Secret-free STUN/TURN/SFU provider governance**: credentials are provider-gated/scoped/short-lived and group media requires an approved SFU path.
-- Internal Smail remains a mailbox projection over canonical encrypted File-17 messages, with seven mailboxes, exact-version drafts and caller-owned retry identity.
+- **Governed mentions and audience-minimized forwarding** remain inside canonical message authorization and do not reuse private attachments across audiences.
+- Direct calls and Sabri Meet retain secret-free STUN/TURN/SFU provider governance; group media requires an approved capable SFU.
+- Internal Smail remains a mailbox projection over canonical encrypted File-17 messages, with exact-version drafts and caller-owned replay identity.
 - Verified-user private transfer remains capped at 1,073,741,824 bytes per file with resumability, exact chunk state, SHA-256 integrity, scanning/quarantine, private storage, signed grants, revocation and retention.
 - Canonical message bodies, queued/private communication payloads and protected transcripts retain authenticated server-side encryption at rest without an unsupported E2EE claim.
-- Reports, appeals, legal/safety holds, privacy export/erasure and retention remain native File-17 responsibilities with retry-safe privacy progress.
+- Reports, appeals, legal/safety holds, privacy export/erasure and retention remain native File-17 responsibilities with retry-safe privacy progress and high-risk dual control where required.
 - **Transactional outbox/inbox** event delivery remains the reliable communication-event path with idempotency, retry and dead-letter semantics.
 - File 19 notification transport, File 20 shell, File 24 assurance, File 25 presentation and File 26 global search/ranking remain external owners; private messages and contacts are not exported into File 26.
 - File 08/18/21 and CF-01 integrations remain opaque context/reference bridges without copying native-domain truth.
 - Founder-approved Future Communication Superset 24 remains represented in repository capability paths; provider-dependent/high-risk features remain fail-closed until their separate acceptance gates pass.
 
-Earlier fifth-cycle and prior-cycle corrections remain part of the current source unless explicitly superseded; their historical counts and hashes remain evidence only for their own exact commits.
-
 ## Seven separate statuses
 
 1. **Specified:** current File-17 repository scope is represented against the governing plan set.
-2. **Coded:** current 2.1.0 sixth-cycle candidate contains the reviewed repository-owned implementation.
-3. **Packaged:** true only for an exact commit whose deterministic package job succeeds.
-4. **Automated-QA Green:** true only for the exact commit carrying successful PHP 8.1 and PHP 8.3/full-quality jobs.
+2. **Coded:** current 2.1.0 seventh fresh candidate contains the reviewed repository-owned implementation.
+3. **Packaged:** true only for an exact immutable commit whose deterministic package job succeeds.
+4. **Automated-QA Green:** true only for that exact commit carrying successful PHP 8.1 and PHP 8.3/full-quality jobs.
 5. **Staging-Accepted:** pending real WordPress/MySQL/roles/companions/providers/migration/rollback acceptance.
 6. **Live-Deployed:** not claimed.
 7. **Operational:** not claimed.
