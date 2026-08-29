@@ -21,6 +21,12 @@ final class SN_Realtime_Runtime_Hardening {
 
     public static function heartbeat(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $user = get_current_user_id();
+        if ($request->has_param('state')) {
+            $state = sanitize_key((string) $request->get_param('state'));
+            if (!in_array($state, ['online','away','dnd','offline'], true)) {
+                return new WP_Error('sn_presence_state_invalid', 'Choose online, away, dnd, or offline.', ['status'=>400]);
+            }
+        }
         return self::with_locks([self::presence_lock($user)], static fn() => SN_Presence_Devices::heartbeat($request));
     }
 
