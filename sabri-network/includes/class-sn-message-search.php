@@ -12,6 +12,8 @@ final class SN_Message_Search {
     private const MAX_CONTEXT = 25;
     private const CURSOR_TTL = 900;
     private const BACKFILL_BATCH = 100;
+    private const REBUILDING_OPTION = 'sn_message_search_epoch_rebuilding';
+    private const REBUILD_ERROR_OPTION = 'sn_message_search_epoch_error';
 
     public static function register(): void {
         add_action('rest_api_init', [self::class, 'register_routes'], 30);
@@ -76,19 +78,33 @@ final class SN_Message_Search {
         $message = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $message_id));
         if (!$message) return new WP_Error('message_not_found', 'The message is unavailable.');
         $table = self::table();
-        if ($wpdb->delete($table, ['message_id' => $message_id], ['%d']) === false) return new WP_Error('search_index_delete_failed', 'The previous search index could not be removed.');
-        if (!self::indexable($message)) return true;
+        if (!self::indexable($message)) {
+            return $wpdb->delete($table, ['message_id' => $message_id], ['%d']) === false
+                ? new WP_Error('search_index_delete_failed', 'The previous search index could not be removed.') : true;
+        }
         $plain = SN_Message_Body::decrypt_row($message);
         if (is_wp_error($plain)) return new WP_Error('search_index_decrypt_failed', 'The private message could not be indexed safely.');
         $terms = array_slice(self::terms($plain, self::MAX_INDEX_TERMS), 0, self::MAX_INDEX_TERMS);
+        $hashes = array_values(array_unique(array_map([self::class, 'token_hash'], $terms)));
         $now = current_time('mysql', true);
-        foreach ($terms as $term) {
+
+        // Preserve the last known-good derived index until every desired token has
+        // been inserted. A transient decrypt/write failure must not erase a valid index.
+        foreach ($hashes as $hash) {
             $ok = $wpdb->query($wpdb->prepare(
                 "INSERT IGNORE INTO $table (message_id,conversation_id,sender_id,token_hash,created_at) VALUES (%d,%d,%d,%s,%s)",
-                $message_id, (int) $message->conversation_id, (int) $message->sender_id, self::token_hash($term), $now
+                $message_id, (int) $message->conversation_id, (int) $message->sender_id, $hash, $now
             ));
             if ($ok === false) return new WP_Error('search_index_write_failed', 'The message search index could not be written.');
         }
+        if (!$hashes) {
+            if ($wpdb->delete($table, ['message_id' => $message_id], ['%d']) === false) return new WP_Error('search_index_delete_failed', 'The previous search index could not be removed.');
+            return true;
+        }
+        $placeholders = implode(',', array_fill(0, count($hashes), '%s'));
+        $params = array_merge([$message_id], $hashes);
+        $sql = $wpdb->prepare("DELETE FROM $table WHERE message_id=%d AND token_hash NOT IN ($placeholders)", ...$params);
+        if ($wpdb->query($sql) === false) return new WP_Error('search_index_reconcile_failed', 'The previous message search tokens could not be reconciled safely.');
         return true;
     }
 
@@ -184,13 +200,25 @@ final class SN_Message_Search {
         return self::encode_cursor('context', ['viewer' => $viewer_id, 'conversation' => $conversation_id, 'target' => $target_id, 'snapshot' => $snapshot]);
     }
 
-    public static function backfill(): void {
+    public static function backfill(): bool|WP_Error {
         global $wpdb;
         $after = max(0, (int) get_option('sn_message_search_backfill_after', 0));
         $rows = $wpdb->get_results($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE id>%d ORDER BY id ASC LIMIT %d', $after, self::BACKFILL_BATCH));
-        if (!is_array($rows) || !$rows) { update_option('sn_message_search_backfill_after', 0, false); return; }
-        foreach ($rows as $row) { self::index_message((int) $row->id); $after = (int) $row->id; }
+        if (!is_array($rows)) return self::backfill_failure(new WP_Error('search_backfill_query_failed', 'The message search backfill could not read its next batch.'));
+        if (!$rows) { update_option('sn_message_search_backfill_after', 0, false); return true; }
+        foreach ($rows as $row) {
+            $indexed = self::index_message((int) $row->id);
+            if (is_wp_error($indexed)) return self::backfill_failure($indexed, (int) $row->id);
+            $after = (int) $row->id;
+        }
         update_option('sn_message_search_backfill_after', $after, false);
+        return true;
+    }
+
+    private static function backfill_failure(WP_Error $error, int $message_id = 0): WP_Error {
+        if ((bool) get_option(self::REBUILDING_OPTION, false)) update_option(self::REBUILD_ERROR_OPTION, $error->get_error_code(), false);
+        if (class_exists('SN_DB')) SN_DB::audit('message_search_backfill_failed', 'message_search', $message_id, 'failure', ['reason' => $error->get_error_code(), 'cursor' => (int) get_option('sn_message_search_backfill_after', 0)], 0);
+        return $error;
     }
 
     public static function cleanup(): void {
@@ -204,7 +232,9 @@ final class SN_Message_Search {
         global $wpdb;
         $table = self::table();
         $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) === $table;
-        return rest_ensure_response(['ok' => $exists && (string) get_option('sn_message_search_schema_version', '') === self::SCHEMA_VERSION, 'table' => $exists, 'schema_version' => (string) get_option('sn_message_search_schema_version', ''), 'tokens' => $exists ? (int) $wpdb->get_var("SELECT COUNT(*) FROM $table") : 0, 'backfill_after' => (int) get_option('sn_message_search_backfill_after', 0), 'time' => gmdate('c')]);
+        $rebuilding = (bool) get_option(self::REBUILDING_OPTION, false);
+        $error = (string) get_option(self::REBUILD_ERROR_OPTION, '');
+        return rest_ensure_response(['ok' => $exists && !$rebuilding && $error === '' && (string) get_option('sn_message_search_schema_version', '') === self::SCHEMA_VERSION, 'table' => $exists, 'schema_version' => (string) get_option('sn_message_search_schema_version', ''), 'tokens' => $exists ? (int) $wpdb->get_var("SELECT COUNT(*) FROM $table") : 0, 'backfill_after' => (int) get_option('sn_message_search_backfill_after', 0), 'rebuilding' => $rebuilding, 'error' => $error, 'time' => gmdate('c')]);
     }
 
     public static function rebuild(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -213,9 +243,17 @@ final class SN_Message_Search {
         if (!SN_Policy::consume_rate_limit('message_search_rebuild', (string) get_current_user_id(), 3, DAY_IN_SECONDS)) return new WP_Error('rate_limited', 'Too many rebuild requests.', ['status' => 429]);
         if ($wpdb->query('TRUNCATE TABLE ' . self::table()) === false) return new WP_Error('search_rebuild_failed', 'The search index could not be reset.', ['status' => 500]);
         update_option('sn_message_search_backfill_after', 0, false);
+        update_option(self::REBUILDING_OPTION, true, false);
+        delete_option(self::REBUILD_ERROR_OPTION);
         SN_DB::audit('message_search_rebuild_started', 'message_search', 0, 'success', [], get_current_user_id());
-        self::backfill();
-        return rest_ensure_response(['rebuild_started' => true, 'backfill_after' => (int) get_option('sn_message_search_backfill_after', 0)]);
+        $backfill = self::backfill();
+        if (is_wp_error($backfill)) {
+            update_option(self::REBUILD_ERROR_OPTION, $backfill->get_error_code(), false);
+            SN_DB::audit('message_search_rebuild_failed', 'message_search', 0, 'failure', ['reason' => $backfill->get_error_code()], get_current_user_id());
+            return new WP_Error('search_rebuild_backfill_failed', 'The search index rebuild stopped safely and will remain unavailable until it can be retried.', ['status' => 503]);
+        }
+        if (class_exists('SN_Runtime_Boundary_Policy')) SN_Runtime_Boundary_Policy::finish_search_rebuild();
+        return rest_ensure_response(['rebuild_started' => true, 'backfill_after' => (int) get_option('sn_message_search_backfill_after', 0), 'rebuilding' => (bool) get_option(self::REBUILDING_OPTION, false)]);
     }
 
     private static function filters(WP_REST_Request $request): array|WP_Error {
