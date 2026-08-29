@@ -22,10 +22,30 @@ final class SN_Activator {
         SN_Meet::register_rewrites();
         if (!SN_Private_Files::ensure_storage()) throw new RuntimeException('File 17 private message storage is unavailable.');
         if (!SN_File_Transfer::ensure_storage()) throw new RuntimeException('File 17 transfer storage is unavailable.');
-        if (self::ensure_network_page() <= 0) throw new RuntimeException('File 17 Network page could not be created safely.');
-        SN_Messages::ensure_pages();
-        if (SN_File_Transfer::ensure_page(false) <= 0) throw new RuntimeException('File 17 transfer page could not be created safely.');
-        if (SN_Smail::ensure_page(false) <= 0) throw new RuntimeException('File 17 Smail page could not be created safely.');
+
+        $network_id = self::ensure_network_page();
+        if (!self::verify_owned_surface($network_id, self::PAGE_OWNER_META, 'file-17', 'sabri_network')) {
+            throw new RuntimeException('File 17 Network page could not be created or repaired safely.');
+        }
+
+        $message_pages = SN_Messages::ensure_pages();
+        $messages_id = absint($message_pages['messages'] ?? 0);
+        $settings_id = absint($message_pages['settings'] ?? 0);
+        if (!self::verify_owned_surface($messages_id, '_sn_messages_owned', 'messages', 'sabri_messages')
+            || !self::verify_owned_surface($settings_id, '_sn_messages_owned', 'settings', 'sabri_communication_settings')) {
+            throw new RuntimeException('File 17 Messages pages could not be created or repaired safely.');
+        }
+
+        $transfer_id = SN_File_Transfer::ensure_page(false);
+        if (!self::verify_owned_surface($transfer_id, '_sn_file_transfer_owned', 'file-transfer', 'sabri_file_transfer')) {
+            throw new RuntimeException('File 17 transfer page could not be created or repaired safely.');
+        }
+
+        $smail_id = SN_Smail::ensure_page(false);
+        if (!self::verify_owned_surface($smail_id, '_sn_smail_owned', 'smail', 'sabri_smail')) {
+            throw new RuntimeException('File 17 Smail page could not be created or repaired safely.');
+        }
+
         SN_Messages::mark_routes_current();
         self::ensure_cleanup_schedule();
         flush_rewrite_rules(false);
@@ -61,13 +81,14 @@ final class SN_Activator {
         $page = $page_id ? get_post($page_id) : null;
         if ($page instanceof WP_Post && self::is_owned_page($page_id)) {
             if ($repair || !has_shortcode((string) $page->post_content, 'sabri_network') || $page->post_status !== 'publish') {
-                wp_update_post([
+                $updated = wp_update_post([
                     'ID' => $page_id,
                     'post_title' => 'Network',
                     'post_content' => '[sabri_network]',
                     'post_status' => 'publish',
                     'comment_status' => 'closed',
-                ]);
+                ], true);
+                if (is_wp_error($updated) || (int) $updated !== $page_id) return 0;
             }
             return $page_id;
         }
@@ -92,13 +113,24 @@ final class SN_Activator {
             'comment_status' => 'closed',
         ], true);
         if (is_wp_error($new_id) || !$new_id) return 0;
-        update_post_meta((int) $new_id, self::PAGE_OWNER_META, 'file-17');
+        if (update_post_meta((int) $new_id, self::PAGE_OWNER_META, 'file-17') === false) {
+            wp_delete_post((int) $new_id, true);
+            return 0;
+        }
         update_option('sn_network_page_id', (int) $new_id, false);
         return (int) $new_id;
     }
 
     public static function is_owned_page(int $page_id): bool {
         return (string) get_post_meta($page_id, self::PAGE_OWNER_META, true) === 'file-17';
+    }
+
+    private static function verify_owned_surface(int $page_id, string $meta_key, string $owner, string $shortcode): bool {
+        if ($page_id <= 0) return false;
+        $page = get_post($page_id);
+        if (!$page instanceof WP_Post || $page->post_type !== 'page' || $page->post_status !== 'publish') return false;
+        if ((string) get_post_meta($page_id, $meta_key, true) !== $owner) return false;
+        return has_shortcode((string) $page->post_content, $shortcode);
     }
 
     public static function retire_legacy_secrets(): void {
