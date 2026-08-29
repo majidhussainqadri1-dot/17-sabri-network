@@ -7,7 +7,7 @@ trait SN_Spaces_Part_4 {
         global $wpdb;
         $id=absint($request['id']);$actor=get_current_user_id();$decision=sanitize_key((string)$request->get_param('decision'));
         if(!in_array($decision,['accept','reject','cancel'],true))return self::error('sn_invite_decision_invalid','Select accept, reject or cancel.',400);
-        $wpdb->query('START TRANSACTION');
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_invite_decision_failed','The invitation transaction could not start safely.',500);
         try{
             $invite=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::invites_table().' WHERE id=%d FOR UPDATE',$id));
             if(!$invite||(string)$invite->status!=='pending'){ $wpdb->query('ROLLBACK');return self::error('sn_invite_missing','The pending invitation is unavailable.',404);}
@@ -22,7 +22,12 @@ trait SN_Spaces_Part_4 {
                 if((int)$invite->invitee_id!==$actor){$wpdb->query('ROLLBACK');return self::error('sn_invite_recipient_required','Only the invited recipient may accept or reject.',403);}
                 $status=$decision==='accept'?'accepted':'rejected';
             }
-            if(strtotime((string)$invite->expires_at.' UTC')<=time()){$wpdb->update(self::invites_table(),['status'=>'expired','active_key'=>null,'updated_at'=>self::now(),'version'=>(int)$invite->version+1],['id'=>$id,'status'=>'pending','version'=>(int)$invite->version]);$wpdb->query('COMMIT');return self::error('sn_invite_expired','The invitation expired.',410);}
+            if(strtotime((string)$invite->expires_at.' UTC')<=time()){
+                $expired=$wpdb->update(self::invites_table(),['status'=>'expired','active_key'=>null,'updated_at'=>self::now(),'version'=>(int)$invite->version+1],['id'=>$id,'status'=>'pending','version'=>(int)$invite->version]);
+                if($expired!==1)throw new RuntimeException('invite_expiry_conflict');
+                if($wpdb->query('COMMIT')===false)throw new RuntimeException('invite_expiry_commit_failed');
+                return self::error('sn_invite_expired','The invitation expired.',410);
+            }
             if($decision==='accept'){
                 $contact=SN_Policy::can_contact((int)$invite->inviter_id,$actor,'group');if(is_wp_error($contact)){$wpdb->query('ROLLBACK');return $contact;}
                 $space=self::space((int)$invite->space_id,true);$elig=self::join_eligibility($space,$actor,true);if(is_wp_error($elig)){$wpdb->query('ROLLBACK');return $elig;}
@@ -41,7 +46,7 @@ trait SN_Spaces_Part_4 {
     public static function leave_space(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $space_id=absint($request['id']);$user=get_current_user_id();$now=self::now();
-        $wpdb->query('START TRANSACTION');
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_leave_failed','The membership transaction could not start safely.',500);
         try{
             $space=self::space($space_id,true);$member=self::member($space_id,$user,true);
             if(!$space||!$member){$wpdb->query('ROLLBACK');return self::error('sn_space_membership_missing','No active membership exists.',404);}
