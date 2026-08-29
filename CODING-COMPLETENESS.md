@@ -51,7 +51,7 @@ The seventh fresh cycle continued from the reviewed sixth-cycle repository line.
 - Authorized File-17 private message discovery uses **secure indexed search** and excludes viewer-hidden/private-ineligible content from results and context.
 - **General per-device presence** remains bounded, revocable and relationship/membership governed, with typing and current-device lifecycle controls.
 - **Governed mentions and audience-minimized forwarding** remain inside canonical message authorization and do not reuse private attachments across audiences.
-- Direct calls and Sabri Meet retain secret-free STUN/TURN/SFU provider governance; group media requires an approved capable SFU.
+- **Secret-free STUN/TURN/SFU provider governance** remains the call/media boundary; group media requires an approved capable SFU.
 - Internal Smail remains a mailbox projection over canonical encrypted File-17 messages, with exact-version drafts and caller-owned replay identity.
 - Verified-user private transfer remains capped at 1,073,741,824 bytes per file with resumability, exact chunk state, SHA-256 integrity, scanning/quarantine, private storage, signed grants, revocation and retention.
 - Canonical message bodies, queued/private communication payloads and protected transcripts retain authenticated server-side encryption at rest without an unsupported E2EE claim.
