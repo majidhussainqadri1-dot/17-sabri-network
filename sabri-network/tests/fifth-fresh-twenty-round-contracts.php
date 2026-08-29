@@ -84,7 +84,7 @@ $check(str_contains($futureLoader, "class-sn-fifth-fresh-knowledge-hardening.php
 
 // Round 19 — exact Sabri Green, accessible dialogs, Smail draft CAS and sparse transfer resume.
 $check(str_contains($greenCss, '#087A4E') && str_contains($ui5, "wp_enqueue_style('sn-file17-brand-green')") && str_contains($futureLoader, 'SN_Fifth_Fresh_UI_Hardening::register()'), 'R19: exact Sabri Green override must be active on File-17 surfaces.');
-$check(str_contains($uiJs, "event.key !== 'Tab'") && str_contains($uiJs, 'restoreModalFocus') && str_contains($uiJs, 'aria-expanded'), 'R19: custom dialogs/search controls must preserve keyboard focus and expanded-state accessibility.');
+$check(str_contains($uiJs, "event.key !== 'Tab'") && str_contains($uiJs, 'restoreModalFocus') && str_contains($uiJs, 'aria-expanded') && str_contains($uiJs, "document.getElementById('sntp-modal')") && str_contains($uiJs, '[data-sn-close-modal],[data-sntp-close]') && str_contains($uiJs, 'lastInteractiveTrigger'), 'R19: both legacy and two-plan custom dialogs must preserve keyboard focus and expanded-state accessibility.');
 $check(str_contains($smailJs, 'draft_version:Number(form.elements.version.value||0)') && str_contains($smailJs, 'Secure random identifiers are unavailable.'), 'R19: Smail UI must send the exact draft CAS version and use strong mutation identifiers.');
 $check(str_contains($transfer7, "'received_indices'=>self::received_indices") && str_contains($transferJs, 'received=new Set((t.received_indices||[]).map(Number))') && str_contains($transferJs, 'if(received.has(i))continue'), 'R19: resumable transfer UI must use exact sparse received-chunk state rather than a chunk count.');
 
