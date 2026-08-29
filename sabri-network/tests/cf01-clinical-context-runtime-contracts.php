@@ -60,6 +60,16 @@ final class FakeWpdb {
         if (str_contains($query, 'FROM wp_sn_conversations')) {
             return $this->conversations[(int) $args[0]] ?? null;
         }
+        if (str_contains($query, 'FROM wp_sn_members')) {
+            $conversation = (int) $args[0];
+            $user = (int) $args[1];
+            foreach ($this->members as $row) {
+                if ((int) $row->conversation_id === $conversation && (int) $row->user_id === $user && $row->left_at === null) {
+                    return (object) ['id' => (int) $row->id];
+                }
+            }
+            return null;
+        }
         if (str_contains($query, 'FROM wp_sn_cf01_context_refs')) {
             foreach ($this->references as $row) {
                 if (str_contains($query, 'issued_by=%d') && (int) $row->issued_by === (int) $args[0] && (string) $row->idempotency_key === (string) $args[1]) {
@@ -188,6 +198,12 @@ final class SN_DB {
     }
     public static function is_blocked(int $a, int $b): bool { return !empty(self::$blocked[min($a, $b) . ':' . max($a, $b)]); }
     public static function audit(...$args): void { self::$audits[] = $args; }
+}
+final class SN_Membership_Assertions {
+    public static function clear_cache(int $user_id = 0): void {}
+}
+final class SN_Policy {
+    public static function access(): bool|WP_Error { return true; }
 }
 final class SN_Outbox {
     public static array $events = [];
