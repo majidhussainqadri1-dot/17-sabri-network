@@ -8,7 +8,7 @@ trait SN_Spaces_Part_5 {
         $space_id=absint($request['id']);$target=absint($request['user_id']);$actor=get_current_user_id();$action=sanitize_key((string)$request->get_param('action'))?:'role';$now=self::now();
         if(!in_array($action,['role','remove'],true))return self::error('sn_space_member_action_invalid','Choose role or remove.',400);
         if(!self::can_manage($space_id,$actor,'members'))return self::error('sn_space_manage_forbidden','Membership management permission is required.',403);
-        $wpdb->query('START TRANSACTION');
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_member_change_failed','The membership transaction could not start safely.',500);
         try{
             $space=self::space($space_id,true);$actor_member=self::assert_manage_locked($space_id,$actor,'members');$target_member=self::member($space_id,$target,true);
             if(!$space||is_wp_error($actor_member)||!$target_member){$wpdb->query('ROLLBACK');return self::error('sn_space_membership_missing','Current management permission and target membership are required.',403);}
@@ -44,14 +44,14 @@ trait SN_Spaces_Part_5 {
         if(!self::can_manage($space_id,$actor,'moderation'))return self::error('sn_space_moderation_forbidden','Moderation permission is required.',403);
         if(!$target||$target===$actor)return self::error('sn_space_ban_target_invalid','Select another valid member.',400);
         $expiry=$action==='unban'?null:self::future_or_null((string)$request->get_param('expires_at'),365*DAY_IN_SECONDS);if(is_wp_error($expiry))return $expiry;
-        $now=self::now();$wpdb->query('START TRANSACTION');
+        $now=self::now();if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_ban_failed','The moderation transaction could not start safely.',500);
         try{
             $space=self::space($space_id,true);$actor_member=self::assert_manage_locked($space_id,$actor,'moderation');$target_member=self::member($space_id,$target,true);
             if(!$space||is_wp_error($actor_member)){$wpdb->query('ROLLBACK');return self::error('sn_space_moderation_forbidden','Current moderation permission is required.',403);}
             if($target_member&&!self::can_manage_target((string)$actor_member->role,(string)$target_member->role)){$wpdb->query('ROLLBACK');return self::error('sn_space_hierarchy_forbidden','This role cannot be banned by the current actor.',403);}
             $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::bans_table().' WHERE space_id=%d AND user_id=%d FOR UPDATE',$space_id,$target));
             if($action==='unban'){
-                if(!$existing||(string)$existing->status!=='active'){$wpdb->query('COMMIT');return rest_ensure_response(['status'=>'inactive']);}
+                if(!$existing||(string)$existing->status!=='active'){if($wpdb->query('COMMIT')===false)throw new RuntimeException('unban_read_commit_failed');return rest_ensure_response(['status'=>'inactive']);}
                 $changed=$wpdb->update(self::bans_table(),['status'=>'revoked','updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'status'=>'active','version'=>(int)$existing->version]);
                 if($changed!==1)throw new RuntimeException('ban_conflict');
                 self::record($space_id,$actor,'member_unbanned','user',$target,self::text((string)$request->get_param('reason'),500),[]);
