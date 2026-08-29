@@ -112,8 +112,38 @@ final class SN_CF01_Clinical_Context {
         $consent_hash = self::keyed_hash($consent_reference, 'consent');
         $now = self::now();
 
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return self::error('sn_cf01_reference_issue_failed', 'The opaque clinical-context reference transaction could not start.', 500);
+        }
         try {
+            $locked_conversation = $wpdb->get_row($wpdb->prepare(
+                'SELECT id,type,owner_id,privacy,status,updated_at FROM ' . SN_DB::table('conversations') . ' WHERE id=%d FOR UPDATE',
+                $conversation_id
+            ));
+            $locked_member = $wpdb->get_row($wpdb->prepare(
+                'SELECT id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',
+                $conversation_id,
+                $actor_id
+            ));
+            if (!$locked_conversation || !$locked_member || (string) $locked_conversation->status !== 'active' || self::direct_conversation_blocked($locked_conversation, $actor_id)) {
+                $wpdb->query('ROLLBACK');
+                return self::not_found();
+            }
+            SN_Membership_Assertions::clear_cache($actor_id);
+            $access = SN_Policy::access();
+            if (is_wp_error($access)) {
+                $wpdb->query('ROLLBACK');
+                return $access;
+            }
+            if (apply_filters('sn_cf01_clinical_context_issuer_authorized', false, $actor_id, $conversation_id, $purpose, $context) !== true) {
+                $wpdb->query('ROLLBACK');
+                return self::error('sn_cf01_issuer_not_authorized', 'The clinical-context issuer is no longer authorized.', 403);
+            }
+            if (apply_filters('sn_cf01_clinical_context_consent_authorized', false, $actor_id, $conversation_id, $purpose, $consent_reference, $context) !== true) {
+                $wpdb->query('ROLLBACK');
+                return self::error('sn_cf01_consent_not_authorized', 'The clinical-context consent is no longer current.', 403);
+            }
+            $conversation = $locked_conversation;
             $existing = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table() . ' WHERE issued_by=%d AND idempotency_key=%s FOR UPDATE',
                 $actor_id,
