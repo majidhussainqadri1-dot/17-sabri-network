@@ -12,6 +12,7 @@ $check = static function (bool $ok, string $message) use (&$fail, &$checks): voi
 
 $message = $read('includes/class-sn-message-runtime-hardening.php');
 $search = $read('includes/class-sn-message-search.php');
+$attachment = $read('includes/class-sn-attachment-runtime-hardening.php');
 
 // R5 — a caller-owned message retry key must also be bound to exact request semantics.
 $check(str_contains($message, "'_idempotency_fingerprint'"), 'R5: canonical messages must persist a request-semantic idempotency fingerprint.');
@@ -29,6 +30,14 @@ $decryptPos = strpos($search, '$plain = SN_Message_Body::decrypt_row($message);'
 $deletePos = strpos($search, 'token_hash NOT IN', $decryptPos === false ? 0 : $decryptPos);
 $check($decryptPos !== false && $deletePos !== false && $decryptPos < $deletePos, 'R6: message plaintext must decrypt and desired tokens must be prepared before stale valid search tokens are reconciled away.');
 $check(str_contains($search, "'rebuilding' => \$rebuilding") && str_contains($search, "'error' => \$error"), 'R6: search health must expose rebuilding/error state instead of reporting a partial index healthy.');
+
+// R7 — expensive private-object integrity hashing must occur only after download authorization.
+$authPos = strpos($attachment, "if (!is_user_logged_in()) return;");
+$noncePos = strpos($attachment, 'wp_verify_nonce', $authPos === false ? 0 : $authPos);
+$accessPos = strpos($attachment, 'SN_DB::user_can_access_attachment', $noncePos === false ? 0 : $noncePos);
+$hashPos = strpos($attachment, "hash_file('sha256', \$candidate)", $accessPos === false ? 0 : $accessPos);
+$check($authPos !== false && $noncePos !== false && $accessPos !== false && $hashPos !== false && $authPos < $noncePos && $noncePos <= $accessPos && $accessPos < $hashPos, 'R7: login, nonce and attachment authorization must precede private-file integrity hashing.');
+$check(str_contains($attachment, 'must never become an unauthenticated/unauthorized disk-I/O oracle'), 'R7: the private hashing boundary must document its fail-closed resource-abuse invariant.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
