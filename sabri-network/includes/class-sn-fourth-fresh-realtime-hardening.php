@@ -8,10 +8,38 @@ final class SN_Fourth_Fresh_Realtime_Hardening {
 
     public static function register(): void {
         add_action('rest_api_init', [self::class, 'override_routes'], 2220);
-        // R11: Sabri Meet registers its WordPress privacy eraser as `sabri-meet`,
-        // outside the legacy `sabri-network*` guard namespace. Guard it explicitly
-        // after all erasers are registered so retryable failures cannot report done=true.
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'guard_meet_eraser'], 10000);
+        add_filter('rest_pre_dispatch', [self::class, 'guard_smail_replay'], 3, 3);
+    }
+
+    /** R12: preserve the stricter caller-key and exact-replay contract ahead of the higher-priority Smail route. */
+    public static function guard_smail_replay($result, WP_REST_Server $server, WP_REST_Request $request) {
+        if($result!==null||strtoupper($request->get_method())!=='POST'||$request->get_route()!=='/sabri-network/v2/smail/send')return $result;
+        global $wpdb;
+        $sender=get_current_user_id();
+        $client=strtolower(trim((string)$request->get_param('client_id')));
+        if($client===''||!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/',$client)){
+            return new WP_Error('invalid_client_id','A caller-supplied Smail idempotency key is required.',['status'=>400]);
+        }
+        $client_key=hash('sha256',$sender.'|'.$client);
+        $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE client_key=%s',$client_key));
+        if(!$existing)return $result;
+        $recipients=array_values(array_diff(array_values(array_unique(array_filter(array_map('absint',(array)$request->get_param('recipient_ids'))))),[$sender]));
+        sort($recipients,SORT_NUMERIC);
+        $subject=mb_substr(sanitize_text_field((string)$request->get_param('subject')),0,200);
+        $body=trim(sanitize_textarea_field(wp_unslash((string)$request->get_param('body'))));
+        $actual=array_values(array_map('absint',$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.SN_DB::table('smail_states').' WHERE smail_message_id=%d AND user_id<>%d ORDER BY user_id ASC',(int)$existing->id,$sender))?:[]));
+        sort($actual,SORT_NUMERIC);
+        $canonical=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d',(int)$existing->message_id));
+        $plain=$canonical?SN_Message_Body::decrypt_row($canonical):new WP_Error('smail_replay_message_missing','The canonical Smail message is unavailable.');
+        if(is_wp_error($plain))return new WP_Error('smail_replay_unavailable','The existing Smail replay binding could not be verified safely.',['status'=>503]);
+        $same=(int)$existing->sender_id===$sender
+            && hash_equals((string)$existing->subject,$subject)
+            && $actual===$recipients
+            && (int)$canonical->conversation_id===(int)$existing->conversation_id
+            && hash_equals((string)$plain,$body);
+        if(!$same)return new WP_Error('smail_idempotency_conflict','This Smail idempotency key was already used for different content or recipients.',['status'=>409]);
+        return $result;
     }
 
     public static function guard_meet_eraser(array $erasers): array {
