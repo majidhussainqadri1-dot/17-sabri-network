@@ -33,8 +33,9 @@ final class SN_Message_Runtime_Hardening {
         $reply=absint($request->get_param('reply_to'));
         if($reply>0){$replyRow=$wpdb->get_row($wpdb->prepare('SELECT id,deleted_at FROM '.SN_DB::table('messages').' WHERE id=%d AND conversation_id=%d',$reply,$conversation_id));if(!$replyRow||$replyRow->deleted_at)return new WP_Error('invalid_reply','The replied-to message is unavailable.',['status'=>400]);if(SN_Message_Operations::is_hidden($user_id,$reply))return new WP_Error('invalid_reply','The replied-to message is unavailable.',['status'=>400]);}
         $client=strtolower(trim((string)$request->get_param('client_id')));if($client===''||!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/',$client))return new WP_Error('invalid_client_id','A caller-supplied message idempotency key is required.',['status'=>400]);
+        $scope=strtolower(trim((string)$request->get_param('request_scope_hash')));if($scope!==''&&!preg_match('/^[a-f0-9]{64}$/',$scope))return new WP_Error('invalid_request_scope_hash','The message request scope hash is invalid.',['status'=>400]);
         $files=$request->get_file_params();$upload=!empty($files['attachment'])&&is_array($files['attachment'])?$files['attachment']:null;
-        $fingerprint=self::request_fingerprint($body,$type,$reply,$upload);if(is_wp_error($fingerprint))return $fingerprint;
+        $fingerprint=self::request_fingerprint($body,$type,$reply,$upload,$scope);if(is_wp_error($fingerprint))return $fingerprint;
         $idem=hash('sha256',$user_id.':'.$conversation_id.':'.$client);$existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE idempotency_key=%s',$idem));if($existing)return self::reconcile_existing($existing,$user_id,true,$fingerprint);
         $attachment=null;
         if($upload){$attachment=SN_Private_Files::create_from_upload($upload,$user_id);if(is_wp_error($attachment))return $attachment;$type=(string)$attachment['type'];}
@@ -93,10 +94,11 @@ final class SN_Message_Runtime_Hardening {
         }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('message_duplicate_reconciliation_failed','message',(int)$message->id,'failure',['reason'=>$e->getMessage()],$user);return new WP_Error('message_duplicate_reconciliation_failed','The existing message could not be reconciled with its search and delivery records.',['status'=>500]);}
     }
 
-    private static function request_fingerprint(string $body,string $type,int $reply,?array $upload):string|WP_Error{
+    private static function request_fingerprint(string $body,string $type,int $reply,?array $upload,string $scope=''):string|WP_Error{
         $file_hash='';$file_size=0;
         if($upload){$tmp=(string)($upload['tmp_name']??'');if($tmp===''||!is_file($tmp))return new WP_Error('invalid_attachment','The uploaded attachment is unavailable.',['status'=>400]);$hash=hash_file('sha256',$tmp);if(!is_string($hash)||$hash==='')return new WP_Error('invalid_attachment','The uploaded attachment could not be verified.',['status'=>400]);$file_hash=$hash;$size=filesize($tmp);$file_size=$size===false?0:(int)$size;}
-        return hash('sha256',(string)wp_json_encode(['body'=>$body,'type'=>$type,'reply_to'=>$reply,'attachment_sha256'=>$file_hash,'attachment_size'=>$file_size]));
+        $data=['body'=>$body,'type'=>$type,'reply_to'=>$reply,'attachment_sha256'=>$file_hash,'attachment_size'=>$file_size];if($scope!=='')$data['request_scope_hash']=$scope;
+        return hash('sha256',(string)wp_json_encode($data));
     }
     private static function contact_check(object $conversation,int $conversation_id,int $actor):bool|WP_Error{$others=self::recipients($conversation_id,$actor);if((string)$conversation->type!=='direct'){foreach($others as $target)if(SN_DB::is_blocked($actor,$target))return new WP_Error('blocked','A conversation member is unavailable.',['status'=>403]);return true;}if(count($others)!==1)return new WP_Error('invalid_direct_conversation','The direct conversation membership is invalid.',['status'=>409]);return SN_Policy::can_contact($actor,$others[0],'message');}
     private static function conversation(int $id):?object{global $wpdb;$row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".SN_DB::table('conversations')." WHERE id=%d AND status='active'",$id));return $row?:null;}
