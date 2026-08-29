@@ -1,1 +1,3 @@
-Repository-only candidate boundary: File 17 runtime 2.1.0, fifth fresh 20-round cycle. This file intentionally does not embed its own commit SHA. The exact immutable head and GitHub Actions run are external release evidence. Staging, live, DB/schema, migration and operational status remain separately unverified.
+Repository-only candidate boundary: File 17 runtime 2.1.0, seventh fresh 20-round sequential review cycle. This file intentionally does not embed its own commit SHA. The exact immutable head and its attached GitHub Actions run/package artifact are external repository evidence. Staging acceptance, deployed version, live DB/schema version, live migration state and operational acceptance remain separately unverified.
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
