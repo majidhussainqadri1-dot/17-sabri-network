@@ -13,6 +13,8 @@ $check = static function (bool $ok, string $message) use (&$fail, &$checks): voi
 $message = $read('includes/class-sn-message-runtime-hardening.php');
 $search = $read('includes/class-sn-message-search.php');
 $attachment = $read('includes/class-sn-attachment-runtime-hardening.php');
+$transferPrivacy = $read('includes/class-sn-file-transfer-part-8.php');
+$fifthPrivacy = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 
 // R5 — a caller-owned message retry key must also be bound to exact request semantics.
 $check(str_contains($message, "'_idempotency_fingerprint'"), 'R5: canonical messages must persist a request-semantic idempotency fingerprint.');
@@ -38,6 +40,15 @@ $accessPos = strpos($attachment, 'SN_DB::user_can_access_attachment', $noncePos 
 $hashPos = strpos($attachment, "hash_file('sha256', \$candidate)", $accessPos === false ? 0 : $accessPos);
 $check($authPos !== false && $noncePos !== false && $accessPos !== false && $hashPos !== false && $authPos < $noncePos && $noncePos <= $accessPos && $accessPos < $hashPos, 'R7: login, nonce and attachment authorization must precede private-file integrity hashing.');
 $check(str_contains($attachment, 'must never become an unauthenticated/unauthorized disk-I/O oracle'), 'R7: the private hashing boundary must document its fail-closed resource-abuse invariant.');
+
+// R8 — privacy erasure must keep terminal transfer sessions attributable until every encrypted chunk is physically gone.
+$check(str_contains($transferPrivacy, "s.status NOT IN ('revoked','expired','rejected') OR EXISTS (SELECT 1 FROM \$chunks c WHERE c.transfer_id=s.id)"), 'R8: terminal sender transfers with leftover chunk rows must remain in the privacy erasure work queue.');
+$check(str_contains($transferPrivacy, 'foreach($sent as $id)') && str_contains($transferPrivacy, 'self::delete_chunks($id)'), 'R8: canonical privacy erasure must retry physical chunk destruction after revoking sender access.');
+$check(str_contains($transferPrivacy, '$more_sent=(bool)$wpdb->get_var') && str_contains($transferPrivacy, "EXISTS (SELECT 1 FROM \$chunks c WHERE c.transfer_id=s.id)"), 'R8: erasure completion must remain false while any sender-attributable encrypted chunk ledger remains.');
+$baseDonePos = strpos($fifthPrivacy, "if (empty(\$base['done'])) return \$base;");
+$anonymizePos = strpos($fifthPrivacy, "sender_id=0", $baseDonePos === false ? 0 : $baseDonePos);
+$check($baseDonePos !== false && $anonymizePos !== false && $baseDonePos < $anonymizePos, 'R8: higher-level transfer anonymization must wait for canonical byte-erasure completion.');
+$check(str_contains($transferPrivacy, 'higher-level anonymization must not sever the user link'), 'R8: the retryability/linkage invariant must be explicit in the transfer privacy implementation.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
