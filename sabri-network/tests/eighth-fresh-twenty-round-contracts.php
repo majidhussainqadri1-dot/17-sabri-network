@@ -12,4 +12,6 @@ $spaces2=$read($root.'/includes/class-sn-spaces-part-2.php');
 $spaces5=$read($root.'/includes/class-sn-spaces-part-5.php');
 $check(str_contains($spaces2,"['join','cancel']")&&str_contains($spaces2,'sn_space_join_action_invalid'),'R4: join mutation must reject unknown actions.');
 $check(str_contains($spaces5,"['role','remove']")&&str_contains($spaces5,'sn_space_member_action_invalid')&&str_contains($spaces5,"['ban','unban']")&&str_contains($spaces5,'sn_space_ban_action_invalid'),'R4: membership and ban mutations must reject unknown actions.');
+$message=$read($root.'/includes/class-sn-message-runtime-hardening.php');
+$check(str_contains($message,"return new WP_Error('invalid_message_type'")&&!str_contains($message,"))\$type='text';"),'R5: canonical send must reject an unknown message type instead of silently changing request semantics.');
 if($fail){fwrite(STDERR,"Eighth fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eighth fresh 20-round contracts: PASS ($checks checks)\n";
