@@ -19,6 +19,11 @@ $check(str_contains($visibility,'MAX_VISIBILITY_SCAN_PAGES')&&str_contains($visi
 $check(str_contains($realtime,"sn_presence_state_invalid")&&str_contains($realtime,"['online','away','dnd','offline']"),'R10: explicit invalid presence state must fail closed instead of becoming online.');
 $safety=$read($root.'/includes/class-sn-safety-runtime-hardening.php');
 $check(str_contains($safety,"$route === '/sabri-network/v2/report'")&&str_contains($safety,'report_replay_conflict')&&str_contains($safety,"report_idempotency_conflict"),'R13: native report creation must be serialized and exact replay must bind content/evidence, not target alone.');
+$integration=$read($root.'/includes/class-sn-fifth-fresh-integration-hardening.php');
+$check(str_contains($integration,'enforce_projection_origin_port')&&str_contains($integration,"$scheme !== 'https'")&&str_contains($integration,'$port !== $home_port')&&str_contains($integration,"isset($parts['user'])")&&str_contains($integration,"isset($parts['pass'])"),'R14: context projection URLs must enforce exact HTTPS origin including port and reject embedded credentials.');
 $migration=$read($root.'/includes/class-sn-fifth-fresh-migration-hardening.php');
 $check(str_contains($migration,"'conversation_contexts'=>['conversation_id','provider','provider_object_id','attached_by','version']")&&str_contains($migration,"'cf01_context_refs'=>['conversation_id','reference_uuid','issued_by','status','version']")&&!str_contains($migration,"'conversation_contexts'=>['conversation_id','provider','external_id'")&&!str_contains($migration,"'cf01_context_refs'=>['conversation_id','context_ref'"),'R16: migration verification must match the active context-adapter and CF-01 installer column names.');
+$quality=$read($root.'/tools/quality-check.sh');
+$workflow=$read(dirname($root).'/.github/workflows/quality.yml');
+$check(str_contains($quality,'eighth-fresh-twenty-round-contracts.php')&&substr_count($workflow,'eighth-fresh-twenty-round-contracts.php')>=2,'R20: both the full quality gate and both workflow paths must execute the eighth-cycle regression suite.');
 if($fail){fwrite(STDERR,"Eighth fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eighth fresh 20-round contracts: PASS ($checks checks)\n";
