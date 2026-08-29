@@ -334,7 +334,7 @@ final class SN_Meet {
             return new WP_Error('meeting_identifier_unavailable', 'A secure meeting identifier could not be allocated.', ['status' => 503]);
         }
         $meeting_id = 0;
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) { return self::database_error(); }
         try {
             $inserted = $wpdb->insert(self::table('meetings'), [
                 'public_id' => $public_id,
@@ -381,7 +381,7 @@ final class SN_Meet {
             ])) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('meet_commit_failed'); }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             $race = $wpdb->get_row($wpdb->prepare(
@@ -468,7 +468,7 @@ final class SN_Meet {
             }
 
             $notify = false;
-            $wpdb->query('START TRANSACTION');
+            if ($wpdb->query('START TRANSACTION') === false) { return self::database_error(); }
             try {
                 $locked_meeting = $wpdb->get_row($wpdb->prepare(
                     'SELECT * FROM ' . self::table('meetings') . ' WHERE id=%d FOR UPDATE',
@@ -517,7 +517,7 @@ final class SN_Meet {
                 if (!self::insert_event((int) $meeting->id, $actor_id, 'participant_invited', $target_id)) {
                     throw new RuntimeException('meeting_event_insert_failed');
                 }
-                $wpdb->query('COMMIT');
+                if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('meet_commit_failed'); }
                 $notify = true;
                 $invited++;
             } catch (DomainException $e) {
@@ -557,7 +557,7 @@ final class SN_Meet {
         $participant = null;
         $session = null;
 
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) { return self::database_error(); }
         try {
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE public_id=%s FOR UPDATE',
@@ -689,7 +689,7 @@ final class SN_Meet {
             if (!self::insert_event((int) $meeting->id, $user_id, $auto_admit ? 'participant_joined' : 'participant_waiting', $user_id, ['session_id' => $session_id_db])) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('meet_commit_failed'); }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return match ($e->getMessage()) {
@@ -732,7 +732,7 @@ final class SN_Meet {
         }
         $now = current_time('mysql', true);
         $meeting = $participant = $session = null;
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) { return self::database_error(); }
         try {
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE public_id=%s FOR UPDATE',
@@ -780,7 +780,7 @@ final class SN_Meet {
             ], ['id' => (int) $participant->id, 'version' => (int) $participant->version]) !== 1) {
                 throw new RuntimeException('participant_heartbeat_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('meet_commit_failed'); }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return match ($e->getMessage()) {
@@ -805,7 +805,7 @@ final class SN_Meet {
         $now = current_time('mysql', true);
         $meeting = $participant = $session = null;
 
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) { return self::database_error(); }
         try {
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE public_id=%s FOR UPDATE',
@@ -829,7 +829,7 @@ final class SN_Meet {
                 throw new DomainException('session_not_found');
             }
             if ((string) $session->state === 'left') {
-                $wpdb->query('COMMIT');
+                if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('meet_commit_failed'); }
                 return rest_ensure_response(['left' => true, 'duplicate' => true]);
             }
             if ($wpdb->update(self::table('sessions'), [
@@ -860,7 +860,7 @@ final class SN_Meet {
             if (!self::insert_event((int) $meeting->id, $user_id, 'participant_left', $user_id, ['session_id' => (int) $session->id])) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('meet_commit_failed'); }
         } catch (DomainException $e) {
             $wpdb->query('ROLLBACK');
             return self::not_found();
@@ -941,7 +941,7 @@ final class SN_Meet {
         $now = current_time('mysql', true);
         $target = null;
 
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) { return self::database_error(); }
         try {
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE id=%d FOR UPDATE',
@@ -1096,7 +1096,7 @@ final class SN_Meet {
             if (!self::insert_event((int) $meeting->id, $actor_id, 'moderation_' . $action, $target_id)) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) { throw new RuntimeException('meet_commit_failed'); }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return match ($e->getMessage()) {
