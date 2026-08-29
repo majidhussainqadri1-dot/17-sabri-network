@@ -7,7 +7,7 @@ sma(!str_contains($src,'SMTP'),'Smail does not embed an SMTP backend.');
 sma(str_contains($src, 'WHERE public_id=%s AND owner_id=%d AND deleted_at IS NULL'),'Draft reads remain owner-scoped.');
 sma(str_contains($src,'draft_conflict')&&str_contains($src,'WHERE id=%d AND version=%d'),'Draft concurrency has an optimistic conflict path.');
 sma(str_contains($src,'smail_projection_failed'),'Canonical-message/projection failure is explicit, not hidden.');
-sma(str_contains($src,'array_diff($recipients, [$sender_id])'),'Self-recipient confusion is removed.');
+sma(str_contains($src,'array_diff($draft_recipients, [$sender_id])'),'Self-recipient confusion is removed before canonical recipient scope is frozen.');
 sma(str_contains($src,'MAX_RECIPIENTS = 50'),'Recipient fan-out is bounded.');
 sma(str_contains($src,'MAX_DRAFTS = 500'),'Draft enumeration is bounded.');
 sma(str_contains($src,'limit = min(100'),'Mailbox enumeration is bounded.');

@@ -11,6 +11,7 @@ trait SN_Spaces_Part_3 {
         $wpdb->query('START TRANSACTION');
         try{
             $space=self::space($space_id,true);if(!$space)throw new RuntimeException('space_missing');
+            $actor_access=self::assert_manage_locked($space_id,$actor,'members');if(is_wp_error($actor_access)){$wpdb->query('ROLLBACK');return self::error('sn_space_manage_forbidden','Current membership management permission is required.',403);}
             $request_row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::requests_table()." WHERE space_id=%d AND requester_id=%d AND status='pending' ORDER BY id DESC LIMIT 1 FOR UPDATE",$space_id,$target));
             if(!$request_row){$wpdb->query('ROLLBACK');return self::error('sn_join_request_missing','The pending join request is unavailable.',404);}
             $elig=self::join_eligibility($space,$target);if(is_wp_error($elig)&&$decision==='accept'){$wpdb->query('ROLLBACK');return $elig;}
@@ -41,7 +42,9 @@ trait SN_Spaces_Part_3 {
         $now=self::now();$expires=gmdate('Y-m-d H:i:s',time()+min(30*DAY_IN_SECONDS,max(HOUR_IN_SECONDS,absint($request->get_param('ttl'))?:7*DAY_IN_SECONDS)));
         $wpdb->query('START TRANSACTION');
         try{
-            $space=self::space($space_id,true);$elig=self::join_eligibility($space,$invitee,true);if(is_wp_error($elig)){$wpdb->query('ROLLBACK');return $elig;}
+            $space=self::space($space_id,true);if(!$space)throw new RuntimeException('space_missing');
+            $actor_access=self::assert_manage_locked($space_id,$actor,'members');if(is_wp_error($actor_access)){$wpdb->query('ROLLBACK');return self::error('sn_space_manage_forbidden','Current membership management permission is required.',403);}
+            $elig=self::join_eligibility($space,$invitee,true);if(is_wp_error($elig)){$wpdb->query('ROLLBACK');return $elig;}
             $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::invites_table()." WHERE space_id=%d AND invitee_id=%d AND status='pending' ORDER BY id DESC LIMIT 1 FOR UPDATE",$space_id,$invitee));
             if($old)$wpdb->update(self::invites_table(),['status'=>'cancelled','active_key'=>null,'cancelled_at'=>$now,'updated_at'=>$now,'version'=>(int)$old->version+1],['id'=>(int)$old->id,'status'=>'pending','version'=>(int)$old->version]);
             if($wpdb->insert(self::invites_table(),['invite_uuid'=>wp_generate_uuid4(),'space_id'=>$space_id,'inviter_id'=>$actor,'invitee_id'=>$invitee,'active_key'=>hash('sha256',$space_id.':'.$invitee),'role'=>$role,'status'=>'pending','token_hash'=>$hash,'expires_at'=>$expires,'created_at'=>$now,'updated_at'=>$now])===false)throw new RuntimeException('invite_insert_failed');

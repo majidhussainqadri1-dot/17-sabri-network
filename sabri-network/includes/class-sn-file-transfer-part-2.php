@@ -32,7 +32,12 @@ trait SN_File_Transfer_Part_2 {
             if (!self::same_initiation($existing, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected)) {
                 return new WP_Error('transfer_idempotency_conflict', 'This transfer idempotency key was already used for different transfer parameters.', ['status' => 409]);
             }
+            $policy = self::revalidate($existing, $sender_id, true);
+            if (is_wp_error($policy)) { return $policy; }
             return rest_ensure_response(['transfer' => self::format($existing, $sender_id), 'duplicate' => true]);
+        }
+        if (!self::ensure_storage()) {
+            return new WP_Error('transfer_storage_unavailable', 'Private transfer storage is unavailable or unsafe.', ['status' => 503]);
         }
         $daily_limit = max(self::MAX_FILE_BYTES, (int) apply_filters('sn_network_daily_transfer_bytes', 3 * self::MAX_FILE_BYTES, $sender_id));
         $today = gmdate('Y-m-d 00:00:00');
@@ -46,6 +51,46 @@ trait SN_File_Transfer_Part_2 {
         $event = null;
         if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('transfer_initiation_failed', 'The private transfer transaction could not start.', ['status'=>500]);
         try {
+            // Serialize all sender-scoped transfer creation so the byte quota and
+            // idempotency decision cannot be bypassed by concurrent initiations.
+            $sender_rows = $wpdb->get_results($wpdb->prepare('SELECT id FROM ' . self::sessions_table() . ' WHERE sender_id=%d ORDER BY id ASC FOR UPDATE', $sender_id));
+            if (!is_array($sender_rows)) { throw new RuntimeException('transfer_sender_lock_failed'); }
+
+            $race_existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND idempotency_key=%s', $sender_id, $idempotency));
+            if ($race_existing) {
+                if (!self::same_initiation($race_existing, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected)) {
+                    $wpdb->query('ROLLBACK');
+                    return new WP_Error('transfer_idempotency_conflict', 'This transfer idempotency key was committed for different transfer parameters.', ['status' => 409]);
+                }
+                $policy = self::revalidate($race_existing, $sender_id, true);
+                if (is_wp_error($policy)) { $wpdb->query('ROLLBACK'); return $policy; }
+                $wpdb->query('ROLLBACK');
+                return rest_ensure_response(['transfer'=>self::format($race_existing,$sender_id),'duplicate'=>true,'commit_reconciled'=>true]);
+            }
+
+            if ($conversation_id > 0) {
+                $member_rows = $wpdb->get_results($wpdb->prepare('SELECT id,user_id,left_at FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d ORDER BY user_id ASC FOR UPDATE', $conversation_id));
+                if (!is_array($member_rows)) { throw new RuntimeException('transfer_membership_lock_failed'); }
+            }
+            SN_Membership_Assertions::clear_cache($sender_id);
+            $access = SN_Policy::access();
+            if (is_wp_error($access)) { $wpdb->query('ROLLBACK'); return $access; }
+            $fresh_recipients = self::resolve_recipients($request, $sender_id);
+            if (is_wp_error($fresh_recipients)) { $wpdb->query('ROLLBACK'); return $fresh_recipients; }
+            $expected_recipients = array_values(array_unique(array_map('intval', $recipients)));
+            $current_recipients = array_values(array_unique(array_map('intval', $fresh_recipients)));
+            sort($expected_recipients, SORT_NUMERIC); sort($current_recipients, SORT_NUMERIC);
+            if ($expected_recipients !== $current_recipients) {
+                $wpdb->query('ROLLBACK');
+                return new WP_Error('transfer_recipient_state_changed', 'Transfer recipients changed while the request was being authorized. Retry against the current membership state.', ['status' => 409]);
+            }
+
+            $locked_used = (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(total_bytes),0) FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND created_at>=%s AND status NOT IN (\'rejected\',\'revoked\',\'expired\')', $sender_id, $today));
+            if ($locked_used + $total > $daily_limit) {
+                $wpdb->query('ROLLBACK');
+                return new WP_Error('daily_transfer_volume_exceeded', 'The transparent daily transfer volume limit has been reached.', ['status' => 429]);
+            }
+
             if ($wpdb->insert(self::sessions_table(), [
                 'public_id' => $public_id, 'sender_id' => $sender_id, 'conversation_id' => $conversation_id,
                 'original_name' => $original, 'safe_name' => $name, 'declared_mime' => $declared_mime,
@@ -55,9 +100,10 @@ trait SN_File_Transfer_Part_2 {
                 'created_at' => $now, 'updated_at' => $now,
             ]) === false) { throw new RuntimeException('transfer_session_failed'); }
             $transfer_id = (int) $wpdb->insert_id;
-            foreach ($recipients as $recipient_id) {
+            foreach ($current_recipients as $recipient_id) {
                 if ($wpdb->insert(self::recipients_table(), ['transfer_id' => $transfer_id, 'user_id' => $recipient_id, 'state' => 'pending', 'created_at' => $now, 'updated_at' => $now]) === false) { throw new RuntimeException('transfer_recipient_failed'); }
             }
+            $recipients = $current_recipients;
             $event = SN_Outbox::enqueue('file-transfer.initiated', 'file_transfer', $transfer_id, ['transfer_id' => $transfer_id, 'sender_id' => $sender_id, 'recipient_count' => count($recipients), 'total_bytes' => $total], 'file-transfer-initiated-' . $transfer_id);
             if (is_wp_error($event)) { throw new RuntimeException('transfer_event_failed'); }
             if ($wpdb->query('COMMIT') === false) throw new RuntimeException('transfer_commit_failed');
@@ -65,6 +111,8 @@ trait SN_File_Transfer_Part_2 {
             $wpdb->query('ROLLBACK');
             $race = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND idempotency_key=%s', $sender_id, $idempotency));
             if ($race && self::same_initiation($race, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected)) {
+                $policy = self::revalidate($race, $sender_id, true);
+                if (is_wp_error($policy)) { return $policy; }
                 return rest_ensure_response(['transfer'=>self::format($race,$sender_id),'duplicate'=>true,'commit_reconciled'=>true]);
             }
             if ($race) {
@@ -73,7 +121,6 @@ trait SN_File_Transfer_Part_2 {
             SN_DB::audit('file_transfer_initiation_failed','file_transfer',$transfer_id,'failure',['reason'=>$e->getMessage()],$sender_id);
             return new WP_Error('transfer_initiation_failed', 'The private transfer session could not be created.', ['status' => 500]);
         }
-        self::ensure_storage();
         if ($event !== null) do_action('sn_network_event_queued', $event, 'file-transfer.initiated');
         SN_DB::audit('file_transfer_initiated', 'file_transfer', $transfer_id, 'success', ['recipients' => count($recipients), 'bytes' => $total]);
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE id=%d', $transfer_id));

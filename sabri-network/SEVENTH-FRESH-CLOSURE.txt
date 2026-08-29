@@ -1,0 +1,12 @@
+File 17 — Sabri Network and Messages 2.1.0
+Seventh fresh 20-round sequential repository closure
+
+Method: complete each review -> freeze all findings -> correct every proved defect -> regression/retest -> only then next round.
+Defect rounds: R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20.
+Clean rounds: R1, R2, R10, R12.
+First-ten defect rounds: R3, R4, R5, R6, R7, R8, R9.
+Current quality inventory: 53 PHP review suites; 9 JavaScript syntax entry points.
+
+This is repository/package closure only after the exact immutable head containing these corrections passes both required GitHub Actions jobs. It does not claim staging acceptance, live deployment, live DB/schema or migration parity, or operational acceptance.
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
