@@ -1,5 +1,5 @@
 <?php
-/** Fourth fresh cycle: realtime typing and device-lifecycle serialization. */
+/** Fourth fresh cycle: realtime typing/device serialization plus later fail-closed callback guards. */
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
@@ -8,6 +8,31 @@ final class SN_Fourth_Fresh_Realtime_Hardening {
 
     public static function register(): void {
         add_action('rest_api_init', [self::class, 'override_routes'], 2220);
+        // R11: Sabri Meet registers its WordPress privacy eraser as `sabri-meet`,
+        // outside the legacy `sabri-network*` guard namespace. Guard it explicitly
+        // after all erasers are registered so retryable failures cannot report done=true.
+        add_filter('wp_privacy_personal_data_erasers', [self::class, 'guard_meet_eraser'], 10000);
+    }
+
+    public static function guard_meet_eraser(array $erasers): array {
+        if(!isset($erasers['sabri-meet']['callback'])||!is_callable($erasers['sabri-meet']['callback']))return $erasers;
+        $callback=$erasers['sabri-meet']['callback'];
+        $erasers['sabri-meet']['callback']=static function(string $email,int $page=1)use($callback):array{
+            $user=get_user_by('email',$email);
+            if($user&&(bool)apply_filters('sn_network_retention_prevents_erasure',false,(int)$user->ID)){
+                return['items_removed'=>false,'items_retained'=>true,'messages'=>[__('File 17 Sabri Meet data is retained under an approved legal or safety hold.','sabri-network')],'done'=>true];
+            }
+            $result=call_user_func($callback,$email,$page);
+            if(!is_array($result)){
+                return['items_removed'=>false,'items_retained'=>true,'messages'=>[__('The Sabri Meet privacy eraser returned an invalid result and must be retried.','sabri-network')],'done'=>false];
+            }
+            if(empty($result['items_removed'])&&!empty($result['items_retained'])){
+                $text=strtolower(implode(' ',array_map('strval',(array)($result['messages']??[]))));
+                if(str_contains($text,'must be retried')||str_contains($text,'could not start')||str_contains($text,'erasure failed'))$result['done']=false;
+            }
+            return $result;
+        };
+        return $erasers;
     }
 
     public static function override_routes(): void {
@@ -29,9 +54,6 @@ final class SN_Fourth_Fresh_Realtime_Hardening {
             if(!SN_DB::is_member($cid,$actor))return self::not_found();
             $response=SN_REST::set_typing($r);
             if(is_wp_error($response))return $response;
-            // The legacy canonical clear path did not surface a DELETE failure. Re-run the
-            // idempotent clear while the conversation lock is held and fail closed if the
-            // database still cannot remove the stale typing row. A zero-row delete is valid.
             if(!rest_sanitize_boolean($r->get_param('typing'))){
                 $deleted=$wpdb->delete(SN_DB::table('typing'),['conversation_id'=>$cid,'user_id'=>$actor],['%d','%d']);
                 if($deleted===false)return new WP_Error('sn_typing_clear_failed','The typing state could not be cleared safely.',['status'=>500]);
