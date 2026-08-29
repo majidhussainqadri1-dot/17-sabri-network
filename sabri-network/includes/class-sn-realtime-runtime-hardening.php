@@ -5,8 +5,11 @@ require_once SN_DIR . 'includes/class-sn-call-runtime-hardening.php';
 
 final class SN_Realtime_Runtime_Hardening {
     private const LOCK_TIMEOUT = 5;
+    private static bool $registered = false;
 
     public static function register(): void {
+        if (self::$registered) return;
+        self::$registered = true;
         add_action('rest_api_init', [self::class, 'override_routes'], 1960);
         SN_Call_Runtime_Hardening::register();
     }
@@ -18,6 +21,12 @@ final class SN_Realtime_Runtime_Hardening {
 
     public static function heartbeat(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $user = get_current_user_id();
+        if ($request->has_param('state')) {
+            $state = sanitize_key((string) $request->get_param('state'));
+            if (!in_array($state, ['online','away','dnd','offline'], true)) {
+                return new WP_Error('sn_presence_state_invalid', 'Choose online, away, dnd, or offline.', ['status'=>400]);
+            }
+        }
         return self::with_locks([self::presence_lock($user)], static fn() => SN_Presence_Devices::heartbeat($request));
     }
 

@@ -6,6 +6,7 @@ trait SN_Spaces_Part_5 {
     public static function change_member(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $space_id=absint($request['id']);$target=absint($request['user_id']);$actor=get_current_user_id();$action=sanitize_key((string)$request->get_param('action'))?:'role';$now=self::now();
+        if(!in_array($action,['role','remove'],true))return self::error('sn_space_member_action_invalid','Choose role or remove.',400);
         if(!self::can_manage($space_id,$actor,'members'))return self::error('sn_space_manage_forbidden','Membership management permission is required.',403);
         $wpdb->query('START TRANSACTION');
         try{
@@ -39,6 +40,7 @@ trait SN_Spaces_Part_5 {
     public static function change_ban(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $space_id=absint($request['id']);$actor=get_current_user_id();$target=absint($request->get_param('user_id'));$action=sanitize_key((string)$request->get_param('action'))?:'ban';
+        if(!in_array($action,['ban','unban'],true))return self::error('sn_space_ban_action_invalid','Choose ban or unban.',400);
         if(!self::can_manage($space_id,$actor,'moderation'))return self::error('sn_space_moderation_forbidden','Moderation permission is required.',403);
         if(!$target||$target===$actor)return self::error('sn_space_ban_target_invalid','Select another valid member.',400);
         $expiry=$action==='unban'?null:self::future_or_null((string)$request->get_param('expires_at'),365*DAY_IN_SECONDS);if(is_wp_error($expiry))return $expiry;

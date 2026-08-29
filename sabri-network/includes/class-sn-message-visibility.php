@@ -4,6 +4,8 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 final class SN_Message_Visibility {
+    private const MAX_VISIBILITY_SCAN_PAGES = 20;
+
     public static function register(): void {
         add_action('rest_api_init', [self::class, 'override_routes'], 1100);
     }
@@ -30,7 +32,49 @@ final class SN_Message_Visibility {
     }
 
     public static function get_messages(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        return self::filter(SN_REST::get_messages($request), 'messages');
+        $viewer = get_current_user_id();
+        $limit = min(100, max(1, absint($request->get_param('limit')) ?: 50));
+        $original_after = absint($request->get_param('after'));
+        $original_before = absint($request->get_param('before'));
+        $probe = clone $request;
+        $visible = [];
+        $scan_after = $original_after;
+        $scan_before = $original_before;
+
+        for ($page = 0; $page < self::MAX_VISIBILITY_SCAN_PAGES && count($visible) < $limit; $page++) {
+            $probe->set_param('limit', min(100, max(1, $limit - count($visible))));
+            $probe->set_param('after', $scan_after);
+            $probe->set_param('before', $scan_after > 0 ? 0 : $scan_before);
+            $response = SN_REST::get_messages($probe);
+            if (is_wp_error($response)) return $response;
+            $data = $response->get_data();
+            $rows = is_array($data) && isset($data['messages']) && is_array($data['messages']) ? $data['messages'] : [];
+            if (!$rows) break;
+
+            $eligible = array_values(array_filter($rows, static function($item) use ($viewer): bool {
+                $id = is_array($item) ? absint($item['id'] ?? 0) : (is_object($item) ? absint($item->id ?? 0) : 0);
+                return $id === 0 || !SN_Message_Operations::is_hidden($viewer, $id);
+            }));
+
+            $first_id = self::message_id(reset($rows));
+            $last_id = self::message_id(end($rows));
+            if ($scan_after > 0) {
+                $visible = array_merge($visible, $eligible);
+                if ($last_id <= $scan_after) break;
+                $scan_after = $last_id;
+            } else {
+                $visible = array_merge($eligible, $visible);
+                if ($first_id <= 0 || ($scan_before > 0 && $first_id >= $scan_before)) break;
+                $scan_before = $first_id;
+            }
+
+            if (count($rows) < (int) $probe->get_param('limit')) break;
+        }
+
+        if (count($visible) > $limit) {
+            $visible = $original_after > 0 ? array_slice($visible, 0, $limit) : array_slice($visible, -$limit);
+        }
+        return rest_ensure_response(['messages' => array_values($visible)]);
     }
 
     public static function search(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -59,5 +103,9 @@ final class SN_Message_Visibility {
         }));
         $response->set_data($data);
         return $response;
+    }
+
+    private static function message_id($item): int {
+        return is_array($item) ? absint($item['id'] ?? 0) : (is_object($item) ? absint($item->id ?? 0) : 0);
     }
 }

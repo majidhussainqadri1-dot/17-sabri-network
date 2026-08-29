@@ -29,7 +29,7 @@ final class SN_Message_Runtime_Hardening {
         if(!SN_Policy::consume_rate_limit('message_send',(string)$user_id,120,MINUTE_IN_SECONDS))return new WP_Error('rate_limited','Too many message requests.',['status'=>429]);
         $body=trim(sanitize_textarea_field(wp_unslash((string)$request->get_param('body'))));
         if(mb_strlen($body)>self::MAX_MESSAGE_CHARS)return new WP_Error('message_too_long','The message is longer than the permitted limit.',['status'=>413]);
-        $type=sanitize_key((string)$request->get_param('message_type'))?:'text';if(!in_array($type,['text','image','video','audio','document'],true))$type='text';
+        $type=sanitize_key((string)$request->get_param('message_type'))?:'text';if(!in_array($type,['text','image','video','audio','document'],true))return new WP_Error('invalid_message_type','Choose text, image, video, audio, or document.',['status'=>400]);
         $reply=absint($request->get_param('reply_to'));
         if($reply>0){$replyRow=$wpdb->get_row($wpdb->prepare('SELECT id,deleted_at FROM '.SN_DB::table('messages').' WHERE id=%d AND conversation_id=%d',$reply,$conversation_id));if(!$replyRow||$replyRow->deleted_at)return new WP_Error('invalid_reply','The replied-to message is unavailable.',['status'=>400]);if(SN_Message_Operations::is_hidden($user_id,$reply))return new WP_Error('invalid_reply','The replied-to message is unavailable.',['status'=>400]);}
         $client=strtolower(trim((string)$request->get_param('client_id')));if($client===''||!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/',$client))return new WP_Error('invalid_client_id','A caller-supplied message idempotency key is required.',['status'=>400]);

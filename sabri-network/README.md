@@ -10,15 +10,15 @@ File 17 is the single communication/realtime owner for relationships, contacts/f
 
 It does not duplicate File 00/02 identity/verification, File 19 notification transport, File 20 shell/navigation, File 24 assurance governance, File 25 presentation, File 26 global search/ranking or clinical-domain truth. Private messages and contacts remain inside File 17.
 
-## Seventh fresh 20-round sequential review
+## Eighth fresh 20-round sequential review
 
-The seventh independent cycle was performed on the reviewed sixth-cycle repository line. Every round obeyed the same mandatory sequence: **complete the entire review -> freeze that round's findings -> fix every proved defect -> regression/retest -> only then begin the next round**. No correction was started while its review was still in progress.
+The eighth independent cycle starts from exact seventh-cycle green repository head `f3820dfb49021617c4199b1860cd8dc353a5edac`. Every round obeyed the mandatory sequence: **complete the entire review -> freeze that round's full findings -> fix every proved defect -> regression/retest -> only then begin the next round**.
 
-Defect-bearing rounds: **R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20**. Clean rounds: **R1, R2, R10, R12**. First-ten defect rounds: **R3, R4, R5, R6, R7, R8, R9**.
+Defect-bearing rounds: **R1, R3, R4, R5, R6, R10, R13, R14, R16, R20**. Clean rounds: **R2, R7, R8, R9, R11, R12, R15, R17, R18, R19**. First-ten defect rounds: **R1, R3, R4, R5, R6, R10**.
 
-The current explicit repository quality inventory is **53 PHP review suites** and **9 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. Seventh-cycle regression protection is retained in the existing governed suites, including `sixth-fresh-twenty-round-contracts.php` and `fifth-fresh-release-truth-contracts.php`.
+The current explicit repository quality inventory is **54 PHP review suites** and **9 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. Eighth-cycle permanent regression protection is `eighth-fresh-twenty-round-contracts.php`.
 
-The seventh cycle hardened current authorization under relationship/space locks, exact message/forwarding/Smail replay semantics, receipt/presence/transfer concurrency, protected transfer storage, SFU/provider credential semantics, legal-hold privacy behavior, discovery pagination, cross-file contexts, migration schema/version truth, modal focus restoration and current release/package truth.
+The eighth cycle hardened nested realtime registration, block-direction privacy, fail-closed space actions, message-type validation, hidden-message pagination, presence-state validation, report replay/concurrency, exact context origin semantics, active context/CF-01 migration verification and current QA/release truth.
 
 ## Security and provider truth
 
@@ -27,7 +27,7 @@ Canonical private message bodies use authenticated server-side encryption at res
 ## Status law
 
 - **Specified:** current governing File-17 repository requirements represented.
-- **Coded:** current 2.1.0 seventh-cycle repository candidate.
+- **Coded:** current 2.1.0 eighth-cycle repository candidate.
 - **Packaged:** only for the exact immutable commit whose deterministic package job succeeds.
 - **Automated-QA Green:** only for the exact immutable commit whose attached PHP 8.1 and PHP 8.3/full-quality checks succeed.
 - **Staging-Accepted:** pending real WordPress/MySQL/roles/providers/migration/rollback evidence.

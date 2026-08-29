@@ -94,8 +94,8 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'smail_states'=>['smail_message_id','user_id','updated_at'],
             'smail_drafts'=>['public_id','owner_id','encrypted_payload','payload_hash','version'],
             'future_records'=>['feature_id','owner_id','scope_type','scope_id','state','payload_cipher'],
-            'conversation_contexts'=>['conversation_id','provider','external_id','attached_by','version'],
-            'cf01_context_refs'=>['conversation_id','context_ref','issued_by','status','version'],
+            'conversation_contexts'=>['conversation_id','provider','provider_object_id','attached_by','version'],
+            'cf01_context_refs'=>['conversation_id','reference_uuid','issued_by','status','version'],
         ];
         foreach ($required as $name=>$columns) {
             $table = SN_DB::table($name);
