@@ -16,4 +16,5 @@ $message=$read($root.'/includes/class-sn-message-runtime-hardening.php');
 $check(str_contains($message,"return new WP_Error('invalid_message_type'")&&!str_contains($message,"))\$type='text';"),'R5: canonical send must reject an unknown message type instead of silently changing request semantics.');
 $visibility=$read($root.'/includes/class-sn-message-visibility.php');
 $check(str_contains($visibility,'MAX_VISIBILITY_SCAN_PAGES')&&str_contains($visibility,'$visible = array_merge($eligible, $visible)')&&str_contains($visibility,'$visible = array_merge($visible, $eligible)'),'R6: message paging must scan across viewer-hidden rows in both older and newer directions.');
+$check(str_contains($realtime,"sn_presence_state_invalid")&&str_contains($realtime,"['online','away','dnd','offline']"),'R10: explicit invalid presence state must fail closed instead of becoming online.');
 if($fail){fwrite(STDERR,"Eighth fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eighth fresh 20-round contracts: PASS ($checks checks)\n";
