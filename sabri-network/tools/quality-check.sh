@@ -118,8 +118,9 @@ for marker in ('smc_communication_assertions','smc_membership_assertions','MIN_C
 assert "get_user_meta($user_id, 'sn_phone_e164'" not in auth
 assert "'phone' => $can_see_phone ? mb_substr(sanitize_text_field((string) $projection['phone'])" in auth
 assert "'verified' => (bool) $projection['verified']" in auth
-for marker in ('SN_Central_Plan_Hardening::resolve_smail_conversation','SN_Message_Integrity::send_message','encrypted_payload LONGTEXT','smail.sent'):
+for marker in ('SN_Central_Plan_Hardening::resolve_smail_conversation','SN_Message_Runtime_Hardening::send_message','request_scope_hash','smail_scope_hash','encrypted_payload LONGTEXT','smail.sent'):
     assert marker in smail,marker
+assert 'SN_Message_Integrity::send_message' not in smail,'Smail must not use superseded message integrity send path'
 for marker in ('SN_Message_Runtime_Hardening::send_message','smail_projection_commit_failed','ERASE_BATCH'):
     assert marker in smail_runtime,marker
 for marker in ('MAX_FILE_BYTES = 1073741824','x-chunk-sha256','sn_network_transfer_scan_result','Accept-Ranges: bytes','Cache-Control: private, no-store','random_bytes(12)','existing_storage_path','received_indices'):
