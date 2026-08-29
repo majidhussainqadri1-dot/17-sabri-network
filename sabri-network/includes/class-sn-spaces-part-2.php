@@ -39,6 +39,7 @@ trait SN_Spaces_Part_2 {
     public static function join_space(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $id=absint($request['id']);$user=get_current_user_id();$action=sanitize_key((string)$request->get_param('action'))?:'join';
+        if(!in_array($action,['join','cancel'],true))return self::error('sn_space_join_action_invalid','Choose join or cancel.',400);
         $space=self::space($id);if(!$space||!self::can_see_existence($space,$user))return self::error('sn_space_not_found','The space is unavailable.',404);
         if($action==='cancel'){
             $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::requests_table()." WHERE space_id=%d AND requester_id=%d AND status='pending' ORDER BY id DESC LIMIT 1",$id,$user));
