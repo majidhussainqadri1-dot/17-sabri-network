@@ -81,7 +81,7 @@ final class SN_Admin {
         $page_id = (int) get_option('sn_network_page_id');
         $page_ok = $page_id && SN_Activator::is_owned_page($page_id) && get_post_status($page_id) === 'publish' && has_shortcode((string) get_post_field('post_content', $page_id), 'sabri_network');
         $identity_ready = SN_Policy::identity_authority_available();
-        $notification_adapter = has_filter('sn_network_notification_handled');
+        $notification_adapter = class_exists('SN_Seventh_Fresh_R13_Hardening') && SN_Seventh_Fresh_R13_Hardening::file19_ready();
         $scanner = has_filter('sn_network_attachment_scan_result');
         $storage = SN_Private_Files::ensure_storage();
         $legacy_messages = $count('messages', "WHERE attachment_id>0 AND attachment_source='legacy_wp'");
@@ -103,7 +103,7 @@ final class SN_Admin {
                 <tr><th>Private attachment storage</th><td><?php echo $storage ? '✅ Writable and outside the public web root' : '❌ Unavailable or unsafe location'; ?></td></tr>
                 <tr><th>Attachment malware scanner</th><td><?php echo $scanner ? '✅ Adapter connected' : '⚠️ Document uploads fail closed until an approved scanner adapter is connected'; ?></td></tr>
                 <tr><th>File 00 / File 02 identity adapter</th><td><?php echo $identity_ready ? '✅ Available' : '⚠️ Integration not confirmed'; ?></td></tr>
-                <tr><th>File 19 notification adapter</th><td><?php echo $notification_adapter ? '✅ Connected' : '⚠️ Local privacy-safe fallback queue active'; ?></td></tr>
+                <tr><th>File 19 notification adapter</th><td><?php echo $notification_adapter ? '✅ Connected' : '⚠️ File 19 adapter not verified; File 17 local notification center remains disabled'; ?></td></tr>
                 <tr><th>Legacy public message attachments</th><td><?php echo esc_html((string) $legacy_messages); ?> — withheld until controlled migration</td></tr>
                 <tr><th>Legacy public update media</th><td><?php echo esc_html((string) $legacy_updates); ?> — withheld until controlled migration</td></tr>
             </tbody></table>
