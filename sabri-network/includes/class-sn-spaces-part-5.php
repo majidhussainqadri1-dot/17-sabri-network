@@ -6,6 +6,7 @@ trait SN_Spaces_Part_5 {
     public static function change_member(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $space_id=absint($request['id']);$target=absint($request['user_id']);$actor=get_current_user_id();$action=sanitize_key((string)$request->get_param('action'))?:'role';$now=self::now();
+        if(!in_array($action,['role','remove'],true))return self::error('sn_space_member_action_invalid','Select role or remove.',400);
         if(!self::can_manage($space_id,$actor,'members'))return self::error('sn_space_manage_forbidden','Membership management permission is required.',403);
         $wpdb->query('START TRANSACTION');
         try{
@@ -22,7 +23,7 @@ trait SN_Spaces_Part_5 {
                 if($wpdb->query('COMMIT')===false)throw new RuntimeException('space_member_remove_commit_failed');
                 return rest_ensure_response(['status'=>'removed']);
             }
-            $role=self::enum((string)$request->get_param('role'),self::ROLES,'member');
+            $raw_role=sanitize_key((string)$request->get_param('role'));if(!in_array($raw_role,self::ROLES,true)){$wpdb->query('ROLLBACK');return self::error('sn_space_role_invalid','Select a valid member role.',400);}$role=$raw_role;
             if($role==='owner'){$wpdb->query('ROLLBACK');return self::error('sn_space_owner_transfer_required','Use the protected ownership transfer workflow.',409);}
             if(self::ROLE_RANK[$role]>=self::ROLE_RANK[(string)$actor_member->role]){$wpdb->query('ROLLBACK');return self::error('sn_space_role_escalation_forbidden','A manager cannot assign an equal or higher role.',403);}
             $changed=$wpdb->update(self::members_table(),['role'=>$role,'updated_at'=>$now,'version'=>(int)$target_member->version+1],['id'=>(int)$target_member->id,'status'=>'active','version'=>(int)$target_member->version]);
@@ -39,6 +40,7 @@ trait SN_Spaces_Part_5 {
     public static function change_ban(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $space_id=absint($request['id']);$actor=get_current_user_id();$target=absint($request->get_param('user_id'));$action=sanitize_key((string)$request->get_param('action'))?:'ban';
+        if(!in_array($action,['ban','unban'],true))return self::error('sn_space_ban_action_invalid','Select ban or unban.',400);
         if(!self::can_manage($space_id,$actor,'moderation'))return self::error('sn_space_moderation_forbidden','Moderation permission is required.',403);
         if(!$target||$target===$actor)return self::error('sn_space_ban_target_invalid','Select another valid member.',400);
         $actor_member=self::member($space_id,$actor);$target_member=self::member($space_id,$target);
@@ -46,10 +48,16 @@ trait SN_Spaces_Part_5 {
         $now=self::now();$existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::bans_table().' WHERE space_id=%d AND user_id=%d',$space_id,$target));
         if($action==='unban'){
             if(!$existing|| (string)$existing->status!=='active')return rest_ensure_response(['status'=>'inactive']);
-            $changed=$wpdb->update(self::bans_table(),['status'=>'revoked','updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'status'=>'active','version'=>(int)$existing->version]);
-            if($changed!==1)return self::error('sn_space_ban_conflict','The ban changed concurrently.',409);
-            self::record($space_id,$actor,'member_unbanned','user',$target,self::text((string)$request->get_param('reason'),500),[]);
-            return rest_ensure_response(['status'=>'revoked']);
+            if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_unban_failed','The unban transaction could not start.',500);
+            try{
+                $locked=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::bans_table().' WHERE id=%d FOR UPDATE',(int)$existing->id));
+                if(!$locked||(string)$locked->status!=='active'){if($wpdb->query('COMMIT')===false)throw new RuntimeException('unban_read_commit_failed');return rest_ensure_response(['status'=>'inactive']);}
+                $changed=$wpdb->update(self::bans_table(),['status'=>'revoked','updated_at'=>$now,'version'=>(int)$locked->version+1],['id'=>(int)$locked->id,'status'=>'active','version'=>(int)$locked->version]);
+                if($changed!==1)throw new RuntimeException('unban_conflict');
+                self::record($space_id,$actor,'member_unbanned','user',$target,self::text((string)$request->get_param('reason'),500),[]);
+                if($wpdb->query('COMMIT')===false)throw new RuntimeException('unban_commit_failed');
+                return rest_ensure_response(['status'=>'revoked']);
+            }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_space_unban_failed','The unban could not be committed atomically.',500);}
         }
         $expiry=self::future_or_null((string)$request->get_param('expires_at'),365*DAY_IN_SECONDS);if(is_wp_error($expiry))return $expiry;
         $wpdb->query('START TRANSACTION');
