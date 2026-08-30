@@ -16,6 +16,7 @@ $attachment = $read('includes/class-sn-attachment-runtime-hardening.php');
 $transferPrivacy = $read('includes/class-sn-file-transfer-part-8.php');
 $fifthPrivacy = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 $callRuntime = $read('includes/class-sn-call-runtime-hardening.php');
+$smailRuntime = $read('includes/class-sn-smail-runtime-hardening.php');
 
 // R5 — a caller-owned message retry key must also be bound to exact request semantics.
 $check(str_contains($message, "'_idempotency_fingerprint'"), 'R5: canonical messages must persist a request-semantic idempotency fingerprint.');
@@ -58,6 +59,13 @@ $check(str_contains($callRuntime, 'guard_protected_reads') && str_contains($call
 $check(str_contains($callRuntime, 'SN_Membership_Assertions::clear_cache($actor)') && str_contains($callRuntime, "SN_DB::is_blocked(\$actor, (int)\$meeting->host_id)"), 'R9: protected Meet reads must revalidate File-00 eligibility and live block state.');
 $check(str_contains($callRuntime, 'override_meet_privacy_eraser') && str_contains($callRuntime, 'meet_privacy_erase_retry_safe'), 'R9: the registered Meet privacy eraser must be wrapped by a retry-safe completion boundary.');
 $check(str_contains($callRuntime, "\$result['done'] = false") && str_contains($callRuntime, "failed and must be retried"), 'R9: operational Meet erasure failure must keep WordPress privacy retry alive.');
+
+// R10 — Smail retries must require a caller-owned key and bind it to exact mail semantics.
+$check(str_contains($smailRuntime, "if(\$client===''||!preg_match") && str_contains($smailRuntime, 'A caller-supplied Smail idempotency key is required.'), 'R10: Smail send must reject a missing caller-owned idempotency key instead of generating a server UUID.');
+$check(!str_contains($smailRuntime, "if(\$client==='')\$client=wp_generate_uuid4();"), 'R10: runtime Smail must not silently synthesize an idempotency key.');
+$check(str_contains($smailRuntime, 'sort($recipients,SORT_NUMERIC);'), 'R10: recipient order must be canonicalized before idempotency comparison.');
+$check(str_contains($smailRuntime, 'idempotency_matches(') && str_contains($smailRuntime, 'smail_idempotency_conflict'), 'R10: duplicate Smail retries must verify request semantics and reject key reuse conflicts.');
+$check(str_contains($smailRuntime, "hash_equals((string)\$smail->subject,\$subject)") && str_contains($smailRuntime, 'SN_Message_Body::decrypt_row($message)') && str_contains($smailRuntime, '$stored!==$expected'), 'R10: Smail idempotency binding must cover subject, canonical body and exact recipient set.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
