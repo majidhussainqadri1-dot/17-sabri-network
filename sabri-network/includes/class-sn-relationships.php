@@ -12,7 +12,9 @@ final class SN_Relationships {
         if (SN_Policy::is_suspended($target_id)) {
             return new WP_Error('relationship_target_unavailable', 'This Network member is unavailable.', ['status' => 404]);
         }
-        $blocked = SN_DB::is_blocked($viewer_id, $target_id);
+        global $wpdb;
+        $blocked_by_viewer = (bool) $wpdb->get_var($wpdb->prepare('SELECT id FROM ' . SN_DB::table('blocks') . ' WHERE user_id=%d AND blocked_user_id=%d LIMIT 1', $viewer_id, $target_id));
+        $blocked = $blocked_by_viewer || SN_DB::is_blocked($viewer_id, $target_id);
         $contact = SN_DB::contact_record($viewer_id, $target_id);
         $follow = SN_DB::follow_record($viewer_id, $target_id);
         $reverse = SN_DB::follow_record($target_id, $viewer_id);
@@ -41,7 +43,7 @@ final class SN_Relationships {
                 'follow' => $can_follow && in_array($follow_state, ['none', 'inactive', 'rejected'], true),
                 'unfollow' => !$blocked && in_array($follow_state, ['active', 'pending'], true),
                 'block' => !$blocked,
-                'unblock' => $blocked,
+                'unblock' => $blocked_by_viewer,
             ],
         ];
     }
