@@ -17,6 +17,8 @@ $transferPrivacy = $read('includes/class-sn-file-transfer-part-8.php');
 $fifthPrivacy = $read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 $callRuntime = $read('includes/class-sn-call-runtime-hardening.php');
 $smailRuntime = $read('includes/class-sn-smail-runtime-hardening.php');
+$relationshipRuntime = $read('includes/class-sn-relationship-runtime-hardening.php');
+$relationships = $read('includes/class-sn-relationships.php');
 
 // R5 — a caller-owned message retry key must also be bound to exact request semantics.
 $check(str_contains($message, "'_idempotency_fingerprint'"), 'R5: canonical messages must persist a request-semantic idempotency fingerprint.');
@@ -66,6 +68,14 @@ $check(!str_contains($smailRuntime, "if(\$client==='')\$client=wp_generate_uuid4
 $check(str_contains($smailRuntime, 'sort($recipients,SORT_NUMERIC);'), 'R10: recipient order must be canonicalized before idempotency comparison.');
 $check(str_contains($smailRuntime, 'idempotency_matches(') && str_contains($smailRuntime, 'smail_idempotency_conflict'), 'R10: duplicate Smail retries must verify request semantics and reject key reuse conflicts.');
 $check(str_contains($smailRuntime, "hash_equals((string)\$smail->subject,\$subject)") && str_contains($smailRuntime, 'SN_Message_Body::decrypt_row($message)') && str_contains($smailRuntime, '$stored!==$expected'), 'R10: Smail idempotency binding must cover subject, canonical body and exact recipient set.');
+
+// R11 — relationship/block/direct-conversation transitions must preserve exact directional and retry semantics.
+$check(str_contains($relationshipRuntime, 'invalid_block_state') && str_contains($relationshipRuntime, '!is_bool($raw)'), 'R11: malformed block-state input must be rejected rather than coerced into an unblock.');
+$check(str_contains($relationshipRuntime, '$reverse = (bool)$wpdb->get_var') && str_contains($relationshipRuntime, "if (!\$reverse && \$contact"), 'R11: removing one directional block must not clear the shared blocked-contact projection while the reverse block remains.');
+$check(str_contains($relationshipRuntime, "['blocked'=>\$pairBlocked,'blocked_by_me'=>\$own]") && str_contains($relationships, "'unblock' => \$blocked_by_viewer"), 'R11: API/UI unblock state must distinguish actor-owned block authority from pair-level blocking.');
+$check(str_contains($relationshipRuntime, 'ambiguous_direct_target') && str_contains($relationshipRuntime, 'count($members) !== 1'), 'R11: direct conversation creation must reject ambiguous multi-peer input instead of silently truncating it.');
+$check(str_contains($relationshipRuntime, 'if (!$existing || $restored)') && str_contains($relationshipRuntime, "conversation_restored':'conversation_created"), 'R11: an unchanged existing direct conversation retry must not re-emit invitation/audit side effects.');
+$check(str_contains($relationshipRuntime, '$restored = (string)$existing->status') && str_contains($relationshipRuntime, 'if (!$row || $row->left_at !== null) $restored = true;'), 'R11: true direct-conversation restoration must be distinguished from a no-op retry.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
