@@ -130,7 +130,8 @@ final class SN_Relationship_Runtime_Hardening {
         $target = absint($request->get_param('user_id'));
         if ($target <= 0 || $target === $actor || !get_user_by('id',$target)) return new WP_Error('invalid_user','Select a valid user.',['status'=>400]);
         $raw = $request->get_param('blocked');
-        $blocked = $raw === null ? true : filter_var($raw, FILTER_VALIDATE_BOOLEAN);
+        if ($raw !== null && !is_bool($raw)) return new WP_Error('invalid_block_state','The blocked field must use JSON true or false.',['status'=>400]);
+        $blocked = $raw === null ? true : $raw;
         return self::with_locks([SN_Relationships::pair_lock_name($actor,$target)], function () use ($actor,$target,$blocked,$wpdb) {
             $now = current_time('mysql',true);
             $blocks = SN_DB::table('blocks');
@@ -148,10 +149,15 @@ final class SN_Relationship_Runtime_Hardening {
                     if ($direct) self::end_active_calls_locked((int)$direct->id,$now);
                 } else {
                     if ($wpdb->delete($blocks,['user_id'=>$actor,'blocked_user_id'=>$target],['%d','%d']) === false) throw new RuntimeException('unblock_write_failed');
-                    if ($contact && (string)$contact->status === 'blocked' && $wpdb->query($wpdb->prepare("UPDATE $contacts SET status='declined',updated_at=%s WHERE id=%d AND status='blocked'",$now,(int)$contact->id)) === false) throw new RuntimeException('contact_unblock_failed');
+                    $reverse = (bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM $blocks WHERE user_id=%d AND blocked_user_id=%d LIMIT 1 FOR UPDATE",$target,$actor));
+                    if (!$reverse && $contact && (string)$contact->status === 'blocked' && $wpdb->query($wpdb->prepare("UPDATE $contacts SET status='declined',updated_at=%s WHERE id=%d AND status='blocked'",$now,(int)$contact->id)) === false) throw new RuntimeException('contact_unblock_failed');
                 }
+                $own = (bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM $blocks WHERE user_id=%d AND blocked_user_id=%d",$actor,$target));
+                $pairBlocked = (bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM $blocks WHERE (user_id=%d AND blocked_user_id=%d) OR (user_id=%d AND blocked_user_id=%d) LIMIT 1",$actor,$target,$target,$actor));
+                if ($own !== $blocked) throw new RuntimeException('block_state_unconfirmed');
                 if ($wpdb->query('COMMIT') === false) {
                     $own = (bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM $blocks WHERE user_id=%d AND blocked_user_id=%d",$actor,$target));
+                    $pairBlocked = SN_DB::is_blocked($actor,$target);
                     if ($own !== $blocked) throw new RuntimeException('block_commit_failed');
                 }
             } catch (Throwable $e) {
@@ -159,7 +165,7 @@ final class SN_Relationship_Runtime_Hardening {
                 return self::database_error();
             }
             SN_DB::audit($blocked?'user_blocked':'user_unblocked','user',$target,'success',[],$actor);
-            return rest_ensure_response(['blocked'=>$blocked]);
+            return rest_ensure_response(['blocked'=>$pairBlocked,'blocked_by_me'=>$own]);
         });
     }
 
@@ -194,8 +200,16 @@ final class SN_Relationship_Runtime_Hardening {
         if (!SN_Policy::consume_rate_limit('conversation_create',(string)$actor,30,HOUR_IN_SECONDS)) return self::rate_limited();
         $members = array_values(array_unique(array_filter(array_map('absint',(array)$request->get_param('member_ids')))));
         $members = array_values(array_diff($members,[$actor]));
-        $target = absint($request->get_param('user_id')) ?: ($members[0] ?? 0);
-        if ($target <= 0) return new WP_Error('invalid_members','Select a valid Network member.',['status'=>400]);
+        $explicitTarget = absint($request->get_param('user_id'));
+        if ($explicitTarget > 0) {
+            $conflicts = array_values(array_diff($members,[$explicitTarget]));
+            if ($conflicts || count($members) > 1) return new WP_Error('ambiguous_direct_target','A direct conversation must name exactly one unambiguous peer.',['status'=>400]);
+            $target = $explicitTarget;
+        } else {
+            if (count($members) !== 1) return new WP_Error('ambiguous_direct_target','A direct conversation must name exactly one unambiguous peer.',['status'=>400]);
+            $target = $members[0];
+        }
+        if ($target <= 0 || $target === $actor) return new WP_Error('invalid_members','Select a valid Network member.',['status'=>400]);
         $members = [$target];
         $locks = [SN_Relationships::pair_lock_name($actor,$target),'sn:f17:conversation-create:'.substr(hash('sha256',(string)$actor),0,32)];
         return self::with_locks($locks, function () use ($actor,$members,$wpdb) {
@@ -208,14 +222,17 @@ final class SN_Relationship_Runtime_Hardening {
             $directKey = SN_DB::direct_key($actor,$target);
             $id = 0;
             $existing = null;
+            $restored = false;
             if ($wpdb->query('START TRANSACTION') === false) return self::database_error();
             try {
                 $existing = $wpdb->get_row($wpdb->prepare("SELECT * FROM $conversations WHERE direct_key=%s FOR UPDATE",$directKey));
                 if ($existing) {
                     $id = (int)$existing->id;
+                    $restored = (string)$existing->status !== 'active';
                     if ($wpdb->query($wpdb->prepare("UPDATE $conversations SET status='active',updated_at=%s WHERE id=%d",$now,$id)) === false) throw new RuntimeException('conversation_restore_failed');
                     foreach ([$actor,$target] as $memberId) {
                         $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $memberTable WHERE conversation_id=%d AND user_id=%d FOR UPDATE",$id,$memberId));
+                        if (!$row || $row->left_at !== null) $restored = true;
                         $role = (int)$existing->owner_id === $memberId ? 'owner' : 'member';
                         $ok = $row ? $wpdb->query($wpdb->prepare("UPDATE $memberTable SET role=%s,left_at=NULL,joined_at=%s WHERE id=%d",$role,$now,(int)$row->id)) : $wpdb->insert($memberTable,['conversation_id'=>$id,'user_id'=>$memberId,'role'=>$role,'joined_at'=>$now]);
                         if ($ok === false) throw new RuntimeException('member_restore_failed');
@@ -237,9 +254,11 @@ final class SN_Relationship_Runtime_Hardening {
                 if ($race && (string)$race->status === 'active') return self::conversation_response((int)$race->id,true,true);
                 return self::database_error();
             }
-            SN_DB::add_notification($target,'conversation_invite','New Network conversation','','conversation',$id);
-            SN_DB::audit('conversation_created','conversation',$id,'success',['type'=>'direct','members'=>2],$actor);
-            return self::conversation_response($id,(bool)$existing,(bool)$existing);
+            if (!$existing || $restored) {
+                SN_DB::add_notification($target,'conversation_invite',$existing?'Network conversation restored':'New Network conversation','','conversation',$id);
+                SN_DB::audit($existing?'conversation_restored':'conversation_created','conversation',$id,'success',['type'=>'direct','members'=>2],$actor);
+            }
+            return self::conversation_response($id,(bool)$existing,$restored);
         });
     }
 
