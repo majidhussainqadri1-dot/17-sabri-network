@@ -25,15 +25,22 @@ trait SN_Spaces_Part_2 {
         foreach(['invite_pause_until','anti_raid_until','media_pause_until','call_pause_until'] as $key){if($request->has_param($key)){$dt=self::future_or_null((string)$request->get_param($key),30*DAY_IN_SECONDS);if(is_wp_error($dt))return $dt;$allowed[$key]=$dt;}}
         if(!$allowed)return rest_ensure_response(['space'=>self::format_space($space,$actor)]);
         $allowed['updated_at']=self::now();$allowed['version']=$expected+1;
-        $changed=$wpdb->update(self::spaces_table(),$allowed,['id'=>$id,'version'=>$expected]);
-        if($changed!==1)return self::error('sn_space_update_conflict','A concurrent space update was detected.',409);
-        self::record($id,$actor,'space_settings_updated','space',$id,'',['fields'=>array_keys($allowed)]);
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_update_failed','The space settings transaction could not start.',500);
+        try{
+            $locked=self::space($id,true);
+            if(!$locked||(int)$locked->version!==$expected){$wpdb->query('ROLLBACK');return self::error('sn_space_update_conflict','A concurrent space update was detected.',409);}
+            $changed=$wpdb->update(self::spaces_table(),$allowed,['id'=>$id,'version'=>$expected]);
+            if($changed!==1)throw new RuntimeException('space_settings_conflict');
+            self::record($id,$actor,'space_settings_updated','space',$id,'',['fields'=>array_keys($allowed)]);
+            if($wpdb->query('COMMIT')===false)throw new RuntimeException('space_settings_commit_failed');
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_space_update_failed','The space settings change could not be committed atomically.',500);}
         return rest_ensure_response(['space'=>self::format_space(self::space($id),$actor)]);
     }
 
     public static function join_space(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $id=absint($request['id']);$user=get_current_user_id();$action=sanitize_key((string)$request->get_param('action'))?:'join';
+        if(!in_array($action,['join','cancel'],true))return self::error('sn_space_join_action_invalid','Select join or cancel.',400);
         $space=self::space($id);if(!$space||!self::can_see_existence($space,$user))return self::error('sn_space_not_found','The space is unavailable.',404);
         if($action==='cancel'){
             $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::requests_table()." WHERE space_id=%d AND requester_id=%d AND status='pending' ORDER BY id DESC LIMIT 1",$id,$user));
