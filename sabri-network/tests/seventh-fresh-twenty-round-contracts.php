@@ -19,6 +19,10 @@ $callRuntime = $read('includes/class-sn-call-runtime-hardening.php');
 $smailRuntime = $read('includes/class-sn-smail-runtime-hardening.php');
 $relationshipRuntime = $read('includes/class-sn-relationship-runtime-hardening.php');
 $relationships = $read('includes/class-sn-relationships.php');
+$spaces2 = $read('includes/class-sn-spaces-part-2.php');
+$spaces4 = $read('includes/class-sn-spaces-part-4.php');
+$spaces5 = $read('includes/class-sn-spaces-part-5.php');
+$spaces9 = $read('includes/class-sn-spaces-part-9.php');
 
 // R5 — a caller-owned message retry key must also be bound to exact request semantics.
 $check(str_contains($message, "'_idempotency_fingerprint'"), 'R5: canonical messages must persist a request-semantic idempotency fingerprint.');
@@ -76,6 +80,16 @@ $check(str_contains($relationshipRuntime, "['blocked'=>\$pairBlocked,'blocked_by
 $check(str_contains($relationshipRuntime, 'ambiguous_direct_target') && str_contains($relationshipRuntime, 'count($members) !== 1'), 'R11: direct conversation creation must reject ambiguous multi-peer input instead of silently truncating it.');
 $check(str_contains($relationshipRuntime, 'if (!$existing || $restored)') && str_contains($relationshipRuntime, "conversation_restored':'conversation_created"), 'R11: an unchanged existing direct conversation retry must not re-emit invitation/audit side effects.');
 $check(str_contains($relationshipRuntime, '$restored = (string)$existing->status') && str_contains($relationshipRuntime, 'if (!$row || $row->left_at !== null) $restored = true;'), 'R11: true direct-conversation restoration must be distinguished from a no-op retry.');
+
+// R12 — space governance must fail closed and mutation inputs must be exact.
+$check(str_contains($spaces9, '$inserted=$wpdb->insert(self::audit_table()') && str_contains($spaces9, "if(\$inserted===false)throw new RuntimeException('space_governance_record_failed')"), 'R12: space governance evidence write failure must abort the governed mutation.');
+$check(str_contains($spaces2, "space_settings_commit_failed") && str_contains($spaces2, "self::record(\$id,\$actor,'space_settings_updated'"), 'R12: space settings mutation and governance record must share a commit-checked transaction.');
+$check(str_contains($spaces5, 'sn_space_unban_failed') && str_contains($spaces5, "SELECT * FROM '.self::bans_table().' WHERE id=%d FOR UPDATE") && str_contains($spaces5, 'unban_commit_failed'), 'R12: unban and its governance record must be transactional and commit-checked.');
+$check(str_contains($spaces2, "in_array(\$action,['join','cancel'],true)") && str_contains($spaces2, 'sn_space_join_action_invalid'), 'R12: malformed join actions must not silently execute the join path.');
+$check(str_contains($spaces5, "in_array(\$action,['role','remove'],true)") && str_contains($spaces5, 'sn_space_member_action_invalid'), 'R12: malformed member actions must not silently execute role mutation.');
+$check(str_contains($spaces5, "if(!in_array(\$raw_role,self::ROLES,true))") && str_contains($spaces5, 'sn_space_role_invalid'), 'R12: invalid member roles must be rejected rather than defaulting to member.');
+$check(str_contains($spaces5, "in_array(\$action,['ban','unban'],true)") && str_contains($spaces5, 'sn_space_ban_action_invalid'), 'R12: malformed moderation actions must not silently become bans.');
+$check(str_contains($spaces4, '$expired=$wpdb->update') && str_contains($spaces4, "if(\$expired!==1)throw new RuntimeException('invite_expiry_conflict')") && str_contains($spaces4, 'invite_expiry_commit_failed'), 'R12: expired invitation state must be persisted and commit-confirmed before returning the expired response.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
