@@ -23,6 +23,9 @@ $spaces2 = $read('includes/class-sn-spaces-part-2.php');
 $spaces4 = $read('includes/class-sn-spaces-part-4.php');
 $spaces5 = $read('includes/class-sn-spaces-part-5.php');
 $spaces9 = $read('includes/class-sn-spaces-part-9.php');
+$r13 = $read('includes/class-sn-seventh-fresh-r13-hardening.php');
+$loader = $read('includes/class-sn-future24-review-hardening.php');
+$admin = $read('includes/class-sn-admin.php');
 
 // R5 — a caller-owned message retry key must also be bound to exact request semantics.
 $check(str_contains($message, "'_idempotency_fingerprint'"), 'R5: canonical messages must persist a request-semantic idempotency fingerprint.');
@@ -90,6 +93,18 @@ $check(str_contains($spaces5, "in_array(\$action,['role','remove'],true)") && st
 $check(str_contains($spaces5, "if(!in_array(\$raw_role,self::ROLES,true))") && str_contains($spaces5, 'sn_space_role_invalid'), 'R12: invalid member roles must be rejected rather than defaulting to member.');
 $check(str_contains($spaces5, "in_array(\$action,['ban','unban'],true)") && str_contains($spaces5, 'sn_space_ban_action_invalid'), 'R12: malformed moderation actions must not silently become bans.');
 $check(str_contains($spaces4, '$expired=$wpdb->update') && str_contains($spaces4, "if(\$expired!==1)throw new RuntimeException('invite_expiry_conflict')") && str_contains($spaces4, 'invite_expiry_commit_failed'), 'R12: expired invitation state must be persisted and commit-confirmed before returning the expired response.');
+
+// R13 — realtime state, receipts, erasure and notification health must revalidate current truth and fail closed.
+$check(str_contains($loader, 'class-sn-seventh-fresh-r13-hardening.php') && str_contains($loader, 'SN_Seventh_Fresh_R13_Hardening::register()'), 'R13: the canonical hardening overlay must be loaded and registered.');
+$check(str_contains($r13, "add_filter('wp_privacy_personal_data_erasers'") && str_contains($r13, "'done'=>false"), 'R13: privacy eraser operational failures must keep WordPress retry alive.');
+$check(str_contains($r13, 'presence_lock($uid)') && str_contains($r13, "SN_DB::table('presence_devices')") && str_contains($r13, '$remaining===null'), 'R13: presence-device erasure must serialize with heartbeat/revoke and verify no rows remain before completion.');
+$check(str_contains($r13, 'receipt_user_lock($uid)') && str_contains($r13, "SN_DB::table('message_receipts')") && str_contains($r13, '$remaining===null'), 'R13: receipt erasure must serialize with receipt writes and verify no rows remain before completion.');
+$check(substr_count($r13, 'sn_presence_state_invalid') >= 2, 'R13: malformed canonical and legacy presence state must be rejected instead of coercing to online.');
+$check(str_contains($r13, 'self::aggregate_presence($forward)') && substr_count($r13, 'SN_Policy::can_view_presence($viewer, $target)') >= 2, 'R13: legacy presence projection must reuse the locked canonical authorization path and post-check current visibility.');
+$check(str_contains($r13, 'self::conversation_locks($conversation, $actor)') && str_contains($r13, 'SN_Policy::can_contact($actor, $peer, $context)'), 'R13: typing/receipt direct-conversation metadata must serialize with pair changes and revalidate current contact policy.');
+$check(str_contains($r13, 'public static function get_receipts') && str_contains($r13, 'public static function record_receipt') && str_contains($r13, 'self::receipt_user_lock($actor)'), 'R13: receipt reads/writes must share conversation, relationship and privacy-erasure serialization.');
+$check(str_contains($r13, "\$data['notification_adapter'] = self::file19_ready();") && str_contains($r13, 'sn_network_file19_notification_adapter_ready'), 'R13: REST health must report a verified File-19 adapter rather than File-17 terminal-filter presence.');
+$check(str_contains($admin, 'SN_Seventh_Fresh_R13_Hardening::file19_ready()') && !str_contains($admin, "\$notification_adapter = has_filter('sn_network_notification_handled');"), 'R13: administrator health must not self-certify the File-19 adapter from File-17 own bridge.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
