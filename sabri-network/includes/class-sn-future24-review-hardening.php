@@ -88,5 +88,27 @@ final class SN_Future24_Review_Hardening {
         SN_Seventh_Fresh_R13_Hardening::register();
         SN_Seventh_Fresh_R14_Hardening::register();
         SN_Seventh_Fresh_R15_Privacy_Hardening::register();
+        add_action('rest_api_init', [self::class, 'final_route_composition'], 4000);
+    }
+
+    /** Final route composition prevents later single-method hardening from erasing sibling methods. */
+    public static function final_route_composition(): void {
+        $access = [SN_REST::class, 'access'];
+        register_rest_route('sabri-network/v2', '/messages/(?P<id>\d+)', [
+            ['methods' => 'POST', 'callback' => [SN_Fourth_Fresh_Review_Hardening::class, 'edit_message'], 'permission_callback' => $access],
+            ['methods' => 'DELETE', 'callback' => [SN_Round20_Correction::class, 'delete_message'], 'permission_callback' => $access],
+        ], true);
+        register_rest_route('sabri-network/v2', '/future/device-keys', [
+            ['methods' => 'GET', 'callback' => [SN_Future_Superset::class, 'list_device_keys'], 'permission_callback' => $access],
+            ['methods' => 'POST', 'callback' => [SN_Future24_Review_Hardening_J::class, 'register_device_key'], 'permission_callback' => $access],
+        ], true);
+        register_rest_route('sabri-network/v2', '/future/mentorships', [
+            ['methods' => 'GET', 'callback' => [SN_Future_Superset::class, 'list_mentorships'], 'permission_callback' => $access],
+            ['methods' => 'POST', 'callback' => [SN_Future24_Review_Hardening_B::class, 'create_mentorship'], 'permission_callback' => $access],
+        ], true);
+        register_rest_route('sabri-network/v2', '/future/reminders', [
+            ['methods' => 'GET', 'callback' => [SN_Future_Superset::class, 'list_reminders'], 'permission_callback' => $access],
+            ['methods' => 'POST', 'callback' => [SN_Future24_Review_Hardening_M::class, 'create_reminder'], 'permission_callback' => $access],
+        ], true);
     }
 }
