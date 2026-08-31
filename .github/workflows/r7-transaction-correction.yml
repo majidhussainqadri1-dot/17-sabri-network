@@ -1,0 +1,34 @@
+name: File 17 R7 One-Shot Transaction Correction
+
+on:
+  push:
+    branches:
+      - review/file17-eighth-fresh-10-round-2026-08-31
+
+permissions:
+  contents: write
+
+jobs:
+  correct-r7:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact review branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - name: Apply frozen R7 root-cause correction
+        run: python3 .github/r7-transaction-fix.py
+      - name: Lint corrected PHP
+        run: |
+          find sabri-network -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
+          php sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php
+      - name: Commit only durable corrections
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/includes sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php
+          git rm .github/r7-transaction-fix.py .github/workflows/r7-transaction-correction.yml
+          git commit -m 'File 17 eighth review R7: fail closed all transaction starts'
+          git push origin HEAD:${GITHUB_REF_NAME}
