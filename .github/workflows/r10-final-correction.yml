@@ -36,6 +36,12 @@ jobs:
           t=t.replace('str_contains($firewall, "$remaining = $wpdb->get_var")', 'str_contains($firewall, \'$remaining = $wpdb->get_var\')')
           t=t.replace('str_contains($realtimeR13, "$declared_ready = apply_filters(\'sn_network_file19_notification_adapter_ready\', false)")', 'str_contains($realtimeR13, \'$declared_ready = apply_filters(\\\'sn_network_file19_notification_adapter_ready\\\', false)\')')
           p.write_text(t,encoding='utf-8')
+          p=Path('sabri-network/tests/two-plan-completion-contracts.php')
+          t=p.read_text(encoding='utf-8')
+          old="$check(str_contains($system_status,'47 explicit PHP review suites')&&str_contains($system_status,'8 JavaScript syntax checks'),'Current system-status QA inventory must match the executable quality gate.');"
+          new="$check(str_contains($system_status,'54 PHP review suites')&&str_contains($system_status,'10 JavaScript entry-point syntax checks'),'Current system-status QA inventory must match the executable quality gate.');"
+          if old not in t: raise SystemExit('historical QA inventory contract anchor missing')
+          p.write_text(t.replace(old,new,1),encoding='utf-8')
           PY
       - name: Verify corrected sources and permanent R10 contracts
         run: |
@@ -43,6 +49,7 @@ jobs:
           php -l sabri-network/includes/class-sn-round20-correction.php
           php -l sabri-network/includes/class-sn-fourth-fresh-lifecycle-hardening.php
           php -l sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php
+          php -l sabri-network/tests/two-plan-completion-contracts.php
           node --check sabri-network/assets/js/round20-correction.js
           bash -n sabri-network/tools/quality-check.sh
           php sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php
