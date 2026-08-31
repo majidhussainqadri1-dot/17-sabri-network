@@ -5,6 +5,8 @@ require_once __DIR__ . '/class-sn-membership-assertions.php';
 
 /** Read-only identity projection. Account creation/authentication remains File 00/File 02. */
 final class SN_Auth {
+    private const MAX_LEGACY_TURN_TTL = 10 * MINUTE_IN_SECONDS;
+
     public static function normalize_phone(string $raw): string|WP_Error {
         $raw = trim(wp_unslash($raw));
         $raw = preg_replace('/[^\d+]/', '', $raw);
@@ -107,7 +109,8 @@ final class SN_Auth {
         $turn = apply_filters('sn_network_ephemeral_turn_credentials', [], $user_id, $conversation_id);
         if (is_array($turn) && !empty($turn['urls']) && !empty($turn['username']) && !empty($turn['credential']) && !empty($turn['expires_at'])) {
             $expires = is_numeric($turn['expires_at']) ? (int) $turn['expires_at'] : strtotime((string) $turn['expires_at']);
-            if ($expires > time() + 30) {
+            $now = time();
+            if ($expires > $now + 30 && $expires <= $now + self::MAX_LEGACY_TURN_TTL) {
                 $servers[] = [
                     'urls' => $turn['urls'],
                     'username' => sanitize_text_field((string) $turn['username']),
