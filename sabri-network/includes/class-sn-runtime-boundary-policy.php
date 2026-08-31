@@ -12,6 +12,8 @@ final class SN_Runtime_Boundary_Policy {
     public static function register(): void {
         add_filter('sn_network_private_storage_dir', [self::class, 'validate_private_storage_dir'], PHP_INT_MAX, 1);
         add_filter('rest_pre_dispatch', [self::class, 'pre_dispatch_access_gate'], -30000, 3);
+        add_filter('rest_pre_dispatch', [self::class, 'lock_message_metadata_mutation'], 2200, 3);
+        add_filter('rest_post_dispatch', [self::class, 'release_message_metadata_mutation'], 2200, 3);
         add_filter('rest_pre_dispatch', [self::class, 'final_identity_gate'], PHP_INT_MAX, 3);
         add_action('init', [self::class, 'reconcile_search_epoch'], 11);
         add_action(self::SEARCH_CONTINUE_HOOK, [self::class, 'continue_search_rebuild']);
@@ -79,6 +81,43 @@ final class SN_Runtime_Boundary_Policy {
             }
         }
         return $result;
+    }
+
+    /** Serialize message metadata with conversation membership and user-folder state. */
+    public static function lock_message_metadata_mutation($result, WP_REST_Server $server, WP_REST_Request $request) {
+        if ($result !== null) return $result;
+        $method = strtoupper($request->get_method());
+        if (in_array($method, ['GET','HEAD','OPTIONS'], true)) return $result;
+        $route = $request->get_route();
+        if (!str_starts_with($route, '/sabri-network/v2/')) return $result;
+        global $wpdb;
+        $locks = []; $conversation = 0; $user = get_current_user_id();
+        if (preg_match('#^/sabri-network/v2/conversations/(\d+)/read$#', $route, $m)) {
+            $conversation = (int)$m[1];
+        } elseif (preg_match('#^/sabri-network/v2/messages/(\d+)/(?:reaction|mentions|pin|star|hide)$#', $route, $m)) {
+            $conversation = (int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM '.SN_DB::table('messages').' WHERE id=%d', (int)$m[1]));
+            if ($wpdb->last_error !== '') return new WP_Error('sn_message_metadata_lookup_failed','The message scope could not be verified safely.',['status'=>503]);
+        } elseif (str_starts_with($route, '/sabri-network/v2/message-folders')) {
+            if ($user > 0) $locks[] = 'sn:f17:message-folders:' . substr(hash('sha256', (string)$user), 0, 32);
+            if (str_ends_with($route, '/conversations')) $conversation = absint($request->get_param('conversation_id'));
+        } else {
+            return $result;
+        }
+        if ($conversation > 0) $locks[] = 'sn:f17:conversation:' . substr(hash('sha256', (string)$conversation), 0, 32);
+        $locks = array_values(array_unique(array_filter($locks))); sort($locks, SORT_STRING); $held=[];
+        foreach ($locks as $lock) {
+            $ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)', $lock, 5));
+            if ($ok!==1) { foreach (array_reverse($held) as $h) $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $h)); return new WP_Error('sn_message_metadata_busy','Message organization is changing. Retry the request.',['status'=>409]); }
+            $held[]=$lock;
+        }
+        $request->set_param('_sn_message_metadata_locks',$held);
+        return $result;
+    }
+
+    public static function release_message_metadata_mutation($response, WP_REST_Server $server, WP_REST_Request $request) {
+        $held=$request->get_param('_sn_message_metadata_locks');
+        if (is_array($held) && $held) { global $wpdb; foreach (array_reverse($held) as $lock) $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', (string)$lock)); $request->set_param('_sn_message_metadata_locks',[]); }
+        return $response;
     }
 
     /** Final action-time identity check after all File-17 pre-dispatch locks and caches. */

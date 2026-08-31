@@ -37,6 +37,18 @@ $voiceEnd = $voicePos === false ? false : strpos($voice, 'public static function
 $voiceSeg = $voicePos === false ? '' : substr($voice, $voicePos, ($voiceEnd === false ? strlen($voice) : $voiceEnd) - $voicePos);
 $check(str_contains($voiceSeg, 'A caller-supplied voice-note idempotency key is required.') && str_contains($voiceSeg, '$forward->set_param(\'client_id\', $client_id);'), 'Round 8: final voice-note creation must validate and preserve the caller idempotency key before upload/message creation.');
 
+
+// Round 9 — message organization/read/reaction mutations are serialized and fail closed.
+$boundary = $read('includes/class-sn-runtime-boundary-policy.php');
+$ops = $read('includes/class-sn-message-operations.php');
+$rest = $read('includes/class-sn-rest.php');
+$check(str_contains($boundary, "lock_message_metadata_mutation'], 2200") && str_contains($boundary, "release_message_metadata_mutation'], 2200") && str_contains($boundary, "sn:f17:conversation:"), 'Round 9: message metadata mutations must hold the same conversation lock used by membership changes.');
+foreach (['reaction|mentions|pin|star|hide','message-folders','/read$'] as $needle) $check(str_contains($boundary,$needle), 'Round 9: central metadata lock routing lost coverage for '.$needle.'.');
+$check(str_contains($ops,"sn_pin_action_invalid") && str_contains($ops,"sn_unpin_failed") && str_contains($ops,"sn_star_action_invalid") && str_contains($ops,"sn_unstar_failed"), 'Round 9: pin/star actions must reject unknown verbs and surface delete failures.');
+$check(str_contains($ops,"sn_folder_item_action_invalid") && str_contains($ops,"sn_folder_item_remove_failed"), 'Round 9: folder-item actions must reject unknown verbs and surface removal failures.');
+$check(str_contains($ops,"sn_folder_count_failed") && str_contains($ops,"sn_folder_version_required") && str_contains($ops,"FOR UPDATE") && str_contains($ops,"folder_version_conflict"), 'Round 9: folder capacity and deletion must use fail-closed count truth plus exact-version CAS.');
+$check(str_contains($rest,"$raw_reaction = trim") && str_contains($rest,"invalid_reaction") && str_contains($rest,"message_read_lookup_failed"), 'Round 9: invalid reactions must not become removals and latest-read lookup failures must not become zero pointers.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

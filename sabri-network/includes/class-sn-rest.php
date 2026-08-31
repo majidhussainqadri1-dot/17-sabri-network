@@ -889,6 +889,7 @@ final class SN_REST {
         }
         if (!$message_id) {
             $message_id = (int) $wpdb->get_var($wpdb->prepare('SELECT MAX(id) FROM ' . SN_DB::table('messages') . ' WHERE conversation_id=%d', $conversation_id));
+            if ($wpdb->last_error !== '') return new WP_Error('message_read_lookup_failed', 'The latest message could not be verified safely.', ['status' => 500]);
         }
         $updated = $wpdb->query($wpdb->prepare(
             'UPDATE ' . SN_DB::table('members') . ' SET last_read_message_id=GREATEST(last_read_message_id,%d) WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',
@@ -956,7 +957,9 @@ final class SN_REST {
         if (!$message || !SN_DB::is_member((int) $message->conversation_id, $user_id)) {
             return self::not_found();
         }
-        $reaction = SN_Policy::sanitize_reaction((string) $request->get_param('reaction'));
+        $raw_reaction = trim((string) $request->get_param('reaction'));
+        $reaction = SN_Policy::sanitize_reaction($raw_reaction);
+        if ($raw_reaction !== '' && $reaction === '') return new WP_Error('invalid_reaction', 'Select a supported reaction or send an empty value to remove it.', ['status' => 400]);
         if ($message->deleted_at && $reaction !== '') {
             return new WP_Error('message_deleted', 'Deleted messages cannot receive new reactions.', ['status' => 409]);
         }
