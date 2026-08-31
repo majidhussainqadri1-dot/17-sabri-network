@@ -24,6 +24,10 @@ final class SN_Fifth_Fresh_Feature_Hardening {
     public static function send_voice_note(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $conversation = absint($request['id']);
         $actor = get_current_user_id();
+        $client_id = strtolower(trim((string)$request->get_param('client_id')));
+        if ($client_id === '' || !preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client_id)) {
+            return new WP_Error('invalid_client_id', 'A caller-supplied voice-note idempotency key is required.', ['status'=>400]);
+        }
         $files = $request->get_file_params();
         if (empty($files['attachment']) || !is_array($files['attachment'])) {
             return new WP_Error('sn_voice_note_file_required', 'An audio recording or audio file is required.', ['status'=>400]);
@@ -33,7 +37,7 @@ final class SN_Fifth_Fresh_Feature_Hardening {
         $forward->set_param('id', $conversation);
         $forward->set_param('body', '');
         $forward->set_param('message_type', 'audio');
-        $forward->set_param('client_id', (string)$request->get_param('client_id'));
+        $forward->set_param('client_id', $client_id);
         $forward->set_file_params(['attachment'=>$files['attachment']]);
         $result = SN_Message_Integrity::send_message($forward);
         if (is_wp_error($result)) return $result;

@@ -43,7 +43,7 @@ final class SN_Message_Integrity {
         if (!in_array($message_type, ['text','image','video','audio','document'], true)) $message_type = 'text';
         $reply_to = absint($request->get_param('reply_to'));
         if ($reply_to && !self::message_in_conversation($reply_to, $conversation_id)) return new WP_Error('invalid_reply', 'The replied-to message is unavailable.', ['status' => 400]);
-        $client_id = strtolower(trim((string) $request->get_param('client_id'))) ?: wp_generate_uuid4();
+        $client_id = strtolower(trim((string) $request->get_param('client_id')));
         if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client_id)) return new WP_Error('invalid_client_id', 'A valid message idempotency key is required.', ['status' => 400]);
         $idempotency_key = hash('sha256', $user_id . ':' . $conversation_id . ':' . $client_id);
         $existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('messages') . ' WHERE idempotency_key=%s', $idempotency_key));

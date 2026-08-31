@@ -72,7 +72,7 @@ final class SN_Compatibility_Hardening {
             || !SN_DB::is_member((int) $source_probe->conversation_id, $actor) || !SN_DB::is_member($target_id, $actor)) return self::not_found();
         if (!SN_Policy::consume_rate_limit('message_forward', (string) $actor, 60, MINUTE_IN_SECONDS)) return new WP_Error('sn_forward_rate_limited', 'Too many forwards were requested.', ['status' => 429]);
 
-        $client = strtolower(trim((string) $request->get_param('client_id'))) ?: wp_generate_uuid4();
+        $client = strtolower(trim((string) $request->get_param('client_id')));
         if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client)) return new WP_Error('sn_forward_client_id_invalid', 'A valid idempotency key is required.', ['status' => 400]);
         $idem = hash('sha256', $actor . ':' . $target_id . ':forward:' . $source_id . ':' . $client);
         $existing = $wpdb->get_row($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE idempotency_key=%s', $idem));
