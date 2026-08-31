@@ -12,6 +12,9 @@ $check = static function (bool $ok, string $message) use (&$fail, &$checks): voi
 
 $membership = $read('includes/class-sn-membership-assertions.php');
 $policy = $read('includes/class-sn-policy.php');
+$routeOwner = $read('includes/class-sn-future24-review-hardening.php');
+$keyRoutes = $read('includes/class-sn-future24-review-hardening-j.php');
+$reminderRoutes = $read('includes/class-sn-future24-review-hardening-m.php');
 
 // Round 1 — File 00 must be the final fail-closed authority and every high-level
 // authorization decision must start from a fresh assertion snapshot.
@@ -48,6 +51,18 @@ foreach ($requiredFreshBoundaries as $method => $refresh) {
     $withinMethod = $methodPos !== false && $refreshPos !== false && ($nextMethod === false || $refreshPos < $nextMethod);
     $check($withinMethod, "Round 1: {$method} must start from a fresh File 00 assertion snapshot.");
 }
+
+// Round 2 — final route ownership must preserve all sibling HTTP methods.
+$check(str_contains($routeOwner, "add_action('rest_api_init', [self::class, 'final_route_composition'], 4000)"), 'Round 2: one final route-composition authority must run after historical partial overrides.');
+$check(str_contains($routeOwner, "'/messages/(?P<id>\\d+)'" ) && str_contains($routeOwner, "[SN_Fourth_Fresh_Review_Hardening::class, 'edit_message']") && str_contains($routeOwner, "[SN_Round20_Correction::class, 'delete_message']"), 'Round 2: final message mutation route must preserve both POST edit and DELETE methods.');
+foreach (['/future/device-keys','/future/mentorships','/future/reminders'] as $path) {
+    $pos = strpos($routeOwner, "'{$path}'");
+    $next = $pos === false ? false : strpos($routeOwner, "register_rest_route", $pos + 1);
+    $segment = $pos === false ? '' : substr($routeOwner, $pos, ($next === false ? strlen($routeOwner) : $next) - $pos);
+    $check(str_contains($segment, "'methods' => 'GET'") && str_contains($segment, "'methods' => 'POST'"), "Round 2: {$path} final composition must retain both GET and POST.");
+}
+$check(str_contains($keyRoutes, "'/future/device-keys',[['methods'=>'GET'") && str_contains($keyRoutes, "['methods'=>'POST'"), 'Round 2: device-key hardening must not erase its GET sibling method.');
+$check(str_contains($reminderRoutes, "'/future/reminders',[['methods'=>'GET'") && str_contains($reminderRoutes, "['methods'=>'POST'"), 'Round 2: reminder hardening must not erase its GET sibling method.');
 
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
