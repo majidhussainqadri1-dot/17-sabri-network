@@ -24,8 +24,7 @@ final class SN_Future24_Review_Hardening_B {
         if($user<=0||$space<=0||!get_user_by('id',$user)||SN_Policy::is_suspended($user))return self::error('sn_temp_member_invalid','Select an eligible active account.',400);
         $role=self::enum((string)$r->get_param('role'),['member','observer'],'observer');
         $until=self::future_time((string)$r->get_param('expires_at'),90*DAY_IN_SECONDS);if(is_wp_error($until))return $until;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $space_row=$wpdb->get_row($wpdb->prepare('SELECT id,owner_user_id,conversation_id,state FROM '.SN_DB::table('spaces').' WHERE id=%d LIMIT 1 FOR UPDATE',$space));
             if(!$space_row||!in_array((string)$space_row->state,['active','restricted'],true))throw new RuntimeException('space_unavailable');
             if(!self::space_manager_locked($space,$actor,$space_row))throw new RuntimeException('forbidden');
@@ -70,8 +69,7 @@ final class SN_Future24_Review_Hardening_B {
         foreach(is_array($rows)?$rows:[] as $row)self::expire_temp_record((int)$row->id);
     }
     private static function expire_temp_record(int $id): void {
-        global $wpdb;$wpdb->query('START TRANSACTION');
-        try{
+        global $wpdb;try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $record=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id=%s AND state='expiry_pending' LIMIT 1 FOR UPDATE",$id,self::TEMP_FEATURE));if(!$record){$wpdb->query('ROLLBACK');return;}
             $data=self::decode($record);if(is_wp_error($data))throw new RuntimeException('record_invalid');$space=(int)$record->scope_id;$user=(int)($data['user_id']??$record->owner_id);$membership_id=(int)($data['membership_id']??0);$bound_version=(int)($data['membership_version']??0);$at=self::now();
             $member=$membership_id>0?$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('space_members').' WHERE id=%d AND space_id=%d AND user_id=%d LIMIT 1 FOR UPDATE',$membership_id,$space,$user)):$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('space_members').' WHERE space_id=%d AND user_id=%d LIMIT 1 FOR UPDATE',$space,$user));
@@ -106,8 +104,7 @@ final class SN_Future24_Review_Hardening_B {
         if(!has_filter('sn_network_mentor_eligible')||!(bool)apply_filters('sn_network_mentor_eligible',false,$mentor,$student))return self::error('sn_mentor_eligibility_unavailable','Mentorship requires an approved mentor-eligibility assertion.',503);
         if($conversation&&(!SN_DB::is_member($conversation,$mentor)||!SN_DB::is_member($conversation,$student)))return self::error('sn_mentorship_conversation_invalid','Both accounts must be current conversation members.',409);
         if(SN_Policy::age_state($student)!=='adult'&&!(bool)apply_filters('sn_network_guardian_communication_approved',false,$student,$mentor,'mentorship'))return self::error('sn_guardian_approval_required','Guardian approval is required.',403);
-        $wpdb->query('START TRANSACTION');
-        try{
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $latest=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE feature_id='F17-FUT-14' AND owner_id=%d AND scope_type='user' AND scope_id=%d ORDER BY id DESC LIMIT 1 FOR UPDATE",$mentor,$student));
             $blocked=(bool)$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('blocks').' WHERE (user_id=%d AND blocked_user_id=%d) OR (user_id=%d AND blocked_user_id=%d) LIMIT 1 FOR UPDATE',$mentor,$student,$student,$mentor));if($blocked||SN_Policy::is_suspended($mentor)||SN_Policy::is_suspended($student))throw new RuntimeException('ineligible');
             if(!has_filter('sn_network_mentor_eligible')||!(bool)apply_filters('sn_network_mentor_eligible',false,$mentor,$student))throw new RuntimeException('mentor_unverified');

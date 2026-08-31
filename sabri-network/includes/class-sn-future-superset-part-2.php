@@ -27,8 +27,7 @@ trait SN_Future_Superset_Part_2 {
             elseif(in_array($act,['archive','unarchive','mute','unmute'],true)){$field=str_contains($act,'archive')?'is_archived':'is_muted';$value=in_array($act,['archive','mute'],true)?1:0;$ok=$wpdb->update(SN_DB::table('members'),[$field=>$value],['conversation_id'=>$c,'user_id'=>$u,'left_at'=>null]);if($ok===false)throw new RuntimeException('preference_failed');}
             elseif($act==='label'){$label=mb_substr(sanitize_text_field((string)($params['label']??'')),0,80);$id=self::upsert_record('F17-FUT-10',$u,'conversation',$c,['subtype'=>'label','label'=>$label,'updated_by'=>$u],'bulk-label:'.$u.':'.$c,null);if(is_wp_error($id))throw new RuntimeException($id->get_error_code());}
             elseif($act==='assign'){
-                $wpdb->query('START TRANSACTION');
-                try{
+                try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
                     $actor_member=$wpdb->get_row($wpdb->prepare('SELECT role FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$c,$u));if(!$actor_member||(!in_array((string)$actor_member->role,['owner','moderator'],true)&&!user_can($u,'manage_options')))throw new RuntimeException('bulk_assign_authority_changed');
                     $target_member=$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$c,$assignee));if(!$target_member)throw new RuntimeException('bulk_assign_target_changed');
                     if(!has_filter('sn_network_team_inbox_delegation_allowed')||!(bool)apply_filters('sn_network_team_inbox_delegation_allowed',false,$c,$u,'manage')||!(bool)apply_filters('sn_network_team_inbox_delegation_allowed',false,$c,$assignee,'work'))throw new RuntimeException('bulk_assign_delegation_changed');

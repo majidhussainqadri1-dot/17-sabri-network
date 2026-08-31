@@ -469,8 +469,7 @@ final class SN_Messages {
         $now = current_time('mysql', true);
         $through_message_id = $device_through;
         $recorded = 0;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             foreach ($rows as $row) {
                 $row_id = (int) $row->id;
                 if ($state === 'read') {

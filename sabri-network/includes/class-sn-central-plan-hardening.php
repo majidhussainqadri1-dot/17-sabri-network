@@ -165,8 +165,7 @@ final class SN_Central_Plan_Hardening {
             return;
         }
         foreach ($rows as $row) {
-            $wpdb->query('START TRANSACTION');
-            try {
+            try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
                 $secured = SN_Message_Body::ensure_encrypted_row($row);
                 if (is_wp_error($secured)) {
                     throw new RuntimeException($secured->get_error_code());
@@ -225,8 +224,7 @@ final class SN_Central_Plan_Hardening {
         $now = current_time('mysql', true);
         $settings = (string) wp_json_encode(['purpose' => 'smail', 'recipient_hash' => $recipient_hash]);
         $conversation_id = 0;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $ok = $wpdb->insert($conversations, [
                 'type' => 'group',
                 'title' => mb_substr('Smail: ' . $subject, 0, 191),
@@ -340,8 +338,7 @@ final class SN_Central_Plan_Hardening {
             'source_scope_hash' => hash('sha256', $source_id . '|' . (int) $source->conversation_id . '|' . (string) $source->created_at),
         ]);
         $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $space_policy = SN_Spaces::assert_post_allowed_in_transaction($target_conversation, $actor);
             if (is_wp_error($space_policy)) {
                 $wpdb->query('ROLLBACK');

@@ -5,8 +5,7 @@ defined('ABSPATH') || exit;
 trait SN_Spaces_Part_10 {
     public static function reserve_post_slot(int $conversation_id, int $user_id): array|WP_Error {
         global $wpdb;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $space = self::space_by_conversation($conversation_id, true);
             if (!$space) {
                 $wpdb->query('COMMIT');

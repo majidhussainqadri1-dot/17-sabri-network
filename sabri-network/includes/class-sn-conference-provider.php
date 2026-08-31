@@ -62,8 +62,7 @@ final class SN_Conference_Provider {
         $name=mb_substr(sanitize_text_field(wp_unslash((string)$request->get_param('display_name'))),0,120);if($name==='')$name=strtoupper($type).' provider';
         $caps=self::capabilities($request->get_param('capabilities'));$config_version=self::version((string)$request->get_param('configuration_version'));
         $payload=['provider_key'=>$key,'provider_type'=>$type,'display_name'=>$name,'endpoint_origin'=>$origin,'status'=>$status,'capabilities'=>$caps,'configuration_version'=>$config_version];
-        $action_id=absint($request->get_param('high_risk_action_id'));$wpdb->query('START TRANSACTION');
-        try{
+        $action_id=absint($request->get_param('high_risk_action_id'));try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $claim=SN_High_Risk::claim($action_id,$actor,'provider_configuration',$payload);if(is_wp_error($claim)){$wpdb->query('ROLLBACK');return$claim;}
             $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE provider_key=%s FOR UPDATE',$key));$now=self::now();$data=['provider_type'=>$type,'display_name'=>$name,'endpoint_origin'=>$origin,'status'=>$status,'capabilities'=>(string)wp_json_encode($caps),'configuration_version'=>$config_version,'configured_by'=>$actor,'updated_at'=>$now];
             if($existing){$data['version']=(int)$existing->version+1;$changed=$wpdb->update(self::table(),$data,['id'=>(int)$existing->id,'version'=>(int)$existing->version]);if($changed!==1)throw new RuntimeException('provider_update_conflict');$id=(int)$existing->id;}

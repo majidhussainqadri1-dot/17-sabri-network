@@ -45,8 +45,7 @@ final class SN_Future24_Review_Hardening_A {
         if(SN_Policy::age_state($user)!=='adult'&&!(bool)apply_filters('sn_network_guardian_communication_approved',false,$user,$issuer,'community_invite'))return self::error('sn_guardian_approval_required','Guardian approval is required.',403);
         if(!(bool)apply_filters('sn_network_space_capacity_allows',true,$space,$user))return self::error('sn_space_full','This community cannot accept another member.',409);
         $banned=(bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM ".SN_DB::table('space_members')." WHERE space_id=%d AND user_id=%d AND status IN ('banned','blocked') LIMIT 1",$space,$user));if($banned)return self::error('sn_space_membership_blocked','Membership is not permitted.',403);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE feature_id='F17-FUT-12' AND scope_type='space' AND scope_id=%d AND owner_id=%d AND client_key=%s AND state='active' LIMIT 1 FOR UPDATE",$space,$issuer,$client_key));
             if(!$row)throw new RuntimeException('unavailable');$d=self::decode($row);if(is_wp_error($d)||!hash_equals((string)($d['token_hash']??''),$hash)||!hash_equals((string)($d['nonce']??''),(string)($claims['nonce']??'')))throw new RuntimeException('invalid');$count=(int)($d['use_count']??0);$max=max(1,(int)($d['max_uses']??1));if($count>=$max)throw new RuntimeException('exhausted');
             self::assert_redeem_eligibility($space,$user,$issuer);

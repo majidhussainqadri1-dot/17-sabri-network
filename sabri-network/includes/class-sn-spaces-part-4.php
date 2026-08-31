@@ -7,8 +7,7 @@ trait SN_Spaces_Part_4 {
         global $wpdb;
         $id=absint($request['id']);$actor=get_current_user_id();$decision=sanitize_key((string)$request->get_param('decision'));
         if(!in_array($decision,['accept','reject','cancel'],true))return self::error('sn_invite_decision_invalid','Select accept, reject or cancel.',400);
-        $wpdb->query('START TRANSACTION');
-        try{
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $invite=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::invites_table().' WHERE id=%d FOR UPDATE',$id));
             if(!$invite||(string)$invite->status!=='pending'){ $wpdb->query('ROLLBACK');return self::error('sn_invite_missing','The pending invitation is unavailable.',404);}
             if($decision==='cancel'){
@@ -37,8 +36,7 @@ trait SN_Spaces_Part_4 {
     public static function leave_space(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $space_id=absint($request['id']);$user=get_current_user_id();$now=self::now();
-        $wpdb->query('START TRANSACTION');
-        try{
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $space=self::space($space_id,true);$member=self::member($space_id,$user,true);
             if(!$space||!$member){$wpdb->query('ROLLBACK');return self::error('sn_space_membership_missing','No active membership exists.',404);}
             if((string)$member->role==='owner'){$wpdb->query('ROLLBACK');return self::error('sn_space_owner_successor_required','Transfer ownership before leaving.',409);}

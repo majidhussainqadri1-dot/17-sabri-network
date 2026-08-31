@@ -169,8 +169,7 @@ final class SN_Safety {
             $user_id
         ));
 
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $held_reporter_updates = $wpdb->query($wpdb->prepare(
                 "UPDATE $table SET reporter_id=0,client_uuid=NULL,updated_at=%s,version=version+1 WHERE reporter_id=%d AND legal_hold=1",
                 $now,

@@ -8,8 +8,7 @@ trait SN_Spaces_Part_5 {
         $space_id=absint($request['id']);$target=absint($request['user_id']);$actor=get_current_user_id();$action=sanitize_key((string)$request->get_param('action'))?:'role';$now=self::now();
         if(!in_array($action,['role','remove'],true))return self::error('sn_space_member_action_invalid','Select role or remove.',400);
         if(!self::can_manage($space_id,$actor,'members'))return self::error('sn_space_manage_forbidden','Membership management permission is required.',403);
-        $wpdb->query('START TRANSACTION');
-        try{
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $space=self::space($space_id,true);$actor_member=self::member($space_id,$actor,true);$target_member=self::member($space_id,$target,true);
             if(!$space||!$actor_member||!$target_member){$wpdb->query('ROLLBACK');return self::error('sn_space_membership_missing','The membership is unavailable.',404);}
             if(!self::can_manage_target((string)$actor_member->role,(string)$target_member->role)){$wpdb->query('ROLLBACK');return self::error('sn_space_hierarchy_forbidden','This role hierarchy change is not permitted.',403);}
@@ -60,8 +59,7 @@ trait SN_Spaces_Part_5 {
             }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_space_unban_failed','The unban could not be committed atomically.',500);}
         }
         $expiry=self::future_or_null((string)$request->get_param('expires_at'),365*DAY_IN_SECONDS);if(is_wp_error($expiry))return $expiry;
-        $wpdb->query('START TRANSACTION');
-        try{
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $data=['status'=>'active','reason'=>self::text((string)$request->get_param('reason'),500),'banned_by'=>$actor,'expires_at'=>$expiry,'updated_at'=>$now];
             if($existing){$data['version']=(int)$existing->version+1;$ok=$wpdb->update(self::bans_table(),$data,['id'=>(int)$existing->id,'version'=>(int)$existing->version]);if($ok!==1)throw new RuntimeException('ban_conflict');}
             else{$data+=['space_id'=>$space_id,'user_id'=>$target,'created_at'=>$now];if($wpdb->insert(self::bans_table(),$data)===false)throw new RuntimeException('ban_insert_failed');}

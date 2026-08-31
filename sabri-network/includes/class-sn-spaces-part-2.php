@@ -49,8 +49,7 @@ trait SN_Spaces_Part_2 {
             return $changed===1?rest_ensure_response(['status'=>'cancelled']):self::error('sn_join_request_conflict','The join request changed concurrently.',409);
         }
         if(!SN_Policy::consume_rate_limit('space_join',(string)$user,30,HOUR_IN_SECONDS))return self::error('sn_space_join_rate_limited','Too many join attempts.',429);
-        $wpdb->query('START TRANSACTION');
-        try{
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $space=self::space($id,true);if(!$space)throw new RuntimeException('space_missing');
             $elig=self::join_eligibility($space,$user);if(is_wp_error($elig)){$wpdb->query('ROLLBACK');return $elig;}
             if((string)$space->join_policy==='invite'){$wpdb->query('ROLLBACK');return self::error('sn_space_invite_required','An invitation is required.',403);}

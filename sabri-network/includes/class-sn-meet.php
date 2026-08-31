@@ -334,8 +334,7 @@ final class SN_Meet {
             return new WP_Error('meeting_identifier_unavailable', 'A secure meeting identifier could not be allocated.', ['status' => 503]);
         }
         $meeting_id = 0;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $inserted = $wpdb->insert(self::table('meetings'), [
                 'public_id' => $public_id,
                 'host_id' => $user_id,
@@ -468,8 +467,7 @@ final class SN_Meet {
             }
 
             $notify = false;
-            $wpdb->query('START TRANSACTION');
-            try {
+            try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
                 $locked_meeting = $wpdb->get_row($wpdb->prepare(
                     'SELECT * FROM ' . self::table('meetings') . ' WHERE id=%d FOR UPDATE',
                     (int) $meeting->id
@@ -557,8 +555,7 @@ final class SN_Meet {
         $participant = null;
         $session = null;
 
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE public_id=%s FOR UPDATE',
                 $public_id
@@ -732,8 +729,7 @@ final class SN_Meet {
         }
         $now = current_time('mysql', true);
         $meeting = $participant = $session = null;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE public_id=%s FOR UPDATE',
                 (string) $request['meeting']
@@ -805,8 +801,7 @@ final class SN_Meet {
         $now = current_time('mysql', true);
         $meeting = $participant = $session = null;
 
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE public_id=%s FOR UPDATE',
                 $public_id
@@ -941,8 +936,7 @@ final class SN_Meet {
         $now = current_time('mysql', true);
         $target = null;
 
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $meeting = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table('meetings') . ' WHERE id=%d FOR UPDATE',
                 (int) $meeting->id

@@ -103,6 +103,17 @@ $check(str_contains($routeOwner, "SN_Outbox::enqueue('message_request.'.\$status
 $check(str_contains($reminderRoutes, 'SN_Seventh_Fresh_R13_Hardening::file19_ready()') && str_contains($reminderRoutes, "apply_filters('sn_network_notification_delivery_result',null,\$event)"), 'Round 5: reminders must require File-19 readiness plus explicit delivery acknowledgement.');
 $check(str_contains($reminderRoutes, "state='fired'") && str_contains($reminderRoutes, 'future_reminder_fired_persist_failed') && str_contains($reminderRoutes, 'file17-future-reminder:'), 'Round 5: a reminder may become fired only through checked CAS persistence and stable idempotency identity.');
 
+// Round 7 — every runtime transaction start must fail closed before writes.
+$transactionFiles = glob($root . '/includes/*.php') ?: [];
+$uncheckedBegin = '$wpdb->query(\'START TRANSACTION\');';
+$protectedBegins = 0;
+foreach ($transactionFiles as $transactionFile) {
+    $transactionSource = (string) file_get_contents($transactionFile);
+    $check(!str_contains($transactionSource, $uncheckedBegin), 'Round 7: unchecked START TRANSACTION remains in ' . basename($transactionFile) . '.');
+    $protectedBegins += substr_count($transactionSource, "transaction_start_failed");
+}
+$check($protectedBegins >= 40, 'Round 7: repository-wide fail-closed transaction-start coverage unexpectedly regressed.');
+
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

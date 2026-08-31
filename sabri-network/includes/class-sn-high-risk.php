@@ -133,8 +133,7 @@ final class SN_High_Risk {
         $payload = is_array($payload) ? self::sanitize_payload($payload) : [];
         $encoded = self::canonical_json($payload);
         if ($encoded === '' || strlen($encoded) > self::MAX_PAYLOAD_BYTES) return self::error('sn_high_risk_payload_invalid', 'The action scope is invalid or too large.', 400);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $grant = self::consume_grant((string) $request->get_param('step_up_token'), $requester, $type);
             if (is_wp_error($grant)) {
                 $wpdb->query('ROLLBACK');

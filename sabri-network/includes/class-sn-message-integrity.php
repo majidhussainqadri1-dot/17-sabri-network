@@ -66,8 +66,7 @@ final class SN_Message_Integrity {
             return $stored_body;
         }
         $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $inserted = $wpdb->insert(SN_DB::table('messages'), [
                 'conversation_id' => $conversation_id, 'sender_id' => $user_id, 'message_type' => $message_type,
                 'body' => $stored_body, 'attachment_id' => $attachment ? (int) $attachment['id'] : 0,
@@ -111,8 +110,7 @@ final class SN_Message_Integrity {
         if ($body === '' || mb_strlen($body) > self::MAX_MESSAGE_CHARS) return new WP_Error('invalid_message', 'Enter a valid message within the permitted length.', ['status' => 400]);
         $stored_body = SN_Message_Body::encrypt($body, (int) $message->conversation_id, (int) $message->sender_id);
         if (is_wp_error($stored_body)) return $stored_body;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $edited_at = current_time('mysql', true);
             if ($wpdb->update(SN_DB::table('messages'), ['body' => $stored_body, 'edited_at' => $edited_at], ['id' => $id]) === false) throw new RuntimeException('message_update_failed');
             $indexed = SN_Message_Search::index_message($id);
@@ -141,8 +139,7 @@ final class SN_Message_Integrity {
         if (!$message || !SN_DB::is_member((int) $message->conversation_id, $user_id)) return self::not_found();
         if (!SN_Policy::can_delete_message($message, $user_id)) return new WP_Error('delete_forbidden', 'This message can no longer be deleted.', ['status' => 403]);
         $attachment_id = (string) $message->attachment_source === 'private' ? (int) $message->attachment_id : 0;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $deleted_at = current_time('mysql', true);
             if ($wpdb->update(SN_DB::table('messages'), ['body' => '', 'attachment_id' => 0, 'attachment_source' => 'erased', 'deleted_at' => $deleted_at], ['id' => $id]) === false) throw new RuntimeException('message_delete_failed');
             if ($wpdb->delete(SN_DB::table('reactions'), ['message_id' => $id], ['%d']) === false) throw new RuntimeException('message_reaction_delete_failed');
@@ -186,8 +183,7 @@ final class SN_Message_Integrity {
         $rows = $wpdb->get_results($wpdb->prepare("SELECT id FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND sender_id<>%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $conversation_id, $through, $requested_id, $user_id, self::MAX_RECEIPT_RANGE));
         if (!is_array($rows)) return new WP_Error('database_error', 'The receipt range could not be read.', ['status' => 500]);
         $recorded = 0; $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             foreach ($rows as $row) {
                 $row_id = (int) $row->id;
                 $sql = $state === 'read'
@@ -227,8 +223,7 @@ final class SN_Message_Integrity {
         $secured = SN_Message_Body::ensure_encrypted_row($message);
         if (is_wp_error($secured)) return $secured;
         $message = $secured;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $indexed = SN_Message_Search::index_message((int) $message->id);
             if (is_wp_error($indexed)) throw new RuntimeException($indexed->get_error_code());
             $event_id = SN_Outbox::enqueue('message.sent', 'message', (int) $message->id, [

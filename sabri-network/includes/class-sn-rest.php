@@ -413,8 +413,7 @@ final class SN_REST {
         }
 
         $conversation_id = 0;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             if ($wpdb->insert(SN_DB::table('conversations'), [
                 'type' => $type,
                 'title' => $title,
@@ -482,8 +481,7 @@ final class SN_REST {
 
         $conversations = SN_DB::table('conversations');
         $members = SN_DB::table('members');
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $conversation = $wpdb->get_row($wpdb->prepare("SELECT * FROM $conversations WHERE id=%d FOR UPDATE", $conversation_id));
             if (!$conversation || (string) $conversation->type === 'direct' || (string) $conversation->status !== 'active') {
                 throw new DomainException('invalid_conversation');
@@ -552,7 +550,7 @@ final class SN_REST {
 
         $conversations = SN_DB::table('conversations');
         $members = SN_DB::table('members');
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('transaction_start_failed', 'The request transaction could not be started.', ['status' => 503]);
         $conversation = $wpdb->get_row($wpdb->prepare("SELECT * FROM $conversations WHERE id=%d FOR UPDATE", $conversation_id));
         if (!$conversation || (string) $conversation->type === 'direct' || (string) $conversation->status !== 'active') {
             $wpdb->query('ROLLBACK');
@@ -620,8 +618,7 @@ final class SN_REST {
             return new WP_Error('moderator_removal_forbidden', 'Only the conversation owner may remove a moderator.', ['status' => 403]);
         }
         $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             if ($wpdb->update(SN_DB::table('members'), ['left_at' => $now, 'is_muted' => 0, 'is_archived' => 0], ['conversation_id' => $conversation_id, 'user_id' => $target_id]) === false) {
                 throw new RuntimeException('member_leave_failed');
             }
@@ -1196,8 +1193,7 @@ final class SN_REST {
 
         $now = current_time('mysql', true);
         $call_id = 0;
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             if ($wpdb->insert(SN_DB::table('calls'), [
                 'conversation_id' => $conversation_id,
                 'initiator_id' => $user_id,
@@ -1293,8 +1289,7 @@ final class SN_REST {
             $end = true;
         }
 
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             if ($wpdb->update(SN_DB::table('call_members'), $data, ['call_id' => $call_id, 'user_id' => $user_id]) === false) {
                 throw new RuntimeException('call_member_status_failed');
             }
@@ -1434,8 +1429,7 @@ final class SN_REST {
         $raw = $request->get_param('blocked');
         $blocked = $raw === null ? true : filter_var($raw, FILTER_VALIDATE_BOOLEAN);
         $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             if ($blocked) {
                 if ($wpdb->replace(SN_DB::table('blocks'), ['user_id' => $user_id, 'blocked_user_id' => $target_id, 'created_at' => $now]) === false) {
                     throw new RuntimeException('block_write_failed');
@@ -2175,8 +2169,7 @@ final class SN_REST {
     private static function restore_direct_conversation(object $conversation, int $a, int $b): bool|WP_Error {
         global $wpdb;
         $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
-        try {
+        try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             if ($wpdb->update(SN_DB::table('conversations'), ['status' => 'active', 'updated_at' => $now], ['id' => (int) $conversation->id]) === false) {
                 throw new RuntimeException('conversation_restore_failed');
             }

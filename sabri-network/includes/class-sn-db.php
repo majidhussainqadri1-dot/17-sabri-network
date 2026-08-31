@@ -624,8 +624,7 @@ final class SN_DB {
                 }
             }
             $placeholders = implode(',', array_fill(0, count($ids), '%d'));
-            $wpdb->query('START TRANSACTION');
-            try {
+            try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
                 $views_deleted = $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('update_views') . " WHERE update_id IN ($placeholders)", ...$ids));
                 $updates_deleted = $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('updates') . " WHERE id IN ($placeholders)", ...$ids));
                 if ($views_deleted === false || $updates_deleted === false) {
