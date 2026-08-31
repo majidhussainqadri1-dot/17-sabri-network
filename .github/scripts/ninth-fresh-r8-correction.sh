@@ -47,12 +47,12 @@ block=r'''
 $compat = $read('includes/class-sn-compatibility-hardening.php');
 $integrity = $read('includes/class-sn-message-integrity.php');
 $voice = $read('includes/class-sn-fifth-fresh-feature-hardening.php');
-$check(!str_contains($compat, "get_param('client_id'))) ?: wp_generate_uuid4()") && str_contains($compat, "$client = strtolower(trim((string) $request->get_param('client_id')));"), 'Round 8: forwarding must never invent a client idempotency key.');
-$check(!str_contains($integrity, "get_param('client_id'))) ?: wp_generate_uuid4()") && str_contains($integrity, "$client_id = strtolower(trim((string) $request->get_param('client_id')));"), 'Round 8: the internal message sender must fail closed when caller idempotency is absent.');
+$check(!str_contains($compat, "get_param('client_id'))) ?: wp_generate_uuid4()") && str_contains($compat, '$client = strtolower(trim((string) $request->get_param(\'client_id\')));'), 'Round 8: forwarding must never invent a client idempotency key.');
+$check(!str_contains($integrity, "get_param('client_id'))) ?: wp_generate_uuid4()") && str_contains($integrity, '$client_id = strtolower(trim((string) $request->get_param(\'client_id\')));'), 'Round 8: the internal message sender must fail closed when caller idempotency is absent.');
 $voicePos = strpos($voice, 'public static function send_voice_note');
 $voiceEnd = $voicePos === false ? false : strpos($voice, 'public static function structured_message', $voicePos);
 $voiceSeg = $voicePos === false ? '' : substr($voice, $voicePos, ($voiceEnd === false ? strlen($voice) : $voiceEnd) - $voicePos);
-$check(str_contains($voiceSeg, "A caller-supplied voice-note idempotency key is required.") && str_contains($voiceSeg, "$forward->set_param('client_id', $client_id);"), 'Round 8: final voice-note creation must validate and preserve the caller idempotency key before upload/message creation.');
+$check(str_contains($voiceSeg, 'A caller-supplied voice-note idempotency key is required.') && str_contains($voiceSeg, '$forward->set_param(\'client_id\', $client_id);'), 'Round 8: final voice-note creation must validate and preserve the caller idempotency key before upload/message creation.');
 '''
 p.write_text(t.replace(anchor,"\n"+block+anchor,1),encoding='utf-8')
 PY
