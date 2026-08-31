@@ -110,7 +110,11 @@ final class SN_Outbox {
     public static function dispatch_batch(): void {
         global $wpdb; $now=current_time('mysql',true); $stale=gmdate('Y-m-d H:i:s',time()-self::LOCK_SECONDS);
         $ids=$wpdb->get_col($wpdb->prepare("SELECT id FROM ".self::outbox_table()." WHERE ((status IN ('pending','retry') AND available_at<=%s) OR (status='processing' AND locked_at<%s)) ORDER BY id ASC LIMIT %d",$now,$stale,self::BATCH_SIZE));
-        foreach(array_map('absint',is_array($ids)?$ids:[]) as $id) self::dispatch_one($id);
+        if (!is_array($ids)) {
+            SN_DB::audit('event_dispatch_queue_read_failed','event',0,'failure',['reason'=>(string)$wpdb->last_error],0);
+            return;
+        }
+        foreach(array_map('absint',$ids) as $id) self::dispatch_one($id);
     }
 
     public static function dispatch_one(int $id): bool|WP_Error {
@@ -123,12 +127,20 @@ final class SN_Outbox {
         try{
             $payload=json_decode((string)$row->payload,true);if(!is_array($payload)||!hash_equals((string)$row->payload_hash,hash('sha256',(string)$row->payload)))throw new RuntimeException('event_payload_integrity_failed');
             $event=['id'=>(int)$row->id,'uuid'=>(string)$row->event_uuid,'type'=>(string)$row->event_type,'aggregate_type'=>(string)$row->aggregate_type,'aggregate_id'=>(int)$row->aggregate_id,'payload'=>$payload,'attempt'=>(int)$row->attempts,'created_at'=>(string)$row->created_at];
-            do_action('sn_network_event_dispatched',$event);$ack=apply_filters('sn_network_outbox_delivery_result',true,$event);if(is_wp_error($ack)||$ack!==true)throw new RuntimeException(is_wp_error($ack)?$ack->get_error_code():'event_not_acknowledged');
+            do_action('sn_network_event_dispatched',$event);
+            // A durable outbox is not delivered merely because nobody objected. An approved
+            // consumer must explicitly acknowledge this exact event UUID through the filter.
+            $ack=apply_filters('sn_network_outbox_delivery_result',null,$event);
+            if(is_wp_error($ack)||$ack!==true)throw new RuntimeException(is_wp_error($ack)?$ack->get_error_code():'event_not_acknowledged');
             $done=current_time('mysql',true);if($wpdb->query($wpdb->prepare("UPDATE $table SET status='delivered',lock_token=NULL,locked_at=NULL,last_error='',delivered_at=%s,dead_at=NULL,updated_at=%s,version=version+1 WHERE id=%d AND lock_token=%s",$done,$done,$id,$token))!==1)throw new RuntimeException('event_delivery_state_failed');
             return true;
         }catch(Throwable $e){
             $attempts=(int)$row->attempts;$dead=$attempts>=self::max_attempts();$delay=min(HOUR_IN_SECONDS,30*(2**max(0,min(10,$attempts-1))));$failed=current_time('mysql',true);$error=mb_substr(sanitize_text_field($e->getMessage()),0,500);
-            $wpdb->query($wpdb->prepare("UPDATE $table SET status=%s,lock_token=NULL,locked_at=NULL,last_error=%s,available_at=%s,dead_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND lock_token=%s",$dead?'dead':'retry',$error,gmdate('Y-m-d H:i:s',time()+$delay),$dead?$failed:null,$failed,$id,$token));
+            $persisted=$wpdb->query($wpdb->prepare("UPDATE $table SET status=%s,lock_token=NULL,locked_at=NULL,last_error=%s,available_at=%s,dead_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND lock_token=%s",$dead?'dead':'retry',$error,gmdate('Y-m-d H:i:s',time()+$delay),$dead?$failed:null,$failed,$id,$token));
+            if ($persisted !== 1) {
+                SN_DB::audit('event_failure_state_persist_failed','event',$id,'failure',['event_type'=>(string)$row->event_type,'attempts'=>$attempts,'reason'=>$error,'db_error'=>(string)$wpdb->last_error],0);
+                return new WP_Error('event_delivery_state_unknown','The event delivery result could not be persisted; stale-lease recovery must reconcile it.');
+            }
             SN_DB::audit($dead?'event_dead_lettered':'event_delivery_retry_scheduled','event',$id,'failure',['event_type'=>(string)$row->event_type,'attempts'=>$attempts,'reason'=>$error],0);return new WP_Error($dead?'event_dead_lettered':'event_delivery_failed','The event delivery was not acknowledged.');
         }
     }
@@ -152,7 +164,8 @@ final class SN_Outbox {
             return true;
         }catch(Throwable $e){
             $wpdb->query('ROLLBACK');$failed=current_time('mysql',true);$error=mb_substr(sanitize_text_field($e->getMessage()),0,500);
-            $wpdb->query($wpdb->prepare("INSERT INTO $table (producer,event_uuid,payload_hash,status,attempts,last_error,created_at,updated_at) VALUES (%s,%s,%s,'failed',1,%s,%s,%s) ON DUPLICATE KEY UPDATE status=IF(status='processed','processed','failed'),attempts=IF(status='processed',attempts,attempts+1),last_error=IF(status='processed',last_error,VALUES(last_error)),updated_at=IF(status='processed',updated_at,VALUES(updated_at))",$producer,$event_uuid,$hash,$error,$failed,$failed));
+            $recorded=$wpdb->query($wpdb->prepare("INSERT INTO $table (producer,event_uuid,payload_hash,status,attempts,last_error,created_at,updated_at) VALUES (%s,%s,%s,'failed',1,%s,%s,%s) ON DUPLICATE KEY UPDATE status=IF(status='processed','processed','failed'),attempts=IF(status='processed',attempts,attempts+1),last_error=IF(status='processed',last_error,VALUES(last_error)),updated_at=IF(status='processed',updated_at,VALUES(updated_at))",$producer,$event_uuid,$hash,$error,$failed,$failed));
+            if ($recorded === false) SN_DB::audit('incoming_event_failure_record_failed','event',0,'failure',['producer'=>$producer,'event_uuid_hash'=>hash('sha256',$event_uuid),'reason'=>$error,'db_error'=>(string)$wpdb->last_error],0);
             return new WP_Error('incoming_event_failed','The incoming event could not be consumed transactionally.');
         }
     }
