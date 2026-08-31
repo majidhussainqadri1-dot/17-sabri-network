@@ -1,0 +1,44 @@
+name: File 17 R10 One-Shot Final Correction
+
+on:
+  push:
+    branches:
+      - review/file17-eighth-fresh-10-round-2026-08-31
+    paths:
+      - .github/scripts/r10-correction.sh
+      - .github/workflows/r10-final-correction.yml
+
+permissions:
+  contents: write
+
+jobs:
+  correct-r10:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout frozen R10 branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-eighth-fresh-10-round-2026-08-31
+          fetch-depth: 0
+      - name: Apply frozen R10 corrections
+        run: bash .github/scripts/r10-correction.sh
+      - name: Verify corrected sources and permanent R10 contracts
+        run: |
+          set -euo pipefail
+          php -l sabri-network/includes/class-sn-round20-correction.php
+          php -l sabri-network/includes/class-sn-fourth-fresh-lifecycle-hardening.php
+          php -l sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php
+          node --check sabri-network/assets/js/round20-correction.js
+          bash -n sabri-network/tools/quality-check.sh
+          php sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php
+          bash sabri-network/tools/quality-check.sh
+      - name: Commit durable R10 corrections only
+        run: |
+          set -euo pipefail
+          git rm .github/scripts/r10-correction.sh .github/workflows/r10-final-correction.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'File 17 eighth review R10: final integrated fail-closed closure'
+          git push origin HEAD:review/file17-eighth-fresh-10-round-2026-08-31
