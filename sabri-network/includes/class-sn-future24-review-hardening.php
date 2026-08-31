@@ -42,6 +42,7 @@ require_once SN_DIR . 'includes/class-sn-fifth-fresh-migration-hardening.php';
 require_once SN_DIR . 'includes/class-sn-fifth-fresh-ui-hardening.php';
 require_once SN_DIR . 'includes/class-sn-sixth-fresh-privacy-hardening.php';
 require_once SN_DIR . 'includes/class-sn-seventh-fresh-r13-hardening.php';
+require_once SN_DIR . 'includes/class-sn-seventh-fresh-r14-hardening.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -84,5 +85,6 @@ final class SN_Future24_Review_Hardening {
         SN_Fifth_Fresh_UI_Hardening::register();
         SN_Sixth_Fresh_Privacy_Hardening::register();
         SN_Seventh_Fresh_R13_Hardening::register();
+        SN_Seventh_Fresh_R14_Hardening::register();
     }
 }
