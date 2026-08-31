@@ -11,6 +11,7 @@ final class SN_Policy {
         if (!$user_id || !get_user_by('id', $user_id)) {
             return new WP_Error('identity_unavailable', 'The authenticated identity is unavailable.', ['status' => 401]);
         }
+        self::refresh_identity_assertions($user_id);
         if (!self::identity_authority_available()) {
             return new WP_Error('identity_authority_unavailable', 'The platform identity authority is unavailable. Network actions are temporarily disabled.', ['status' => 503]);
         }
@@ -24,7 +25,7 @@ final class SN_Policy {
 
     public static function identity_authority_available(): bool {
         $known = class_exists('Sabri_Membership_Core')
-            || class_exists('Sabri\Membership\Core')
+            || class_exists('Sabri\\Membership\\Core')
             || function_exists('sabri_membership_core');
         return (bool) apply_filters('sn_network_identity_authority_available', $known);
     }
@@ -93,6 +94,7 @@ final class SN_Policy {
     }
 
     public static function can_contact(int $actor_id, int $target_id, string $context): bool|WP_Error {
+        self::refresh_identity_assertions($actor_id, $target_id);
         if (!$actor_id || !$target_id || $actor_id === $target_id || !get_user_by('id', $target_id)) {
             return new WP_Error('invalid_contact', 'Select a valid Network member.', ['status' => 400]);
         }
@@ -141,6 +143,7 @@ final class SN_Policy {
     }
 
     public static function can_follow(int $actor_id, int $target_id): bool|WP_Error {
+        self::refresh_identity_assertions($actor_id, $target_id);
         if (!$actor_id || !$target_id || $actor_id === $target_id || !get_user_by('id', $target_id)) {
             return new WP_Error('invalid_follow', 'Select a valid Network member.', ['status' => 400]);
         }
@@ -180,6 +183,7 @@ final class SN_Policy {
     }
 
     public static function can_create_conversation(int $user_id, string $type): bool {
+        self::refresh_identity_assertions($user_id);
         if ($type === 'direct') {
             return true;
         }
@@ -195,6 +199,7 @@ final class SN_Policy {
     }
 
     public static function can_publish_public_update(int $user_id): bool {
+        self::refresh_identity_assertions($user_id);
         if (self::age_state($user_id) !== 'adult' || self::is_suspended($user_id)) {
             return false;
         }
@@ -202,6 +207,7 @@ final class SN_Policy {
     }
 
     public static function can_use_group_calls(int $user_id, int $conversation_id): bool {
+        self::refresh_identity_assertions($user_id);
         return (bool) apply_filters('sn_network_sfu_available', false, $user_id, $conversation_id)
             && (bool) apply_filters('sn_network_can_use_group_calls', user_can($user_id, 'sn_network_group_call'), $user_id, $conversation_id);
     }
@@ -221,6 +227,7 @@ final class SN_Policy {
     }
 
     public static function can_view_presence(int $viewer_id, int $target_id): bool {
+        self::refresh_identity_assertions($viewer_id, $target_id);
         if ($viewer_id <= 0 || $target_id <= 0) {
             return false;
         }
@@ -271,6 +278,17 @@ final class SN_Policy {
 
     public static function consume_rate_limit(string $bucket, string $subject, int $limit, int $window_seconds): bool {
         return SN_DB::consume_rate_limit($bucket, $subject, $limit, $window_seconds);
+    }
+
+    /** Refresh the File-00 assertion snapshot once at each high-level authorization boundary. */
+    private static function refresh_identity_assertions(int ...$user_ids): void {
+        if (!class_exists('SN_Membership_Assertions')) {
+            return;
+        }
+        $user_ids = array_values(array_unique(array_filter(array_map('absint', $user_ids))));
+        foreach ($user_ids as $user_id) {
+            SN_Membership_Assertions::clear_cache($user_id);
+        }
     }
 
     public static function privacy_for(int $user_id): array {
