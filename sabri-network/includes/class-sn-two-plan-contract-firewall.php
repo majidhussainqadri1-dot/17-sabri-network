@@ -12,6 +12,7 @@ defined('ABSPATH') || exit;
 final class SN_Two_Plan_Contract_Firewall {
     private const SCHEMA_VERSION = '1.0.0';
     private const CACHE_TTL = 7 * DAY_IN_SECONDS;
+    private const PROCESSING_LEASE_SECONDS = 15 * MINUTE_IN_SECONDS;
 
     /** @var array<string,bool> */
     private const MUTATING_ROUTE_PATTERNS = [
@@ -30,9 +31,6 @@ final class SN_Two_Plan_Contract_Firewall {
         '#^/sabri-network/v2/spaces/\d+/community-artifacts$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-artifacts/\d+/respond$#' => true,
         '#^/sabri-network/v2/spaces/\d+/community-artifacts/\d+/moderate$#' => true,
-
-        // Founder-approved Future Communication Superset — every POST/PATCH/DELETE
-        // path below reuses the same canonical encrypted idempotency ledger.
         '#^/sabri-network/v2/future/e2ee-policy$#' => true,
         '#^/sabri-network/v2/future/device-keys$#' => true,
         '#^/sabri-network/v2/future/conversation-locks/\d+$#' => true,
@@ -114,8 +112,24 @@ final class SN_Two_Plan_Contract_Firewall {
         $now = current_time('mysql', true);
 
         global $wpdb;
+        $wpdb->last_error = '';
         $existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE scope_key=%s', $scope_key));
-        if ($existing) return self::existing_result($existing, $request_hash, $scope_key);
+        if ((string)$wpdb->last_error !== '') return new WP_Error('sn_idempotency_lookup_failed', 'The mutation idempotency state could not be verified.', ['status'=>503]);
+        if ($existing) {
+            if ((string)$existing->state === 'processing' && self::processing_stale($existing)) {
+                $released = $wpdb->query($wpdb->prepare(
+                    "DELETE FROM ".self::table()." WHERE scope_key=%s AND state='processing' AND request_hash=%s AND updated_at=%s",
+                    $scope_key, (string)$existing->request_hash, (string)$existing->updated_at
+                ));
+                if ($released !== 1) {
+                    $fresh = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE scope_key=%s', $scope_key));
+                    return $fresh ? self::existing_result($fresh, $request_hash, $scope_key) : new WP_Error('sn_idempotency_recovery_failed', 'The stale mutation reservation could not be reconciled safely.', ['status'=>503]);
+                }
+                SN_DB::audit('idempotency_stale_reservation_released','two_plan_idempotency',0,'success',['scope_hash'=>hash('sha256',$scope_key)],$actor);
+            } else {
+                return self::existing_result($existing, $request_hash, $scope_key);
+            }
+        }
 
         $inserted = $wpdb->insert(self::table(), [
             'scope_key' => $scope_key,
@@ -143,6 +157,7 @@ final class SN_Two_Plan_Contract_Firewall {
         $response = self::minimize_discoverable_private($response, $request);
         $scope_key = (string) $request->get_param('_sn_two_plan_scope_key');
         if ($scope_key === '') return $response;
+        $request_hash = (string) $request->get_param('_sn_two_plan_request_hash');
 
         global $wpdb;
         $code = self::response_code($response);
@@ -150,34 +165,56 @@ final class SN_Two_Plan_Contract_Firewall {
             $data = self::response_data($response);
             $json = wp_json_encode($data);
             if (!is_string($json)) {
-                $wpdb->delete(self::table(), ['scope_key' => $scope_key], ['%s']);
+                self::release_processing_reservation($scope_key, $request_hash, 'idempotency_response_encode_failed');
                 return $response;
             }
             $cipher = SN_Communication_Crypto::encrypt($json, 'two-plan-idempotency|'.$scope_key);
             if (is_wp_error($cipher)) {
-                SN_DB::audit('idempotency_response_cache_failed', 'two_plan_idempotency', 0, 'failure', ['scope_hash' => hash('sha256', $scope_key)], get_current_user_id());
+                self::release_processing_reservation($scope_key, $request_hash, 'idempotency_response_cache_failed');
                 return $response;
             }
-            $wpdb->update(self::table(), [
-                'state' => 'complete',
-                'response_code' => $code,
-                'response_cipher' => $cipher,
-                'updated_at' => current_time('mysql', true),
-            ], ['scope_key' => $scope_key]);
+            $completed = $wpdb->query($wpdb->prepare(
+                "UPDATE ".self::table()." SET state='complete',response_code=%d,response_cipher=%s,updated_at=%s WHERE scope_key=%s AND state='processing' AND request_hash=%s",
+                $code, $cipher, current_time('mysql', true), $scope_key, $request_hash
+            ));
+            if ($completed !== 1) {
+                SN_DB::audit('idempotency_completion_persist_failed','two_plan_idempotency',0,'failure',['scope_hash'=>hash('sha256',$scope_key),'db_error'=>(string)$wpdb->last_error],get_current_user_id());
+                self::release_processing_reservation($scope_key, $request_hash, 'idempotency_completion_recovery');
+            }
         } else {
-            $wpdb->delete(self::table(), ['scope_key' => $scope_key], ['%s']);
+            self::release_processing_reservation($scope_key, $request_hash, 'idempotency_error_response_release');
         }
         return $response;
     }
 
     private static function existing_result(object $existing, string $request_hash, string $scope_key) {
         if (!hash_equals((string) $existing->request_hash, $request_hash)) return new WP_Error('sn_idempotency_key_reused', 'The same Idempotency-Key cannot be reused with a different request.', ['status' => 409]);
-        if ((string) $existing->state !== 'complete') return new WP_Error('sn_idempotency_in_progress', 'A request with this Idempotency-Key is already processing or requires reconciliation.', ['status' => 409]);
+        if ((string) $existing->state !== 'complete') {
+            return self::processing_stale($existing)
+                ? new WP_Error('sn_idempotency_recovery_required', 'The prior mutation reservation expired and must be reconciled by retry.', ['status'=>503])
+                : new WP_Error('sn_idempotency_in_progress', 'A request with this Idempotency-Key is already processing.', ['status' => 409]);
+        }
         $plain = SN_Communication_Crypto::decrypt((string) $existing->response_cipher, 'two-plan-idempotency|'.$scope_key);
         if (is_wp_error($plain)) return new WP_Error('sn_idempotency_replay_unavailable', 'The prior result cannot be replayed safely.', ['status' => 503]);
         $data = json_decode((string) $plain, true);
         if (!is_array($data)) return new WP_Error('sn_idempotency_replay_invalid', 'The prior result cannot be replayed safely.', ['status' => 503]);
         return new WP_REST_Response($data, max(200, min(299, (int) $existing->response_code)));
+    }
+
+    private static function processing_stale(object $row): bool {
+        $updated = strtotime((string)$row->updated_at . ' UTC');
+        return $updated === false || $updated <= time() - self::PROCESSING_LEASE_SECONDS;
+    }
+
+    private static function release_processing_reservation(string $scope_key, string $request_hash, string $reason): void {
+        global $wpdb;
+        $deleted = $wpdb->query($wpdb->prepare(
+            "DELETE FROM ".self::table()." WHERE scope_key=%s AND state='processing' AND request_hash=%s",
+            $scope_key, $request_hash
+        ));
+        if ($deleted === false) {
+            SN_DB::audit($reason,'two_plan_idempotency',0,'failure',['scope_hash'=>hash('sha256',$scope_key),'db_error'=>(string)$wpdb->last_error],get_current_user_id());
+        }
     }
 
     private static function minimize_discoverable_private($response, WP_REST_Request $request) {
@@ -254,8 +291,13 @@ final class SN_Two_Plan_Contract_Firewall {
 
     public static function cleanup(): void {
         global $wpdb;
-        $cutoff = gmdate('Y-m-d H:i:s', time() - self::CACHE_TTL);
-        $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE state='complete' AND updated_at<%s LIMIT 500", $cutoff));
+        $complete_cutoff = gmdate('Y-m-d H:i:s', time() - self::CACHE_TTL);
+        $processing_cutoff = gmdate('Y-m-d H:i:s', time() - self::PROCESSING_LEASE_SECONDS);
+        $removed = $wpdb->query($wpdb->prepare(
+            "DELETE FROM ".self::table()." WHERE (state='complete' AND updated_at<%s) OR (state='processing' AND updated_at<%s) LIMIT 500",
+            $complete_cutoff, $processing_cutoff
+        ));
+        if ($removed === false) SN_DB::audit('idempotency_cleanup_failed','two_plan_idempotency',0,'failure',['db_error'=>(string)$wpdb->last_error],0);
     }
 
     public static function register_eraser(array $erasers): array {
