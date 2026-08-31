@@ -24,6 +24,7 @@ $spaces4 = $read('includes/class-sn-spaces-part-4.php');
 $spaces5 = $read('includes/class-sn-spaces-part-5.php');
 $spaces9 = $read('includes/class-sn-spaces-part-9.php');
 $r13 = $read('includes/class-sn-seventh-fresh-r13-hardening.php');
+$r14 = $read('includes/class-sn-seventh-fresh-r14-hardening.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
 $admin = $read('includes/class-sn-admin.php');
 
@@ -105,6 +106,19 @@ $check(str_contains($r13, 'self::conversation_locks($conversation, $actor)') && 
 $check(str_contains($r13, 'public static function get_receipts') && str_contains($r13, 'public static function record_receipt') && str_contains($r13, 'self::receipt_user_lock($actor)'), 'R13: receipt reads/writes must share conversation, relationship and privacy-erasure serialization.');
 $check(str_contains($r13, "\$data['notification_adapter'] = self::file19_ready();") && str_contains($r13, 'sn_network_file19_notification_adapter_ready'), 'R13: REST health must report a verified File-19 adapter rather than File-17 terminal-filter presence.');
 $check(str_contains($admin, 'SN_Seventh_Fresh_R13_Hardening::file19_ready()') && !str_contains($admin, "\$notification_adapter = has_filter('sn_network_notification_handled');"), 'R13: administrator health must not self-certify the File-19 adapter from File-17 own bridge.');
+
+// R14 — safety reports must bind exact semantics/targets, preserve appeal history, use dual control, and scope holds narrowly.
+$check(str_contains($loader, 'class-sn-seventh-fresh-r14-hardening.php') && str_contains($loader, 'SN_Seventh_Fresh_R14_Hardening::register()'), 'R14: the canonical safety hardening overlay must be loaded and registered.');
+$check(str_contains($r14, "'target_type'") && str_contains($r14, "'target_ref'") && str_contains($r14, "'request_fingerprint'") && str_contains($r14, "'appeal_count'") && str_contains($r14, 'target_ref_created'), 'R14: supplemental report schema must persist canonical target identity, request semantics and appeal count.');
+$check(str_contains($r14, "sn_r14_safety_schema_version") && str_contains($r14, 'backfill_reports()'), 'R14: the supplemental report schema must have an explicit resumable migration marker and legacy backfill.');
+$check(str_contains($r14, 'request_fingerprint(') && str_contains($r14, 'report_idempotency_conflict') && str_contains($r14, 'request_fingerprint,status,retention_until,version'), 'R14: report idempotency must bind category/details/evidence to the canonical target and reject conflicting key reuse.');
+$check(str_contains($r14, "['user','conversation','message','space','call','listing_context']") && str_contains($r14, 'sn_network_listing_report_context_authorized'), 'R14: report targets must cover user, conversation, message, space, call and fail-closed external listing context.');
+$check(str_contains($r14, "'medical_harm'") && str_contains($r14, "'copyright'") && str_contains($r14, "'minor_safety'") && str_contains($r14, "'illegal_content'"), 'R14: governing moderation categories must be present without removing legacy categories.');
+$check(str_contains($r14, 'appeal_count=appeal_count+1') && str_contains($r14, "'appeal_count'=>\$count"), 'R14: appeal submission must persist and expose a monotonic appeal count.');
+$check(str_contains($r14, 'high_risk_action_id') && str_contains($r14, 'SN_High_Risk::claim') && str_contains($r14, "'mass_moderation'") && str_contains($r14, "'operation'=>'report_appeal_decision'") && str_contains($r14, 'SN_High_Risk::complete'), 'R14: high-risk appeal decisions must pass the canonical separated approval/execution high-risk workflow.');
+$check(str_contains($r14, "capture_retention_before_native") && str_contains($r14, "scope_native_report_hold") && str_contains($r14, 'has_native_report_hold'), 'R14: native report legal holds must be scoped rather than becoming an account-wide erasure veto.');
+$check(str_contains($r14, 'NOT EXISTS (SELECT 1 FROM $reports r WHERE r.message_id=m.id AND r.legal_hold=1)') && str_contains($r14, "r.legal_hold=1 WHERE m.attachment_source='private'"), 'R14: directly held message and private-attachment evidence must remain preserved while unrelated data erases.');
+$check(str_contains($r14, 'self::privacy_lock($reporter)') && str_contains($r14, 'self::report_user_lock($reporter)') && str_contains($r14, 'self::report_user_lock($uid)'), 'R14: report creation and report erasure must share the same ordered privacy/report-user serialization domain.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
