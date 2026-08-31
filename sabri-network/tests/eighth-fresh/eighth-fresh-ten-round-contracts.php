@@ -18,6 +18,8 @@ $reminderRoutes = $read('includes/class-sn-future24-review-hardening-m.php');
 $migration = $read('includes/class-sn-fifth-fresh-migration-hardening.php');
 $callRuntime = $read('includes/class-sn-call-runtime-hardening.php');
 $auth = $read('includes/class-sn-auth.php');
+$outbox = $read('includes/class-sn-outbox.php');
+$firewall = $read('includes/class-sn-two-plan-contract-firewall.php');
 
 // Round 1 — File 00 must be the final fail-closed authority and every high-level
 // authorization decision must start from a fresh assertion snapshot.
@@ -90,6 +92,16 @@ $check(substr_count($callRuntime, 'SN_Communication_Crypto::encrypt(') >= 1 && s
 $check(str_contains($callRuntime, "created_at>=%s") && str_contains($callRuntime, 'cleanup_classic_signals'), 'Round 4: classic signaling must not expose or retain the former day-long unconsumed window.');
 $check(str_contains($callRuntime, 'rotate_legacy_signal_row') && str_contains($callRuntime, 'AND payload=%s'), 'Round 4: authorized legacy plaintext signals must migrate with compare-and-swap protection.');
 $check(str_contains($auth, 'private const MAX_LEGACY_TURN_TTL = 10 * MINUTE_IN_SECONDS') && str_contains($auth, '$expires <= $now + self::MAX_LEGACY_TURN_TTL'), 'Round 4: legacy TURN credentials must reject provider expiries beyond the approved short lifetime.');
+
+// Round 5 — delivery truth must require explicit acknowledgement and durable failure/retry state.
+$check(str_contains($outbox, "apply_filters('sn_network_outbox_delivery_result',null,$event)") && !str_contains($outbox, "apply_filters('sn_network_outbox_delivery_result',true,$event)"), 'Round 5: the outbox must never treat absence of a delivery adapter as acknowledgement.');
+$check(str_contains($outbox, "event_failure_state_persist_failed") && str_contains($outbox, "event_dispatch_queue_read_failed") && str_contains($outbox, "incoming_event_failure_record_failed"), 'Round 5: queue-read, retry/dead-state, and inbox failure evidence must be checked and auditable.');
+$check(str_contains($firewall, 'private const PROCESSING_LEASE_SECONDS = 15 * MINUTE_IN_SECONDS') && str_contains($firewall, 'idempotency_stale_reservation_released'), 'Round 5: stale idempotency reservations must have bounded recovery instead of permanent processing locks.');
+$check(str_contains($firewall, 'release_processing_reservation') && str_contains($firewall, 'idempotency_completion_persist_failed'), 'Round 5: response-cache/encryption persistence failures must release or reconcile processing reservations.');
+$check(str_contains($routeOwner, "[self::class, 'decide_message_request_atomically']") && str_contains($routeOwner, "[self::class,'create_community_artifact_atomically']"), 'Round 5: message-request decisions and community artifact creation must use final atomic producer owners.');
+$check(str_contains($routeOwner, "SN_Outbox::enqueue('message_request.'.\$status") && str_contains($routeOwner, "community_artifact_event_missing"), 'Round 5: business mutation success must be coupled to durable outbox evidence.');
+$check(str_contains($reminderRoutes, 'SN_Seventh_Fresh_R13_Hardening::file19_ready()') && str_contains($reminderRoutes, "apply_filters('sn_network_notification_delivery_result',null,\$event)"), 'Round 5: reminders must require File-19 readiness plus explicit delivery acknowledgement.');
+$check(str_contains($reminderRoutes, "state='fired'") && str_contains($reminderRoutes, 'future_reminder_fired_persist_failed') && str_contains($reminderRoutes, 'file17-future-reminder:'), 'Round 5: a reminder may become fired only through checked CAS persistence and stable idempotency identity.');
 
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
