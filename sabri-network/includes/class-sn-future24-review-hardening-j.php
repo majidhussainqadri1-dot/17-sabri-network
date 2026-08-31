@@ -9,7 +9,7 @@ final class SN_Future24_Review_Hardening_J {
 
     public static function register():void{add_action('rest_api_init',[self::class,'routes'],1999);}
     public static function routes():void{
-        register_rest_route('sabri-network/v2','/future/device-keys',['methods'=>'POST','callback'=>[self::class,'register_device_key'],'permission_callback'=>[SN_REST::class,'access']],true);
+        register_rest_route('sabri-network/v2','/future/device-keys',[['methods'=>'GET','callback'=>[SN_Future_Superset::class,'list_device_keys'],'permission_callback'=>[SN_REST::class,'access']],['methods'=>'POST','callback'=>[self::class,'register_device_key'],'permission_callback'=>[SN_REST::class,'access']]],true);
         register_rest_route('sabri-network/v2','/future/device-keys/(?P<device_id>[A-Za-z0-9._:-]+)',['methods'=>'DELETE','callback'=>[self::class,'revoke_device_key'],'permission_callback'=>[SN_REST::class,'access']]);
         register_rest_route('sabri-network/v2','/future/device-keys/(?P<user_id>\d+)/safety-number',['methods'=>'GET','callback'=>[self::class,'safety_number'],'permission_callback'=>[SN_REST::class,'access']],true);
         register_rest_route('sabri-network/v2','/future/key-transparency/(?P<user_id>\d+)',['methods'=>'GET','callback'=>[self::class,'key_transparency'],'permission_callback'=>[SN_REST::class,'access']],true);
