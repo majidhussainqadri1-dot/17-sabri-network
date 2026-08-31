@@ -57,7 +57,7 @@ jobs:
       - name: Commit durable R10 corrections only
         run: |
           set -euo pipefail
-          git rm .github/scripts/r10-correction.sh .github/workflows/r10-final-correction.yml
+          git rm -f .github/scripts/r10-correction.sh .github/workflows/r10-final-correction.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
