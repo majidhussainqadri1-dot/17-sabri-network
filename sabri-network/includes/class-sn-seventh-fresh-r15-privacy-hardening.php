@@ -38,7 +38,11 @@ final class SN_Seventh_Fresh_R15_Privacy_Hardening {
         if ((bool)apply_filters('sn_network_retention_prevents_erasure', false, $uid)) {
             return self::retained(__('File 17 data is retained by an approved account-wide retention authority.', 'sabri-network'));
         }
-        if (self::target_hold_blocks_eraser($key, $uid)) {
+        $target_hold = self::target_hold_blocks_eraser($key, $uid);
+        if (is_wp_error($target_hold)) {
+            return self::retry(__('Target-specific legal-hold verification failed; erasure must be retried.', 'sabri-network'));
+        }
+        if ($target_hold) {
             return self::retained(__('This File 17 data class is directly relevant to an active target-specific legal hold.', 'sabri-network'));
         }
 
@@ -224,6 +228,8 @@ final class SN_Seventh_Fresh_R15_Privacy_Hardening {
                 return self::exists(SN_DB::table('transfer_recipients'), "user_id=%d AND state<>'erased'", [$uid]);
             case 'sabri-network-presence-devices': return self::exists(SN_DB::table('presence_devices'), 'user_id=%d', [$uid]);
             case 'sabri-network-message-receipts': return self::exists(SN_DB::table('message_receipts'), 'user_id=%d', [$uid]);
+            case 'sabri-network-contexts': return self::exists(SN_DB::table('conversation_contexts'), 'attached_by=%d', [$uid]);
+            case 'sabri-network-two-plan-idempotency': return self::exists(SN_DB::table('two_plan_idempotency'), "actor_id=%d AND state='complete'", [$uid]);
             case 'sabri-network-future':
                 $keys = self::exists($wpdb->prefix.'sn_future_device_keys', 'user_id=%d', [$uid]); if (is_wp_error($keys) || $keys) return $keys;
                 return self::exists($wpdb->prefix.'sn_future_records', "owner_id=%d AND feature_id NOT IN ('F17-FUT-03','F17-FUT-24') AND state NOT IN ('deleted','erased')", [$uid]);
@@ -231,26 +237,35 @@ final class SN_Seventh_Fresh_R15_Privacy_Hardening {
         }
     }
 
-    private static function target_hold_blocks_eraser(string $key, int $uid): bool {
-        global $wpdb;
+    private static function target_hold_blocks_eraser(string $key, int $uid): bool|WP_Error {
         $reports = SN_DB::table('reports');
         if ($key === 'sabri-network-spaces' || $key === 'sabri-network') {
-            $space = (bool)$wpdb->get_var($wpdb->prepare(
-                "SELECT r.id FROM $reports r INNER JOIN ".SN_DB::table('space_members')." sm ON sm.space_id=CAST(r.target_ref AS UNSIGNED) AND sm.user_id=%d WHERE r.legal_hold=1 AND r.target_type='space' LIMIT 1", $uid
-            ));
-            if ($space) return true;
+            $space = self::hold_exists(
+                "SELECT r.id FROM $reports r INNER JOIN ".SN_DB::table('space_members')." sm ON sm.space_id=CAST(r.target_ref AS UNSIGNED) AND sm.user_id=%d WHERE r.legal_hold=1 AND r.target_type='space' LIMIT 1",
+                [$uid]
+            );
+            if (is_wp_error($space) || $space) return $space;
         }
         if ($key === 'sabri-network') {
-            $call = (bool)$wpdb->get_var($wpdb->prepare(
-                "SELECT r.id FROM $reports r INNER JOIN ".SN_DB::table('call_members')." cm ON cm.call_id=CAST(r.target_ref AS UNSIGNED) AND cm.user_id=%d WHERE r.legal_hold=1 AND r.target_type='call' LIMIT 1", $uid
-            ));
-            if ($call) return true;
-            $conversation = (bool)$wpdb->get_var($wpdb->prepare(
-                "SELECT r.id FROM $reports r INNER JOIN ".SN_DB::table('members')." m ON m.conversation_id=CAST(r.target_ref AS UNSIGNED) AND m.user_id=%d AND m.left_at IS NULL WHERE r.legal_hold=1 AND r.target_type='conversation' LIMIT 1", $uid
-            ));
-            if ($conversation) return true;
+            $call = self::hold_exists(
+                "SELECT r.id FROM $reports r INNER JOIN ".SN_DB::table('call_members')." cm ON cm.call_id=CAST(r.target_ref AS UNSIGNED) AND cm.user_id=%d WHERE r.legal_hold=1 AND r.target_type='call' LIMIT 1",
+                [$uid]
+            );
+            if (is_wp_error($call) || $call) return $call;
+            $conversation = self::hold_exists(
+                "SELECT r.id FROM $reports r INNER JOIN ".SN_DB::table('members')." m ON m.conversation_id=CAST(r.target_ref AS UNSIGNED) AND m.user_id=%d AND m.left_at IS NULL WHERE r.legal_hold=1 AND r.target_type='conversation' LIMIT 1",
+                [$uid]
+            );
+            if (is_wp_error($conversation) || $conversation) return $conversation;
         }
         return false;
+    }
+
+    private static function hold_exists(string $sql, array $args): bool|WP_Error {
+        global $wpdb;
+        $value = $wpdb->get_var($wpdb->prepare($sql, ...$args));
+        if ($wpdb->last_error !== '') return new WP_Error('privacy_hold_verification_failed', 'Target-specific legal-hold verification failed.');
+        return $value !== null;
     }
 
     private static function message_organization_remaining(int $uid): bool|WP_Error {

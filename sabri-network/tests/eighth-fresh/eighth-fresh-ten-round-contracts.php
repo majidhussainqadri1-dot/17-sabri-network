@@ -20,6 +20,8 @@ $callRuntime = $read('includes/class-sn-call-runtime-hardening.php');
 $auth = $read('includes/class-sn-auth.php');
 $outbox = $read('includes/class-sn-outbox.php');
 $firewall = $read('includes/class-sn-two-plan-contract-firewall.php');
+$privacyR15 = $read('includes/class-sn-seventh-fresh-r15-privacy-hardening.php');
+$integrationPrivacy = $read('includes/class-sn-fifth-fresh-integration-hardening.php');
 
 // Round 1 — File 00 must be the final fail-closed authority and every high-level
 // authorization decision must start from a fresh assertion snapshot.
@@ -113,6 +115,12 @@ foreach ($transactionFiles as $transactionFile) {
     $protectedBegins += substr_count($transactionSource, "transaction_start_failed");
 }
 $check($protectedBegins >= 40, 'Round 7: repository-wide fail-closed transaction-start coverage unexpectedly regressed.');
+
+// Round 8 — terminal privacy completion and legal-hold verification must fail closed.
+$check(str_contains($privacyR15, 'privacy_hold_verification_failed') && str_contains($privacyR15, 'is_wp_error($target_hold)'), 'Round 8: target-specific legal-hold database failures must stop erasure and retry.');
+$check(str_contains($privacyR15, "case 'sabri-network-contexts'") && str_contains($privacyR15, "case 'sabri-network-two-plan-idempotency'"), 'Round 8: terminal completion verification must cover context attribution and idempotency-cache rows.');
+$check(str_contains($integrationPrivacy, '$raw_ids = $wpdb->get_col') && str_contains($integrationPrivacy, "$wpdb->last_error !== ''"), 'Round 8: context erasure enumeration failure must not become a false done result.');
+$check(str_contains($firewall, 'Communication request-cache erasure failed and must be retried.') && str_contains($firewall, "$remaining = $wpdb->get_var"), 'Round 8: idempotency-cache erasure must verify both delete success and completion.');
 
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");

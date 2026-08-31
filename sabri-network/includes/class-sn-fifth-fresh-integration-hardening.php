@@ -33,11 +33,13 @@ final class SN_Fifth_Fresh_Integration_Hardening {
         if (!$user) return self::done();
         $uid = (int)$user->ID;
         $table = SN_DB::table('conversation_contexts');
-        $ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+        $raw_ids = $wpdb->get_col($wpdb->prepare(
             "SELECT id FROM $table WHERE attached_by=%d ORDER BY id ASC LIMIT %d",
             $uid,
             self::BATCH
-        )) ?: []);
+        ));
+        if (!is_array($raw_ids) || $wpdb->last_error !== '') return self::retry('Conversation-context erasure could not enumerate its work.');
+        $ids = array_map('intval', $raw_ids);
         if (!$ids) return self::done();
         if ($wpdb->query('START TRANSACTION') === false) return self::retry('Conversation-context erasure could not start.');
         $removed = 0;

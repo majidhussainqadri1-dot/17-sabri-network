@@ -312,8 +312,12 @@ final class SN_Two_Plan_Contract_Firewall {
         global $wpdb;
         $user = get_user_by('email', $email_address);
         if (!$user) return ['items_removed' => false, 'items_retained' => false, 'messages' => [], 'done' => true];
-        $removed = $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE actor_id=%d AND state='complete' LIMIT 100", (int) $user->ID));
-        return ['items_removed' => (int) $removed > 0, 'items_retained' => false, 'messages' => [], 'done' => (int) $removed < 100];
+        $uid = (int) $user->ID;
+        $removed = $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE actor_id=%d AND state='complete' LIMIT 100", $uid));
+        if ($removed === false) return ['items_removed'=>false,'items_retained'=>true,'messages'=>['Communication request-cache erasure failed and must be retried.'],'done'=>false];
+        $remaining = $wpdb->get_var($wpdb->prepare("SELECT scope_key FROM ".self::table()." WHERE actor_id=%d AND state='complete' LIMIT 1", $uid));
+        if ($wpdb->last_error !== '') return ['items_removed'=>(int)$removed>0,'items_retained'=>true,'messages'=>['Communication request-cache erasure completion could not be verified.'],'done'=>false];
+        return ['items_removed'=>(int)$removed>0,'items_retained'=>false,'messages'=>[],'done'=>$remaining===null];
     }
 
     private static function table(): string { return SN_DB::table('two_plan_idempotency'); }
