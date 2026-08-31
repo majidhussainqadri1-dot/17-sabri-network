@@ -1,0 +1,11 @@
+File 17 — Eighth Fresh 10-Round Review — Round 7 transaction correction evidence
+
+Round 7 frozen root cause: active runtime mutation handlers contained unchecked START TRANSACTION entry points. If BEGIN failed, subsequent writes could autocommit while later rollback semantics falsely implied atomicity.
+
+Correction: all active includes/*.php transaction starts are fail-closed before writes. Existing try/catch paths own the failure where available; the remaining legacy transfer-owner entry returns 503 before mutation if BEGIN cannot start.
+
+Permanent regression: tests/eighth-fresh/eighth-fresh-ten-round-contracts.php scans all runtime includes and rejects any raw unchecked `$wpdb->query('START TRANSACTION');` occurrence, with bounded minimum protected-entry coverage.
+
+Temporary one-shot correction workflow/script removed themselves in durable correction commit a0231244a67a7f62e2915f07054e0118d4ae6646 and are not part of the resulting runtime tree.
+
+This file is repository/QA evidence only. It is not evidence of staging or live deployment.
