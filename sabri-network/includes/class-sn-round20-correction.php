@@ -65,6 +65,7 @@ final class SN_Round20_Correction {
         if ($method === 'POST' && $request->has_param('legal_hold') && preg_match('#^/sabri-network/v2/admin/reports/(\d+)$#', $route, $m)) {
             global $wpdb;
             $message_id = (int)$wpdb->get_var($wpdb->prepare('SELECT message_id FROM ' . SN_DB::table('reports') . ' WHERE id=%d', (int)$m[1]));
+            if ($wpdb->last_error !== '') return new WP_Error('sn_legal_hold_verification_failed', 'The legal-hold scope could not be verified safely.', ['status'=>503]);
             if ($message_id > 0) $locks[] = self::retention_lock($message_id);
         }
 
@@ -128,7 +129,9 @@ final class SN_Round20_Correction {
             $meta = json_decode((string)$row->metadata, true); $meta = is_array($meta) ? $meta : [];
             $version = max(1, absint($meta['_mutation_version'] ?? 1));
             if ($version !== $expected) throw new UnexpectedValueException('version_conflict');
-            if (self::message_has_legal_hold($id)) throw new UnexpectedValueException('legal_hold');
+            $hold = self::message_has_legal_hold($id);
+            if (is_wp_error($hold)) throw new RuntimeException('sn_legal_hold_verification_failed');
+            if ($hold) throw new UnexpectedValueException('legal_hold');
             if (!SN_Policy::can_delete_message($row, $actor)) throw new UnexpectedValueException('delete_forbidden');
             $attachment = (string)$row->attachment_source === 'private' ? (int)$row->attachment_id : 0;
             $meta['_mutation_version'] = $expected + 1;
@@ -151,6 +154,7 @@ final class SN_Round20_Correction {
             if ($e instanceof UnexpectedValueException && $e->getMessage()==='version_conflict') return new WP_Error('message_version_conflict','The message changed. Reload the authoritative version and retry.',['status'=>409]);
             if ($e instanceof UnexpectedValueException && $e->getMessage()==='legal_hold') return new WP_Error('message_legal_hold','This message is preserved by an active safety or legal hold and cannot be deleted.',['status'=>409]);
             if ($e instanceof UnexpectedValueException && $e->getMessage()==='delete_forbidden') return new WP_Error('delete_forbidden','This message can no longer be deleted.',['status'=>403]);
+            if ($e instanceof RuntimeException && $e->getMessage()==='sn_legal_hold_verification_failed') return new WP_Error('sn_legal_hold_verification_failed','The legal-hold state could not be verified safely. Retry the request.',['status'=>503]);
             SN_DB::audit('message_atomic_delete_failed','message',$id,'failure',['reason'=>$e->getMessage()],$actor);
             return new WP_Error('message_atomic_delete_failed','The message deletion could not be committed.',['status'=>500]);
         }
@@ -170,7 +174,9 @@ final class SN_Round20_Correction {
                     $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM $messages WHERE id=%d FOR UPDATE",$id));
                     if (!$row || $row->deleted_at!==null) { $wpdb->query('COMMIT'); continue; }
                     $meta=json_decode((string)$row->metadata,true); $meta=is_array($meta)?$meta:[]; $expires=(string)($meta['expires_at']??'');
-                    if ($expires==='' || strtotime($expires.' UTC')>time() || self::message_has_legal_hold($id)) { $wpdb->query('COMMIT'); continue; }
+                    $hold = self::message_has_legal_hold($id);
+                    if (is_wp_error($hold)) throw new RuntimeException('sn_legal_hold_verification_failed');
+                    if ($expires==='' || strtotime($expires.' UTC')>time() || $hold) { if ($wpdb->query('COMMIT')===false) throw new RuntimeException('expire_noop_commit_failed'); continue; }
                     $version=max(1,absint($meta['_mutation_version']??1))+1; $meta=['expired'=>true,'expired_at'=>$now,'_mutation_version'=>$version];
                     $attachment=(string)$row->attachment_source==='private'?(int)$row->attachment_id:0;
                     $updated=$wpdb->query($wpdb->prepare("UPDATE $messages SET body='',attachment_id=0,attachment_source='expired',metadata=%s,deleted_at=%s WHERE id=%d AND deleted_at IS NULL",(string)wp_json_encode($meta),$now,$id));
@@ -221,7 +227,12 @@ final class SN_Round20_Correction {
         if(is_wp_error($plain))return self::not_found(); $data=json_decode($plain,true);
         return is_array($data)&&($data['subtype']??'')==='bridge'?$row:self::not_found();
     }
-    private static function message_has_legal_hold(int $id): bool { global $wpdb; return (bool)$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('reports').' WHERE message_id=%d AND legal_hold=1 LIMIT 1',$id)); }
+    private static function message_has_legal_hold(int $id): bool|WP_Error {
+        global $wpdb;
+        $value = $wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('reports').' WHERE message_id=%d AND legal_hold=1 LIMIT 1',$id));
+        if ($wpdb->last_error !== '') return new WP_Error('sn_legal_hold_verification_failed','The legal-hold state could not be verified safely.',['status'=>503]);
+        return (bool)$value;
+    }
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:'.substr(hash('sha256',(string)$id),0,32); }
     private static function retention_lock(int $id): string { return 'sn:f17:message-retention:'.$id; }
     private static function acquire(array $locks): array|WP_Error { global $wpdb; $locks=array_values(array_unique(array_filter($locks))); sort($locks,SORT_STRING); $held=[]; foreach($locks as $lock){$ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT)); if($ok!==1){self::release($held); return new WP_Error('sn_round20_mutation_busy','The communication state is changing. Retry the request.',['status'=>409]);}$held[]=$lock;} return $held; }

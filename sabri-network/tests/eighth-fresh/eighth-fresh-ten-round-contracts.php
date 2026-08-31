@@ -123,14 +123,31 @@ $check($protectedBegins >= 40, 'Round 7: repository-wide fail-closed transaction
 // Round 8 — terminal privacy completion and legal-hold verification must fail closed.
 $check(str_contains($privacyR15, 'privacy_hold_verification_failed') && str_contains($privacyR15, 'is_wp_error($target_hold)'), 'Round 8: target-specific legal-hold database failures must stop erasure and retry.');
 $check(str_contains($privacyR15, "case 'sabri-network-contexts'") && str_contains($privacyR15, "case 'sabri-network-two-plan-idempotency'"), 'Round 8: terminal completion verification must cover context attribution and idempotency-cache rows.');
-$check(str_contains($integrationPrivacy, '$raw_ids = $wpdb->get_col') && str_contains($integrationPrivacy, "$wpdb->last_error !== ''"), 'Round 8: context erasure enumeration failure must not become a false done result.');
-$check(str_contains($firewall, 'Communication request-cache erasure failed and must be retried.') && str_contains($firewall, "$remaining = $wpdb->get_var"), 'Round 8: idempotency-cache erasure must verify both delete success and completion.');
+$check(str_contains($integrationPrivacy, '$raw_ids = $wpdb->get_col') && str_contains($integrationPrivacy, '$wpdb->last_error !== \'\''), 'Round 8: context erasure enumeration failure must not become a false done result.');
+$check(str_contains($firewall, 'Communication request-cache erasure failed and must be retried.') && str_contains($firewall, '$remaining = $wpdb->get_var'), 'Round 8: idempotency-cache erasure must verify both delete success and completion.');
 
 // Round 9 — external readiness and delivery state require explicit provider acknowledgement.
-$check(str_contains($realtimeR13, "$declared_ready = apply_filters('sn_network_file19_notification_adapter_ready', false)") && str_contains($realtimeR13, 'return $listener && $declared_ready === true;'), 'Round 9: File 19 readiness must be explicitly declared, not inferred from an observer listener.');
+$check(str_contains($realtimeR13, '$declared_ready = apply_filters(\'sn_network_file19_notification_adapter_ready\', false)') && str_contains($realtimeR13, 'return $listener && $declared_ready === true;'), 'Round 9: File 19 readiness must be explicitly declared, not inferred from an observer listener.');
 $check(str_contains($twoPlan, "sn_network_translation_provider_ready") && !str_contains($twoPlan, "'approved_translation_provider'=>has_filter('sn_network_translate_message')"), 'Round 9: translation status must not equate callback presence with approved-provider readiness.');
 $check(str_contains($futureCapabilities, 'sn_network_device_key_provider_ready') && str_contains($futureCapabilities, 'sn_network_ai_provider_ready') && str_contains($futureCapabilities, 'sn_network_private_semantic_provider_ready'), 'Round 9: Future capability availability must require explicit provider readiness.');
 $check(str_contains($interop, "sn_network_interop_inbound_delivery_result") && str_contains($interop, '$ack !== true') && str_contains($interop, 'future_interop_inbound_delivery_unacknowledged'), 'Round 9: inbound interoperability receipts must remain retryable until the consumer explicitly acknowledges delivery.');
+
+
+// Round 10 — final integrated retention, quality-inventory and repository-truth closure.
+$round20 = $read('includes/class-sn-round20-correction.php');
+$lifecycle = $read('includes/class-sn-fourth-fresh-lifecycle-hardening.php');
+$quality = $read('tools/quality-check.sh');
+$cycleId = $read('REVIEW-CYCLE-ID.txt');
+$qaInventory = $read('QA-INVENTORY.txt');
+$systemStatus = $read('SYSTEM-STATUS.txt');
+$candidateBoundary = $read('CURRENT-CANDIDATE-BOUNDARY.txt');
+$check(str_contains($round20, 'private static function message_has_legal_hold(int $id): bool|WP_Error') && str_contains($round20, '$wpdb->last_error !== \'\'') && str_contains($round20, 'sn_legal_hold_verification_failed'), 'Round 10: final delete/expiry legal-hold verification must fail closed on database errors.');
+$check(str_contains($round20, 'if ($wpdb->last_error !== \'\') return new WP_Error(\'sn_legal_hold_verification_failed\'') && str_contains($round20, '_sn_round20_locks'), 'Round 10: admin legal-hold mutation must not bypass the retention lock when the report-scope lookup fails.');
+$check(str_contains($lifecycle, 'private static function legal_hold(int $id): bool|WP_Error') && str_contains($lifecycle, 'is_wp_error($hold)') && str_contains($lifecycle, 'sn_legal_hold_verification_failed'), 'Round 10: disappearing-message expiry must fail closed when hold state cannot be read.');
+$check(str_contains($quality, 'assets/js/round20-correction.js') && str_contains($quality, 'eighth-fresh/eighth-fresh-ten-round-contracts.php'), 'Round 10: the self-contained quality gate must include the active Round-20 JavaScript and current eighth-fresh regression suite.');
+$check(str_contains($quality, "find tests -type f -name '*.php' -printf '%P\\n'"), 'Round 10: review-suite inventory must recursively account for nested permanent suites.');
+$check(str_contains($cycleId, 'FILE17-EIGHTH-FRESH-10-ROUND') && str_contains($qaInventory, '10 JavaScript') && str_contains($qaInventory, '54 PHP review suites'), 'Round 10: packaged cycle/QA inventory must describe the current eighth-fresh candidate.');
+$check(str_contains($systemStatus, 'Eighth fresh 10-round cycle') && !str_contains($systemStatus, 'current sixth-cycle corrective source') && str_contains($candidateBoundary, 'eighth fresh 10-round cycle'), 'Round 10: packaged repository-state documents must not identify an older review cycle as current.');
 
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");

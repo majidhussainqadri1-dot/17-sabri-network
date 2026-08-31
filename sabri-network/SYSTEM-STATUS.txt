@@ -1,44 +1,29 @@
 Repository coding/review candidate; not staging-accepted, not live-deployed, not production-operational.
 File 17 — Sabri Network and Messages 2.1.0
-حقیقی repository حیثیت — exact immutable HEAD/run from the active cycle and CI are the only current repository evidence.
+Repository truth is the exact immutable HEAD plus its attached GitHub Actions evidence; prior-cycle documents and runs are historical only.
 
-حاکم audit basis:
+Governing audit basis:
 1) Current consolidated central governing plan.
 2) Current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24.
-3) Earlier review ledgers are historical evidence only for their own exact commits.
+3) Live, staging and repository are separate realities.
 
-Specified: current governing-plan File-17 repository scope is traceable.
-Coded Candidate: 2.1.0 current sixth-cycle corrective source.
-Packaged: deterministic 2.1.0 ZIP + source manifest only when produced by the exact-head workflow.
-Automated QA: current explicit gate covers 53 PHP review suites, PHP 8.1/8.3 jobs, 9 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates.
-Historical prior-cycle inventory only: 47 explicit PHP review suites and 8 JavaScript syntax checks; retained solely for attribution and not current QA truth.
+Coded Candidate: 2.1.0 current eighth-fresh corrective source.
+Automated QA: 54 PHP review suites, PHP 8.1/8.3 jobs, all 10 JavaScript entry-point syntax checks, shell/CSS/hygiene, source-manifest and deterministic package gates.
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-Sixth fresh 20-round cycle — 18 August 2026:
-- Frozen starting source: a3a435b162167c9078ded22b08d6c8fb39b6ca27.
-- Review method: complete review round -> frozen defect ledger -> fix every proved defect -> regression/retest -> only then next round.
-- Defect rounds: R2, R5, R6, R8, R9, R12, R18, R19, R20.
-- Clean rounds: R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17.
-- First-ten defect rounds: R2, R5, R6, R8, R9.
-- Permanent current regression: tests/sixth-fresh-twenty-round-contracts.php.
-- Final exact SHA/run/package evidence is established only after the final sixth-cycle head itself completes attached CI; prior runs/hashes are not reused.
+Eighth fresh 10-round cycle — 31 August to 1 September 2026:
+- Review method: complete review round -> freeze defect ledger -> correct every proved defect -> permanent regression/retest -> only then next round.
+- Defect rounds: R1, R2, R3, R4, R5, R7, R8, R9, R10.
+- Clean rounds: R6.
+- Permanent current regression: tests/eighth-fresh/eighth-fresh-ten-round-contracts.php.
+- Exact final SHA, workflow run and package digest are external release evidence and are not self-embedded here.
 
-Current sixth-cycle corrections include:
-- canonical File-00/09 phone/verification truth after File-03 presentation enrichment;
-- caller-supplied message and Smail retry identities;
-- viewer-hidden message exclusion from private search/context and correct pagination progression;
-- transfer idempotency bound to exact file/chunk/conversation/hash/recipient request semantics;
-- failure-safe Future privacy deletion progress;
-- exact Sabri Meet migration-version rollback truth;
-- standalone Messages/communication-settings exact Sabri Green and accessibility hardening;
-- complete current review-suite/runtime/package inventory coverage.
-
-Current coded domains continue to include one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
+Current cycle closure includes fail-closed File-00 authority, complete final REST method composition, full migration/constraint verification, encrypted bounded call signaling, durable delivery/idempotency truth, repository-wide transaction-start failure handling, terminal privacy/legal-hold completion checks, explicit external-provider readiness/acknowledgement, and final legal-hold mutation failure closure.
 
 External acceptance still pending:
-- real WordPress/PHP/MySQL fresh install, upgrade/migration/race/rollback tests;
+- real WordPress/PHP/MySQL fresh-install, upgrade/migration/race/rollback tests;
 - current File 00/02/08/18/19/20/21/24/25/26 and CF-01/CF-04 integration/degraded acceptance;
 - Hostinger staging, cron, approved scanner/private storage/translation/media/AI/interop providers, LiteSpeed, browser/device, RTL/LTR/accessibility;
 - communication-key backup/restore/rotation proof;
@@ -46,5 +31,4 @@ External acceptance still pending:
 - Founder staging sign-off, live deployment, deployed-artifact parity and operational monitoring/support/SLO evidence.
 
 This status does not claim E2EE certification, staging acceptance, live deployment, production readiness or operational completion.
-
 Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔

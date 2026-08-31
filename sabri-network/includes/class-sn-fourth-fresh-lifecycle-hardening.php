@@ -94,7 +94,9 @@ final class SN_Fourth_Fresh_Lifecycle_Hardening {
                 $member = $wpdb->get_row($wpdb->prepare("SELECT id FROM $members WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL FOR UPDATE", $conversation, $actor));
                 if (!$row || !$member || $row->deleted_at !== null || (int) $row->sender_id !== $actor) throw new DomainException('not_found');
                 if (self::version($row) !== $expected) throw new UnexpectedValueException('version_conflict');
-                if (self::legal_hold($id)) throw new UnexpectedValueException('legal_hold');
+                $hold = self::legal_hold($id);
+                if (is_wp_error($hold)) throw new RuntimeException('sn_legal_hold_verification_failed');
+                if ($hold) throw new UnexpectedValueException('legal_hold');
                 $meta = json_decode((string) $row->metadata, true); $meta = is_array($meta) ? $meta : [];
                 if ($seconds === 0) unset($meta['expires_at']); else $meta['expires_at'] = gmdate('Y-m-d H:i:s', time() + $seconds);
                 $meta['_mutation_version'] = $expected + 1;
@@ -114,6 +116,7 @@ final class SN_Fourth_Fresh_Lifecycle_Hardening {
                 if ($e instanceof DomainException) return self::not_found();
                 if ($e instanceof UnexpectedValueException && $e->getMessage()==='version_conflict') return self::version_conflict();
                 if ($e instanceof UnexpectedValueException && $e->getMessage()==='legal_hold') return new WP_Error('sn_expiry_legal_hold','This message is preserved by a safety/legal hold.',['status'=>409]);
+                if ($e instanceof RuntimeException && $e->getMessage()==='sn_legal_hold_verification_failed') return new WP_Error('sn_legal_hold_verification_failed','The legal-hold state could not be verified safely. Retry the request.',['status'=>503]);
                 SN_DB::audit('message_expiry_failed','message',$id,'failure',['reason'=>$e->getMessage()],$actor);
                 return new WP_Error('sn_expiry_failed','The expiry setting could not be committed safely.',['status'=>500]);
             }
@@ -121,9 +124,11 @@ final class SN_Fourth_Fresh_Lifecycle_Hardening {
         });
     }
 
-    private static function legal_hold(int $id): bool {
+    private static function legal_hold(int $id): bool|WP_Error {
         global $wpdb;
-        return (bool) $wpdb->get_var($wpdb->prepare('SELECT id FROM ' . SN_DB::table('reports') . ' WHERE message_id=%d AND legal_hold=1 LIMIT 1', $id));
+        $value = $wpdb->get_var($wpdb->prepare('SELECT id FROM ' . SN_DB::table('reports') . ' WHERE message_id=%d AND legal_hold=1 LIMIT 1', $id));
+        if ($wpdb->last_error !== '') return new WP_Error('sn_legal_hold_verification_failed','The legal-hold state could not be verified safely.',['status'=>503]);
+        return (bool)$value;
     }
     private static function message(int $id): ?object { global $wpdb; return $id>0 ? ($wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d',$id)) ?: null) : null; }
     private static function version(object $row): int { $m=json_decode((string)($row->metadata??''),true); return max(1,is_array($m)?absint($m['_mutation_version']??1):1); }
