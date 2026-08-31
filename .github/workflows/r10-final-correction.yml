@@ -22,7 +22,11 @@ jobs:
           ref: review/file17-eighth-fresh-10-round-2026-08-31
           fetch-depth: 0
       - name: Apply frozen R10 corrections
-        run: bash .github/scripts/r10-correction.sh
+        run: |
+          set -euo pipefail
+          sed -i 's/"  sixth-fresh-twenty-round-contracts.php/" sixth-fresh-twenty-round-contracts.php/' .github/scripts/r10-correction.sh
+          sed -i 's/"  sixth-fresh-twenty-round-contracts.php/" sixth-fresh-twenty-round-contracts.php/' .github/scripts/r10-correction.sh
+          bash .github/scripts/r10-correction.sh
       - name: Verify corrected sources and permanent R10 contracts
         run: |
           set -euo pipefail
