@@ -25,6 +25,7 @@ $spaces5 = $read('includes/class-sn-spaces-part-5.php');
 $spaces9 = $read('includes/class-sn-spaces-part-9.php');
 $r13 = $read('includes/class-sn-seventh-fresh-r13-hardening.php');
 $r14 = $read('includes/class-sn-seventh-fresh-r14-hardening.php');
+$r15 = $read('includes/class-sn-seventh-fresh-r15-privacy-hardening.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
 $admin = $read('includes/class-sn-admin.php');
 
@@ -119,6 +120,16 @@ $check(str_contains($r14, 'high_risk_action_id') && str_contains($r14, 'SN_High_
 $check(str_contains($r14, "capture_retention_before_native") && str_contains($r14, "scope_native_report_hold") && str_contains($r14, 'has_native_report_hold'), 'R14: native report legal holds must be scoped rather than becoming an account-wide erasure veto.');
 $check(str_contains($r14, 'NOT EXISTS (SELECT 1 FROM $reports r WHERE r.message_id=m.id AND r.legal_hold=1)') && str_contains($r14, "r.legal_hold=1 WHERE m.attachment_source='private'"), 'R14: directly held message and private-attachment evidence must remain preserved while unrelated data erases.');
 $check(str_contains($r14, 'self::privacy_lock($reporter)') && str_contains($r14, 'self::report_user_lock($reporter)') && str_contains($r14, 'self::report_user_lock($uid)'), 'R14: report creation and report erasure must share the same ordered privacy/report-user serialization domain.');
+
+// R15 — terminal eraser order, Future-24 completeness, held-target evidence and completion signalling must be safe.
+$check(str_contains($loader, 'class-sn-seventh-fresh-r15-privacy-hardening.php') && str_contains($loader, 'SN_Seventh_Fresh_R15_Privacy_Hardening::register()'), 'R15: final privacy lifecycle hardening must be loaded after earlier overlays.');
+$check(str_contains($r15, "add_filter('wp_privacy_personal_data_erasers', [self::class, 'finalize_erasers'], PHP_INT_MAX)") && str_contains($r15, "\$key !== 'sabri-meet'"), 'R15: a terminal eraser pass must see and guard the final Meet callback rather than being replaced by it.');
+$check(str_contains($r15, "\$erasers['sabri-network-future']['callback'] = [self::class, 'erase_future']") && str_contains($r15, "sn_future_device_keys") && str_contains($r15, 'Future device-key erasure'), 'R15: the final Future-24 eraser must erase user-owned device keys instead of losing them to override ordering.');
+$check(str_contains($r15, 'erase_message_versions($uid)') && strpos($r15, 'erase_message_versions($uid)') < strpos($r15, 'SN_Seventh_Fresh_R14_Hardening::erase_core'), 'R15: message versions must be processed while sender attribution still exists, before core anonymization severs discovery.');
+$check(str_contains($r15, "target_type='call'") && str_contains($r15, "target_type='space'") && str_contains($r15, "target_type='conversation'") && str_contains($r15, 'target_hold_blocks_eraser'), 'R15: target-specific report holds must protect the corresponding core/space evidence class without restoring a global veto.');
+$check(str_contains($r15, 'erase_message_organization') && str_contains($r15, 'folder_item_delete_failed') && str_contains($r15, 'star_delete_failed') && str_contains($r15, 'hide_delete_failed') && str_contains($r15, 'organization_commit_failed'), 'R15: message folders/items/stars/hides must erase independently and transactionally without boolean short-circuiting.');
+$check(str_contains($r15, 'self::privacy_lock($uid)') && str_contains($r15, 'Another File 17 privacy eraser is running') && str_contains($r15, 'normalize_result'), 'R15: independent erasers must serialize by user and pass a common completion/result boundary.');
+$check(str_contains($r15, "case 'sabri-network-smail'") && str_contains($r15, "case 'sabri-network-spaces'") && str_contains($r15, "case 'sabri-network-transfers'") && str_contains($r15, 'Privacy erasure reported completion while erasable user-linked rows still remain'), 'R15: fragile erasers must verify no erasable rows remain before returning done=true.');
 
 if ($fail) {
     fwrite(STDERR, "Seventh fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
