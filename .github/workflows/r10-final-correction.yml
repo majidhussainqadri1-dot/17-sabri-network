@@ -25,8 +25,18 @@ jobs:
         run: |
           set -euo pipefail
           sed -i 's/"  sixth-fresh-twenty-round-contracts.php/" sixth-fresh-twenty-round-contracts.php/' .github/scripts/r10-correction.sh
-          sed -i 's/"  sixth-fresh-twenty-round-contracts.php/" sixth-fresh-twenty-round-contracts.php/' .github/scripts/r10-correction.sh
           bash .github/scripts/r10-correction.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          qa=Path('sabri-network/QA-INVENTORY.txt')
+          qa.write_text(qa.read_text(encoding='utf-8').replace('all 10 File-17 JavaScript entry points','all 10 JavaScript File-17 entry points'),encoding='utf-8')
+          p=Path('sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php')
+          t=p.read_text(encoding='utf-8')
+          t=t.replace('str_contains($integrationPrivacy, "$wpdb->last_error !== \'\'")', 'str_contains($integrationPrivacy, \'$wpdb->last_error !== \\\'\\\'\')')
+          t=t.replace('str_contains($firewall, "$remaining = $wpdb->get_var")', 'str_contains($firewall, \'$remaining = $wpdb->get_var\')')
+          t=t.replace('str_contains($realtimeR13, "$declared_ready = apply_filters(\'sn_network_file19_notification_adapter_ready\', false)")', 'str_contains($realtimeR13, \'$declared_ready = apply_filters(\\\'sn_network_file19_notification_adapter_ready\\\', false)\')')
+          p.write_text(t,encoding='utf-8')
+          PY
       - name: Verify corrected sources and permanent R10 contracts
         run: |
           set -euo pipefail
