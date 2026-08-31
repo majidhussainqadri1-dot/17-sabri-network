@@ -2,9 +2,12 @@
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
-/** Corrective call/Meet boundary: stable relationship state, fail-closed provider issuance and post-commit confirmation. */
+/** Corrective call/Meet boundary: stable relationship state, fail-closed provider issuance and protected signaling. */
 final class SN_Call_Runtime_Hardening {
     private const LOCK_TIMEOUT = 5;
+    private const CLASSIC_SIGNAL_TTL = 120;
+    private const CLASSIC_SIGNAL_PREFIX = 'SNCALLSIG1:';
+    private const MEET_SIGNAL_PREFIX = 'SNMEETSIG1:';
 
     public static function register(): void {
         add_filter('rest_pre_dispatch', [self::class, 'guard_protected_reads'], -29998, 3);
@@ -12,11 +15,20 @@ final class SN_Call_Runtime_Hardening {
         add_filter('rest_post_dispatch', [self::class, 'verify_and_release'], 12, 3);
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'override_meet_privacy_eraser'], PHP_INT_MAX);
         add_action('rest_api_init', [self::class, 'override_routes'], 2050);
+        add_action('sn_cleanup_hourly', [self::class, 'cleanup_classic_signals'], 0);
     }
 
     public static function override_routes(): void {
         register_rest_route('sabri-network/v2', '/calls/(?P<id>\d+)/media-credentials', [
             'methods' => 'POST', 'callback' => [self::class, 'issue_credentials'], 'permission_callback' => [SN_REST::class, 'access'],
+        ], true);
+        register_rest_route('sabri-network/v2', '/calls/(?P<id>\d+)/signals', [
+            ['methods'=>'GET','callback'=>[self::class,'get_classic_signals'],'permission_callback'=>[SN_REST::class,'access']],
+            ['methods'=>'POST','callback'=>[self::class,'send_classic_signal'],'permission_callback'=>[SN_REST::class,'access']],
+        ], true);
+        register_rest_route('sabri-network/v2', '/meetings/(?P<meeting>[A-Za-z0-9_-]{22,64})/signals', [
+            ['methods'=>'GET','callback'=>[self::class,'get_meet_signals'],'permission_callback'=>[SN_REST::class,'access']],
+            ['methods'=>'POST','callback'=>[self::class,'send_meet_signal'],'permission_callback'=>[SN_REST::class,'access']],
         ], true);
     }
 
@@ -36,6 +48,163 @@ final class SN_Call_Runtime_Hardening {
             return new WP_Error('sn_call_eligibility_changed', 'Calling eligibility changed before credential delivery.', ['status'=>403]);
         }
         return $result;
+    }
+
+    /** Persist classic WebRTC signaling only as an authenticated encrypted envelope. */
+    public static function send_classic_signal(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        self::cleanup_classic_signals();
+        if ($wpdb->query('START TRANSACTION') === false) return self::signal_error('sn_signal_transaction_failed');
+        try {
+            $response = SN_REST::send_signal($request);
+            if (is_wp_error($response)) { $wpdb->query('ROLLBACK'); return $response; }
+            $data = $response->get_data();
+            $id = absint(is_array($data) ? ($data['id'] ?? 0) : 0);
+            $row = $id > 0 ? $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('signals') . ' WHERE id=%d FOR UPDATE', $id)) : null;
+            if (!$row) throw new RuntimeException('signal_row_missing');
+            $protected = self::protect_signal_payload((string)$row->payload, self::classic_signal_context($row), self::CLASSIC_SIGNAL_PREFIX);
+            if (is_wp_error($protected)) throw new RuntimeException($protected->get_error_code());
+            $changed = $wpdb->query($wpdb->prepare(
+                'UPDATE ' . SN_DB::table('signals') . ' SET payload=%s WHERE id=%d AND payload=%s',
+                $protected, $id, (string)$row->payload
+            ));
+            if ($changed !== 1) throw new RuntimeException('signal_encrypt_cas_failed');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('signal_encrypt_commit_failed');
+            return $response;
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            SN_DB::audit('call_signal_encrypt_failed','call',absint($request['id']),'failure',['reason'=>$e->getMessage()],get_current_user_id());
+            return self::signal_error('sn_signal_storage_failed');
+        }
+    }
+
+    /** Authorize through the canonical handler, then decrypt only still-live recipient-scoped signals. */
+    public static function get_classic_signals(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        self::cleanup_classic_signals();
+        $authorized = SN_REST::get_signals($request);
+        if (is_wp_error($authorized)) return $authorized;
+        $data = $authorized->get_data();
+        $items = is_array($data['signals'] ?? null) ? $data['signals'] : [];
+        $out = [];
+        $cutoff = gmdate('Y-m-d H:i:s', time() - self::CLASSIC_SIGNAL_TTL);
+        foreach ($items as $item) {
+            $id = absint(is_array($item) ? ($item['id'] ?? 0) : 0);
+            if ($id <= 0) continue;
+            $row = $wpdb->get_row($wpdb->prepare(
+                'SELECT * FROM ' . SN_DB::table('signals') . ' WHERE id=%d AND call_id=%d AND to_user_id=%d AND consumed_at IS NULL AND created_at>=%s',
+                $id, absint($request['id']), get_current_user_id(), $cutoff
+            ));
+            if (!$row) continue;
+            $payload = self::unprotect_signal_payload((string)$row->payload, self::classic_signal_context($row), self::CLASSIC_SIGNAL_PREFIX);
+            if (is_wp_error($payload)) return $payload;
+            self::rotate_legacy_signal_row(SN_DB::table('signals'), $row, $payload, self::classic_signal_context($row), self::CLASSIC_SIGNAL_PREFIX);
+            $out[] = ['id'=>(int)$row->id,'from_user_id'=>(int)$row->from_user_id,'type'=>(string)$row->signal_type,'payload'=>$payload];
+        }
+        return rest_ensure_response(['signals'=>$out]);
+    }
+
+    /** Sabri Meet uses its canonical state machine, but commits the payload only after encryption succeeds. */
+    public static function send_meet_signal(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        if ($wpdb->query('START TRANSACTION') === false) return self::signal_error('sn_meet_signal_transaction_failed');
+        try {
+            $response = SN_Meet::send_signal($request);
+            if (is_wp_error($response)) { $wpdb->query('ROLLBACK'); return $response; }
+            $data = $response->get_data();
+            $id = absint(is_array($data) ? ($data['signal_id'] ?? 0) : 0);
+            $table = $wpdb->prefix . 'sn_meet_signals';
+            $row = $id > 0 ? $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d FOR UPDATE", $id)) : null;
+            if (!$row) throw new RuntimeException('meet_signal_row_missing');
+            $protected = self::protect_signal_payload((string)$row->payload, self::meet_signal_context($row), self::MEET_SIGNAL_PREFIX);
+            if (is_wp_error($protected)) throw new RuntimeException($protected->get_error_code());
+            $changed = $wpdb->query($wpdb->prepare("UPDATE $table SET payload=%s WHERE id=%d AND payload=%s", $protected, $id, (string)$row->payload));
+            if ($changed !== 1) throw new RuntimeException('meet_signal_encrypt_cas_failed');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('meet_signal_encrypt_commit_failed');
+            return $response;
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            SN_DB::audit('meet_signal_encrypt_failed','meeting',0,'failure',['reason'=>$e->getMessage()],get_current_user_id());
+            return self::signal_error('sn_meet_signal_storage_failed');
+        }
+    }
+
+    /** Let SN_Meet prove the active joined session, then project decrypted live signals. */
+    public static function get_meet_signals(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $authorized = SN_Meet::get_signals($request);
+        if (is_wp_error($authorized)) return $authorized;
+        $public = (string)$request['meeting'];
+        $meeting_id = (int)$wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s", $public));
+        if ($meeting_id <= 0) return self::not_found();
+        $after = absint($request->get_param('after'));
+        $now = current_time('mysql', true);
+        $table = $wpdb->prefix . 'sn_meet_signals';
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table WHERE meeting_id=%d AND to_user_id=%d AND id>%d AND consumed_at IS NULL AND expires_at>%s ORDER BY id ASC LIMIT 100",
+            $meeting_id, get_current_user_id(), $after, $now
+        ));
+        if (!is_array($rows)) return self::signal_error('sn_meet_signal_read_failed');
+        $out=[];
+        foreach ($rows as $row) {
+            $payload = self::unprotect_signal_payload((string)$row->payload, self::meet_signal_context($row), self::MEET_SIGNAL_PREFIX);
+            if (is_wp_error($payload)) return $payload;
+            self::rotate_legacy_signal_row($table, $row, $payload, self::meet_signal_context($row), self::MEET_SIGNAL_PREFIX);
+            $out[]=['id'=>(int)$row->id,'from_user_id'=>(int)$row->from_user_id,'type'=>(string)$row->signal_type,'payload'=>$payload,'created_at'=>(string)$row->created_at];
+        }
+        return rest_ensure_response(['signals'=>$out]);
+    }
+
+    public static function cleanup_classic_signals(): void {
+        global $wpdb;
+        $cutoff = gmdate('Y-m-d H:i:s', time() - self::CLASSIC_SIGNAL_TTL);
+        $consumed = gmdate('Y-m-d H:i:s', time() - 60);
+        $ok = $wpdb->query($wpdb->prepare(
+            'DELETE FROM ' . SN_DB::table('signals') . ' WHERE created_at<%s OR (consumed_at IS NOT NULL AND consumed_at<%s)',
+            $cutoff, $consumed
+        ));
+        if ($ok === false) SN_DB::audit('call_signal_cleanup_failed','system',0,'failure',[],0);
+    }
+
+    private static function protect_signal_payload(string $plain, string $context, string $prefix): string|WP_Error {
+        if (str_starts_with($plain, $prefix)) return $plain;
+        $cipher = SN_Communication_Crypto::encrypt($plain, $context);
+        return is_wp_error($cipher) ? $cipher : $prefix . base64_encode($cipher);
+    }
+
+    private static function unprotect_signal_payload(string $stored, string $context, string $prefix): array|WP_Error {
+        $plain = $stored;
+        if (str_starts_with($stored, $prefix)) {
+            $raw = base64_decode(substr($stored, strlen($prefix)), true);
+            if (!is_string($raw) || $raw === '') return self::signal_error('sn_signal_cipher_invalid');
+            $decoded = SN_Communication_Crypto::decrypt($raw, $context);
+            if (is_wp_error($decoded)) return new WP_Error('sn_signal_decrypt_failed','The protected call signal could not be decrypted.',['status'=>503]);
+            $plain = $decoded;
+        }
+        $payload = json_decode($plain, true);
+        return is_array($payload) ? $payload : self::signal_error('sn_signal_payload_invalid');
+    }
+
+    /** Opportunistically encrypt authorized legacy plaintext without exposing a plaintext rewrite race. */
+    private static function rotate_legacy_signal_row(string $table, object $row, array $payload, string $context, string $prefix): void {
+        if (str_starts_with((string)$row->payload, $prefix)) return;
+        global $wpdb;
+        $plain = (string)wp_json_encode($payload, JSON_UNESCAPED_SLASHES);
+        $protected = self::protect_signal_payload($plain, $context, $prefix);
+        if (is_wp_error($protected)) return;
+        $wpdb->query($wpdb->prepare("UPDATE $table SET payload=%s WHERE id=%d AND payload=%s", $protected, (int)$row->id, (string)$row->payload));
+    }
+
+    private static function classic_signal_context(object $row): string {
+        return 'classic-call-signal|' . (int)$row->call_id . '|' . (int)$row->from_user_id . '|' . (int)$row->to_user_id . '|' . (string)$row->signal_type;
+    }
+
+    private static function meet_signal_context(object $row): string {
+        return 'meet-signal|' . (int)$row->meeting_id . '|' . (int)$row->from_user_id . '|' . (int)$row->to_user_id . '|' . (string)$row->signal_type;
+    }
+
+    private static function signal_error(string $code): WP_Error {
+        return new WP_Error($code, 'Protected call signaling is temporarily unavailable.', ['status'=>503]);
     }
 
     /** Protected call/meeting reads must not rely on a still-fresh browser/session projection after eligibility revocation. */
