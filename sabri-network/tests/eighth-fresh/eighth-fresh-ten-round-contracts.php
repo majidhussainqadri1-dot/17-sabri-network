@@ -16,6 +16,8 @@ $routeOwner = $read('includes/class-sn-future24-review-hardening.php');
 $keyRoutes = $read('includes/class-sn-future24-review-hardening-j.php');
 $reminderRoutes = $read('includes/class-sn-future24-review-hardening-m.php');
 $migration = $read('includes/class-sn-fifth-fresh-migration-hardening.php');
+$callRuntime = $read('includes/class-sn-call-runtime-hardening.php');
+$auth = $read('includes/class-sn-auth.php');
 
 // Round 1 — File 00 must be the final fail-closed authority and every high-level
 // authorization decision must start from a fresh assertion snapshot.
@@ -80,6 +82,14 @@ foreach (['direct_key','conversation_user','idempotency_key','reporter_client','
 }
 $check(str_contains($migration, "'verification'=>'all-owned-tables-columns-and-critical-indexes-pass'"), 'Round 3: migration state must only publish complete after full schema/constraint verification.');
 $check(str_contains($migration, "'sn_two_plan_firewall_schema_version'") && str_contains($migration, "'sn_message_receipts_schema_version'") && str_contains($migration, "'sn_r14_safety_schema_version'"), 'Round 3: rollback snapshot must include late/current schema version markers.');
+
+// Round 4 — call signaling must be encrypted at rest, bounded and credential delivery short-lived.
+$check(str_contains($callRuntime, "private const CLASSIC_SIGNAL_TTL = 120") && str_contains($callRuntime, "private const CLASSIC_SIGNAL_PREFIX = 'SNCALLSIG1:'") && str_contains($callRuntime, "private const MEET_SIGNAL_PREFIX = 'SNMEETSIG1:'"), 'Round 4: classic and Meet signal stores must use bounded encrypted-envelope contracts.');
+$check(str_contains($callRuntime, "[self::class,'send_classic_signal']") && str_contains($callRuntime, "[self::class,'get_classic_signals']") && str_contains($callRuntime, "[self::class,'send_meet_signal']") && str_contains($callRuntime, "[self::class,'get_meet_signals']"), 'Round 4: final signaling routes must be owned by the protected call runtime.');
+$check(substr_count($callRuntime, 'SN_Communication_Crypto::encrypt(') >= 1 && str_contains($callRuntime, 'SN_Communication_Crypto::decrypt('), 'Round 4: stored signal payloads must pass through authenticated encryption/decryption.');
+$check(str_contains($callRuntime, "created_at>=%s") && str_contains($callRuntime, 'cleanup_classic_signals'), 'Round 4: classic signaling must not expose or retain the former day-long unconsumed window.');
+$check(str_contains($callRuntime, 'rotate_legacy_signal_row') && str_contains($callRuntime, 'AND payload=%s'), 'Round 4: authorized legacy plaintext signals must migrate with compare-and-swap protection.');
+$check(str_contains($auth, 'private const MAX_LEGACY_TURN_TTL = 10 * MINUTE_IN_SECONDS') && str_contains($auth, '$expires <= $now + self::MAX_LEGACY_TURN_TTL'), 'Round 4: legacy TURN credentials must reject provider expiries beyond the approved short lifetime.');
 
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
