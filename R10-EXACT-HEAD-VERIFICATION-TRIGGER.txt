@@ -1,0 +1,5 @@
+File 17 eighth fresh review — Round 10 exact-head verification trigger.
+
+Source corrected head before this marker: fbe72328485f5cd02ea771f6a9ac44be99208b5d
+Purpose: trigger the repository's standard File 17 Quality workflow without changing runtime code, tests, packaging logic, or deployment state.
+This marker itself is not evidence that CI, staging, or live verification passed.
