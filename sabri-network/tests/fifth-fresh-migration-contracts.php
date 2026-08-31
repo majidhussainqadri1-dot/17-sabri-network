@@ -11,7 +11,12 @@ $l=$read('includes/class-sn-future24-review-hardening.php');
 $check(str_contains($m,"SELECT GET_LOCK(%s,%d)")&&str_contains($m,"SELECT RELEASE_LOCK(%s)"),'R18: schema upgrade must be globally serialized.');
 $check(str_contains($m,'restore_version_snapshot')&&str_contains($m,"'status'=>'failed'")&&str_contains($m,'verify_schema()'),'R18: failed migration must restore schema-version truth and require post-install verification.');
 $check(str_contains($m,'sn_phone_otps_f17_retired')&&str_contains($m,'RENAME TABLE'),'R18: legacy File-17 OTP evidence must be preserved before the old installer retires its table.');
-$check(str_contains($m,"'presence_devices'=>['user_id','device_key','state'")&&str_contains($m,"'transfer_sessions'=>")&&str_contains($m,"'transfer_recipients'=>"),'R18: migration verification must use exact active table/column names.');
+$check(
+    str_contains($m,"SN_DB::table('presence_devices')=>['user_id','device_key','state'")
+    && str_contains($m,"SN_DB::table('transfer_sessions')=>")
+    && str_contains($m,"SN_DB::table('transfer_recipients')=>"),
+    'R18: migration verification must use exact active canonical table resolution and column names.'
+);
 $check(str_contains($a,'SN_Fifth_Fresh_Migration_Hardening::upgrade(true)')&&!str_contains($a,'SN_DB::install();'),'R18: activation must use the governed migration transaction rather than a parallel installer chain.');
 $check(str_contains($a,'SN_File_Transfer::ensure_page(false)')&&str_contains($a,'SN_Smail::ensure_page(false)'),'R18: activation must satisfy required ensure_page boolean signatures.');
 $check(str_contains($p,"'sabri-network-transfers' => 'erase_transfers'")&&str_contains($p,"SN_DB::table('transfer_sessions')")&&str_contains($p,"SN_DB::table('transfer_recipients')"),'R18: transfer privacy override must bind the actual exporter/eraser key and schema.');
