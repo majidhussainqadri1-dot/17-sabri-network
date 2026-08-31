@@ -17,9 +17,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
     public static function enforce(): void {
         $result = self::upgrade(false);
         if (!is_wp_error($result)) return;
-        if (wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST)) {
-            status_header(503);
-        }
+        if (wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST)) status_header(503);
         wp_die(
             esc_html($result->get_error_message()),
             esc_html__('Sabri Network migration unavailable', 'sabri-network'),
@@ -41,14 +39,16 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             self::preserve_legacy_otp_table();
             foreach (self::installers() as [$class,$method]) {
                 $wpdb->last_error = '';
-                $class::$method();
+                $result = $class::$method();
+                if (is_wp_error($result)) throw new RuntimeException($class . '::' . $method . ':' . $result->get_error_code());
+                if ($result === false) throw new RuntimeException($class . '::' . $method . ':returned_false');
                 if ((string)$wpdb->last_error !== '') throw new RuntimeException($class . '::' . $method . ':' . $wpdb->last_error);
             }
             if (!self::verify_schema()) throw new RuntimeException('schema_verification_failed');
             update_option('sn_plugin_version', SN_VERSION, false);
             update_option(self::STATE_OPTION, [
                 'status'=>'complete','from'=>$from,'to'=>SN_VERSION,'completed_at'=>gmdate('c'),
-                'verification'=>'critical-current-wave-tables-and-columns-pass',
+                'verification'=>'all-owned-tables-columns-and-critical-indexes-pass',
             ], false);
             return true;
         } catch (Throwable $e) {
@@ -64,41 +64,116 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         }
     }
 
+    /** Verify every runtime schema surface owned by the installers, plus critical idempotency/concurrency indexes. */
     public static function verify_schema(): bool {
         global $wpdb;
-        // Exact table suffixes/columns below are taken from the active File-17
-        // installers. This is deliberately narrower than a guessed schema manifest:
-        // false verification is worse than refusing an incomplete migration.
         $required = [
-            'conversations'=>['id','type','owner_id','direct_key','status'],
-            'members'=>['conversation_id','user_id','role','left_at'],
-            'messages'=>['conversation_id','sender_id','body','metadata','deleted_at'],
-            'reports'=>['message_id','legal_hold','appeal_status','version'],
-            'calls'=>['conversation_id','call_type','status','active_key'],
-            'call_members'=>['call_id','user_id','status'],
-            'spaces'=>['owner_user_id','conversation_id','type','visibility','state','version'],
-            'space_members'=>['space_id','user_id','role','status','version'],
-            'space_invites'=>['space_id','invitee_id','status','token_hash','version'],
-            'space_join_requests'=>['space_id','requester_id','status','version'],
-            'presence_devices'=>['user_id','device_key','state','expires_at','revoked_at','version'],
-            'high_risk_actions'=>['action_type','requester_id','approver_id','executor_id','status','version'],
-            'conference_providers'=>['provider_key','provider_type','status','version'],
-            'transfer_sessions'=>['public_id','sender_id','total_bytes','status','scan_status','version'],
-            'transfer_chunks'=>['transfer_id','chunk_index','storage_key','sha256'],
-            'transfer_recipients'=>['transfer_id','user_id','state','revoked_at'],
-            'smail_messages'=>['message_id','conversation_id','sender_id','client_key'],
-            'smail_states'=>['smail_message_id','user_id','updated_at'],
-            'smail_drafts'=>['public_id','owner_id','encrypted_payload','payload_hash','version'],
-            'future_records'=>['feature_id','owner_id','scope_type','scope_id','state','payload_cipher'],
-            'conversation_contexts'=>['conversation_id','provider','external_id','attached_by','version'],
-            'cf01_context_refs'=>['conversation_id','context_ref','issued_by','status','version'],
+            SN_DB::table('conversations')=>['id','type','owner_id','direct_key','status'],
+            SN_DB::table('members')=>['conversation_id','user_id','role','left_at'],
+            SN_DB::table('messages')=>['conversation_id','sender_id','idempotency_key','body','metadata','deleted_at'],
+            SN_DB::table('reactions')=>['message_id','user_id','reaction'],
+            SN_DB::table('contacts')=>['user_id','contact_user_id','pair_key','status'],
+            SN_DB::table('follows')=>['follower_id','followed_id','status','version'],
+            SN_DB::table('updates')=>['user_id','body','privacy','expires_at'],
+            SN_DB::table('update_views')=>['update_id','viewer_id','viewed_at'],
+            SN_DB::table('calls')=>['conversation_id','call_type','status','active_key'],
+            SN_DB::table('call_members')=>['call_id','user_id','status'],
+            SN_DB::table('signals')=>['call_id','from_user_id','to_user_id','consumed_at'],
+            SN_DB::table('presence')=>['user_id','status','expires_at'],
+            SN_DB::table('typing')=>['conversation_id','user_id','expires_at'],
+            SN_DB::table('notifications')=>['user_id','type','is_read'],
+            SN_DB::table('blocks')=>['user_id','blocked_user_id'],
+            SN_DB::table('reports')=>['message_id','legal_hold','appeal_status','version','target_type','target_ref','request_fingerprint','appeal_count'],
+            SN_DB::table('attachments')=>['owner_id','storage_key','sha256','deleted_at'],
+            SN_DB::table('rate_limits')=>['bucket','subject_hash','hits','expires_at'],
+            SN_DB::table('audit_log')=>['actor_id','action','object_type','object_id'],
+            SN_DB::table('step_up_grants')=>['grant_uuid','user_id','purpose','token_hash','status'],
+            SN_DB::table('high_risk_actions')=>['action_uuid','action_type','requester_id','approver_id','executor_id','status','version'],
+            SN_DB::table('spaces')=>['owner_user_id','conversation_id','type','visibility','state','version'],
+            SN_DB::table('space_members')=>['space_id','user_id','role','status','version'],
+            SN_DB::table('space_invites')=>['space_id','invitee_id','status','token_hash','version'],
+            SN_DB::table('space_join_requests')=>['space_id','requester_id','status','version'],
+            SN_DB::table('space_bans')=>['space_id','user_id','status','version'],
+            SN_DB::table('space_governance')=>['space_id','actor_id','action','scope_hash'],
+            SN_DB::table('presence_devices')=>['user_id','device_key','state','expires_at','revoked_at','version'],
+            SN_DB::table('message_mentions')=>['message_id','conversation_id','mentioned_user_id'],
+            SN_DB::table('message_pins')=>['conversation_id','message_id','pinned_by'],
+            SN_DB::table('message_stars')=>['user_id','message_id'],
+            SN_DB::table('message_folders')=>['user_id','slug','version'],
+            SN_DB::table('message_folder_items')=>['folder_id','user_id','conversation_id'],
+            SN_DB::table('message_hides')=>['user_id','message_id','hidden_at'],
+            SN_DB::table('conversation_contexts')=>['conversation_id','provider','external_id','attached_by','version'],
+            SN_DB::table('cf01_context_refs')=>['conversation_id','context_ref','issued_by','status','version'],
+            SN_DB::table('conference_providers')=>['provider_key','provider_type','status','version'],
+            SN_DB::table('message_receipts')=>['message_id','conversation_id','user_id','device_key','updated_at'],
+            SN_DB::table('transfer_sessions')=>['public_id','sender_id','total_bytes','status','scan_status','version'],
+            SN_DB::table('transfer_chunks')=>['transfer_id','chunk_index','storage_key','sha256'],
+            SN_DB::table('transfer_recipients')=>['transfer_id','user_id','state','revoked_at'],
+            SN_DB::table('smail_messages')=>['message_id','conversation_id','sender_id','client_key'],
+            SN_DB::table('smail_states')=>['smail_message_id','user_id','updated_at'],
+            SN_DB::table('smail_drafts')=>['public_id','owner_id','encrypted_payload','payload_hash','version'],
+            SN_DB::table('message_search_tokens')=>['message_id','conversation_id','token_hash','key_epoch'],
+            SN_DB::table('event_outbox')=>['event_uuid','event_key','event_type','status','version'],
+            SN_DB::table('event_inbox')=>['producer','event_uuid','payload_hash','status'],
+            $wpdb->prefix.'sn_meet_meetings'=>['public_id','host_id','conversation_id','status','idempotency_key','version'],
+            $wpdb->prefix.'sn_meet_participants'=>['meeting_id','user_id','role','state','version'],
+            $wpdb->prefix.'sn_meet_sessions'=>['meeting_id','user_id','session_hash','state'],
+            $wpdb->prefix.'sn_meet_signals'=>['meeting_id','from_user_id','to_user_id','expires_at'],
+            $wpdb->prefix.'sn_meet_events'=>['meeting_id','actor_id','event_type'],
+            SN_DB::table('message_requests')=>['requester_id','recipient_id','pair_key','client_key','status','version'],
+            SN_DB::table('scheduled_messages')=>['conversation_id','sender_id','client_key','status','deliver_at'],
+            SN_DB::table('poll_votes')=>['message_id','user_id','option_index'],
+            SN_DB::table('community_settings')=>['space_id','rules_version','updated_by'],
+            SN_DB::table('community_artifacts')=>['space_id','type','author_id','status','version'],
+            SN_DB::table('community_responses')=>['artifact_id','user_id','status','version'],
+            SN_DB::table('two_plan_idempotency')=>['scope_key','actor_id','method','route_hash','request_hash','state'],
+            $wpdb->prefix.'sn_future_records'=>['feature_id','owner_id','scope_type','scope_id','state','payload_cipher','client_key'],
+            $wpdb->prefix.'sn_future_device_keys'=>['user_id','device_id','fingerprint','state','revoked_at'],
+            $wpdb->prefix.'sn_future_key_log'=>['user_id','device_id','event','entry_hash'],
+            $wpdb->prefix.'sn_future_message_versions'=>['message_id','conversation_id','editor_id','revision','body_cipher'],
         ];
-        foreach ($required as $name=>$columns) {
-            $table = SN_DB::table($name);
-            $exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
-            if ($exists !== $table) return false;
-            $actual = array_map('strval', $wpdb->get_col('SHOW COLUMNS FROM `' . esc_sql($table) . '`', 0)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-            foreach ($columns as $column) if (!in_array($column,$actual,true)) return false;
+        foreach ($required as $table=>$columns) {
+            if (!self::table_has_columns((string)$table,$columns)) return false;
+        }
+
+        $indexes = [
+            [SN_DB::table('conversations'),'direct_key',true],
+            [SN_DB::table('members'),'conversation_user',true],
+            [SN_DB::table('messages'),'idempotency_key',true],
+            [SN_DB::table('contacts'),'pair_key',true],
+            [SN_DB::table('follows'),'follower_followed',true],
+            [SN_DB::table('calls'),'active_key',true],
+            [SN_DB::table('call_members'),'call_user',true],
+            [SN_DB::table('blocks'),'user_blocked',true],
+            [SN_DB::table('reports'),'reporter_client',true],
+            [SN_DB::table('reports'),'target_ref_created',false],
+            [SN_DB::table('rate_limits'),'bucket_subject',true],
+            [SN_DB::table('step_up_grants'),'grant_uuid',true],
+            [SN_DB::table('step_up_grants'),'token_hash',true],
+            [SN_DB::table('high_risk_actions'),'action_uuid',true],
+            [SN_DB::table('spaces'),'public_id',true],
+            [SN_DB::table('spaces'),'slug',true],
+            [SN_DB::table('space_members'),'space_user',true],
+            [SN_DB::table('space_invites'),'active_key',true],
+            [SN_DB::table('space_join_requests'),'active_key',true],
+            [SN_DB::table('space_bans'),'space_user',true],
+            [SN_DB::table('message_receipts'),'message_user_device',true],
+            [SN_DB::table('event_outbox'),'event_key',true],
+            [SN_DB::table('event_outbox'),'event_uuid',true],
+            [SN_DB::table('event_inbox'),'producer_event',true],
+            [$wpdb->prefix.'sn_meet_meetings','public_id',true],
+            [$wpdb->prefix.'sn_meet_meetings','host_request',true],
+            [$wpdb->prefix.'sn_meet_participants','meeting_user',true],
+            [$wpdb->prefix.'sn_meet_sessions','meeting_session',true],
+            [SN_DB::table('message_requests'),'client_key',true],
+            [SN_DB::table('scheduled_messages'),'client_key',true],
+            [SN_DB::table('poll_votes'),'message_user',true],
+            [$wpdb->prefix.'sn_future_records','client_key',true],
+            [$wpdb->prefix.'sn_future_device_keys','user_device',true],
+            [$wpdb->prefix.'sn_future_message_versions','message_revision',true],
+        ];
+        foreach ($indexes as [$table,$index,$unique]) {
+            if (!self::index_matches((string)$table,(string)$index,(bool)$unique)) return false;
         }
         return true;
     }
@@ -111,8 +186,41 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             [SN_Conference_Provider::class,'install'], [SN_Messages::class,'install'],
             [SN_File_Transfer::class,'install'], [SN_Smail::class,'install'], [SN_Message_Search::class,'install'],
             [SN_Outbox::class,'install'], [SN_Meet::class,'install'], [SN_Two_Plan_Completion::class,'install'],
-            [SN_Future_Superset::class,'install'],
+            [SN_Two_Plan_Contract_Firewall::class,'install'], [SN_Future_Superset::class,'install'],
+            [self::class,'install_r14_schema'],
         ];
+    }
+
+    /** Bring the late R14 reports schema inside the same migration lock and fail-closed completion truth. */
+    private static function install_r14_schema(): bool|WP_Error {
+        if (!self::verify_r14_schema()) delete_option('sn_r14_safety_schema_version');
+        SN_Seventh_Fresh_R14_Hardening::maybe_upgrade_schema();
+        return self::verify_r14_schema()
+            ? true
+            : new WP_Error('sn_r14_schema_incomplete','The R14 report-safety schema did not verify.',['status'=>503]);
+    }
+
+    private static function verify_r14_schema(): bool {
+        global $wpdb;
+        $table=SN_DB::table('reports');
+        return self::table_has_columns($table,['target_type','target_ref','request_fingerprint','appeal_count'])
+            && self::index_matches($table,'target_ref_created',false);
+    }
+
+    private static function table_has_columns(string $table,array $columns): bool {
+        global $wpdb;
+        $exists=(string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($table)));
+        if($exists!==$table)return false;
+        $actual=array_map('strval',$wpdb->get_col('SHOW COLUMNS FROM `'.esc_sql($table).'`',0)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        foreach($columns as $column)if(!in_array((string)$column,$actual,true))return false;
+        return true;
+    }
+
+    private static function index_matches(string $table,string $index,bool $unique): bool {
+        global $wpdb;
+        $row=$wpdb->get_row($wpdb->prepare('SHOW INDEX FROM `'.esc_sql($table).'` WHERE Key_name=%s LIMIT 1',$index)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        if(!$row)return false;
+        return !$unique || (int)$row->Non_unique===0;
     }
 
     /** Preserve legacy File-17 OTP data for rollback evidence before the old installer retires its table. */
@@ -132,10 +240,10 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         $keys = [
             'sn_plugin_version','sn_db_version','sn_high_risk_schema_version','sn_spaces_schema_version',
             'sn_presence_devices_schema_version','sn_message_operations_schema_version','sn_context_adapters_schema_version',
-            'sn_cf01_context_schema_version','sn_conference_provider_schema_version','sn_messages_schema_version',
+            'sn_cf01_context_schema_version','sn_conference_provider_schema_version','sn_messages_schema_version','sn_message_receipts_schema_version',
             'sn_file_transfer_schema_version','sn_smail_schema_version','sn_message_search_schema_version',
-            'sn_event_delivery_schema_version','sn_meet_db_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_future_schema_version',
-            'sn_future_superset_schema_version','sn_central_plan_schema_version',
+            'sn_event_delivery_schema_version','sn_meet_db_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_two_plan_firewall_schema_version','sn_future_schema_version',
+            'sn_future_superset_schema_version','sn_central_plan_schema_version','sn_r14_safety_schema_version',
         ];
         $sentinel = new stdClass();
         $out=[];
