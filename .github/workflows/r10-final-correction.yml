@@ -54,12 +54,13 @@ jobs:
           bash -n sabri-network/tools/quality-check.sh
           php sabri-network/tests/eighth-fresh/eighth-fresh-ten-round-contracts.php
           bash sabri-network/tools/quality-check.sh
-      - name: Commit durable R10 corrections only
+      - name: Commit non-workflow durable R10 corrections
         run: |
           set -euo pipefail
-          git rm -f .github/scripts/r10-correction.sh .github/workflows/r10-final-correction.yml
+          git checkout HEAD -- .github/workflows/quality.yml .github/workflows/r10-final-correction.yml
+          git rm -f .github/scripts/r10-correction.sh
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'File 17 eighth review R10: final integrated fail-closed closure'
+          git commit -m 'File 17 eighth review R10: durable non-workflow correction closure'
           git push origin HEAD:review/file17-eighth-fresh-10-round-2026-08-31
