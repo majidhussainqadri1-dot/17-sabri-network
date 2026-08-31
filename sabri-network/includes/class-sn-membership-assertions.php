@@ -8,11 +8,11 @@ final class SN_Membership_Assertions {
     private static array $cache = [];
 
     public static function register(): void {
-        add_filter('sn_network_identity_authority_available', [self::class, 'filter_authority_available'], PHP_INT_MIN);
-        add_filter('sn_network_user_can_access', [self::class, 'filter_access'], PHP_INT_MIN, 2);
-        add_filter('sn_network_user_is_suspended', [self::class, 'filter_suspended'], PHP_INT_MIN, 2);
-        add_filter('sn_network_user_age_state', [self::class, 'filter_age_state'], PHP_INT_MIN, 2);
-        add_filter('sn_network_guardian_consent_valid', [self::class, 'filter_guardian'], PHP_INT_MIN, 2);
+        add_filter('sn_network_identity_authority_available', [self::class, 'filter_authority_available'], PHP_INT_MAX);
+        add_filter('sn_network_user_can_access', [self::class, 'filter_access'], PHP_INT_MAX, 2);
+        add_filter('sn_network_user_is_suspended', [self::class, 'filter_suspended'], PHP_INT_MAX, 2);
+        add_filter('sn_network_user_age_state', [self::class, 'filter_age_state'], PHP_INT_MAX, 2);
+        add_filter('sn_network_guardian_consent_valid', [self::class, 'filter_guardian'], PHP_INT_MAX, 2);
     }
 
     public static function available(): bool {
