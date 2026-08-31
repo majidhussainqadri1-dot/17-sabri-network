@@ -15,6 +15,7 @@ $policy = $read('includes/class-sn-policy.php');
 $routeOwner = $read('includes/class-sn-future24-review-hardening.php');
 $keyRoutes = $read('includes/class-sn-future24-review-hardening-j.php');
 $reminderRoutes = $read('includes/class-sn-future24-review-hardening-m.php');
+$migration = $read('includes/class-sn-fifth-fresh-migration-hardening.php');
 
 // Round 1 — File 00 must be the final fail-closed authority and every high-level
 // authorization decision must start from a fresh assertion snapshot.
@@ -63,6 +64,22 @@ foreach (['/future/device-keys','/future/mentorships','/future/reminders'] as $p
 }
 $check(str_contains($keyRoutes, "'/future/device-keys',[['methods'=>'GET'") && str_contains($keyRoutes, "['methods'=>'POST'"), 'Round 2: device-key hardening must not erase its GET sibling method.');
 $check(str_contains($reminderRoutes, "'/future/reminders',[['methods'=>'GET'") && str_contains($reminderRoutes, "['methods'=>'POST'"), 'Round 2: reminder hardening must not erase its GET sibling method.');
+
+// Round 3 — migration completion truth must cover every owned schema wave and critical DB constraints.
+foreach (['message_receipts','message_mentions','message_pins','message_stars','message_folders','message_folder_items','message_hides','event_outbox','event_inbox','message_requests','scheduled_messages','poll_votes','community_settings','community_artifacts','community_responses','two_plan_idempotency'] as $table) {
+    $check(str_contains($migration, "SN_DB::table('{$table}')"), "Round 3: central migration verification must include {$table}.");
+}
+foreach (['sn_meet_meetings','sn_meet_participants','sn_meet_sessions','sn_meet_signals','sn_meet_events','sn_future_records','sn_future_device_keys','sn_future_key_log','sn_future_message_versions'] as $table) {
+    $check(str_contains($migration, $table), "Round 3: central migration verification must include {$table}.");
+}
+$check(str_contains($migration, "[SN_Two_Plan_Contract_Firewall::class,'install']") && str_contains($migration, "[self::class,'install_r14_schema']"), 'Round 3: late firewall and R14 schemas must execute inside the central migration lock.');
+$check(str_contains($migration, "'target_type','target_ref','request_fingerprint','appeal_count'"), 'Round 3: reports schema verification must include every R14 safety column.');
+$check(str_contains($migration, "'target_ref_created',false") && str_contains($migration, "private static function index_matches"), 'Round 3: R14 index and critical indexes must be verified before completion.');
+foreach (['direct_key','conversation_user','idempotency_key','reporter_client','bucket_subject','action_uuid','space_user','message_user_device','event_key','producer_event','host_request','message_revision'] as $index) {
+    $check(str_contains($migration, "'{$index}'"), "Round 3: migration constraint manifest must verify {$index}.");
+}
+$check(str_contains($migration, "'verification'=>'all-owned-tables-columns-and-critical-indexes-pass'"), 'Round 3: migration state must only publish complete after full schema/constraint verification.');
+$check(str_contains($migration, "'sn_two_plan_firewall_schema_version'") && str_contains($migration, "'sn_message_receipts_schema_version'") && str_contains($migration, "'sn_r14_safety_schema_version'"), 'Round 3: rollback snapshot must include late/current schema version markers.');
 
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
