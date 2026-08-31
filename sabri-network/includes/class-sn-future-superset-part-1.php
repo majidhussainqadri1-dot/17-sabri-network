@@ -3,7 +3,10 @@ declare(strict_types=1); defined('ABSPATH') || exit;
 trait SN_Future_Superset_Part_1 {
     public static function capabilities(): WP_REST_Response {
         $provider=(array)apply_filters('sn_network_e2ee_provider_status',[]); $items=[];
-        foreach(self::features() as $id=>$f){$status='available'; if($id==='F17-FUT-01'&&(empty($provider['ready'])||empty($provider['audited'])))$status='provider-gated'; if(in_array($id,['F17-FUT-02','F17-FUT-03'],true)&&!has_filter('sn_network_device_public_key_valid'))$status='provider-gated'; if($id==='F17-FUT-22'&&!has_filter('sn_network_ai_assistant_result'))$status='provider-gated'; if($id==='F17-FUT-23'&&!has_filter('sn_network_private_semantic_search_result'))$status='provider-gated'; if(in_array($id,['F17-FUT-17','F17-FUT-18','F17-FUT-19','F17-FUT-20'],true)&&!(bool)apply_filters('sn_network_sfu_available',false,get_current_user_id(),0))$status='provider-gated'; $items[]=['id'=>$id]+$f+['status'=>$status];}
+        $device_ready=has_filter('sn_network_device_public_key_valid') && apply_filters('sn_network_device_key_provider_ready',false)===true;
+        $ai_ready=has_filter('sn_network_ai_assistant_result') && has_filter('sn_network_ai_context_authorized') && has_filter('sn_network_ai_context_redact') && apply_filters('sn_network_ai_provider_ready',false)===true;
+        $semantic_ready=has_filter('sn_network_private_semantic_search_result') && apply_filters('sn_network_private_semantic_provider_ready',false)===true;
+        foreach(self::features() as $id=>$f){$status='available'; if($id==='F17-FUT-01'&&(empty($provider['ready'])||empty($provider['audited'])))$status='provider-gated'; if(in_array($id,['F17-FUT-02','F17-FUT-03'],true)&&!$device_ready)$status='provider-gated'; if($id==='F17-FUT-22'&&!$ai_ready)$status='provider-gated'; if($id==='F17-FUT-23'&&!$semantic_ready)$status='provider-gated'; if(in_array($id,['F17-FUT-17','F17-FUT-18','F17-FUT-19','F17-FUT-20'],true)&&!(bool)apply_filters('sn_network_sfu_available',false,get_current_user_id(),0))$status='provider-gated'; $items[]=['id'=>$id]+$f+['status'=>$status];}
         return rest_ensure_response(['schema_version'=>self::SCHEMA_VERSION,'feature_count'=>self::FEATURE_COUNT,'items'=>$items]);
     }
     public static function set_e2ee_policy(WP_REST_Request $r): WP_REST_Response|WP_Error {

@@ -224,8 +224,11 @@ final class SN_Seventh_Fresh_R13_Hardening {
     }
 
     public static function file19_ready(): bool {
+        // A listener may be an observer only. File 19 must explicitly declare that
+        // its delivery adapter is ready before File 17 reports a connected fabric.
         $listener = has_action('sn_network_notification_requested') !== false;
-        return (bool) apply_filters('sn_network_file19_notification_adapter_ready', $listener);
+        $declared_ready = apply_filters('sn_network_file19_notification_adapter_ready', false);
+        return $listener && $declared_ready === true;
     }
 
     private static function conversation_authorized(int $conversation, int $actor, string $context): bool|WP_Error {

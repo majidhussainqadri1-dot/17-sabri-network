@@ -22,6 +22,10 @@ $outbox = $read('includes/class-sn-outbox.php');
 $firewall = $read('includes/class-sn-two-plan-contract-firewall.php');
 $privacyR15 = $read('includes/class-sn-seventh-fresh-r15-privacy-hardening.php');
 $integrationPrivacy = $read('includes/class-sn-fifth-fresh-integration-hardening.php');
+$interop = $read('includes/class-sn-fourth-fresh-interop-hardening.php');
+$futureCapabilities = $read('includes/class-sn-future-superset-part-1.php');
+$twoPlan = $read('includes/class-sn-two-plan-completion.php');
+$realtimeR13 = $read('includes/class-sn-seventh-fresh-r13-hardening.php');
 
 // Round 1 — File 00 must be the final fail-closed authority and every high-level
 // authorization decision must start from a fresh assertion snapshot.
@@ -121,6 +125,12 @@ $check(str_contains($privacyR15, 'privacy_hold_verification_failed') && str_cont
 $check(str_contains($privacyR15, "case 'sabri-network-contexts'") && str_contains($privacyR15, "case 'sabri-network-two-plan-idempotency'"), 'Round 8: terminal completion verification must cover context attribution and idempotency-cache rows.');
 $check(str_contains($integrationPrivacy, '$raw_ids = $wpdb->get_col') && str_contains($integrationPrivacy, "$wpdb->last_error !== ''"), 'Round 8: context erasure enumeration failure must not become a false done result.');
 $check(str_contains($firewall, 'Communication request-cache erasure failed and must be retried.') && str_contains($firewall, "$remaining = $wpdb->get_var"), 'Round 8: idempotency-cache erasure must verify both delete success and completion.');
+
+// Round 9 — external readiness and delivery state require explicit provider acknowledgement.
+$check(str_contains($realtimeR13, "$declared_ready = apply_filters('sn_network_file19_notification_adapter_ready', false)") && str_contains($realtimeR13, 'return $listener && $declared_ready === true;'), 'Round 9: File 19 readiness must be explicitly declared, not inferred from an observer listener.');
+$check(str_contains($twoPlan, "sn_network_translation_provider_ready") && !str_contains($twoPlan, "'approved_translation_provider'=>has_filter('sn_network_translate_message')"), 'Round 9: translation status must not equate callback presence with approved-provider readiness.');
+$check(str_contains($futureCapabilities, 'sn_network_device_key_provider_ready') && str_contains($futureCapabilities, 'sn_network_ai_provider_ready') && str_contains($futureCapabilities, 'sn_network_private_semantic_provider_ready'), 'Round 9: Future capability availability must require explicit provider readiness.');
+$check(str_contains($interop, "sn_network_interop_inbound_delivery_result") && str_contains($interop, '$ack !== true') && str_contains($interop, 'future_interop_inbound_delivery_unacknowledged'), 'Round 9: inbound interoperability receipts must remain retryable until the consumer explicitly acknowledges delivery.');
 
 if ($fail) {
     fwrite(STDERR, "Eighth fresh 10-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");

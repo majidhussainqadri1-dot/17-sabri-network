@@ -217,12 +217,18 @@ final class SN_Fourth_Fresh_Interop_Hardening {
         if (!has_action('sn_network_interop_inbound_accepted')) return self::error('sn_interop_consumer_unavailable','No approved inbound interoperability consumer is registered; the receipt remains pending.',503);
         $payload = is_array($data['sanitized_payload'] ?? null) ? $data['sanitized_payload'] : [];
         if (!$payload) return self::error('sn_interop_payload_unavailable','The sanitized inbound payload is unavailable.',503);
+        $event = [
+            'bridge_id'=>(int)($data['bridge_id']??0),'conversation_id'=>(int)$receipt->scope_id,
+            'external_event_id_hash'=>(string)($data['external_event_id_hash']??''),'sanitized_payload'=>$payload,
+            'receipt_id'=>(int)$receipt->id,'consumer_idempotency_key'=>'interop-receipt:' . (int)$receipt->id,
+        ];
         try {
-            do_action('sn_network_interop_inbound_accepted', [
-                'bridge_id'=>(int)($data['bridge_id']??0),'conversation_id'=>(int)$receipt->scope_id,
-                'external_event_id_hash'=>(string)($data['external_event_id_hash']??''),'sanitized_payload'=>$payload,
-                'receipt_id'=>(int)$receipt->id,'consumer_idempotency_key'=>'interop-receipt:' . (int)$receipt->id,
-            ]);
+            do_action('sn_network_interop_inbound_accepted', $event);
+            $ack = apply_filters('sn_network_interop_inbound_delivery_result', null, $event, $receipt, $data);
+            if ($ack !== true) {
+                SN_DB::audit('future_interop_inbound_delivery_unacknowledged','conversation',(int)$receipt->scope_id,'failure',['receipt_id'=>(int)$receipt->id],0);
+                return self::error('sn_interop_inbound_retry_required','Inbound acceptance is persisted but the approved consumer did not acknowledge delivery; retry the same event identifier.',503);
+            }
         } catch (Throwable $e) {
             SN_DB::audit('future_interop_inbound_delivery_failed','conversation',(int)$receipt->scope_id,'failure',['receipt_id'=>(int)$receipt->id,'reason_hash'=>hash('sha256',$e->getMessage())],0);
             return self::error('sn_interop_inbound_retry_required','Inbound acceptance is persisted but local delivery failed; retry the same event identifier.',503);
