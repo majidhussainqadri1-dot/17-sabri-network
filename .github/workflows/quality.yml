@@ -44,6 +44,7 @@ jobs:
           done
           node --check sabri-network/assets/js/future-superset.js
           node --check sabri-network/assets/js/fifth-fresh-ui.js
+          node --check sabri-network/assets/js/round20-correction.js
           python3 - <<'PY'
           from pathlib import Path
           css=Path('sabri-network/assets/css/future-superset.css').read_text(encoding='utf-8')
