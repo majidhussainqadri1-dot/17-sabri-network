@@ -123,11 +123,11 @@ final class SN_Two_Plan_Contract_Firewall {
                 ));
                 if ($released !== 1) {
                     $fresh = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE scope_key=%s', $scope_key));
-                    return $fresh ? self::existing_result($fresh, $request_hash, $scope_key) : new WP_Error('sn_idempotency_recovery_failed', 'The stale mutation reservation could not be reconciled safely.', ['status'=>503]);
+                    return $fresh ? self::existing_result($fresh, $request_hash, $scope_key, $request) : new WP_Error('sn_idempotency_recovery_failed', 'The stale mutation reservation could not be reconciled safely.', ['status'=>503]);
                 }
                 SN_DB::audit('idempotency_stale_reservation_released','two_plan_idempotency',0,'success',['scope_hash'=>hash('sha256',$scope_key)],$actor);
             } else {
-                return self::existing_result($existing, $request_hash, $scope_key);
+                return self::existing_result($existing, $request_hash, $scope_key, $request);
             }
         }
 
@@ -145,7 +145,7 @@ final class SN_Two_Plan_Contract_Firewall {
         ]);
         if ($inserted === false) {
             $race = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE scope_key=%s', $scope_key));
-            return $race ? self::existing_result($race, $request_hash, $scope_key) : new WP_Error('sn_idempotency_reservation_failed', 'The mutation could not reserve an idempotency record.', ['status' => 503]);
+            return $race ? self::existing_result($race, $request_hash, $scope_key, $request) : new WP_Error('sn_idempotency_reservation_failed', 'The mutation could not reserve an idempotency record.', ['status' => 503]);
         }
 
         $request->set_param('_sn_two_plan_scope_key', $scope_key);
@@ -187,13 +187,25 @@ final class SN_Two_Plan_Contract_Firewall {
         return $response;
     }
 
-    private static function existing_result(object $existing, string $request_hash, string $scope_key) {
+    private static function existing_result(object $existing, string $request_hash, string $scope_key, WP_REST_Request $request) {
         if (!hash_equals((string) $existing->request_hash, $request_hash)) return new WP_Error('sn_idempotency_key_reused', 'The same Idempotency-Key cannot be reused with a different request.', ['status' => 409]);
         if ((string) $existing->state !== 'complete') {
             return self::processing_stale($existing)
                 ? new WP_Error('sn_idempotency_recovery_required', 'The prior mutation reservation expired and must be reconciled by retry.', ['status'=>503])
                 : new WP_Error('sn_idempotency_in_progress', 'A request with this Idempotency-Key is already processing.', ['status' => 409]);
         }
+        // rest_pre_dispatch runs before the route callback's object-level authorization.
+        // Never decrypt/replay a previously successful private response merely because
+        // the same account still owns the idempotency key. Membership, role, block,
+        // guardian or object state may have changed since the original mutation.
+        $authorized = apply_filters('sn_network_idempotency_replay_authorized', false, $request, (int)$existing->actor_id, $scope_key);
+        if ($authorized !== true) {
+            return new WP_REST_Response([
+                'idempotent_replay' => true,
+                'refetch_required' => true,
+            ], max(200, min(299, (int)$existing->response_code)));
+        }
+
         $plain = SN_Communication_Crypto::decrypt((string) $existing->response_cipher, 'two-plan-idempotency|'.$scope_key);
         if (is_wp_error($plain)) return new WP_Error('sn_idempotency_replay_unavailable', 'The prior result cannot be replayed safely.', ['status' => 503]);
         $data = json_decode((string) $plain, true);

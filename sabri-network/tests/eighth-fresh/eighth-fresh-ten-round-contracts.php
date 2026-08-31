@@ -146,7 +146,7 @@ $check(str_contains($round20, 'if ($wpdb->last_error !== \'\') return new WP_Err
 $check(str_contains($lifecycle, 'private static function legal_hold(int $id): bool|WP_Error') && str_contains($lifecycle, 'is_wp_error($hold)') && str_contains($lifecycle, 'sn_legal_hold_verification_failed'), 'Round 10: disappearing-message expiry must fail closed when hold state cannot be read.');
 $check(str_contains($quality, 'assets/js/round20-correction.js') && str_contains($quality, 'eighth-fresh/eighth-fresh-ten-round-contracts.php'), 'Round 10: the self-contained quality gate must include the active Round-20 JavaScript and current eighth-fresh regression suite.');
 $check(str_contains($quality, "find tests -type f -name '*.php' -printf '%P\\n'"), 'Round 10: review-suite inventory must recursively account for nested permanent suites.');
-$check(str_contains($cycleId, 'FILE17-EIGHTH-FRESH-10-ROUND') && str_contains($qaInventory, '10 JavaScript') && str_contains($qaInventory, '55 PHP review suites'), 'Round 10: packaged cycle/QA inventory must describe the current eighth-fresh candidate.');
+$check(str_contains($cycleId, 'FILE17-EIGHTH-FRESH-10-ROUND') && str_contains($qaInventory, '10 JavaScript') && str_contains($qaInventory, '56 PHP review suites'), 'Round 10: packaged cycle/QA inventory must describe the current eighth-fresh candidate.');
 $check(str_contains($systemStatus, 'Eighth fresh 10-round cycle') && !str_contains($systemStatus, 'current sixth-cycle corrective source') && str_contains($candidateBoundary, 'eighth fresh 10-round cycle'), 'Round 10: packaged repository-state documents must not identify an older review cycle as current.');
 
 if ($fail) {

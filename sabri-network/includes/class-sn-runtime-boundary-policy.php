@@ -12,6 +12,7 @@ final class SN_Runtime_Boundary_Policy {
     public static function register(): void {
         add_filter('sn_network_private_storage_dir', [self::class, 'validate_private_storage_dir'], PHP_INT_MAX, 1);
         add_filter('rest_pre_dispatch', [self::class, 'pre_dispatch_access_gate'], -30000, 3);
+        add_filter('rest_pre_dispatch', [self::class, 'final_identity_gate'], PHP_INT_MAX, 3);
         add_action('init', [self::class, 'reconcile_search_epoch'], 11);
         add_action(self::SEARCH_CONTINUE_HOOK, [self::class, 'continue_search_rebuild']);
         add_action('sn_cleanup_hourly', [self::class, 'finish_search_rebuild'], 9999);
@@ -75,6 +76,28 @@ final class SN_Runtime_Boundary_Policy {
             ));
             if ($space_id > 0) {
                 return new WP_Error('space_ownership_managed', 'Transfer ownership through the canonical File-17 space ownership workflow.', ['status' => 409]);
+            }
+        }
+        return $result;
+    }
+
+    /** Final action-time identity check after all File-17 pre-dispatch locks and caches. */
+    public static function final_identity_gate($result, WP_REST_Server $server, WP_REST_Request $request) {
+        $route = $request->get_route();
+        if (!str_starts_with($route, '/sabri-network/v2/')) return $result;
+        $method = strtoupper($request->get_method());
+        if (in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) return $result;
+
+        // SN_Policy::access() clears the process-local File-00 assertion cache before
+        // evaluating eligibility/suspension, so a state change during GET_LOCK or
+        // idempotency processing cannot reach the mutation callback on stale truth.
+        $access = SN_Policy::access();
+        if (is_wp_error($access)) return $access;
+
+        if (str_starts_with($route, '/sabri-network/v2/admin/high-risk-actions')) {
+            $admin = SN_REST::admin_access();
+            if (is_wp_error($admin) || $admin !== true) {
+                return is_wp_error($admin) ? $admin : new WP_Error('forbidden', 'Administrator access is required.', ['status' => 403]);
             }
         }
         return $result;
