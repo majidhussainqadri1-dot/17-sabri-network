@@ -49,7 +49,11 @@ final class SN_Future24_Review_Hardening_M {
                 continue;
             }
 
-            $claimed=$wpdb->query($wpdb->prepare("UPDATE $table SET state='firing',updated_at=%s,version=version+1 WHERE id=%d AND version=%d AND %s",$now,(int)$row->id,(int)$row->version,(string)$row->state==='active'?"state='active'":"state='firing'"));
+            if((string)$row->state==='active'){
+                $claimed=$wpdb->query($wpdb->prepare("UPDATE $table SET state='firing',updated_at=%s,version=version+1 WHERE id=%d AND version=%d AND state='active'",$now,(int)$row->id,(int)$row->version));
+            }else{
+                $claimed=$wpdb->query($wpdb->prepare("UPDATE $table SET updated_at=%s,version=version+1 WHERE id=%d AND version=%d AND state='firing' AND updated_at<=%s",$now,(int)$row->id,(int)$row->version,$retry_cutoff));
+            }
             if($claimed!==1)continue;
             $claimed_version=(int)$row->version+1;
             $event=['owner'=>'file-17','recipient_id'=>$user,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>$conversation,'message_id'=>$message,'idempotency_key'=>'file17-future-reminder:'.(int)$row->id];
