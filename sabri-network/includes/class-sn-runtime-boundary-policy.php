@@ -146,7 +146,14 @@ final class SN_Runtime_Boundary_Policy {
         if (!class_exists('SN_Message_Search') || !class_exists('SN_DB')) return;
         global $wpdb;
         $table = SN_DB::table('message_search_tokens');
-        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) !== $table) return;
+        $table_probe = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+        if ($wpdb->last_error !== '') {
+            update_option(self::SEARCH_ERROR_OPTION, 'table_probe_failed', false);
+            update_option(self::SEARCH_REBUILD_OPTION, true, false);
+            SN_DB::audit('message_search_table_probe_failed', 'message_search', 0, 'failure', ['reason'=>(string)$wpdb->last_error], 0);
+            return;
+        }
+        if ($table_probe !== $table) return;
         $current = self::search_epoch();
         $stored = (string) get_option(self::SEARCH_EPOCH_OPTION, '');
         if ($stored !== $current) {
@@ -175,7 +182,13 @@ final class SN_Runtime_Boundary_Policy {
         if (!(bool) get_option(self::SEARCH_REBUILD_OPTION, false) || !class_exists('SN_DB')) return;
         global $wpdb;
         $after = max(0, (int) get_option('sn_message_search_backfill_after', 0));
-        $remaining = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . SN_DB::table('messages') . ' WHERE id>%d LIMIT 1', $after));
+        $remaining_raw = $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM ' . SN_DB::table('messages') . ' WHERE id>%d LIMIT 1', $after));
+        if ($wpdb->last_error !== '') {
+            update_option(self::SEARCH_ERROR_OPTION, 'remaining_count_failed', false);
+            SN_DB::audit('message_search_rebuild_count_failed', 'message_search', 0, 'failure', ['reason'=>(string)$wpdb->last_error,'cursor'=>$after], 0);
+            return;
+        }
+        $remaining = (int) $remaining_raw;
         if ($remaining === 0) {
             update_option('sn_message_search_backfill_after', 0, false);
             update_option(self::SEARCH_REBUILD_OPTION, false, false);
@@ -184,7 +197,13 @@ final class SN_Runtime_Boundary_Policy {
             return;
         }
         if (!wp_next_scheduled(self::SEARCH_CONTINUE_HOOK)) {
-            wp_schedule_single_event(time() + MINUTE_IN_SECONDS, self::SEARCH_CONTINUE_HOOK);
+            $scheduled = wp_schedule_single_event(time() + MINUTE_IN_SECONDS, self::SEARCH_CONTINUE_HOOK, [], true);
+            if (is_wp_error($scheduled) || $scheduled === false) {
+                update_option(self::SEARCH_ERROR_OPTION, 'continuation_schedule_failed', false);
+                SN_DB::audit('message_search_rebuild_schedule_failed', 'message_search', 0, 'failure', [
+                    'reason'=>is_wp_error($scheduled)?$scheduled->get_error_code():'schedule_returned_false','cursor'=>$after,
+                ], 0);
+            }
         }
     }
 

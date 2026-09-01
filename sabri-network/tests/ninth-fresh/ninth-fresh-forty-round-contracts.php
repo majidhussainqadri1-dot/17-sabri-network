@@ -77,6 +77,14 @@ $check(str_contains($central, 'SN_Seventh_Fresh_R13_Hardening::file19_ready()') 
 $check(str_contains($central, 'sn_network_notification_delivery_result') && str_contains($central, 'notification_file19_handoff_unacknowledged') && str_contains($central, 'missing_explicit_ack'), 'Round 17: generic notification handoff success requires explicit File 19 acknowledgement.');
 $check(str_contains($central, 'file17-notification:') && str_contains($central, 'idempotency_key_hash') && str_contains($central, 'notification_deferred_to_file19') && str_contains($central, "'success'"), 'Round 17: File 19 handoffs carry stable evidence and success is recorded only on the acknowledged path.');
 
+
+// Round 18 — private-search DB/rebuild truth fails closed.
+$search = $read('includes/class-sn-message-search.php');
+$boundary = $read('includes/class-sn-runtime-boundary-policy.php');
+$check(str_contains($search, 'search_snapshot_unavailable') && str_contains($search, 'search_context_unavailable') && str_contains($search, 'message_search_cleanup_read_failed'), 'Round 18: search DB read failures must not become valid empty/not-found responses.');
+$check(str_contains($boundary, 'remaining_count_failed') && str_contains($boundary, 'message_search_rebuild_count_failed') && str_contains($boundary, '$remaining_raw'), 'Round 18: rebuild completion count failure must never become zero remaining rows.');
+$check(str_contains($boundary, 'continuation_schedule_failed') && str_contains($boundary, 'message_search_rebuild_schedule_failed') && str_contains($boundary, 'wp_schedule_single_event(time() + MINUTE_IN_SECONDS, self::SEARCH_CONTINUE_HOOK, [], true)'), 'Round 18: search rebuild continuation scheduling failure must be observable and fail closed.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

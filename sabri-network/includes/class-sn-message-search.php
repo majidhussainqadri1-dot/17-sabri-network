@@ -139,7 +139,9 @@ final class SN_Message_Search {
             $snapshot = (int) $state['snapshot'];
             $before = (int) $state['before'];
         } else {
-            $snapshot = (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM ' . SN_DB::table('messages') . ' WHERE conversation_id=%d', $conversation_id));
+            $snapshot_raw = $wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM ' . SN_DB::table('messages') . ' WHERE conversation_id=%d', $conversation_id));
+            if ($wpdb->last_error !== '') return new WP_Error('search_snapshot_unavailable', 'Message search snapshot could not be read safely.', ['status'=>503]);
+            $snapshot = (int) $snapshot_raw;
         }
         if ($snapshot <= 0) return rest_ensure_response(['results' => [], 'next_cursor' => null, 'snapshot' => 0]);
 
@@ -189,9 +191,13 @@ final class SN_Message_Search {
         $snapshot = (int) $state['snapshot'];
         $messages = SN_DB::table('messages');
         $target = $wpdb->get_row($wpdb->prepare("SELECT * FROM $messages WHERE id=%d AND conversation_id=%d AND id<=%d AND deleted_at IS NULL", $target_id, $conversation_id, $snapshot));
+        if ($wpdb->last_error !== '') return new WP_Error('search_context_unavailable', 'Message search context could not be read safely.', ['status'=>503]);
         if (!$target || !self::indexable($target) || SN_Message_Operations::is_hidden($viewer_id, $target_id)) return self::not_found();
-        $before = array_reverse($wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id<%d AND id<=%d AND deleted_at IS NULL ORDER BY id DESC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT)) ?: []);
-        $after = $wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT)) ?: [];
+        $before_rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id<%d AND id<=%d AND deleted_at IS NULL ORDER BY id DESC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT));
+        if (!is_array($before_rows) || $wpdb->last_error !== '') return new WP_Error('search_context_unavailable', 'Message search context could not be read safely.', ['status'=>503]);
+        $before = array_reverse($before_rows);
+        $after = $wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT));
+        if (!is_array($after) || $wpdb->last_error !== '') return new WP_Error('search_context_unavailable', 'Message search context could not be read safely.', ['status'=>503]);
         $rows = array_values(array_filter(array_merge($before, [$target], $after), static fn(object $row): bool => self::indexable($row) && !SN_Message_Operations::is_hidden($viewer_id, (int) $row->id)));
         return rest_ensure_response(['target_id' => $target_id, 'snapshot' => $snapshot, 'messages' => array_map(fn(object $row): array => self::format_message($row, $viewer_id, $snapshot), $rows)]);
     }
@@ -225,7 +231,13 @@ final class SN_Message_Search {
         global $wpdb;
         $tokens = self::table(); $messages = SN_DB::table('messages');
         $ids = $wpdb->get_col("SELECT t.id FROM $tokens t LEFT JOIN $messages m ON m.id=t.message_id WHERE m.id IS NULL OR m.deleted_at IS NOT NULL ORDER BY t.id ASC LIMIT 1000");
-        if ($ids) $wpdb->query('DELETE FROM ' . $tokens . ' WHERE id IN (' . implode(',', array_map('absint', $ids)) . ')');
+        if (!is_array($ids) || $wpdb->last_error !== '') {
+            if (class_exists('SN_DB')) SN_DB::audit('message_search_cleanup_read_failed', 'message_search', 0, 'failure', ['reason'=>(string)$wpdb->last_error], 0);
+            return;
+        }
+        if ($ids && $wpdb->query('DELETE FROM ' . $tokens . ' WHERE id IN (' . implode(',', array_map('absint', $ids)) . ')') === false) {
+            if (class_exists('SN_DB')) SN_DB::audit('message_search_cleanup_delete_failed', 'message_search', 0, 'failure', ['reason'=>(string)$wpdb->last_error], 0);
+        }
     }
 
     public static function health(): WP_REST_Response {
