@@ -31,12 +31,20 @@ trait SN_Smail_Part_2 {
         $draft_version = absint($request->get_param('draft_version'));
         if ($draft_id !== '') {
             $draft = self::draft_row($draft_id, $sender_id);
+            if ($wpdb->last_error !== '') {
+                SN_DB::audit('smail_draft_state_read_failed', 'user', $sender_id, 'failure', ['reason'=>(string)$wpdb->last_error], $sender_id);
+                return new WP_Error('smail_draft_state_unavailable', 'Smail draft state could not be verified safely.', ['status'=>503]);
+            }
             if (!$draft) return new WP_Error('draft_not_found', 'The Smail draft is unavailable.', ['status'=>404]);
             if ($draft_version <= 0 || $draft_version !== (int)$draft->version) return new WP_Error('draft_conflict', 'The Smail draft changed on another device. Reload and retry.', ['status'=>409]);
         }
 
         $client_key = hash('sha256', $sender_id . '|' . $client_id);
         $existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::messages_table() . ' WHERE client_key=%s', $client_key));
+        if ($wpdb->last_error !== '') {
+            SN_DB::audit('smail_idempotency_read_failed', 'user', $sender_id, 'failure', ['reason'=>(string)$wpdb->last_error], $sender_id);
+            return new WP_Error('smail_idempotency_state_unavailable', 'Smail idempotency state could not be verified safely.', ['status'=>503]);
+        }
         if ($existing) {
             $cleanup = $draft_id === '' ? true : self::trash_draft_exact($draft_id, $sender_id, $draft_version);
             return rest_ensure_response(['smail' => self::format_smail($existing), 'duplicate' => true, 'draft_cleanup_pending' => !$cleanup]);
@@ -90,9 +98,18 @@ trait SN_Smail_Part_2 {
             $wpdb->query('ROLLBACK');
             SN_DB::audit('smail_projection_failed', 'message', $message_id, 'failure', ['conversation_id' => $conversation_id,'reason'=>$e->getMessage()]);
             $race = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::messages_table() . ' WHERE client_key=%s', $client_key));
+            if ($wpdb->last_error !== '') {
+                SN_DB::audit('smail_projection_reconciliation_read_failed', 'message', $message_id, 'failure', ['reason'=>(string)$wpdb->last_error], $sender_id);
+                return new WP_Error('smail_projection_state_unavailable', 'The canonical message exists but Smail projection state could not be verified safely.', ['status'=>503]);
+            }
             if ($race) {
                 $expected_states = count(array_unique(array_merge([$sender_id],$recipients)));
-                $state_count = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::states_table().' WHERE smail_message_id=%d',(int)$race->id));
+                $state_count_raw = $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::states_table().' WHERE smail_message_id=%d',(int)$race->id));
+                if ($wpdb->last_error !== '') {
+                    SN_DB::audit('smail_projection_state_count_failed', 'smail', (int)$race->id, 'failure', ['reason'=>(string)$wpdb->last_error], $sender_id);
+                    return new WP_Error('smail_projection_state_unavailable', 'Smail projection recipient state could not be verified safely.', ['status'=>503]);
+                }
+                $state_count = (int)$state_count_raw;
                 if ($state_count === $expected_states) {
                     $cleanup = $draft_id === '' ? true : self::trash_draft_exact($draft_id,$sender_id,$draft_version);
                     return rest_ensure_response(['smail'=>self::format_smail($race),'message'=>$message_data['message']??null,'duplicate'=>true,'commit_reconciled'=>true,'draft_cleanup_pending'=>!$cleanup]);
@@ -107,6 +124,10 @@ trait SN_Smail_Part_2 {
         SN_DB::audit('smail_sent', 'smail', $smail_id, 'success', ['conversation_id' => $conversation_id, 'recipients' => count($recipients)]);
         $cleanup = $draft_id === '' ? true : self::trash_draft_exact($draft_id, $sender_id, $draft_version);
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::messages_table() . ' WHERE id=%d', $smail_id));
+        if ($wpdb->last_error !== '' || !$row) {
+            SN_DB::audit('smail_projection_postcommit_read_failed', 'smail', $smail_id, 'failure', ['reason'=>(string)$wpdb->last_error], $sender_id);
+            return new WP_Error('smail_projection_state_unavailable', 'The Smail projection committed but its authoritative state could not be re-read safely. Retry with the same idempotency key.', ['status'=>503]);
+        }
         return rest_ensure_response(['smail' => self::format_smail($row), 'message' => $message_data['message'] ?? null, 'draft_cleanup_pending'=>!$cleanup]);
     }
 
@@ -124,6 +145,10 @@ trait SN_Smail_Part_2 {
         global $wpdb;
         $id = absint($request['id']); $user_id = get_current_user_id();
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::states_table() . ' WHERE smail_message_id=%d AND user_id=%d', $id, $user_id));
+        if ($wpdb->last_error !== '') {
+            SN_DB::audit('smail_state_read_failed', 'smail', $id, 'failure', ['reason'=>(string)$wpdb->last_error], $user_id);
+            return new WP_Error('smail_state_unavailable', 'The Smail item state could not be verified safely.', ['status'=>503]);
+        }
         if (!$row) { return new WP_Error('smail_not_found', 'The Smail item is unavailable.', ['status' => 404]); }
         $allowed = ['starred' => 'is_starred', 'archived' => 'is_archived', 'spam' => 'is_spam', 'trashed' => 'trashed_at', 'read' => 'read_at'];
         $field = sanitize_key((string) $request->get_param('field'));
