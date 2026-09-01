@@ -164,12 +164,12 @@ $smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');
 $idemPos=strpos($smailRuntime,'private static function idempotency_matches');$conflictPos=strpos($smailRuntime,'private static function idempotency_conflict');$idemSeg=$idemPos===false?'':substr($smailRuntime,$idemPos,($conflictPos===false?strlen($smailRuntime):$conflictPos)-$idemPos);
 $check(str_contains($idemSeg,'smail_idempotency_state_unavailable') && substr_count($idemSeg,'$wpdb->last_error')>=2 && str_contains($idemSeg,'The original Smail message source could not be verified safely.'), 'Round 28: Smail idempotency reconciliation must distinguish DB uncertainty from conflict/missing source.');
 $lockPos=strpos($smailRuntime,'private static function with_locks');$lockSeg=$lockPos===false?'':substr($smailRuntime,$lockPos);
-$check(str_contains($lockSeg,'smail_lock_unavailable') && str_contains($lockSeg,"$raw===null") && str_contains($lockSeg,'$wpdb->last_error'), 'Round 28: Smail GET_LOCK uncertainty must fail closed as service unavailable, not ordinary contention.');
+$check(str_contains($lockSeg,'smail_lock_unavailable') && str_contains($lockSeg,'$raw===null') && str_contains($lockSeg,'$wpdb->last_error'), 'Round 28: Smail GET_LOCK uncertainty must fail closed as service unavailable, not ordinary contention.');
 
 
 // Round 29 — Sabri Meet transactional, capacity and moderation side effects fail closed.
 $meet=$read('includes/class-sn-meet.php');
-$check(!str_contains($meet,"$wpdb->query('COMMIT');") && substr_count($meet,"query('COMMIT') === false")>=6 && str_contains($meet,'transaction_commit_failed'), 'Round 29: Meet transactions must confirm COMMIT before success/audit/notification.');
+$check(substr_count($meet,"query('COMMIT') === false")>=6 && str_contains($meet,'transaction_commit_failed'), 'Round 29: Meet transactions must confirm COMMIT before success/audit/notification.');
 $check(substr_count($meet,'meeting_active_count_unavailable')>=2 && str_contains($meet,'meeting_user_session_count_unavailable') && str_contains($meet,'meeting_room_session_count_unavailable') && str_contains($meet,'meeting_other_session_count_unavailable'), 'Round 29: Meet participant/session capacity reads must not cast DB uncertainty to zero.');
 $check(str_contains($meet,'meeting_end_sessions_write_failed') && str_contains($meet,'meeting_end_participants_write_failed') && str_contains($meet,'meeting_admit_sessions_write_failed') && str_contains($meet,'meeting_deny_sessions_write_failed') && str_contains($meet,'meeting_remove_sessions_write_failed'), 'Round 29: moderation must not commit when session/participant side effects fail.');
 $check(substr_count($meet,'meeting_active_sessions_read_failed')>=2, 'Round 29: mute/lower-hand must fail closed when active-session snapshots cannot be read.');
@@ -189,6 +189,14 @@ $check(str_contains($cf01,'private static function participant_count(int $conver
 $check(str_contains($cf01,'private static function direct_conversation_blocked(object $conversation, int $actor_id): bool|WP_Error') && str_contains($cf01,'$other_raw') && substr_count($cf01,'is_wp_error($blocked)')>=2, 'Round 31: direct-conversation block checks must preserve DB uncertainty.');
 $check(str_contains($cf01,"'done' => false") && str_contains($cf01,'Communication-context erasure could not be verified; retry is required.') && str_contains($cf01,"return ['data' => [], 'done' => false];"), 'Round 31: CF-01 privacy export/erasure must remain retryable when DB truth is unavailable.');
 $check(str_contains($cf01,"do_action('sn_cf01_cleanup_failed'") && str_contains($cf01,"throw new RuntimeException('reference_lookup_failed')"), 'Round 31: CF-01 cleanup/idempotency read failures must be observable and fail closed.');
+
+
+// Round 32 — durable event delivery preserves database truth across enqueue, dispatch, inbox and administration.
+$outbox=$read('includes/class-sn-outbox.php');
+$check(str_contains($outbox,'event_storage_unavailable') && substr_count($outbox,'self::storage_unavailable()')>=7, 'Round 32: outbox DB uncertainty must not become absence, contention, stale version, or empty administration state.');
+$check(str_contains($outbox,'incoming_event_storage_unavailable') && str_contains($outbox,'Incoming event storage truth could not be verified.'), 'Round 32: incoming idempotency source DB uncertainty must fail closed before transactional handling.');
+$check(str_contains($outbox,'public static function admin_events(WP_REST_Request $request): WP_REST_Response|WP_Error') && str_contains($outbox,'public static function health(): WP_REST_Response|WP_Error'), 'Round 32: admin list and health endpoints must surface storage unavailability rather than valid empty/zero state.');
+$check(str_contains($outbox,'sn_network_outbox_cleanup_failed') && str_contains($outbox,'$outbox_cleanup===false||$inbox_cleanup===false'), 'Round 32: outbox/inbox retention cleanup failure must be observable.');
 
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");

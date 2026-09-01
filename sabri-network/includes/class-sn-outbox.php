@@ -106,11 +106,13 @@ final class SN_Outbox {
         if ($json === '' || strlen($json) > self::MAX_PAYLOAD_BYTES) return new WP_Error('event_payload_invalid', 'The event metadata is invalid or too large.');
         $payload_hash = hash('sha256', $json); $event_key = hash('sha256', $type . '|' . $idempotency_key); $table = self::outbox_table();
         $existing = $wpdb->get_row($wpdb->prepare("SELECT id,event_type,payload_hash FROM $table WHERE event_key=%s LIMIT 1", $event_key));
+        if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable();
         if ($existing) return (string)$existing->event_type === $type && hash_equals((string)$existing->payload_hash, $payload_hash) ? (int)$existing->id : new WP_Error('event_idempotency_conflict', 'The event identity was reused with different metadata.');
         $now = current_time('mysql', true);
         $ok = $wpdb->insert($table, ['event_uuid'=>wp_generate_uuid4(),'event_key'=>$event_key,'event_type'=>$type,'aggregate_type'=>$aggregate_type,'aggregate_id'=>max(0,$aggregate_id),'payload'=>$json,'payload_hash'=>$payload_hash,'status'=>'pending','attempts'=>0,'available_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
         if ($ok === false) {
             $race = $wpdb->get_row($wpdb->prepare("SELECT id,event_type,payload_hash FROM $table WHERE event_key=%s LIMIT 1", $event_key));
+            if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable();
             return $race && (string)$race->event_type === $type && hash_equals((string)$race->payload_hash, $payload_hash) ? (int)$race->id : new WP_Error('event_enqueue_failed', 'The event could not be queued.');
         }
         return (int) $wpdb->insert_id;
@@ -131,8 +133,9 @@ final class SN_Outbox {
         if($id<=0)return new WP_Error('invalid_event','The event is invalid.');
         $table=self::outbox_table();$now=current_time('mysql',true);$stale=gmdate('Y-m-d H:i:s',time()-self::LOCK_SECONDS);$token=hash('sha256',wp_generate_uuid4().':'.$id.':'.microtime(true));
         $claimed=$wpdb->query($wpdb->prepare("UPDATE $table SET status='processing',lock_token=%s,locked_at=%s,attempts=attempts+1,updated_at=%s,version=version+1 WHERE id=%d AND ((status IN ('pending','retry') AND available_at<=%s) OR (status='processing' AND locked_at<%s))",$token,$now,$now,$id,$now,$stale));
+        if($claimed===false||($wpdb->last_error ?? '')!=='')return self::storage_unavailable();
         if($claimed!==1)return new WP_Error('event_not_claimed','The event is not available for delivery.');
-        $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d AND lock_token=%s",$id,$token));if(!$row)return new WP_Error('event_claim_lost','The event claim could not be confirmed.');
+        $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d AND lock_token=%s",$id,$token));if(($wpdb->last_error ?? '')!=='')return self::storage_unavailable();if(!$row)return new WP_Error('event_claim_lost','The event claim could not be confirmed.');
         try{
             $payload=json_decode((string)$row->payload,true);if(!is_array($payload)||!hash_equals((string)$row->payload_hash,hash('sha256',(string)$row->payload)))throw new RuntimeException('event_payload_integrity_failed');
             $event=['id'=>(int)$row->id,'uuid'=>(string)$row->event_uuid,'type'=>(string)$row->event_type,'aggregate_type'=>(string)$row->aggregate_type,'aggregate_id'=>(int)$row->aggregate_id,'payload'=>$payload,'attempt'=>(int)$row->attempts,'created_at'=>(string)$row->created_at];
@@ -160,6 +163,7 @@ final class SN_Outbox {
         $producer=sanitize_key($producer);if($producer===''||!wp_is_uuid($event_uuid,4))return new WP_Error('invalid_incoming_event','The incoming event identity is invalid.');
         $clean=self::sanitize_payload($payload);$json=(string)wp_json_encode($clean);if($json===''||strlen($json)>self::MAX_PAYLOAD_BYTES)return new WP_Error('incoming_payload_invalid','The incoming event metadata is invalid.');
         $hash=hash('sha256',$json);$table=self::inbox_table();$existing=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE producer=%s AND event_uuid=%s LIMIT 1",$producer,$event_uuid));
+        if(($wpdb->last_error ?? '')!=='')return new WP_Error('incoming_event_storage_unavailable','Incoming event storage truth could not be verified.',['status'=>503]);
         if($existing&&!hash_equals((string)$existing->payload_hash,$hash))return new WP_Error('incoming_event_conflict','The incoming event identity conflicts with prior metadata.');
         if($existing&&(string)$existing->status==='processed')return true;
         $now=current_time('mysql',true);
@@ -179,29 +183,34 @@ final class SN_Outbox {
         }
     }
 
-    public static function admin_events(WP_REST_Request $request): WP_REST_Response {
+    public static function admin_events(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;$status=sanitize_key((string)$request->get_param('status'));if(!in_array($status,['pending','processing','retry','delivered','dead'],true))$status='dead';$after=absint($request->get_param('after'));$limit=min(100,max(1,absint($request->get_param('limit'))?:50));
         $rows=$wpdb->get_results($wpdb->prepare('SELECT id,event_uuid,event_type,aggregate_type,aggregate_id,payload_hash,status,attempts,available_at,last_error,version,created_at,updated_at,delivered_at,dead_at FROM '.self::outbox_table().' WHERE status=%s AND id>%d ORDER BY id ASC LIMIT %d',$status,$after,$limit));
+        if(($wpdb->last_error ?? '')!=='')return self::storage_unavailable();
         return rest_ensure_response(['status'=>$status,'events'=>array_map(static fn(object $r):array=>['id'=>(int)$r->id,'event_uuid'=>(string)$r->event_uuid,'event_type'=>(string)$r->event_type,'aggregate_type'=>(string)$r->aggregate_type,'aggregate_id'=>(int)$r->aggregate_id,'payload_hash'=>(string)$r->payload_hash,'status'=>(string)$r->status,'attempts'=>(int)$r->attempts,'available_at'=>(string)$r->available_at,'last_error'=>(string)$r->last_error,'version'=>(int)$r->version,'created_at'=>(string)$r->created_at,'updated_at'=>(string)$r->updated_at,'delivered_at'=>(string)$r->delivered_at,'dead_at'=>(string)$r->dead_at],is_array($rows)?$rows:[])]);
     }
 
     public static function admin_retry(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;$id=absint($request['id']);$version=absint($request->get_param('version'));if($id<=0||$version<=0)return new WP_Error('invalid_retry','The event and current version are required.',['status'=>400]);if(!SN_Policy::consume_rate_limit('outbox_manual_retry',(string)get_current_user_id(),30,HOUR_IN_SECONDS))return new WP_Error('rate_limited','Too many manual retries.',['status'=>429]);$now=current_time('mysql',true);
         $updated=$wpdb->query($wpdb->prepare("UPDATE ".self::outbox_table()." SET status='pending',available_at=%s,locked_at=NULL,lock_token=NULL,last_error='',dead_at=NULL,updated_at=%s,version=version+1 WHERE id=%d AND version=%d AND status IN ('dead','retry')",$now,$now,$id,$version));
+        if($updated===false||($wpdb->last_error ?? '')!=='')return self::storage_unavailable();
         return $updated===1?rest_ensure_response(['queued'=>true,'id'=>$id,'version'=>$version+1]):new WP_Error('stale_event_version','The event changed or is not retryable.',['status'=>409]);
     }
 
-    public static function health(): WP_REST_Response {
-        global $wpdb;$outbox=self::outbox_table();$inbox=self::inbox_table();$outbox_exists=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($outbox)))===$outbox;$inbox_exists=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($inbox)))===$inbox;$counts=[];
-        if($outbox_exists)foreach(['pending','processing','retry','delivered','dead'] as $status)$counts[$status]=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $outbox WHERE status=%s",$status));
+    public static function health(): WP_REST_Response|WP_Error {
+        global $wpdb;$outbox=self::outbox_table();$inbox=self::inbox_table();
+        $outbox_found=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($outbox)));if(($wpdb->last_error ?? '')!=='')return self::storage_unavailable();$outbox_exists=$outbox_found===$outbox;
+        $inbox_found=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($inbox)));if(($wpdb->last_error ?? '')!=='')return self::storage_unavailable();$inbox_exists=$inbox_found===$inbox;$counts=[];
+        if($outbox_exists)foreach(['pending','processing','retry','delivered','dead'] as $status){$count=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $outbox WHERE status=%s",$status));if(($wpdb->last_error ?? '')!==''||$count===null)return self::storage_unavailable();$counts[$status]=(int)$count;}
         $next_run=(int)wp_next_scheduled('sn_network_outbox_tick');$schedule_error=(string)get_option('sn_outbox_schedule_error','');
         return rest_ensure_response(['ok'=>$outbox_exists&&$inbox_exists&&$next_run>0&&$schedule_error==='','outbox_table'=>$outbox_exists,'inbox_table'=>$inbox_exists,'schema_version'=>(string)get_option('sn_event_delivery_schema_version',''),'counts'=>$counts,'next_run'=>$next_run,'schedule_error'=>$schedule_error,'max_attempts'=>self::max_attempts(),'time'=>gmdate('c')]);
     }
 
     public static function cleanup(): void {
         global $wpdb;$delivered=gmdate('Y-m-d H:i:s',time()-30*DAY_IN_SECONDS);$dead=gmdate('Y-m-d H:i:s',time()-180*DAY_IN_SECONDS);$inbox=gmdate('Y-m-d H:i:s',time()-90*DAY_IN_SECONDS);
-        $wpdb->query($wpdb->prepare("DELETE FROM ".self::outbox_table()." WHERE (status='delivered' AND delivered_at<%s) OR (status='dead' AND dead_at<%s) LIMIT 1000",$delivered,$dead));
-        $wpdb->query($wpdb->prepare("DELETE FROM ".self::inbox_table()." WHERE status='processed' AND processed_at<%s LIMIT 1000",$inbox));
+        $outbox_cleanup=$wpdb->query($wpdb->prepare("DELETE FROM ".self::outbox_table()." WHERE (status='delivered' AND delivered_at<%s) OR (status='dead' AND dead_at<%s) LIMIT 1000",$delivered,$dead));
+        $inbox_cleanup=$wpdb->query($wpdb->prepare("DELETE FROM ".self::inbox_table()." WHERE status='processed' AND processed_at<%s LIMIT 1000",$inbox));
+        if($outbox_cleanup===false||$inbox_cleanup===false)do_action('sn_network_outbox_cleanup_failed',(string)($wpdb->last_error ?? ''));
     }
 
     private static function sanitize_payload(array $payload, int $depth = 0): array {
@@ -210,6 +219,7 @@ final class SN_Outbox {
         return$clean;
     }
 
+    private static function storage_unavailable(): WP_Error{return new WP_Error('event_storage_unavailable','Event delivery storage truth could not be verified safely.',['status'=>503]);}
     private static function max_attempts():int{return min(20,max(3,(int)apply_filters('sn_network_outbox_max_attempts',self::DEFAULT_MAX_ATTEMPTS)));}
     private static function outbox_table():string{return SN_DB::table('event_outbox');}
     private static function inbox_table():string{return SN_DB::table('event_inbox');}
