@@ -17,4 +17,10 @@ $check(str_contains($presence,'sn_presence_state_unavailable'),'R2 presence stat
 $check(str_contains($presence,'presence_cleanup_failed'),'R2 presence cleanup failure must remain observable.');
 $check(str_contains($presence,'presence_export_read_failed'),'R2 privacy export must not report completion on failed reads.');
 $check(str_contains($presence,'presence_erase_failed'),'R2 privacy erasure must not report completion on failed deletes.');
+// R3 — relationship state and advisory locks preserve DB uncertainty.
+$relationships=$read($root.'/includes/class-sn-relationships.php');
+$check(str_contains($relationships,'relationship_storage_unavailable'),'R3 relationship DB uncertainty must fail closed.');
+$check(str_contains($relationships,'relationship_lock_unavailable'),'R3 relationship lock service failure must differ from contention.');
+$check(str_contains($relationships,'relationship_lock_release_failed'),'R3 relationship lock release failure must be observable.');
+$check(str_contains($relationships,'follow_list_read_failed'),'R3 follow-list DB failures must not collapse to empty lists.');
 if($fail){fwrite(STDERR,"Eleventh fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eleventh fresh contracts: PASS ($checks checks)\n";

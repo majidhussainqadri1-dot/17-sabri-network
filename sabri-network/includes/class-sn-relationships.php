@@ -14,10 +14,15 @@ final class SN_Relationships {
         }
         global $wpdb;
         $blocked_by_viewer = (bool) $wpdb->get_var($wpdb->prepare('SELECT id FROM ' . SN_DB::table('blocks') . ' WHERE user_id=%d AND blocked_user_id=%d LIMIT 1', $viewer_id, $target_id));
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('relationship_block_state_read_failed');
         $blocked = $blocked_by_viewer || SN_DB::is_blocked($viewer_id, $target_id);
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('relationship_pair_block_state_read_failed');
         $contact = SN_DB::contact_record($viewer_id, $target_id);
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('relationship_contact_state_read_failed');
         $follow = SN_DB::follow_record($viewer_id, $target_id);
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('relationship_follow_state_read_failed');
         $reverse = SN_DB::follow_record($target_id, $viewer_id);
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('relationship_reverse_follow_state_read_failed');
         $contact_state = 'none';
         if ($contact) {
             $contact_state = (string) $contact->status;
@@ -56,6 +61,7 @@ final class SN_Relationships {
             $status = SN_Policy::follow_initial_status($follower_id, $followed_id);
             $table = SN_DB::table('follows');
             $existing = SN_DB::follow_record($follower_id, $followed_id);
+            if (($wpdb->last_error ?? '') !== '') return self::storage_error('follow_state_read_failed');
             if ($existing && in_array((string) $existing->status, ['active', 'pending'], true)) return self::project($existing, true);
             $now = current_time('mysql', true);
             $data = [
@@ -69,10 +75,12 @@ final class SN_Relationships {
                 : $wpdb->insert($table, $data);
             if ($ok === false || ($existing && $ok !== 1)) {
                 $race = SN_DB::follow_record($follower_id, $followed_id);
+                if (($wpdb->last_error ?? '') !== '') return self::storage_error('follow_reconciliation_read_failed');
                 if ($race && in_array((string) $race->status, ['active', 'pending'], true)) return self::project($race, true);
                 return new WP_Error('follow_database_error', 'The follow relationship could not be saved.', ['status' => 500]);
             }
             $row = SN_DB::follow_record($follower_id, $followed_id);
+            if (($wpdb->last_error ?? '') !== '') return self::storage_error('follow_confirmation_read_failed');
             if (!$row || !in_array((string) $row->status, ['active', 'pending'], true)) return new WP_Error('follow_database_error', 'The follow relationship could not be confirmed.', ['status' => 500]);
             SN_DB::add_notification($followed_id, $status === 'active' ? 'new_follower' : 'follow_request', $status === 'active' ? 'New follower' : 'New follow request', '', 'follow', (int) $row->id);
             SN_DB::audit('follow_' . $status, 'follow', (int) $row->id, 'success', ['target_id' => $followed_id], $follower_id);
@@ -85,6 +93,7 @@ final class SN_Relationships {
         return self::with_pair_lock($follower_id, $followed_id, function () use ($follower_id, $followed_id, $expected_version) {
             global $wpdb;
             $row = SN_DB::follow_record($follower_id, $followed_id);
+            if (($wpdb->last_error ?? '') !== '') return self::storage_error('unfollow_state_read_failed');
             if (!$row || !in_array((string) $row->status, ['active', 'pending'], true)) {
                 return ['id' => $row ? (int) $row->id : 0, 'status' => 'inactive', 'version' => $row ? (int) $row->version : 0, 'duplicate' => true];
             }
@@ -94,6 +103,7 @@ final class SN_Relationships {
                 'UPDATE ' . SN_DB::table('follows') . " SET status='inactive',updated_at=%s,decided_at=%s,version=version+1 WHERE id=%d AND follower_id=%d AND version=%d",
                 $now, $now, (int) $row->id, $follower_id, (int) $row->version
             ));
+            if ($updated === false) return self::storage_error('unfollow_write_failed');
             if ($updated !== 1) return new WP_Error('follow_version_conflict', 'The follow relationship changed before this request was saved.', ['status' => 409]);
             SN_DB::audit('follow_inactive', 'follow', (int) $row->id, 'success', ['target_id' => $followed_id], $follower_id);
             return ['id' => (int) $row->id, 'status' => 'inactive', 'version' => (int) $row->version + 1];
@@ -104,11 +114,13 @@ final class SN_Relationships {
         global $wpdb;
         if (!in_array($decision, ['accept', 'reject'], true) || $expected_version <= 0) return new WP_Error('invalid_follow_decision', 'A valid follow decision and version are required.', ['status' => 400]);
         $probe = $wpdb->get_row($wpdb->prepare('SELECT follower_id,followed_id FROM ' . SN_DB::table('follows') . ' WHERE id=%d', $follow_id));
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('follow_decision_probe_failed');
         if (!$probe || (int) $probe->followed_id !== $target_id) return new WP_Error('follow_request_not_found', 'This follow request is unavailable.', ['status' => 404]);
         return self::with_pair_lock((int) $probe->follower_id, $target_id, function () use ($target_id, $follow_id, $decision, $expected_version) {
             global $wpdb;
             $table = SN_DB::table('follows');
             $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . $table . ' WHERE id=%d', $follow_id));
+            if (($wpdb->last_error ?? '') !== '') return self::storage_error('follow_decision_state_read_failed');
             if (!$row || (int) $row->followed_id !== $target_id || (string) $row->status !== 'pending') return new WP_Error('follow_request_not_found', 'This follow request is unavailable.', ['status' => 404]);
             if ((int) $row->version !== $expected_version) return new WP_Error('follow_version_conflict', 'The follow request changed before this decision was saved.', ['status' => 409]);
             if ($decision === 'accept') {
@@ -121,6 +133,7 @@ final class SN_Relationships {
                 "UPDATE $table SET status=%s,updated_at=%s,decided_at=%s,version=version+1 WHERE id=%d AND followed_id=%d AND status='pending' AND version=%d",
                 $status, $now, $now, $follow_id, $target_id, $expected_version
             ));
+            if ($updated === false) return self::storage_error('follow_decision_write_failed');
             if ($updated !== 1) return new WP_Error('follow_version_conflict', 'The follow request changed before this decision was saved.', ['status' => 409]);
             SN_DB::add_notification((int) $row->follower_id, 'follow_' . $status, $status === 'active' ? 'Follow request accepted' : 'Follow request declined', '', 'follow', $follow_id);
             SN_DB::audit('follow_' . $status, 'follow', $follow_id, 'success', ['follower_id' => (int) $row->follower_id], $target_id);
@@ -159,7 +172,7 @@ final class SN_Relationships {
         } else {
             $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM $table WHERE followed_id=%d AND status='pending' AND id<%d ORDER BY id DESC LIMIT %d", $user_id, $last_id, $limit + 1)); $other = 'follower_id';
         }
-        if (!is_array($rows)) return new WP_Error('follow_list_error', 'The follow list could not be loaded.', ['status' => 500]);
+        if (($wpdb->last_error ?? '') !== '' || !is_array($rows)) return self::storage_error('follow_list_read_failed');
         $has_more = count($rows) > $limit; $rows = array_slice($rows, 0, $limit); $items = [];
         foreach ($rows as $row) {
             $profile = SN_Auth::public_user((int) $row->{$other});
@@ -184,13 +197,20 @@ final class SN_Relationships {
         global $wpdb;
         if ($a <= 0 || $b <= 0 || $a === $b) return new WP_Error('invalid_relationship_target', 'Select a valid Network member.', ['status' => 400]);
         $lock = self::pair_lock_name($a, $b);
-        $acquired = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,5)', $lock));
-        if ($acquired !== 1) return new WP_Error('relationship_busy', 'This relationship is changing. Try again.', ['status' => 409]);
+        $raw = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,5)', $lock));
+        if (($wpdb->last_error ?? '') !== '' || $raw === null) return self::storage_error('relationship_lock_unavailable');
+        if ((int)$raw !== 1) return new WP_Error('relationship_busy', 'This relationship is changing. Try again.', ['status' => 409]);
         try {
             return $callback();
         } finally {
-            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+            $released=$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+            if (($wpdb->last_error ?? '') !== '' || $released === null) SN_DB::audit('relationship_lock_release_failed','system',0,'failure',['lock_hash'=>substr(hash('sha256',$lock),0,16),'reason'=>(string)($wpdb->last_error??'')],0);
         }
+    }
+
+    private static function storage_error(string $reason): WP_Error {
+        SN_DB::audit($reason,'relationship',0,'failure',[],get_current_user_id());
+        return new WP_Error('relationship_storage_unavailable','Relationship state could not be verified safely. Retry later.',['status'=>503]);
     }
 
     private static function project(object $row, bool $duplicate = false): array {
