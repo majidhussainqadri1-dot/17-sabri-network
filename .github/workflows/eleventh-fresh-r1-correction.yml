@@ -5,6 +5,7 @@ on:
       - review/file17-eleventh-fresh-10-round-2026-09-02
     paths:
       - .github/scripts/eleventh-fresh-r1-correction.py
+      - .github/scripts/eleventh-fresh-r1-testcompat.py
       - .github/workflows/eleventh-fresh-r1-correction.yml
 permissions:
   contents: write
@@ -25,6 +26,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/eleventh-fresh-r1-correction.py
+          python3 .github/scripts/eleventh-fresh-r1-testcompat.py
           php -l sabri-network/includes/class-sn-call-runtime-hardening.php
           php -l sabri-network/tests/eleventh-fresh/eleventh-fresh-ten-round-contracts.php
           php sabri-network/tests/eleventh-fresh/eleventh-fresh-ten-round-contracts.php
