@@ -6,6 +6,10 @@ trait SN_Smail_Part_3 {
     public static function get_draft(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $row = self::draft_row((string) $request['public_id'], get_current_user_id());
+        if ($wpdb->last_error !== '') {
+            SN_DB::audit('smail_draft_read_failed', 'user', get_current_user_id(), 'failure', ['reason'=>(string)$wpdb->last_error], get_current_user_id());
+            return new WP_Error('smail_draft_state_unavailable', 'Smail draft state could not be verified safely.', ['status'=>503]);
+        }
         if (!$row) { return new WP_Error('draft_not_found', 'The Smail draft is unavailable.', ['status' => 404]); }
         $cipher = base64_decode((string) $row->encrypted_payload, true);
         if (!is_string($cipher) || $cipher === '') { return new WP_Error('draft_cipher_invalid', 'The Smail draft has an invalid encrypted envelope.', ['status' => 500]); }
@@ -30,6 +34,10 @@ trait SN_Smail_Part_3 {
         if (!SN_Policy::consume_rate_limit('smail_draft', (string) $owner_id, 240, HOUR_IN_SECONDS)) return new WP_Error('draft_rate_limited', 'Too many draft changes were made. Try again later.', ['status' => 429]);
         $public_id = sanitize_text_field((string) ($request['public_id'] ?: $request->get_param('id')));
         $row = $public_id ? self::draft_row($public_id, $owner_id) : null;
+        if ($public_id && $wpdb->last_error !== '') {
+            SN_DB::audit('smail_draft_save_read_failed', 'user', $owner_id, 'failure', ['reason'=>(string)$wpdb->last_error], $owner_id);
+            return new WP_Error('smail_draft_state_unavailable', 'Smail draft state could not be verified safely.', ['status'=>503]);
+        }
         if ($public_id && !$row) { return new WP_Error('draft_not_found', 'The Smail draft is unavailable.', ['status' => 404]); }
         $expected = absint($request->get_param('version'));
         if ($row && $expected && $expected !== (int) $row->version) return new WP_Error('draft_conflict', 'The Smail draft changed on another device.', ['status' => 409]);
@@ -47,6 +55,7 @@ trait SN_Smail_Part_3 {
         if ($row) {
             $next = (int) $row->version + 1;
             $updated = $wpdb->query($wpdb->prepare('UPDATE ' . self::drafts_table() . ' SET encrypted_payload=%s,payload_hash=%s,version=%d,updated_at=%s WHERE id=%d AND version=%d', base64_encode($cipher), $payload_hash, $next, $now, (int) $row->id, (int) $row->version));
+            if ($updated === false) return new WP_Error('draft_save_failed', 'The Smail draft could not be saved.', ['status' => 500]);
             if ($updated !== 1) return new WP_Error('draft_conflict', 'The Smail draft changed on another device.', ['status' => 409]);
             $version = $next;
         } else {
@@ -57,14 +66,21 @@ trait SN_Smail_Part_3 {
     }
 
     public static function delete_draft(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        return self::trash_draft_by_public_id((string) $request['public_id'], get_current_user_id())
+        $deleted = self::trash_draft_by_public_id((string) $request['public_id'], get_current_user_id());
+        if (is_wp_error($deleted)) return $deleted;
+        return $deleted
             ? rest_ensure_response(['deleted' => true])
             : new WP_Error('draft_not_found', 'The Smail draft is unavailable.', ['status' => 404]);
     }
 
-    private static function trash_draft_by_public_id(string $public_id, int $owner_id): bool {
+    private static function trash_draft_by_public_id(string $public_id, int $owner_id): bool|WP_Error {
         global $wpdb;
-        return $wpdb->query($wpdb->prepare('UPDATE ' . self::drafts_table() . ' SET deleted_at=%s,encrypted_payload=%s,payload_hash=%s,updated_at=%s WHERE public_id=%s AND owner_id=%d AND deleted_at IS NULL', current_time('mysql', true), '', hash_hmac('sha256', '', wp_salt('auth') . '|sn-sm-draft-blind-v1'), current_time('mysql', true), sanitize_text_field($public_id), $owner_id)) === 1;
+        $changed = $wpdb->query($wpdb->prepare('UPDATE ' . self::drafts_table() . ' SET deleted_at=%s,encrypted_payload=%s,payload_hash=%s,updated_at=%s WHERE public_id=%s AND owner_id=%d AND deleted_at IS NULL', current_time('mysql', true), '', hash_hmac('sha256', '', wp_salt('auth') . '|sn-sm-draft-blind-v1'), current_time('mysql', true), sanitize_text_field($public_id), $owner_id));
+        if ($changed === false) {
+            SN_DB::audit('smail_draft_delete_failed', 'user', $owner_id, 'failure', ['reason'=>(string)$wpdb->last_error], $owner_id);
+            return new WP_Error('smail_draft_state_unavailable', 'The Smail draft deletion state could not be verified safely.', ['status'=>503]);
+        }
+        return $changed === 1;
     }
 
     private static function draft_row(string $public_id, int $owner_id): ?object {
@@ -74,9 +90,17 @@ trait SN_Smail_Part_3 {
     }
 
     public static function health(): WP_REST_Response {
-        global $wpdb; $missing = [];
-        foreach ([self::messages_table(), self::states_table(), self::drafts_table()] as $table) if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) !== $table) $missing[] = $table;
-        return rest_ensure_response(['ok' => !$missing, 'schema_version' => self::SCHEMA_VERSION, 'missing_tables' => $missing, 'mailboxes' => 7]);
+        global $wpdb; $missing = []; $database_ready = true;
+        foreach ([self::messages_table(), self::states_table(), self::drafts_table()] as $table) {
+            $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+            if ($wpdb->last_error !== '') {
+                $database_ready = false;
+                SN_DB::audit('smail_health_db_probe_failed', 'smail', 0, 'failure', ['table_hash'=>hash('sha256',$table)]);
+                continue;
+            }
+            if ($found !== $table) $missing[] = $table;
+        }
+        return rest_ensure_response(['ok' => $database_ready && !$missing, 'database_ready'=>$database_ready, 'schema_version' => self::SCHEMA_VERSION, 'missing_tables' => $missing, 'mailboxes' => 7]);
     }
 
     public static function register_assets(): void {
