@@ -56,15 +56,15 @@ new="""            if ($wpdb->query('COMMIT') === false) throw new RuntimeExcept
 """
 if old not in t: raise SystemExit('R20 block commit anchor missing')
 p.write_text(t.replace(old,new,1),encoding='utf-8')
-# Permanent regression.
+# Permanent regression, using non-interpolating test needles.
 p=root/'tests/ninth-fresh/ninth-fresh-forty-round-contracts.php'; t=p.read_text(encoding='utf-8'); anchor='\nif ($fail) {\n'
 block=r'''
 // Round 20 — moderation retention and blocking durability fail closed.
 $safetyPrivacy=$read('includes/class-sn-fourth-fresh-privacy-hardening.php');
 $rest=$read('includes/class-sn-rest.php');
-$check(str_contains($safetyPrivacy,'native_legal_hold_verification_failed') && str_contains($safetyPrivacy,"if ($wpdb->last_error !== '')") && str_contains($safetyPrivacy,'return true;'), 'Round 20: native legal-hold DB uncertainty must retain rather than fail open.');
+$check(str_contains($safetyPrivacy,'native_legal_hold_verification_failed') && str_contains($safetyPrivacy,'$wpdb->last_error') && str_contains($safetyPrivacy,'return true;'), 'Round 20: native legal-hold DB uncertainty must retain rather than fail open.');
 $blockPos=strpos($rest,'public static function block_user'); $blockEnd=$blockPos===false?false:strpos($rest,'public static function admin_reports',$blockPos); $blockSeg=$blockPos===false?'':substr($rest,$blockPos,($blockEnd===false?strlen($rest):$blockEnd)-$blockPos);
-$check(str_contains($blockSeg,"if ($wpdb->query('COMMIT') === false) throw new RuntimeException('block_commit_failed');"), 'Round 20: block/unblock success requires a confirmed transaction commit.');
+$check(str_contains($blockSeg,"block_commit_failed") && str_contains($blockSeg,"query('COMMIT') === false"), 'Round 20: block/unblock success requires a confirmed transaction commit.');
 '''
 if anchor not in t: raise SystemExit('R20 suite anchor missing')
 p.write_text(t.replace(anchor,'\n'+block+anchor,1),encoding='utf-8')
