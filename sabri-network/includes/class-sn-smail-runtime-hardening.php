@@ -70,10 +70,13 @@ final class SN_Smail_Runtime_Hardening {
     private static function idempotency_matches(object $smail,int $sender,array $recipients,string $subject,string $body): bool|WP_Error {
         global $wpdb;
         if((int)$smail->sender_id!==$sender||!hash_equals((string)$smail->subject,$subject))return self::idempotency_conflict();
-        $stored=array_map('intval',$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.SN_DB::table('smail_states').' WHERE smail_message_id=%d AND user_id<>%d ORDER BY user_id ASC',(int)$smail->id,$sender))?:[]);
+        $stored_raw=$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.SN_DB::table('smail_states').' WHERE smail_message_id=%d AND user_id<>%d ORDER BY user_id ASC',(int)$smail->id,$sender));
+        if($wpdb->last_error!=='')return new WP_Error('smail_idempotency_state_unavailable','Smail recipient state could not be verified safely.',['status'=>503]);
+        $stored=array_map('intval',$stored_raw?:[]);
         sort($stored,SORT_NUMERIC);$expected=array_values($recipients);sort($expected,SORT_NUMERIC);
         if($stored!==$expected)return self::idempotency_conflict();
         $message=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d AND conversation_id=%d',(int)$smail->message_id,(int)$smail->conversation_id));
+        if($wpdb->last_error!=='')return new WP_Error('smail_idempotency_source_unavailable','The original Smail message source could not be verified safely.',['status'=>503]);
         if(!$message||$message->deleted_at!==null)return new WP_Error('smail_idempotency_source_unavailable','The original Smail message is unavailable for safe retry reconciliation.',['status'=>409]);
         $plain=SN_Message_Body::decrypt_row($message);if(is_wp_error($plain))return new WP_Error('smail_idempotency_source_unavailable','The original Smail message cannot be verified for safe retry reconciliation.',['status'=>503]);
         return hash_equals((string)$plain,$body)?true:self::idempotency_conflict();
@@ -120,5 +123,5 @@ final class SN_Smail_Runtime_Hardening {
 
     private static function trash_draft(string $public,int $owner): bool {global $wpdb;$now=current_time('mysql',true);return $wpdb->query($wpdb->prepare("UPDATE ".SN_DB::table('smail_drafts')." SET deleted_at=%s,encrypted_payload='',payload_hash=%s,updated_at=%s WHERE public_id=%s AND owner_id=%d AND deleted_at IS NULL",$now,hash_hmac('sha256','',wp_salt('auth').'|sn-sm-draft-blind-v1'),$now,$public,$owner))===1;}
     private static function format(object $row): array{return['id'=>(int)$row->id,'message_id'=>(int)$row->message_id,'conversation_id'=>(int)$row->conversation_id,'subject'=>(string)$row->subject,'created_at'=>(string)$row->created_at];}
-    private static function with_locks(array $locks,callable $callback){global $wpdb;$locks=array_values(array_unique(array_filter($locks)));sort($locks,SORT_STRING);$held=[];try{foreach($locks as $lock){$ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));if($ok!==1)return new WP_Error('smail_busy','The Smail item is changing. Retry the request.',['status'=>409]);$held[]=$lock;}return $callback();}finally{foreach(array_reverse($held) as $lock)$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));}}
+    private static function with_locks(array $locks,callable $callback){global $wpdb;$locks=array_values(array_unique(array_filter($locks)));sort($locks,SORT_STRING);$held=[];try{foreach($locks as $lock){$raw=$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));if($wpdb->last_error!==''||$raw===null)return new WP_Error('smail_lock_unavailable','Smail concurrency control could not be verified safely.',['status'=>503]);$ok=(int)$raw;if($ok!==1)return new WP_Error('smail_busy','The Smail item is changing. Retry the request.',['status'=>409]);$held[]=$lock;}return $callback();}finally{foreach(array_reverse($held) as $lock){$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));}}}
 }

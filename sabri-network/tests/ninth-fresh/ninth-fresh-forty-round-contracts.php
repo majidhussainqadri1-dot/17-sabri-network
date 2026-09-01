@@ -158,6 +158,14 @@ $smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');$smail2=$re
 $check(str_contains($smailRuntime,'smail_state_unavailable') && str_contains($smailRuntime,'draft_state_unavailable') && str_contains($smailRuntime,'draft_delete_unavailable') && substr_count($smailRuntime,'$wpdb->last_error')>=7, 'Round 27: Smail state and draft mutations must not convert DB uncertainty into not-found.');
 $check(str_contains($smail2,'WP_REST_Response|WP_Error') && str_contains($smail2,'smail_drafts_unavailable') && str_contains($smail2,'$wpdb->last_error'), 'Round 27: draft-list DB failure must not become a legitimate empty list.');
 
+
+// Round 28 — Smail idempotency source/recipient snapshots and lock acquisition fail closed.
+$smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');
+$idemPos=strpos($smailRuntime,'private static function idempotency_matches');$conflictPos=strpos($smailRuntime,'private static function idempotency_conflict');$idemSeg=$idemPos===false?'':substr($smailRuntime,$idemPos,($conflictPos===false?strlen($smailRuntime):$conflictPos)-$idemPos);
+$check(str_contains($idemSeg,'smail_idempotency_state_unavailable') && substr_count($idemSeg,'$wpdb->last_error')>=2 && str_contains($idemSeg,'The original Smail message source could not be verified safely.'), 'Round 28: Smail idempotency reconciliation must distinguish DB uncertainty from conflict/missing source.');
+$lockPos=strpos($smailRuntime,'private static function with_locks');$lockSeg=$lockPos===false?'':substr($smailRuntime,$lockPos);
+$check(str_contains($lockSeg,'smail_lock_unavailable') && str_contains($lockSeg,"$raw===null") && str_contains($lockSeg,'$wpdb->last_error'), 'Round 28: Smail GET_LOCK uncertainty must fail closed as service unavailable, not ordinary contention.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
