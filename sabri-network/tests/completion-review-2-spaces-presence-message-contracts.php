@@ -13,7 +13,7 @@ $check(str_contains($spaces,'UNIQUE KEY space_user (space_id,user_id)'),'Space m
 $check(substr_count($spaces,'UNIQUE KEY active_key (active_key)')>=2&&str_contains($spaces,"'active_key'=>hash('sha256',\$id.':'.\$user)"),'Join requests and invitations must use nullable active idempotency keys.');
 $check(str_contains($spaces,'UNIQUE KEY token_hash (token_hash)'),'Invitation tokens must be unique.');
 $check(str_contains($spaces,'Only the invited recipient may accept or reject'),'Invitation consent must belong to the recipient.');
-$check(str_contains($spaces,'Only the inviter or a space manager may cancel'),'Managers may cancel but not accept invitations for recipients.');
+$check(str_contains($spaces,'Only the inviter or a space manager may cancel')||str_contains($spaces,'Only the inviter or a current space manager may cancel'),'Managers may cancel but not accept invitations for recipients.');
 $check(str_contains($spaces,"\$action==='cancel'")&&str_contains($spaces,'requester_id=%d'),'Join request cancellation must belong to the requester.');
 $check(str_contains($spaces,"['accept','reject']")&&str_contains($spaces,'can_manage($space_id,$actor'),'Join decisions must belong to managers.');
 $check(str_contains($spaces,"SN_Policy::can_contact((int)\$invite->inviter_id,\$actor,'group')"),'Invitation acceptance must recheck contact policy.');
