@@ -4,7 +4,7 @@ declare(strict_types=1);
 $root=dirname(__DIR__);$failures=[];$checks=0;
 $read=static function(string $path):string{$v=file_get_contents($path);if($v===false)throw new RuntimeException('Missing '.$path);return $v;};
 $check=static function(bool $ok,string $message)use(&$checks,&$failures):void{$checks++;if(!$ok)$failures[]=$message;};
-$main=$read($root.'/sabri-network.php');$spaces='';foreach(glob($root.'/includes/class-sn-spaces*.php')?:[] as $space_file)$spaces.=$read($space_file);$presence=$read($root.'/includes/class-sn-presence-devices.php');$ops=$read($root.'/includes/class-sn-message-operations.php');$contexts=$read($root.'/includes/class-sn-context-adapters.php');$risk=$read($root.'/includes/class-sn-high-risk.php');$conference=$read($root.'/includes/class-sn-conference-provider.php');$compat=$read($root.'/includes/class-sn-compatibility-hardening.php');$status=$read($root.'/SYSTEM-STATUS.txt');$readme=$read($root.'/README.md');
+$main=$read($root.'/sabri-network.php');$spaces='';foreach(glob($root.'/includes/class-sn-spaces*.php')?:[] as $space_file)$spaces.=$read($space_file);$presence=$read($root.'/includes/class-sn-presence-devices.php');$ops=$read($root.'/includes/class-sn-message-operations.php');$contexts=$read($root.'/includes/class-sn-context-adapters.php');$risk=$read($root.'/includes/class-sn-high-risk.php');$conference=$read($root.'/includes/class-sn-conference-provider.php');$compat=$read($root.'/includes/class-sn-compatibility-hardening.php');$activator=$read($root.'/includes/class-sn-activator.php');$status=$read($root.'/SYSTEM-STATUS.txt');$readme=$read($root.'/README.md');
 $all=$spaces."\n".$presence."\n".$ops."\n".$contexts."\n".$risk."\n".$conference."\n".$compat;
 $check(!str_contains($all,'$_REQUEST'),'Completion services must not consume merged raw request input.');
 $check(!preg_match('/\$_(?:GET|POST|COOKIE)\s*\[/',$all),'Completion services must use typed REST parameters rather than raw superglobals.');
@@ -25,6 +25,7 @@ $check(str_contains($spaces,'sn_invite_recipient_required')&&str_contains($space
 $check(str_contains($conference,'sn_conference_credentials_audience_invalid')&&str_contains($conference,'sn_conference_credentials_expiry_invalid'),'Credential replay/scope and lifetime attacks must be rejected.');
 $check(str_contains($risk,'sn_high_risk_payload_mismatch')&&str_contains($risk,'hash_equals'),'High-risk payload substitution must be rejected.');
 $check(str_contains($main,"'high_risk_contract' => 'step-up + distinct approval + distinct execution'"),'Published integration contract must disclose high-risk governance.');
+$check(str_contains($activator,'$message_pages = SN_Messages::ensure_pages();')&&str_contains($activator,"$message_pages['messages'] ?? 0")&&str_contains($activator,"$message_pages['settings'] ?? 0")&&str_contains($activator,'Messages or Communication Settings page could not be created safely.'),'Activation must fail closed when either required Messages surface cannot be created.');
 $check(
     stripos($status,'repository')!==false &&
     stripos($status,'not staging-accepted')!==false &&
@@ -45,5 +46,5 @@ $check(
     'README must semantically state the current coded/repository candidate while preserving staging/live/operational separation.'
 );
 $check(!preg_match('/(?:100% secure|unhackable|E2EE enabled|production-ready)/i',$status.$readme),'Release documentation must not make unsupported security or production claims.');
-if($checks!==22)$failures[]='Review contract count changed: expected 22, got '.$checks;
+if($checks!==23)$failures[]='Review contract count changed: expected 23, got '.$checks;
 if($failures){fwrite(STDERR,"Completion review 4 failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Completion review 4 fresh adversarial/release: PASS ($checks checks)\n";
