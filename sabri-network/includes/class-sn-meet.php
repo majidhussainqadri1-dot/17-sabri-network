@@ -219,12 +219,16 @@ final class SN_Meet {
             : new WP_Error('forbidden', 'Administrator access is required.', ['status' => 403]);
     }
 
-    public static function health(): WP_REST_Response {
+    public static function health(): WP_REST_Response|WP_Error {
         global $wpdb;
         $missing = [];
         foreach (['meetings', 'participants', 'sessions', 'signals', 'events'] as $name) {
             $table = self::table($name);
-            if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) !== $table) {
+            $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+            if ($wpdb->last_error !== '') {
+                return new WP_Error('meet_health_unavailable', 'Sabri Meet storage health could not be verified safely.', ['status' => 503]);
+            }
+            if ($found !== $table) {
                 $missing[] = $name;
             }
         }
@@ -403,14 +407,17 @@ final class SN_Meet {
         return rest_ensure_response(['meeting' => self::format_meeting($row, $user_id), 'duplicate' => false]);
     }
 
-    public static function list_meetings(): WP_REST_Response {
+    public static function list_meetings(): WP_REST_Response|WP_Error {
         global $wpdb;
         $user_id = get_current_user_id();
         $rows = $wpdb->get_results($wpdb->prepare(
             'SELECT m.*,p.role participant_role,p.state participant_state FROM ' . self::table('meetings') . ' m INNER JOIN ' . self::table('participants') . ' p ON p.meeting_id=m.id AND p.user_id=%d WHERE m.status IN (\'scheduled\',\'live\',\'ended\',\'cancelled\') ORDER BY FIELD(m.status,\'live\',\'scheduled\',\'ended\',\'cancelled\'),COALESCE(m.scheduled_start,m.created_at) DESC LIMIT 100',
             $user_id
         ));
-        return rest_ensure_response(['meetings' => array_map(fn($row) => self::format_meeting($row, $user_id), $rows)]);
+        if ($wpdb->last_error !== '') {
+            return new WP_Error('meetings_unavailable', 'Sabri Meet sessions could not be read safely.', ['status' => 503]);
+        }
+        return rest_ensure_response(['meetings' => array_map(fn($row) => self::format_meeting($row, $user_id), $rows ?: [])]);
     }
 
     public static function get_meeting(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -918,11 +925,19 @@ final class SN_Meet {
             'SELECT * FROM ' . self::table('participants') . " WHERE meeting_id=%d AND state IN ($placeholders) ORDER BY FIELD(role,'host','cohost','participant'),FIELD(state,'joined','admitted','waiting','invited','left'),id ASC LIMIT 500",
             ...$params
         ));
+        if ($wpdb->last_error !== '') {
+            return new WP_Error('meet_participants_unavailable', 'The meeting participant roster could not be read safely.', ['status' => 503]);
+        }
         $session_rows = $wpdb->get_results($wpdb->prepare(
             "SELECT user_id,media_state FROM " . self::table('sessions') . " WHERE meeting_id=%d AND state='joined' AND last_seen_at>=%s ORDER BY id ASC LIMIT 1500",
             (int) $meeting->id,
             gmdate('Y-m-d H:i:s', time() - self::SESSION_TTL)
         ));
+        if ($wpdb->last_error !== '') {
+            return new WP_Error('meet_sessions_unavailable', 'The meeting media-session roster could not be read safely.', ['status' => 503]);
+        }
+        $rows = $rows ?: [];
+        $session_rows = $session_rows ?: [];
         $media_by_user = [];
         foreach ($session_rows as $session_row) {
             $session_media = self::decode_json((string) $session_row->media_state);
@@ -1235,6 +1250,10 @@ final class SN_Meet {
             $after,
             current_time('mysql', true)
         ));
+        if ($wpdb->last_error !== '') {
+            return new WP_Error('meet_signals_unavailable', 'Meeting signals could not be read safely.', ['status' => 503]);
+        }
+        $rows = $rows ?: [];
         $output = [];
         foreach ($rows as $row) {
             $payload = json_decode((string) $row->payload, true);

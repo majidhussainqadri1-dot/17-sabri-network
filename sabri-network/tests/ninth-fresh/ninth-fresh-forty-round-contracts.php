@@ -174,6 +174,13 @@ $check(substr_count($meet,'meeting_active_count_unavailable')>=2 && str_contains
 $check(str_contains($meet,'meeting_end_sessions_write_failed') && str_contains($meet,'meeting_end_participants_write_failed') && str_contains($meet,'meeting_admit_sessions_write_failed') && str_contains($meet,'meeting_deny_sessions_write_failed') && str_contains($meet,'meeting_remove_sessions_write_failed'), 'Round 29: moderation must not commit when session/participant side effects fail.');
 $check(substr_count($meet,'meeting_active_sessions_read_failed')>=2, 'Round 29: mute/lower-hand must fail closed when active-session snapshots cannot be read.');
 
+
+// Round 30 — Sabri Meet collection/health reads fail closed on database uncertainty.
+$meet=$read('includes/class-sn-meet.php');
+$check(str_contains($meet,'meet_health_unavailable') && str_contains($meet,'Sabri Meet storage health could not be verified safely.'), 'Round 30: health DB uncertainty must not be reported as missing tables/healthy state.');
+$check(str_contains($meet,'meetings_unavailable') && str_contains($meet,'meet_participants_unavailable') && str_contains($meet,'meet_sessions_unavailable'), 'Round 30: meeting list and roster DB uncertainty must not become successful empty collections.');
+$check(str_contains($meet,'meet_signals_unavailable') && substr_count($meet,'$wpdb->last_error')>=10, 'Round 30: signaling read DB uncertainty must not become a successful empty signal list.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
