@@ -1,0 +1,25 @@
+name: File 17 Ninth Fresh R21 Correction
+on:
+  push:
+    branches: [review/file17-ninth-fresh-40-round-2026-09-01]
+    paths: [.github/workflows/ninth-fresh-r21-correction.yml]
+  workflow_dispatch:
+permissions: {contents: write}
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: review/file17-ninth-fresh-40-round-2026-09-01, fetch-depth: 0}
+      - uses: shivammathur/setup-php@v2
+        with: {php-version: '8.3'}
+      - run: bash .github/scripts/ninth-fresh-r21-correction.sh
+      - run: |
+          php sabri-network/tests/ninth-fresh/ninth-fresh-forty-round-contracts.php
+          bash sabri-network/tools/quality-check.sh
+      - run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network
+          git commit -m 'File 17 ninth R21: harden action-time space governance and capacity truth'
+          git push origin HEAD:review/file17-ninth-fresh-40-round-2026-09-01
