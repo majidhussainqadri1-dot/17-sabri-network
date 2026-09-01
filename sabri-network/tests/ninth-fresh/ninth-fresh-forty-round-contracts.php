@@ -145,6 +145,13 @@ $sendPos=strpos($smailRuntime,'public static function send');$idemPos=strpos($sm
 $check(str_contains($sendSeg,'smail_idempotency_lookup_failed') && str_contains($sendSeg,'smail_idempotency_unavailable') && str_contains($sendSeg,'$wpdb->last_error'), 'Round 25: Smail send must fail closed when client-key idempotency state cannot be read.');
 $check(str_contains($smail1,'smail_mailbox_read_failed') && str_contains($smail1,'smail_mailbox_unavailable') && str_contains($smail1,'$wpdb->last_error'), 'Round 25: Smail mailbox DB failure must not become a legitimate empty mailbox.');
 
+
+// Round 26 — Smail privacy erasure enumeration/completion remains retryable on DB uncertainty.
+$smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');
+$erasePos=strpos($smailRuntime,'public static function erase_personal_data');$trashPos=strpos($smailRuntime,'private static function trash_draft');$eraseSeg=$erasePos===false?'':substr($smailRuntime,$erasePos,($trashPos===false?strlen($smailRuntime):$trashPos)-$erasePos);
+$check(str_contains($eraseSeg,'Smail erasure state enumeration failed; retry is required.') && str_contains($eraseSeg,'Smail erasure draft enumeration failed; retry is required.') && substr_count($eraseSeg,'$wpdb->last_error')>=4, 'Round 26: Smail erasure must not convert enumeration DB failure into an empty workset.');
+$check(str_contains($eraseSeg,'Smail erasure completion could not verify remaining state rows; retry is required.') && str_contains($eraseSeg,'Smail erasure completion could not verify remaining draft rows; retry is required.') && str_contains($eraseSeg,"'done'=>false"), 'Round 26: Smail erasure completion must not claim done when remaining-row truth is unavailable.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
