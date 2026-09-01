@@ -30,6 +30,7 @@ trait SN_Spaces_Part_1 {
         $slug = self::unique_slug($slug_base);
         $now = self::now();
         try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
+            if($parent_id>0){$parent_locked=self::space($parent_id,true);if(!$parent_locked||(string)$parent_locked->type!=='community'||!in_array((string)$parent_locked->state,['active','restricted'],true)||!self::can_manage_locked($parent_id,$actor,'settings')){$wpdb->query('ROLLBACK');return self::error('sn_space_parent_forbidden','Parent-community management permission is required at action time.',403);}}
             $ok = $wpdb->insert(self::spaces_table(), [
                 'public_id'=>wp_generate_uuid4(),'parent_id'=>$parent_id,'owner_user_id'=>$actor,
                 'type'=>$type,'subtype'=>self::text((string)$request->get_param('subtype'),40),'slug'=>$slug,'name'=>$name,

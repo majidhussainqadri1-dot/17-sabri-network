@@ -104,6 +104,15 @@ $check(str_contains($safetyPrivacy,'native_legal_hold_verification_failed') && s
 $blockPos=strpos($rest,'public static function block_user'); $blockEnd=$blockPos===false?false:strpos($rest,'public static function admin_reports',$blockPos); $blockSeg=$blockPos===false?'':substr($rest,$blockPos,($blockEnd===false?strlen($rest):$blockEnd)-$blockPos);
 $check(str_contains($blockSeg,"block_commit_failed") && str_contains($blockSeg,"query('COMMIT') === false"), 'Round 20: block/unblock success requires a confirmed transaction commit.');
 
+
+// Round 21 — space membership/governance is fail-closed and action-time locked.
+$spaces7=$read('includes/class-sn-spaces-part-7.php');$spaces8=$read('includes/class-sn-spaces-part-8.php');
+$spaces1=$read('includes/class-sn-spaces-part-1.php');$spaces2=$read('includes/class-sn-spaces-part-2.php');$spaces3=$read('includes/class-sn-spaces-part-3.php');$spaces4=$read('includes/class-sn-spaces-part-4.php');$spaces5=$read('includes/class-sn-spaces-part-5.php');$spaces6=$read('includes/class-sn-spaces-part-6.php');
+$check(str_contains($spaces7,'sn_space_membership_state_unavailable') && str_contains($spaces7,'sn_space_capacity_unavailable') && substr_count($spaces7,'$wpdb->last_error')>=3, 'Round 21: ban/member/capacity DB uncertainty must fail join eligibility closed.');
+$check(str_contains($spaces8,'can_manage_locked') && str_contains($spaces8,'role_can_manage'), 'Round 21: canonical space manager authorization must support locked action-time checks.');
+foreach ([$spaces1,$spaces2,$spaces3,$spaces4,$spaces6] as $i=>$src) $check(str_contains($src,'can_manage_locked'), 'Round 21: a space mutation path lost locked manager revalidation #'.$i.'.');
+$check(substr_count($spaces5,'role_can_manage')>=3 && str_contains($spaces5,'$actor_locked=self::member') && str_contains($spaces5,'$target_locked=self::member'), 'Round 21: member/ban mutations must recompute authority/hierarchy from locked memberships.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

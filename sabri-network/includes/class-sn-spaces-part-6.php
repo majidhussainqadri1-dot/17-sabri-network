@@ -10,7 +10,7 @@ trait SN_Spaces_Part_6 {
         $expected=absint($request->get_param('version'));$transitions=['active'=>['restricted','locked','archived','closed','deletion_requested'],'restricted'=>['active','locked','archived','closed'],'locked'=>['active','restricted','archived','closed'],'archived'=>['active','closed'],'closed'=>['active','deletion_requested'],'deletion_requested'=>[]];$now=self::now();
         try { if ($wpdb->query('START TRANSACTION') === false) throw new RuntimeException('transaction_start_failed');
             $space=self::space($id,true);
-            if(!$space||!self::can_manage($id,$actor,'lifecycle')){$wpdb->query('ROLLBACK');return self::error('sn_space_lifecycle_forbidden','Lifecycle permission is required.',403);}
+            if(!$space||!self::can_manage_locked($id,$actor,'lifecycle')){$wpdb->query('ROLLBACK');return self::error('sn_space_lifecycle_forbidden','Lifecycle permission is required at action time.',403);}
             if(!in_array($next,$transitions[(string)$space->state]??[],true)){$wpdb->query('ROLLBACK');return self::error('sn_space_transition_invalid','This lifecycle transition is not allowed.',409);}
             if($expected!==(int)$space->version){$wpdb->query('ROLLBACK');return self::error('sn_space_version_conflict','The space changed. Reload and retry.',409);}
             $data=['state'=>$next,'locked_reason'=>self::text((string)$request->get_param('reason'),500),'updated_at'=>$now,'version'=>$expected+1];

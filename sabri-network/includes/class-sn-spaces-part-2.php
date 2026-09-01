@@ -29,6 +29,7 @@ trait SN_Spaces_Part_2 {
         try{
             $locked=self::space($id,true);
             if(!$locked||(int)$locked->version!==$expected){$wpdb->query('ROLLBACK');return self::error('sn_space_update_conflict','A concurrent space update was detected.',409);}
+            if(!self::can_manage_locked($id,$actor,'settings')){$wpdb->query('ROLLBACK');return self::error('sn_space_manage_forbidden','Space settings permission is required at action time.',403);}
             $changed=$wpdb->update(self::spaces_table(),$allowed,['id'=>$id,'version'=>$expected]);
             if($changed!==1)throw new RuntimeException('space_settings_conflict');
             self::record($id,$actor,'space_settings_updated','space',$id,'',['fields'=>array_keys($allowed)]);

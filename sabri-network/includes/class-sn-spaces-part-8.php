@@ -29,7 +29,11 @@ trait SN_Spaces_Part_8 {
 
     private static function can_create(int $user): bool {return current_user_can('manage_options')||(bool)apply_filters('sn_network_user_can_create_space',false,$user);}
 
-    private static function can_manage(int $space_id,int $user,string $scope): bool {$m=self::member($space_id,$user);if(!$m)return false;$allowed=match($scope){'settings','lifecycle','audit'=>['owner','administrator'],'members'=>['owner','administrator'],'moderation'=>['owner','administrator','moderator'],default=>['owner']};return in_array((string)$m->role,$allowed,true);}
+    private static function role_can_manage(string $role,string $scope): bool {$allowed=match($scope){'settings','lifecycle','audit'=>['owner','administrator'],'members'=>['owner','administrator'],'moderation'=>['owner','administrator','moderator'],default=>['owner']};return in_array($role,$allowed,true);}
+
+    private static function can_manage(int $space_id,int $user,string $scope): bool {$m=self::member($space_id,$user);return $m?self::role_can_manage((string)$m->role,$scope):false;}
+
+    private static function can_manage_locked(int $space_id,int $user,string $scope): bool {$m=self::member($space_id,$user,true);return $m?self::role_can_manage((string)$m->role,$scope):false;}
 
     private static function can_manage_target(string $actor_role,string $target_role): bool {return isset(self::ROLE_RANK[$actor_role],self::ROLE_RANK[$target_role])&&self::ROLE_RANK[$actor_role]>self::ROLE_RANK[$target_role]&&$target_role!=='owner';}
 

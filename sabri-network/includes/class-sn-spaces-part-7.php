@@ -68,10 +68,13 @@ trait SN_Spaces_Part_7 {
         if(!$space)return self::error('sn_space_not_found','The space is unavailable.',404);
         if(!in_array((string)$space->state,['active','restricted'],true))return self::error('sn_space_not_joinable','This space is not accepting memberships.',409);
         if(self::active_until((string)$space->anti_raid_until)&&!$invited)return self::error('sn_space_anti_raid_join_pause','New joins are temporarily paused.',409);
-        if(self::is_banned((int)$space->id,$user)||SN_Policy::is_suspended($user))return self::error('sn_space_member_unavailable','This account cannot join the space.',403);
-        if(self::member((int)$space->id,$user))return self::error('sn_space_already_member','The account is already an active member.',409);
+        global $wpdb;
+        $banned=self::is_banned((int)$space->id,$user);if($wpdb->last_error!=='')return self::error('sn_space_membership_state_unavailable','Space membership eligibility could not be verified safely.',503);
+        if($banned||SN_Policy::is_suspended($user))return self::error('sn_space_member_unavailable','This account cannot join the space.',403);
+        $member=self::member((int)$space->id,$user);if($wpdb->last_error!=='')return self::error('sn_space_membership_state_unavailable','Space membership eligibility could not be verified safely.',503);
+        if($member)return self::error('sn_space_already_member','The account is already an active member.',409);
         if(SN_Policy::requires_protective_age_defaults($user)&&!(bool)apply_filters('sn_network_minor_space_allowed',false,$user,$space))return self::error('sn_space_minor_restricted','This space is not approved for the account age context.',403);
-        $count=self::member_count((int)$space->id);if($count>=(int)$space->member_limit)return self::error('sn_space_capacity_reached','The space member limit has been reached.',409);
+        $count=self::member_count((int)$space->id);if($wpdb->last_error!=='')return self::error('sn_space_capacity_unavailable','Space capacity could not be verified safely.',503);if($count>=(int)$space->member_limit)return self::error('sn_space_capacity_reached','The space member limit has been reached.',409);
         return true;
     }
 }
