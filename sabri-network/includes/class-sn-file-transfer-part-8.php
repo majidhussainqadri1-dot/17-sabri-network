@@ -54,8 +54,10 @@ trait SN_File_Transfer_Part_8 {
             if($had_chunks&&self::delete_chunks($id))$removed=true;
         }
 
-        $more_sent_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $sessions s WHERE s.sender_id=%d AND (s.status NOT IN ('revoked','expired','rejected') OR EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)) LIMIT 1",$uid));if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_completion_sent_read_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Private transfer erasure completion could not be verified and must be retried.'],'done'=>false];}$more_sent=(bool)$more_sent_raw;
-        $more_received_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $recipients WHERE user_id=%d AND state<>'erased' LIMIT 1",$uid));if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_completion_received_read_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Private transfer recipient erasure completion could not be verified and must be retried.'],'done'=>false];}$more_received=(bool)$more_received_raw;
+        $more_sent=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $sessions s WHERE s.sender_id=%d AND (s.status NOT IN ('revoked','expired','rejected') OR EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)) LIMIT 1",$uid));
+        if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_completion_sent_read_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Private transfer erasure completion could not be verified and must be retried.'],'done'=>false];}
+        $more_received=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $recipients WHERE user_id=%d AND state<>'erased' LIMIT 1",$uid));
+        if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_completion_received_read_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Private transfer recipient erasure completion could not be verified and must be retried.'],'done'=>false];}
         return[
             'items_removed'=>$removed,
             'items_retained'=>true,
