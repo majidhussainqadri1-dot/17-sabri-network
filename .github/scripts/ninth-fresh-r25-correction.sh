@@ -17,14 +17,14 @@ p.write_text(t.replace(old,new,1),encoding='utf-8')
 # Mailbox read must distinguish database failure from a legitimate empty mailbox.
 p=root/'includes/class-sn-smail-part-1.php'; t=p.read_text(encoding='utf-8')
 old="""        $rows = $wpdb->get_results($wpdb->prepare($sql, ...$args));
-        $items = [];
+        $items = array_map(static function ($row) use ($user_id): array {
 """
 new="""        $rows = $wpdb->get_results($wpdb->prepare($sql, ...$args));
         if ($wpdb->last_error !== '') {
             SN_DB::audit('smail_mailbox_read_failed', 'smail', 0, 'failure', ['box'=>$box,'reason'=>(string)$wpdb->last_error], $user_id);
             return new WP_Error('smail_mailbox_unavailable', 'The Smail mailbox could not be read safely.', ['status'=>503]);
         }
-        $items = [];
+        $items = array_map(static function ($row) use ($user_id): array {
 """
 if old not in t: raise SystemExit('R25 mailbox anchor missing')
 p.write_text(t.replace(old,new,1),encoding='utf-8')
