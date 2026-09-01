@@ -380,7 +380,9 @@ final class SN_Meet {
             ])) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('transaction_commit_failed');
+            }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             $race = $wpdb->get_row($wpdb->prepare(
@@ -515,7 +517,9 @@ final class SN_Meet {
                 if (!self::insert_event((int) $meeting->id, $actor_id, 'participant_invited', $target_id)) {
                     throw new RuntimeException('meeting_event_insert_failed');
                 }
-                $wpdb->query('COMMIT');
+                if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('transaction_commit_failed');
+            }
                 $notify = true;
                 $invited++;
             } catch (DomainException $e) {
@@ -608,10 +612,18 @@ final class SN_Meet {
 
             $auto_admit = in_array((string) $participant->role, ['host', 'cohost'], true) || !(bool) $meeting->lobby_enabled || (string) $participant->state === 'admitted';
             if ($auto_admit) {
-                $active_count = (int) $wpdb->get_var($wpdb->prepare(
+                $active_count_raw = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM " . self::table('participants') . " WHERE meeting_id=%d AND state IN ('admitted','joined')",
                     (int) $meeting->id
-                ));
+                ) );
+
+                    if ($active_count_raw === null && $wpdb->last_error !== '') {
+
+                        throw new RuntimeException('meeting_active_count_unavailable');
+
+                    }
+
+                $active_count = (int) $active_count_raw;
                 $already_active = in_array((string) $participant->state, ['admitted', 'joined'], true);
                 if (!$already_active && $active_count >= (int) $meeting->participant_limit) {
                     throw new DomainException('meeting_full');
@@ -638,15 +650,23 @@ final class SN_Meet {
                 $session_hash
             ));
             if (!$session) {
-                $user_sessions = (int) $wpdb->get_var($wpdb->prepare(
+                $user_sessions_raw = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM " . self::table('sessions') . " WHERE meeting_id=%d AND user_id=%d AND state IN ('waiting','joined')",
                     (int) $meeting->id,
                     $user_id
                 ));
-                $all_sessions = (int) $wpdb->get_var($wpdb->prepare(
+                if ($user_sessions_raw === null && $wpdb->last_error !== '') {
+                    throw new RuntimeException('meeting_user_session_count_unavailable');
+                }
+                $user_sessions = (int) $user_sessions_raw;
+                $all_sessions_raw = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM " . self::table('sessions') . " WHERE meeting_id=%d AND state IN ('waiting','joined')",
                     (int) $meeting->id
                 ));
+                if ($all_sessions_raw === null && $wpdb->last_error !== '') {
+                    throw new RuntimeException('meeting_room_session_count_unavailable');
+                }
+                $all_sessions = (int) $all_sessions_raw;
                 if ($user_sessions >= 3 || $all_sessions >= ((int) $meeting->participant_limit * 3)) {
                     throw new DomainException('session_limit_reached');
                 }
@@ -686,7 +706,9 @@ final class SN_Meet {
             if (!self::insert_event((int) $meeting->id, $user_id, $auto_admit ? 'participant_joined' : 'participant_waiting', $user_id, ['session_id' => $session_id_db])) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('transaction_commit_failed');
+            }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return match ($e->getMessage()) {
@@ -776,7 +798,9 @@ final class SN_Meet {
             ], ['id' => (int) $participant->id, 'version' => (int) $participant->version]) !== 1) {
                 throw new RuntimeException('participant_heartbeat_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('transaction_commit_failed');
+            }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return match ($e->getMessage()) {
@@ -824,7 +848,9 @@ final class SN_Meet {
                 throw new DomainException('session_not_found');
             }
             if ((string) $session->state === 'left') {
-                $wpdb->query('COMMIT');
+                if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('transaction_commit_failed');
+            }
                 return rest_ensure_response(['left' => true, 'duplicate' => true]);
             }
             if ($wpdb->update(self::table('sessions'), [
@@ -834,13 +860,17 @@ final class SN_Meet {
             ], ['id' => (int) $session->id, 'state' => (string) $session->state]) !== 1) {
                 throw new RuntimeException('session_leave_failed');
             }
-            $other_sessions = (int) $wpdb->get_var($wpdb->prepare(
+            $other_sessions_raw = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM " . self::table('sessions') . " WHERE meeting_id=%d AND user_id=%d AND id<>%d AND state='joined' AND last_seen_at>=%s",
                 (int) $meeting->id,
                 $user_id,
                 (int) $session->id,
                 gmdate('Y-m-d H:i:s', time() - self::SESSION_TTL)
             ));
+            if ($other_sessions_raw === null && $wpdb->last_error !== '') {
+                throw new RuntimeException('meeting_other_session_count_unavailable');
+            }
+            $other_sessions = (int) $other_sessions_raw;
             if ($other_sessions === 0 && !in_array((string) $participant->state, ['left', 'denied', 'removed'], true)) {
                 if ($wpdb->update(self::table('participants'), [
                     'state' => 'left',
@@ -855,7 +885,9 @@ final class SN_Meet {
             if (!self::insert_event((int) $meeting->id, $user_id, 'participant_left', $user_id, ['session_id' => (int) $session->id])) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('transaction_commit_failed');
+            }
         } catch (DomainException $e) {
             $wpdb->query('ROLLBACK');
             return self::not_found();
@@ -982,18 +1014,22 @@ final class SN_Meet {
                     throw new RuntimeException('meeting_cas_failed');
                 }
                 if ($action === 'end') {
-                    $wpdb->query($wpdb->prepare(
+                    if ($wpdb->query($wpdb->prepare(
                         "UPDATE " . self::table('sessions') . " SET state='left',left_at=%s,last_seen_at=%s WHERE meeting_id=%d AND state IN ('waiting','joined')",
                         $now,
                         $now,
                         (int) $meeting->id
-                    ));
-                    $wpdb->query($wpdb->prepare(
+                    )) === false) {
+    throw new RuntimeException('meeting_end_sessions_write_failed');
+}
+                    if ($wpdb->query($wpdb->prepare(
                         "UPDATE " . self::table('participants') . " SET state='left',left_at=%s,updated_at=%s,version=version+1 WHERE meeting_id=%d AND state IN ('waiting','admitted','joined')",
                         $now,
                         $now,
                         (int) $meeting->id
-                    ));
+                    )) === false) {
+    throw new RuntimeException('meeting_end_participants_write_failed');
+}
                 }
             } else {
                 $target = $wpdb->get_row($wpdb->prepare(
@@ -1012,42 +1048,56 @@ final class SN_Meet {
                     if ((string) $target->state !== 'waiting') {
                         throw new DomainException('invalid_state');
                     }
-                    $active_count = (int) $wpdb->get_var($wpdb->prepare(
+                    $active_count_raw = $wpdb->get_var($wpdb->prepare(
                         "SELECT COUNT(*) FROM " . self::table('participants') . " WHERE meeting_id=%d AND state IN ('admitted','joined')",
                         (int) $meeting->id
-                    ));
+                    ) );
+
+                        if ($active_count_raw === null && $wpdb->last_error !== '') {
+
+                            throw new RuntimeException('meeting_active_count_unavailable');
+
+                        }
+
+                    $active_count = (int) $active_count_raw;
                     if ($active_count >= (int) $meeting->participant_limit) {
                         throw new DomainException('meeting_full');
                     }
                     $data += ['state' => 'joined', 'admitted_by' => $actor_id, 'joined_at' => $target->joined_at ?: $now, 'left_at' => null, 'last_seen_at' => $now];
-                    $wpdb->query($wpdb->prepare(
+                    if ($wpdb->query($wpdb->prepare(
                         "UPDATE " . self::table('sessions') . " SET state='joined',joined_at=COALESCE(joined_at,%s),left_at=NULL,last_seen_at=%s WHERE meeting_id=%d AND user_id=%d AND state='waiting'",
                         $now,
                         $now,
                         (int) $meeting->id,
                         $target_id
-                    ));
+                    )) === false) {
+    throw new RuntimeException('meeting_admit_sessions_write_failed');
+}
                 } elseif ($action === 'deny') {
                     if (!in_array((string) $target->state, ['waiting', 'invited'], true)) {
                         throw new DomainException('invalid_state');
                     }
                     $data += ['state' => 'denied', 'left_at' => $now];
-                    $wpdb->query($wpdb->prepare(
+                    if ($wpdb->query($wpdb->prepare(
                         "UPDATE " . self::table('sessions') . " SET state='left',left_at=%s,last_seen_at=%s WHERE meeting_id=%d AND user_id=%d AND state='waiting'",
                         $now,
                         $now,
                         (int) $meeting->id,
                         $target_id
-                    ));
+                    )) === false) {
+    throw new RuntimeException('meeting_deny_sessions_write_failed');
+}
                 } elseif ($action === 'remove') {
                     $data += ['state' => 'removed', 'left_at' => $now];
-                    $wpdb->query($wpdb->prepare(
+                    if ($wpdb->query($wpdb->prepare(
                         "UPDATE " . self::table('sessions') . " SET state='left',left_at=%s,last_seen_at=%s WHERE meeting_id=%d AND user_id=%d AND state IN ('waiting','joined')",
                         $now,
                         $now,
                         (int) $meeting->id,
                         $target_id
-                    ));
+                    )) === false) {
+    throw new RuntimeException('meeting_remove_sessions_write_failed');
+}
                 } elseif ($action === 'mute') {
                     $policy = self::decode_json((string) $target->media_policy);
                     $policy['forced_muted'] = true;
@@ -1057,6 +1107,9 @@ final class SN_Meet {
                         (int) $meeting->id,
                         $target_id
                     ));
+                    if ($active_sessions === null && $wpdb->last_error !== '') {
+                        throw new RuntimeException('meeting_active_sessions_read_failed');
+                    }
                     foreach ($active_sessions as $active_session) {
                         $media_state = self::decode_json((string) $active_session->media_state);
                         $media_state['mic'] = false;
@@ -1070,6 +1123,9 @@ final class SN_Meet {
                         (int) $meeting->id,
                         $target_id
                     ));
+                    if ($active_sessions === null && $wpdb->last_error !== '') {
+                        throw new RuntimeException('meeting_active_sessions_read_failed');
+                    }
                     foreach ($active_sessions as $active_session) {
                         $media_state = self::decode_json((string) $active_session->media_state);
                         $media_state['hand'] = false;
@@ -1090,7 +1146,9 @@ final class SN_Meet {
             if (!self::insert_event((int) $meeting->id, $actor_id, 'moderation_' . $action, $target_id)) {
                 throw new RuntimeException('meeting_event_insert_failed');
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('transaction_commit_failed');
+            }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return match ($e->getMessage()) {

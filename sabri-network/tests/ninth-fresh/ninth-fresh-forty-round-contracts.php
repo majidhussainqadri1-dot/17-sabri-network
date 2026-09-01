@@ -166,6 +166,14 @@ $check(str_contains($idemSeg,'smail_idempotency_state_unavailable') && substr_co
 $lockPos=strpos($smailRuntime,'private static function with_locks');$lockSeg=$lockPos===false?'':substr($smailRuntime,$lockPos);
 $check(str_contains($lockSeg,'smail_lock_unavailable') && str_contains($lockSeg,"$raw===null") && str_contains($lockSeg,'$wpdb->last_error'), 'Round 28: Smail GET_LOCK uncertainty must fail closed as service unavailable, not ordinary contention.');
 
+
+// Round 29 — Sabri Meet transactional, capacity and moderation side effects fail closed.
+$meet=$read('includes/class-sn-meet.php');
+$check(!str_contains($meet,"$wpdb->query('COMMIT');") && substr_count($meet,"query('COMMIT') === false")>=6 && str_contains($meet,'transaction_commit_failed'), 'Round 29: Meet transactions must confirm COMMIT before success/audit/notification.');
+$check(substr_count($meet,'meeting_active_count_unavailable')>=2 && str_contains($meet,'meeting_user_session_count_unavailable') && str_contains($meet,'meeting_room_session_count_unavailable') && str_contains($meet,'meeting_other_session_count_unavailable'), 'Round 29: Meet participant/session capacity reads must not cast DB uncertainty to zero.');
+$check(str_contains($meet,'meeting_end_sessions_write_failed') && str_contains($meet,'meeting_end_participants_write_failed') && str_contains($meet,'meeting_admit_sessions_write_failed') && str_contains($meet,'meeting_deny_sessions_write_failed') && str_contains($meet,'meeting_remove_sessions_write_failed'), 'Round 29: moderation must not commit when session/participant side effects fail.');
+$check(substr_count($meet,'meeting_active_sessions_read_failed')>=2, 'Round 29: mute/lower-hand must fail closed when active-session snapshots cannot be read.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
