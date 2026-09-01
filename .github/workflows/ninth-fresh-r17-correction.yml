@@ -1,4 +1,5 @@
 name: File 17 Ninth Fresh R17 Correction
+# Rerun after fixing permanent regression literals.
 on:
   push:
     branches: [review/file17-ninth-fresh-40-round-2026-09-01]
