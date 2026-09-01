@@ -26,6 +26,9 @@ $check(str_contains($conference,'sn_conference_credentials_audience_invalid')&&s
 $check(str_contains($risk,'sn_high_risk_payload_mismatch')&&str_contains($risk,'hash_equals'),'High-risk payload substitution must be rejected.');
 $check(str_contains($main,"'high_risk_contract' => 'step-up + distinct approval + distinct execution'"),'Published integration contract must disclose high-risk governance.');
 $check(str_contains($activator,'$message_pages = SN_Messages::ensure_pages();')&&str_contains($activator,'$message_pages[\'messages\'] ?? 0')&&str_contains($activator,'$message_pages[\'settings\'] ?? 0')&&str_contains($activator,'Messages or Communication Settings page could not be created safely.'),'Activation must fail closed when either required Messages surface cannot be created.');
+$networkRepairPos=strpos($activator,'public static function ensure_network_page');
+$networkRepairSeg=$networkRepairPos===false?'':substr($activator,$networkRepairPos,3800);
+$check(str_contains($networkRepairSeg,'$updated = wp_update_post(')&&str_contains($networkRepairSeg,'], true);')&&str_contains($networkRepairSeg,'if (is_wp_error($updated) || !$updated) return 0;'),'Network-page repair must not return a ready page id when wp_update_post fails.');
 $check(
     stripos($status,'repository')!==false &&
     stripos($status,'not staging-accepted')!==false &&
@@ -46,5 +49,5 @@ $check(
     'README must semantically state the current coded/repository candidate while preserving staging/live/operational separation.'
 );
 $check(!preg_match('/(?:100% secure|unhackable|E2EE enabled|production-ready)/i',$status.$readme),'Release documentation must not make unsupported security or production claims.');
-if($checks!==23)$failures[]='Review contract count changed: expected 23, got '.$checks;
+if($checks!==24)$failures[]='Review contract count changed: expected 24, got '.$checks;
 if($failures){fwrite(STDERR,"Completion review 4 failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Completion review 4 fresh adversarial/release: PASS ($checks checks)\n";
