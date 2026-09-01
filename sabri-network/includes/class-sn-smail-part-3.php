@@ -132,7 +132,10 @@ trait SN_Smail_Part_3 {
     public static function ensure_page(bool $repair): int {
         $id = (int) get_option('sn_smail_page_id'); $page = $id ? get_post($id) : null;
         if ($page instanceof WP_Post && (string) get_post_meta($id, self::PAGE_OWNER_META, true) === 'smail') {
-            if ($repair || !has_shortcode((string) $page->post_content, 'sabri_smail')) wp_update_post(['ID' => $id, 'post_title' => 'Smail', 'post_content' => '[sabri_smail]', 'post_status' => 'publish']);
+            if ($repair || !has_shortcode((string) $page->post_content, 'sabri_smail')) {
+                $updated = wp_update_post(['ID' => $id, 'post_title' => 'Smail', 'post_content' => '[sabri_smail]', 'post_status' => 'publish'], true);
+                if (is_wp_error($updated) || !$updated) return 0;
+            }
             return $id;
         }
         $candidate = get_page_by_path('smail', OBJECT, 'page');
