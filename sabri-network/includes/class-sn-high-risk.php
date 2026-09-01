@@ -167,6 +167,7 @@ final class SN_High_Risk {
         $decision = sanitize_key((string) $request->get_param('decision'));
         if (!in_array($decision, ['approve', 'reject'], true)) return self::error('sn_high_risk_decision_invalid', 'Select approve or reject.', 400);
         $row = self::action($id);
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('high_risk_decision_read_failed');
         if (!$row) return self::error('sn_high_risk_not_found', 'The action is unavailable.', 404);
         if ((int) $row->requester_id === $approver) return self::error('sn_high_risk_separation_required', 'The requester cannot approve this action.', 409);
         if ((string) $row->status !== 'requested' || strtotime((string) $row->expires_at . ' UTC') <= time()) return self::error('sn_high_risk_not_pending', 'The action is no longer awaiting approval.', 409);
@@ -177,6 +178,7 @@ final class SN_High_Risk {
         $data = ['status' => $status, 'approver_id' => $approver, 'updated_at' => $now, 'version' => $expected + 1];
         if ($status === 'approved') $data['approved_at'] = $now;
         $changed = $wpdb->update(self::actions_table(), $data, ['id' => $id, 'status' => 'requested', 'version' => $expected]);
+        if ($changed === false) return self::storage_error('high_risk_decision_write_failed');
         if ($changed !== 1) return self::error('sn_high_risk_decision_conflict', 'A concurrent decision was detected.', 409);
         SN_DB::audit('high_risk_action_' . $status, 'high_risk_action', $id, 'success', ['action_type' => (string) $row->action_type], $approver);
         return rest_ensure_response(['id' => $id, 'status' => $status, 'version' => $expected + 1]);
@@ -186,6 +188,7 @@ final class SN_High_Risk {
     public static function claim(int $action_id, int $executor_id, string $type, array $payload): array|WP_Error {
         global $wpdb;
         $row = self::action($action_id, true);
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('high_risk_claim_read_failed');
         if (!$row || (string) $row->action_type !== $type) return self::error('sn_high_risk_scope_mismatch', 'The approved action does not match this operation.', 403);
         if ((string) $row->status !== 'approved' || strtotime((string) $row->expires_at . ' UTC') <= time()) return self::error('sn_high_risk_not_approved', 'A current approved action is required.', 403);
         if (in_array($executor_id, [(int) $row->requester_id, (int) $row->approver_id], true)) return self::error('sn_high_risk_executor_separation', 'A distinct executor is required.', 409);
@@ -198,6 +201,7 @@ final class SN_High_Risk {
             'status' => 'executing', 'executor_id' => $executor_id, 'claim_token_hash' => $claim_hash,
             'executing_at' => $now, 'updated_at' => $now, 'version' => (int) $row->version + 1,
         ], ['id' => $action_id, 'status' => 'approved', 'version' => (int) $row->version]);
+        if ($changed === false) return self::storage_error('high_risk_claim_write_failed');
         if ($changed !== 1) return self::error('sn_high_risk_claim_conflict', 'The approved action was claimed concurrently.', 409);
         return ['action_id' => $action_id, 'claim_token' => $raw_claim, 'version' => (int) $row->version + 1];
     }
@@ -207,6 +211,7 @@ final class SN_High_Risk {
         global $wpdb;
         if (!in_array($final_status, ['executed', 'released'], true)) return self::error('sn_high_risk_final_state_invalid', 'The completion state is invalid.', 400);
         $row = self::action($action_id, true);
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('high_risk_completion_read_failed');
         if (!$row || (string) $row->status !== 'executing' || (int) $row->executor_id !== $executor_id) return self::error('sn_high_risk_execution_lost', 'The action execution claim is unavailable.', 409);
         $hash = hash_hmac('sha256', $claim_token, wp_salt('auth'));
         if (!(string) $row->claim_token_hash || !hash_equals((string) $row->claim_token_hash, $hash)) return self::error('sn_high_risk_claim_invalid', 'The action execution claim is invalid.', 403);
@@ -216,25 +221,30 @@ final class SN_High_Risk {
         $data = ['status' => $final_status, 'result_json' => $encoded, 'claim_token_hash' => null, 'updated_at' => $now, 'version' => (int) $row->version + 1];
         $data[$final_status === 'released' ? 'released_at' : 'executed_at'] = $now;
         $changed = $wpdb->update(self::actions_table(), $data, ['id' => $action_id, 'status' => 'executing', 'version' => (int) $row->version]);
+        if ($changed === false) return self::storage_error('high_risk_completion_write_failed');
         return $changed === 1 ? true : self::error('sn_high_risk_completion_conflict', 'The action completion conflicted with another update.', 409);
     }
 
-    public static function list_actions(WP_REST_Request $request): WP_REST_Response {
+    public static function list_actions(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $status = sanitize_key((string) $request->get_param('status'));
         $limit = max(1, min(100, absint($request->get_param('limit')) ?: 50));
         $where = $status !== '' ? $wpdb->prepare(' WHERE status=%s', $status) : '';
         $rows = $wpdb->get_results("SELECT id,action_uuid,action_type,requester_id,approver_id,executor_id,payload_hash,status,reason,expires_at,approved_at,executing_at,executed_at,released_at,version,created_at,updated_at FROM " . self::actions_table() . $where . $wpdb->prepare(' ORDER BY id DESC LIMIT %d', $limit));
-        return rest_ensure_response(['items' => is_array($rows) ? $rows : []]);
+        if (($wpdb->last_error ?? '') !== '' || !is_array($rows)) return self::storage_error('high_risk_list_read_failed');
+        return rest_ensure_response(['items' => $rows]);
     }
 
     public static function cleanup(): void {
         global $wpdb;
         $now = self::now();
         $stale = gmdate('Y-m-d H:i:s', time() - self::EXECUTION_STALE_SECONDS);
-        $wpdb->query($wpdb->prepare("UPDATE " . self::grants_table() . " SET status='expired',updated_at=%s,version=version+1 WHERE status='active' AND expires_at<=%s LIMIT 500", $now, $now));
-        $wpdb->query($wpdb->prepare("UPDATE " . self::actions_table() . " SET status='expired',updated_at=%s,version=version+1 WHERE status IN ('requested','approved') AND expires_at<=%s LIMIT 500", $now, $now));
-        $wpdb->query($wpdb->prepare("UPDATE " . self::actions_table() . " SET status='approved',executor_id=0,claim_token_hash=NULL,executing_at=NULL,updated_at=%s,version=version+1 WHERE status='executing' AND executing_at<%s AND expires_at>%s LIMIT 100", $now, $stale, $now));
+        $expired_grants=$wpdb->query($wpdb->prepare("UPDATE " . self::grants_table() . " SET status='expired',updated_at=%s,version=version+1 WHERE status='active' AND expires_at<=%s LIMIT 500", $now, $now));
+        if($expired_grants===false)SN_DB::audit('high_risk_cleanup_grants_failed','system',0,'failure',['reason'=>(string)($wpdb->last_error??'')],0);
+        $expired_actions=$wpdb->query($wpdb->prepare("UPDATE " . self::actions_table() . " SET status='expired',updated_at=%s,version=version+1 WHERE status IN ('requested','approved') AND expires_at<=%s LIMIT 500", $now, $now));
+        if($expired_actions===false)SN_DB::audit('high_risk_cleanup_actions_failed','system',0,'failure',['reason'=>(string)($wpdb->last_error??'')],0);
+        $recovered=$wpdb->query($wpdb->prepare("UPDATE " . self::actions_table() . " SET status='approved',executor_id=0,claim_token_hash=NULL,executing_at=NULL,updated_at=%s,version=version+1 WHERE status='executing' AND executing_at<%s AND expires_at>%s LIMIT 100", $now, $stale, $now));
+        if($recovered===false)SN_DB::audit('high_risk_cleanup_recovery_failed','system',0,'failure',['reason'=>(string)($wpdb->last_error??'')],0);
     }
 
     private static function consume_grant(string $raw, int $user_id, string $purpose): stdClass|WP_Error {
@@ -243,9 +253,11 @@ final class SN_High_Risk {
         if (strlen($raw) < 40 || strlen($raw) > 160) return self::error('sn_step_up_token_invalid', 'A valid one-time step-up token is required.', 403);
         $hash = hash_hmac('sha256', $raw, wp_salt('auth'));
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::grants_table() . ' WHERE token_hash=%s AND user_id=%d AND purpose=%s LIMIT 1 FOR UPDATE', $hash, $user_id, $purpose));
+        if (($wpdb->last_error ?? '') !== '') return self::storage_error('step_up_grant_read_failed');
         if (!$row || (string) $row->status !== 'active' || strtotime((string) $row->expires_at . ' UTC') <= time()) return self::error('sn_step_up_token_expired', 'The step-up token is invalid or expired.', 403);
         $now = self::now();
         $changed = $wpdb->update(self::grants_table(), ['status' => 'consumed', 'consumed_at' => $now, 'updated_at' => $now, 'version' => (int) $row->version + 1], ['id' => (int) $row->id, 'status' => 'active', 'version' => (int) $row->version]);
+        if ($changed === false) return self::storage_error('step_up_grant_write_failed');
         return $changed === 1 ? $row : self::error('sn_step_up_token_replayed', 'The one-time step-up token was already used.', 409);
     }
 
@@ -278,5 +290,6 @@ final class SN_High_Risk {
     private static function now(): string { return current_time('mysql', true); }
     private static function grants_table(): string { return SN_DB::table('step_up_grants'); }
     private static function actions_table(): string { return SN_DB::table('high_risk_actions'); }
+    private static function storage_error(string $reason): WP_Error { SN_DB::audit($reason,'high_risk',0,'failure',[],get_current_user_id()); return self::error('sn_high_risk_storage_unavailable','High-risk governance state could not be verified safely. Retry later.',503); }
     private static function error(string $code, string $message, int $status): WP_Error { return new WP_Error($code, $message, ['status' => $status]); }
 }
