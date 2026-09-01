@@ -21,7 +21,7 @@ trait SN_File_Transfer_Part_7 {
             'failure_code'=>(string)$row->failure_code,
             'expires_at'=>(string)$row->expires_at,
             'created_at'=>(string)$row->created_at,
-            'recipients'=>(int)$row->sender_id===$viewer?self::recipient_ids((int)$row->id):[],
+            'recipients'=>(int)$row->sender_id===$viewer?(($recipient_snapshot=self::recipient_ids((int)$row->id)) instanceof WP_Error?[]:$recipient_snapshot):[],
         ];
     }
 
@@ -43,6 +43,7 @@ trait SN_File_Transfer_Part_7 {
     /** Keep ledger rows until their encrypted bytes are actually gone, so cleanup is retryable. */
     private static function delete_chunks(int $transfer_id): bool {
         global $wpdb;$rows=$wpdb->get_results($wpdb->prepare('SELECT id,storage_key FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY id ASC',$transfer_id));$all=true;
+        if($wpdb->last_error!==''){SN_DB::audit('file_transfer_chunk_ledger_read_failed','file_transfer',$transfer_id,'failure',['reason'=>(string)$wpdb->last_error]);return false;}
         foreach(is_array($rows)?$rows:[] as $row){
             $path=self::existing_storage_path((string)$row->storage_key);
             if(is_wp_error($path)){

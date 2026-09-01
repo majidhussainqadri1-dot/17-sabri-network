@@ -46,7 +46,9 @@ trait SN_File_Transfer_Part_4 {
         }catch(Throwable $e){
             $wpdb->query('ROLLBACK');$fresh=self::session((string)$row->public_id);
             if($fresh&&(string)$fresh->status==='ready'&&(string)$fresh->scan_status==='clean'&&hash_equals((string)$fresh->actual_sha256,$actual)){
-                $recipient_ok=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::recipients_table()." WHERE transfer_id=%d AND revoked_at IS NULL AND state<>'ready'",(int)$row->id))===0;
+                $recipient_remaining=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::recipients_table()." WHERE transfer_id=%d AND revoked_at IS NULL AND state<>'ready'",(int)$row->id));
+                $recipient_ok=$wpdb->last_error===''&&(int)$recipient_remaining===0;
+                if($wpdb->last_error!=='')SN_DB::audit('file_transfer_finalize_reconciliation_read_failed','file_transfer',(int)$row->id,'failure',['reason'=>(string)$wpdb->last_error],$sender);
                 if($recipient_ok)return rest_ensure_response(['transfer'=>self::format($fresh,$sender),'duplicate'=>true,'commit_reconciled'=>true]);
             }
             SN_DB::audit('file_transfer_finalize_failed','file_transfer',(int)$row->id,'failure',['reason'=>$e->getMessage()],$sender);return new WP_Error('transfer_finalize_failed','The clean transfer could not be finalized atomically.',['status'=>500]);

@@ -129,6 +129,15 @@ $check(substr_count($refSeg,'$wpdb->last_error')>=2 && substr_count($refSeg,'att
 $cleanupPos=strpos($db,'public static function cleanup_expired');$cleanupEnd=$cleanupPos===false?false:strpos($db,'private static function migrate_contacts',$cleanupPos);$cleanupSeg=$cleanupPos===false?'':substr($db,$cleanupPos,($cleanupEnd===false?strlen($db):$cleanupEnd)-$cleanupPos);
 $check(str_contains($cleanupSeg,"query('COMMIT') === false") && str_contains($cleanupSeg,'expired_update_commit_failed') && strpos($cleanupSeg,"query('COMMIT') === false") < strpos($cleanupSeg,'SN_Private_Files::delete'), 'Round 23: expired update attachment bytes require a confirmed commit before deletion.');
 
+
+// Round 24 — File Transfer snapshots, scanning, reconciliation and cleanup fail closed.
+$ft5=$read('includes/class-sn-file-transfer-part-5.php');$ft6=$read('includes/class-sn-file-transfer-part-6.php');$ft7=$read('includes/class-sn-file-transfer-part-7.php');$ft4=$read('includes/class-sn-file-transfer-part-4.php');
+$check(str_contains($ft6,'recipient_ids((int)$row->id,true)') && str_contains($ft6,'transfer_recipient_state_unavailable') && str_contains($ft6,'file_transfer_recipient_snapshot_failed'), 'Round 24: protected transfer revalidation must fail closed on recipient snapshot DB uncertainty.');
+$check(str_contains($ft5,'file_transfer_scan_snapshot_failed') && str_contains($ft5,'count($chunks)!==(int)$row->total_chunks') && str_contains($ft5,'$materialized_bytes!==(int)$row->total_bytes'), 'Round 24: scanner materialization must prove a complete chunk and byte snapshot.');
+$check(str_contains($ft4,'file_transfer_finalize_reconciliation_read_failed') && str_contains($ft4,'$wpdb->last_error'), 'Round 24: finalize commit reconciliation must not convert DB uncertainty into success.');
+$check(str_contains($ft5,'file_transfer_revoke_reconciliation_read_failed') && str_contains($ft5,'$wpdb->last_error') , 'Round 24: revoke commit reconciliation must not convert DB uncertainty into success.');
+$check(str_contains($ft7,'file_transfer_chunk_ledger_read_failed') && str_contains($ft7,'return false;'), 'Round 24: chunk-ledger DB uncertainty must keep cleanup retryable.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
