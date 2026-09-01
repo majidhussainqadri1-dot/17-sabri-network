@@ -58,6 +58,13 @@ $check(str_contains($activator, "wp_schedule_event(time() + HOUR_IN_SECONDS, 'ho
 $check(str_contains($outbox, "wp_schedule_event(time() + MINUTE_IN_SECONDS, 'sn_every_minute', 'sn_network_outbox_tick', [], true)") && str_contains($outbox, "sn_outbox_schedule_error") && str_contains($outbox, "'ok'=>\$outbox_exists&&\$inbox_exists&&\$next_run>0"), 'Round 10: outbox health must require a successfully scheduled delivery tick.');
 $check(substr_count($private, "attachment_delete_retry_schedule_failed") >= 2 && substr_count($private, "wp_schedule_single_event") >= 2 && str_contains($private, '[$attachment_id], true'), 'Round 10: private-byte retry scheduling failures must be audited rather than silently discarded.');
 
+
+// Round 12 — transfer quota and scanner readiness truth fail closed.
+$transfer2 = $read('includes/class-sn-file-transfer-part-2.php');
+$transfer7 = $read('includes/class-sn-file-transfer-part-7.php');
+$check(str_contains($transfer2, 'transfer_quota_unavailable') && str_contains($transfer2, 'file_transfer_quota_read_failed') && str_contains($transfer2, '$wpdb->last_error'), 'Round 12: daily transfer quota DB failure must not become zero usage.');
+$check(str_contains($transfer7, "apply_filters('sn_network_transfer_scanner_ready',false)===true") && !str_contains($transfer7, "scanner_connected'=>has_filter") && str_contains($transfer7, "'ok'=>!\$missing&&!\$storage") === false && str_contains($transfer7, "'ok'=>!\$missing&&\$storage&&\$scanner_ready"), 'Round 12: scanner health requires an explicit readiness declaration, not hook presence.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
