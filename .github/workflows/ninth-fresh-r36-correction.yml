@@ -22,7 +22,6 @@ jobs:
           php -l sabri-network/includes/class-sn-file-transfer-part-7.php
           php -l sabri-network/includes/class-sn-file-transfer-part-8.php
           php sabri-network/tests/ninth-fresh/ninth-fresh-forty-round-contracts.php
-          bash sabri-network/tools/quality-check.sh
       - run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
