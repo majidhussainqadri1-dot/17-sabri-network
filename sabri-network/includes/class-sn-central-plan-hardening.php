@@ -16,6 +16,7 @@ final class SN_Central_Plan_Hardening {
 
     public static function register(): void {
         add_filter('sn_network_notification_handled', [self::class, 'route_notification_to_file19'], PHP_INT_MAX, 2);
+        add_filter('sn_network_outbox_delivery_result', [self::class, 'deliver_notification_outbox'], PHP_INT_MAX, 2);
         add_action('rest_api_init', [self::class, 'override_legacy_routes'], 2000);
         add_filter('rest_post_dispatch', [self::class, 'decrypt_file17_rest_bodies'], 50, 3);
         add_action('sn_cleanup_hourly', [self::class, 'migrate_message_bodies'], 5);
@@ -31,8 +32,6 @@ final class SN_Central_Plan_Hardening {
      * then always suppress File-17's historical local notification table fallback.
      */
     public static function route_notification_to_file19(bool $handled, array $event): bool {
-        if ($handled) return true;
-
         $requested = [
             'producer' => 'file-17',
             'recipient_id' => absint($event['user_id'] ?? 0),
@@ -43,44 +42,107 @@ final class SN_Central_Plan_Hardening {
             'created_at' => sanitize_text_field((string) ($event['created_at'] ?? current_time('mysql', true))),
         ];
         $requested['idempotency_key'] = 'file17-notification:' . hash('sha256', implode('|', [
-            (string)$requested['recipient_id'], (string)$requested['type'], (string)$requested['entity_type'],
-            (string)$requested['entity_id'], (string)$requested['created_at'],
+            (string)$requested['recipient_id'],
+            (string)$requested['type'],
+            (string)$requested['entity_type'],
+            (string)$requested['entity_id'],
+            (string)$requested['created_at'],
         ]));
+
+        $queued = class_exists('SN_Outbox')
+            ? SN_Outbox::enqueue(
+                'notification.requested',
+                'notification',
+                (int)$requested['entity_id'],
+                $requested,
+                (string)$requested['idempotency_key']
+            )
+            : new WP_Error('notification_outbox_unavailable', 'The durable File 17 notification outbox is unavailable.');
+
+        if (is_wp_error($queued)) {
+            if (class_exists('SN_DB')) SN_DB::audit('notification_outbox_enqueue_failed', $requested['entity_type'], $requested['entity_id'], 'failure', [
+                'notification_type'=>$requested['type'],
+                'recipient_id'=>$requested['recipient_id'],
+                'reason'=>$queued->get_error_code(),
+                'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
+                'prior_handler_claimed'=>$handled,
+            ], 0);
+            // The deprecated File-17 notification centre remains prohibited even when
+            // durability storage itself is unavailable; the failure is explicit/auditable.
+            return true;
+        }
+
+        do_action('sn_network_event_queued', (int)$queued, 'notification.requested');
+        if (class_exists('SN_DB')) SN_DB::audit('notification_outbox_queued', $requested['entity_type'], $requested['entity_id'], 'success', [
+            'notification_type'=>$requested['type'],
+            'recipient_id'=>$requested['recipient_id'],
+            'event_id'=>(int)$queued,
+            'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
+            'prior_handler_claimed'=>$handled,
+        ], 0);
+        return true;
+    }
+
+    /** Deliver a durable File-17 notification fact to canonical owner File 19. */
+    public static function deliver_notification_outbox($ack, array $event) {
+        if ((string)($event['type'] ?? '') !== 'notification.requested') return $ack;
+        $payload = is_array($event['payload'] ?? null) ? $event['payload'] : [];
+        $requested = [
+            'producer' => 'file-17',
+            'recipient_id' => absint($payload['recipient_id'] ?? 0),
+            'type' => sanitize_key((string)($payload['type'] ?? '')),
+            'title' => sanitize_text_field((string)($payload['title'] ?? '')),
+            'entity_type' => sanitize_key((string)($payload['entity_type'] ?? '')),
+            'entity_id' => absint($payload['entity_id'] ?? 0),
+            'created_at' => sanitize_text_field((string)($payload['created_at'] ?? '')),
+            'idempotency_key' => sanitize_text_field((string)($payload['idempotency_key'] ?? '')),
+        ];
+        if ($requested['recipient_id'] <= 0 || $requested['type'] === '' || $requested['idempotency_key'] === '') {
+            return new WP_Error('notification_payload_invalid', 'The durable File 19 notification payload is invalid.');
+        }
 
         $ready = class_exists('SN_Seventh_Fresh_R13_Hardening')
             ? SN_Seventh_Fresh_R13_Hardening::file19_ready()
             : (has_action('sn_network_notification_requested') !== false && apply_filters('sn_network_file19_notification_adapter_ready', false) === true);
         if (!$ready) {
             if (class_exists('SN_DB')) SN_DB::audit('notification_file19_unavailable', $requested['entity_type'], $requested['entity_id'], 'failure', [
-                'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'],
+                'notification_type'=>$requested['type'],
+                'recipient_id'=>$requested['recipient_id'],
                 'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
             ], 0);
-            return true; // File 17's deprecated local center must remain disabled.
+            return new WP_Error('notification_file19_unavailable', 'The canonical File 19 notification adapter is not ready.');
         }
 
         try {
             do_action('sn_network_notification_requested', $requested);
-            $ack = apply_filters('sn_network_notification_delivery_result', null, $requested);
-            if (is_wp_error($ack) || $ack !== true) {
+            $delivery = apply_filters('sn_network_notification_delivery_result', null, $requested);
+            if (is_wp_error($delivery) || $delivery !== true) {
+                $reason = is_wp_error($delivery) ? $delivery->get_error_code() : 'missing_explicit_ack';
                 if (class_exists('SN_DB')) SN_DB::audit('notification_file19_handoff_unacknowledged', $requested['entity_type'], $requested['entity_id'], 'failure', [
-                    'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'],
-                    'reason'=>is_wp_error($ack) ? $ack->get_error_code() : 'missing_explicit_ack',
+                    'notification_type'=>$requested['type'],
+                    'recipient_id'=>$requested['recipient_id'],
+                    'reason'=>$reason,
                     'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
                 ], 0);
-                return true;
+                return new WP_Error('notification_file19_handoff_unacknowledged', 'File 19 did not explicitly acknowledge the notification handoff.');
             }
             if (class_exists('SN_DB')) SN_DB::audit('notification_deferred_to_file19', $requested['entity_type'], $requested['entity_id'], 'success', [
-                'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'],
+                'notification_type'=>$requested['type'],
+                'recipient_id'=>$requested['recipient_id'],
                 'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
             ], 0);
+            return true;
         } catch (Throwable $error) {
             if (class_exists('SN_DB')) SN_DB::audit('notification_file19_handoff_failed', $requested['entity_type'], $requested['entity_id'], 'failure', [
-                'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'], 'reason'=>$error->getMessage(),
+                'notification_type'=>$requested['type'],
+                'recipient_id'=>$requested['recipient_id'],
+                'reason'=>$error->getMessage(),
                 'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
             ], 0);
+            return new WP_Error('notification_file19_handoff_failed', 'The File 19 notification handoff failed and remains retryable.');
         }
-        return true;
     }
+
 
     /** File 17 no longer exposes a second notification center. */
     public static function override_legacy_routes(): void {

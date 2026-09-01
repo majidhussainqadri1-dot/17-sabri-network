@@ -119,13 +119,20 @@ final class SN_Outbox {
     }
 
     public static function dispatch_batch(): void {
-        global $wpdb; $now=current_time('mysql',true); $stale=gmdate('Y-m-d H:i:s',time()-self::LOCK_SECONDS);
-        $ids=$wpdb->get_col($wpdb->prepare("SELECT id FROM ".self::outbox_table()." WHERE ((status IN ('pending','retry') AND available_at<=%s) OR (status='processing' AND locked_at<%s)) ORDER BY id ASC LIMIT %d",$now,$stale,self::BATCH_SIZE));
-        if (!is_array($ids)) {
-            SN_DB::audit('event_dispatch_queue_read_failed','event',0,'failure',['reason'=>(string)$wpdb->last_error],0);
+        global $wpdb;
+        $now = current_time('mysql', true);
+        $stale = gmdate('Y-m-d H:i:s', time() - self::LOCK_SECONDS);
+        $ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT id FROM ".self::outbox_table()." WHERE ((status IN ('pending','retry') AND available_at<=%s) OR (status='processing' AND locked_at<%s)) ORDER BY id ASC LIMIT %d",
+            $now,
+            $stale,
+            self::BATCH_SIZE
+        ));
+        if (($wpdb->last_error ?? '') !== '' || !is_array($ids)) {
+            SN_DB::audit('event_dispatch_queue_read_failed', 'event', 0, 'failure', ['reason'=>(string)$wpdb->last_error], 0);
             return;
         }
-        foreach(array_map('absint',$ids) as $id) self::dispatch_one($id);
+        foreach (array_map('absint', $ids) as $id) self::dispatch_one($id);
     }
 
     public static function dispatch_one(int $id): bool|WP_Error {
@@ -160,26 +167,86 @@ final class SN_Outbox {
     /** Transactional, idempotent inbox for local companion handlers. */
     public static function consume_incoming(string $producer, string $event_uuid, array $payload, callable $handler): bool|WP_Error {
         global $wpdb;
-        $producer=sanitize_key($producer);if($producer===''||!wp_is_uuid($event_uuid,4))return new WP_Error('invalid_incoming_event','The incoming event identity is invalid.');
-        $clean=self::sanitize_payload($payload);$json=(string)wp_json_encode($clean);if($json===''||strlen($json)>self::MAX_PAYLOAD_BYTES)return new WP_Error('incoming_payload_invalid','The incoming event metadata is invalid.');
-        $hash=hash('sha256',$json);$table=self::inbox_table();$existing=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE producer=%s AND event_uuid=%s LIMIT 1",$producer,$event_uuid));
-        if(($wpdb->last_error ?? '')!=='')return new WP_Error('incoming_event_storage_unavailable','Incoming event storage truth could not be verified.',['status'=>503]);
-        if($existing&&!hash_equals((string)$existing->payload_hash,$hash))return new WP_Error('incoming_event_conflict','The incoming event identity conflicts with prior metadata.');
-        if($existing&&(string)$existing->status==='processed')return true;
-        $now=current_time('mysql',true);
-        if($wpdb->query('START TRANSACTION')===false)return new WP_Error('incoming_event_transaction_failed','The incoming event transaction could not be started.');
-        try{
-            if(!$existing){if($wpdb->insert($table,['producer'=>$producer,'event_uuid'=>$event_uuid,'payload_hash'=>$hash,'status'=>'processing','attempts'=>1,'created_at'=>$now,'updated_at'=>$now])===false)throw new RuntimeException('incoming_event_claim_failed');}
-            elseif($wpdb->query($wpdb->prepare("UPDATE $table SET status='processing',attempts=attempts+1,last_error='',updated_at=%s WHERE id=%d AND status<>'processed'",$now,(int)$existing->id))!==1)throw new RuntimeException('incoming_event_claim_failed');
-            $result=$handler($clean);if(is_wp_error($result)||$result===false)throw new RuntimeException(is_wp_error($result)?$result->get_error_code():'incoming_event_handler_failed');
-            $done=current_time('mysql',true);if($wpdb->query($wpdb->prepare("UPDATE $table SET status='processed',last_error='',processed_at=%s,updated_at=%s WHERE producer=%s AND event_uuid=%s",$done,$done,$producer,$event_uuid))!==1)throw new RuntimeException('incoming_event_completion_failed');
-            if($wpdb->query('COMMIT')===false)throw new RuntimeException('incoming_event_commit_failed');
+        $producer = sanitize_key($producer);
+        if ($producer === '' || !wp_is_uuid($event_uuid, 4)) return new WP_Error('invalid_incoming_event', 'The incoming event identity is invalid.');
+        $clean = self::sanitize_payload($payload);
+        $json = (string) wp_json_encode($clean);
+        if ($json === '' || strlen($json) > self::MAX_PAYLOAD_BYTES) return new WP_Error('incoming_payload_invalid', 'The incoming event metadata is invalid.');
+        $hash = hash('sha256', $json);
+        $table = self::inbox_table();
+        $now = current_time('mysql', true);
+
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('incoming_event_storage_unavailable', 'Incoming event storage truth could not be verified.', ['status'=>503]);
+        try {
+            // The unique producer/event identity is materialized before SELECT ... FOR UPDATE.
+            // Concurrent consumers therefore serialize on the same canonical inbox row.
+            $claim = $wpdb->query($wpdb->prepare(
+                "INSERT INTO $table (producer,event_uuid,payload_hash,status,attempts,last_error,created_at,updated_at) VALUES (%s,%s,%s,'processing',0,'',%s,%s) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)",
+                $producer,
+                $event_uuid,
+                $hash,
+                $now,
+                $now
+            ));
+            if ($claim === false || ($wpdb->last_error ?? '') !== '') throw new RuntimeException('incoming_event_claim_failed');
+
+            $row = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM $table WHERE producer=%s AND event_uuid=%s FOR UPDATE",
+                $producer,
+                $event_uuid
+            ));
+            if (($wpdb->last_error ?? '') !== '' || !$row) throw new RuntimeException('incoming_event_claim_read_failed');
+            if (!hash_equals((string)$row->payload_hash, $hash)) {
+                $wpdb->query('ROLLBACK');
+                return new WP_Error('incoming_event_conflict', 'The incoming event identity conflicts with prior metadata.');
+            }
+            if ((string)$row->status === 'processed') {
+                $wpdb->query('ROLLBACK');
+                return true;
+            }
+
+            $claimed = $wpdb->query($wpdb->prepare(
+                "UPDATE $table SET status='processing',attempts=attempts+1,last_error='',updated_at=%s WHERE id=%d AND status<>'processed'",
+                $now,
+                (int)$row->id
+            ));
+            if ($claimed !== 1 || ($wpdb->last_error ?? '') !== '') throw new RuntimeException('incoming_event_claim_failed');
+
+            $result = $handler($clean);
+            if (is_wp_error($result) || $result === false) throw new RuntimeException(is_wp_error($result) ? $result->get_error_code() : 'incoming_event_handler_failed');
+
+            $done = current_time('mysql', true);
+            $completed = $wpdb->query($wpdb->prepare(
+                "UPDATE $table SET status='processed',last_error='',processed_at=%s,updated_at=%s WHERE id=%d AND status='processing'",
+                $done,
+                $done,
+                (int)$row->id
+            ));
+            if ($completed !== 1 || ($wpdb->last_error ?? '') !== '') throw new RuntimeException('incoming_event_completion_failed');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('incoming_event_commit_failed');
             return true;
-        }catch(Throwable $e){
-            $wpdb->query('ROLLBACK');$failed=current_time('mysql',true);$error=mb_substr(sanitize_text_field($e->getMessage()),0,500);
-            $recorded=$wpdb->query($wpdb->prepare("INSERT INTO $table (producer,event_uuid,payload_hash,status,attempts,last_error,created_at,updated_at) VALUES (%s,%s,%s,'failed',1,%s,%s,%s) ON DUPLICATE KEY UPDATE status=IF(status='processed','processed','failed'),attempts=IF(status='processed',attempts,attempts+1),last_error=IF(status='processed',last_error,VALUES(last_error)),updated_at=IF(status='processed',updated_at,VALUES(updated_at))",$producer,$event_uuid,$hash,$error,$failed,$failed));
-            if ($recorded === false) SN_DB::audit('incoming_event_failure_record_failed','event',0,'failure',['producer'=>$producer,'event_uuid_hash'=>hash('sha256',$event_uuid),'reason'=>$error,'db_error'=>(string)$wpdb->last_error],0);
-            return new WP_Error('incoming_event_failed','The incoming event could not be consumed transactionally.');
+        } catch (Throwable $e) {
+            $wpdb->query('ROLLBACK');
+            $failed = current_time('mysql', true);
+            $error = mb_substr(sanitize_text_field($e->getMessage()), 0, 500);
+            $recorded = $wpdb->query($wpdb->prepare(
+                "INSERT INTO $table (producer,event_uuid,payload_hash,status,attempts,last_error,created_at,updated_at) VALUES (%s,%s,%s,'failed',1,%s,%s,%s) ON DUPLICATE KEY UPDATE status=IF(status='processed','processed','failed'),attempts=IF(status='processed',attempts,attempts+1),last_error=IF(status='processed',last_error,VALUES(last_error)),updated_at=IF(status='processed',updated_at,VALUES(updated_at))",
+                $producer,
+                $event_uuid,
+                $hash,
+                $error,
+                $failed,
+                $failed
+            ));
+            if ($recorded === false || ($wpdb->last_error ?? '') !== '') {
+                SN_DB::audit('incoming_event_failure_record_failed', 'event', 0, 'failure', [
+                    'producer'=>$producer,
+                    'event_uuid_hash'=>hash('sha256', $event_uuid),
+                    'reason'=>$error,
+                    'db_error'=>(string)$wpdb->last_error,
+                ], 0);
+            }
+            return new WP_Error('incoming_event_failed', 'The incoming event could not be consumed transactionally.');
         }
     }
 

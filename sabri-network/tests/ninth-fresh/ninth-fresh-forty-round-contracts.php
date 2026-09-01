@@ -238,6 +238,17 @@ $check(str_contains($t4,'file_transfer_quarantine_reread_failed') && str_contain
 $check(str_contains($t5,'Private transfer state temporarily unavailable.') && str_contains($t5,'file_transfer_download_preflight_failed') && strpos($t5,'file_transfer_download_preflight_failed') < strpos($t5,'status_header($status)'), 'Round 37: downloads must authenticate the complete encrypted snapshot before success headers and expose state DB failure as unavailable.');
 $check(str_contains($t7,'file_transfer_health_db_probe_failed') && str_contains($t7,"'database_ready'=>\$database_ready") && str_contains($t7,"'ok'=>!\$missing&&\$storage&&\$scanner_ready&&\$database_ready"), 'Round 37: transfer health must distinguish DB probe uncertainty from an ordinary missing table.');
 
+
+// Round 38 — outbox queue truth, inbox concurrency and File-19 notification delivery are durable/retryable.
+$outbox=$read('includes/class-sn-outbox.php');$central=$read('includes/class-sn-central-plan-hardening.php');
+$dispatchPos=strpos($outbox,'public static function dispatch_batch');$dispatchEnd=$dispatchPos===false?false:strpos($outbox,'public static function dispatch_one',$dispatchPos);$dispatchSeg=$dispatchPos===false?'':substr($outbox,$dispatchPos,($dispatchEnd===false?strlen($outbox):$dispatchEnd)-$dispatchPos);
+$check(str_contains($dispatchSeg,'$wpdb->last_error') && str_contains($dispatchSeg,'event_dispatch_queue_read_failed'), 'Round 38: an outbox queue-read DB failure must never become an ordinary empty queue.');
+$incomingPos=strpos($outbox,'public static function consume_incoming');$incomingEnd=$incomingPos===false?false:strpos($outbox,'public static function admin_events',$incomingPos);$incomingSeg=$incomingPos===false?'':substr($outbox,$incomingPos,($incomingEnd===false?strlen($outbox):$incomingEnd)-$incomingPos);
+$check(str_contains($incomingSeg,'ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)') && str_contains($incomingSeg,'FOR UPDATE') && strpos($incomingSeg,'FOR UPDATE') < strpos($incomingSeg,'$handler($clean)'), 'Round 38: concurrent incoming-event consumers must serialize on the canonical inbox row before handler execution.');
+$check(str_contains($central,"add_filter('sn_network_outbox_delivery_result', [self::class, 'deliver_notification_outbox'], PHP_INT_MAX, 2)") && str_contains($central,"SN_Outbox::enqueue(") && str_contains($central,"'notification.requested'"), 'Round 38: File-19 notification facts must enter the durable File-17 outbox instead of relying on best-effort synchronous handoff.');
+$check(str_contains($central,'notification_outbox_enqueue_failed') && str_contains($central,'notification_outbox_queued') && str_contains($central,'notification_file19_handoff_unacknowledged'), 'Round 38: notification durability and explicit File-19 acknowledgement failures must remain observable.');
+$check(str_contains($central,"return new WP_Error('notification_file19_unavailable'") && str_contains($central,"return new WP_Error('notification_file19_handoff_unacknowledged'") && str_contains($central,'notification_deferred_to_file19'), 'Round 38: File-19 outage/unacknowledged delivery must remain retryable through the outbox and only explicit acknowledgement may succeed.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
