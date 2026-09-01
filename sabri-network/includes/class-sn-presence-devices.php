@@ -71,7 +71,9 @@ final class SN_Presence_Devices {
         if(!$existing){
             // Expired/offline rows are historical device observations, not active
             // sessions. They must not permanently consume the live-device budget.
-            $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::table().' WHERE user_id=%d AND revoked_at IS NULL AND expires_at>%s',$user,$now));
+            $count_raw=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::table().' WHERE user_id=%d AND revoked_at IS NULL AND expires_at>%s',$user,$now));
+            if($wpdb->last_error!==''){SN_DB::audit('presence_device_limit_read_failed','presence_device',0,'failure',['reason'=>(string)$wpdb->last_error],$user);return self::error('sn_presence_device_limit_unavailable','The active-device limit could not be verified safely. Retry later.',503);}
+            $count=(int)$count_raw;
             if($count>=self::MAX_DEVICES)return self::error('sn_presence_device_limit','Revoke an active device before adding another.',409);
             $ok=$wpdb->insert(self::table(),['user_id'=>$user,'device_key'=>$device_key,'device_label'=>$label,'state'=>$state,'capabilities'=>(string)wp_json_encode($capabilities),'last_seen_at'=>$now,'expires_at'=>$expires,'created_at'=>$now,'updated_at'=>$now]);
             if($ok===false)return self::error('sn_presence_write_failed','The presence heartbeat could not be stored.',500);
