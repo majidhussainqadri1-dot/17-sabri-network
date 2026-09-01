@@ -2,7 +2,7 @@ name: File 17 Ninth Fresh R35 Correction
 on:
   push:
     branches: [review/file17-ninth-fresh-40-round-2026-09-01]
-    paths: [.github/workflows/ninth-fresh-r35-correction.yml, .github/scripts/ninth-fresh-r35-correction.py]
+    paths: [.github/workflows/ninth-fresh-r35-correction.yml, .github/scripts/ninth-fresh-r35-correction.py, .github/scripts/ninth-fresh-r35-testcompat.py]
 permissions: {contents: write}
 jobs:
   correct:
@@ -12,7 +12,9 @@ jobs:
         with: {ref: review/file17-ninth-fresh-40-round-2026-09-01, fetch-depth: 0}
       - uses: shivammathur/setup-php@v2
         with: {php-version: '8.3'}
-      - run: python3 .github/scripts/ninth-fresh-r35-correction.py
+      - run: |
+          python3 .github/scripts/ninth-fresh-r35-correction.py
+          python3 .github/scripts/ninth-fresh-r35-testcompat.py
       - run: |
           php -l sabri-network/includes/class-sn-privacy-runtime-hardening.php
           php sabri-network/tests/ninth-fresh/ninth-fresh-forty-round-contracts.php
