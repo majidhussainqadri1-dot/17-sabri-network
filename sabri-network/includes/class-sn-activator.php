@@ -23,7 +23,10 @@ final class SN_Activator {
         if (!SN_Private_Files::ensure_storage()) throw new RuntimeException('File 17 private message storage is unavailable.');
         if (!SN_File_Transfer::ensure_storage()) throw new RuntimeException('File 17 transfer storage is unavailable.');
         if (self::ensure_network_page() <= 0) throw new RuntimeException('File 17 Network page could not be created safely.');
-        SN_Messages::ensure_pages();
+        $message_pages = SN_Messages::ensure_pages();
+        if ((int) ($message_pages['messages'] ?? 0) <= 0 || (int) ($message_pages['settings'] ?? 0) <= 0) {
+            throw new RuntimeException('File 17 Messages or Communication Settings page could not be created safely.');
+        }
         if (SN_File_Transfer::ensure_page(false) <= 0) throw new RuntimeException('File 17 transfer page could not be created safely.');
         if (SN_Smail::ensure_page(false) <= 0) throw new RuntimeException('File 17 Smail page could not be created safely.');
         SN_Messages::mark_routes_current();
