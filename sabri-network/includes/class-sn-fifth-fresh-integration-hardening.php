@@ -80,7 +80,7 @@ final class SN_Fifth_Fresh_Integration_Hardening {
             $uid,
             self::BATCH
         ));
-        if (!is_array($rows)) return self::retry('Clinical-context reference erasure could not be read safely.');
+        if (!is_array($rows) || $wpdb->last_error !== '') return self::retry('Clinical-context reference erasure could not be read safely.');
         if (!$rows) {
             return [
                 'items_removed'=>false,
@@ -111,7 +111,9 @@ final class SN_Fifth_Fresh_Integration_Hardening {
             SN_DB::audit('cf01_reference_privacy_erase_failed', 'user', $uid, 'failure', ['reason'=>$e->getMessage()], 0);
             return self::retry('Clinical-context reference erasure could not be committed.');
         }
-        $more = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $table WHERE issued_by=%d AND status='active' LIMIT 1", $uid));
+        $more_raw = $wpdb->get_var($wpdb->prepare("SELECT 1 FROM $table WHERE issued_by=%d AND status='active' LIMIT 1", $uid));
+        if ($wpdb->last_error !== '') return self::retry('Clinical-context reference erasure completion could not be verified.');
+        $more = $more_raw !== null;
         return [
             'items_removed'=>$removed>0,
             'items_retained'=>true,

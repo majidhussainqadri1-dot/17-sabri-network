@@ -229,6 +229,23 @@ final class SN_Seventh_Fresh_R15_Privacy_Hardening {
             case 'sabri-network-presence-devices': return self::exists(SN_DB::table('presence_devices'), 'user_id=%d', [$uid]);
             case 'sabri-network-message-receipts': return self::exists(SN_DB::table('message_receipts'), 'user_id=%d', [$uid]);
             case 'sabri-network-contexts': return self::exists(SN_DB::table('conversation_contexts'), 'attached_by=%d', [$uid]);
+            case 'sabri-network-cf01-references': return self::exists(SN_DB::table('cf01_context_refs'), "issued_by=%d AND status='active'", [$uid]);
+            case 'sabri-network-two-plan':
+                $scheduled = self::exists(SN_DB::table('scheduled_messages'), "sender_id=%d AND status IN ('pending','cancelled','failed')", [$uid]); if (is_wp_error($scheduled) || $scheduled) return $scheduled;
+                $requests = self::exists(SN_DB::table('message_requests'), "requester_id=%d AND status IN ('declined','cancelled') AND body_cipher<>''", [$uid]); if (is_wp_error($requests) || $requests) return $requests;
+                return self::exists(SN_DB::table('poll_votes'), "user_id=%d AND NOT EXISTS (SELECT 1 FROM ".SN_DB::table('reports')." r WHERE r.message_id=".SN_DB::table('poll_votes').".message_id AND r.legal_hold=1)", [$uid]);
+            case 'sabri-meet':
+                foreach ([
+                    [SN_DB::table('meet_sessions'),'user_id=%d'],
+                    [SN_DB::table('meet_participants'),'user_id=%d'],
+                    [SN_DB::table('meet_signals'),'(from_user_id=%d OR to_user_id=%d)'],
+                    [SN_DB::table('meet_events'),'(actor_id=%d OR subject_user_id=%d)'],
+                    [SN_DB::table('meet_meetings'),'host_id=%d'],
+                ] as [$table,$where]) {
+                    $args = substr_count($where, '%d') === 2 ? [$uid,$uid] : [$uid];
+                    $left = self::exists($table, $where, $args); if (is_wp_error($left) || $left) return $left;
+                }
+                return false;
             case 'sabri-network-two-plan-idempotency': return self::exists(SN_DB::table('two_plan_idempotency'), "actor_id=%d AND state='complete'", [$uid]);
             case 'sabri-network-future':
                 $keys = self::exists($wpdb->prefix.'sn_future_device_keys', 'user_id=%d', [$uid]); if (is_wp_error($keys) || $keys) return $keys;

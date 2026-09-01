@@ -609,8 +609,11 @@ final class SN_Two_Plan_Completion {
 
     public static function eraser(string $email,int $page=1): array {
         global $wpdb;$user=get_user_by('email',$email);if(!$user)return['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$uid=(int)$user->ID;$removed=0;
-        $removed+=(int)$wpdb->query($wpdb->prepare("DELETE FROM ".self::scheduled_table()." WHERE sender_id=%d AND status IN ('pending','cancelled','failed') LIMIT 100",$uid));
-        $removed+=(int)$wpdb->query($wpdb->prepare("UPDATE ".self::requests_table()." SET body_cipher='',reason='',updated_at=%s WHERE requester_id=%d AND status IN ('declined','cancelled') AND body_cipher<>'' LIMIT 100",current_time('mysql',true),$uid));
+        $scheduled=$wpdb->query($wpdb->prepare("DELETE FROM ".self::scheduled_table()." WHERE sender_id=%d AND status IN ('pending','cancelled','failed') LIMIT 100",$uid));
+        if($scheduled===false)return['items_removed'=>false,'items_retained'=>true,'messages'=>['Scheduled-message privacy erasure must be retried.'],'done'=>false];
+        $requests=$wpdb->query($wpdb->prepare("UPDATE ".self::requests_table()." SET body_cipher='',reason='',updated_at=%s WHERE requester_id=%d AND status IN ('declined','cancelled') AND body_cipher<>'' LIMIT 100",current_time('mysql',true),$uid));
+        if($requests===false)return['items_removed'=>$scheduled>0,'items_retained'=>true,'messages'=>['Message-request privacy erasure must be retried.'],'done'=>false];
+        $removed=(int)$scheduled+(int)$requests;
         return['items_removed'=>$removed>0,'items_retained'=>false,'messages'=>[],'done'=>$removed<200];
     }
 

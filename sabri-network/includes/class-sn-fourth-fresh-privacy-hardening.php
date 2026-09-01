@@ -84,21 +84,27 @@ final class SN_Fourth_Fresh_Privacy_Hardening {
         $uid = (int)$user->ID;
         $votes = SN_DB::table('poll_votes');
         $reports = SN_DB::table('reports');
-        $ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+        $raw_ids = $wpdb->get_col($wpdb->prepare(
             "SELECT pv.id FROM $votes pv
              WHERE pv.user_id=%d
                AND NOT EXISTS (SELECT 1 FROM $reports r WHERE r.message_id=pv.message_id AND r.legal_hold=1)
              ORDER BY pv.id ASC LIMIT 100",
             $uid
-        )) ?: []);
+        ));
+        if (!is_array($raw_ids) || $wpdb->last_error !== '') return ['items_removed'=>false,'items_retained'=>true,'messages'=>['Poll-vote erasure could not enumerate its work.'],'done'=>false];
+        $ids = array_map('intval', $raw_ids);
         $removed = 0;
         foreach ($ids as $id) {
-            if ($wpdb->delete($votes, ['id'=>$id,'user_id'=>$uid], ['%d','%d']) === 1) $removed++;
+            $deleted = $wpdb->delete($votes, ['id'=>$id,'user_id'=>$uid], ['%d','%d']);
+            if ($deleted === false) return ['items_removed'=>$removed>0,'items_retained'=>true,'messages'=>['Poll-vote erasure must be retried.'],'done'=>false];
+            if ($deleted === 1) $removed++;
         }
-        $held = (int)$wpdb->get_var($wpdb->prepare(
+        $held_raw = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM $votes pv WHERE pv.user_id=%d AND EXISTS (SELECT 1 FROM $reports r WHERE r.message_id=pv.message_id AND r.legal_hold=1)",
             $uid
         ));
+        if ($wpdb->last_error !== '') return ['items_removed'=>$removed>0,'items_retained'=>true,'messages'=>['Poll-vote legal-hold verification must be retried.'],'done'=>false];
+        $held = (int)$held_raw;
         $base['items_removed'] = !empty($base['items_removed']) || $removed > 0;
         $base['items_retained'] = !empty($base['items_retained']) || $held > 0;
         if ($held > 0) $base['messages'][] = 'Some communication poll votes are retained under an active safety/legal hold.';

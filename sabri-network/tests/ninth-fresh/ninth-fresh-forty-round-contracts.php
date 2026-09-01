@@ -85,6 +85,17 @@ $check(str_contains($search, 'search_snapshot_unavailable') && str_contains($sea
 $check(str_contains($boundary, 'remaining_count_failed') && str_contains($boundary, 'message_search_rebuild_count_failed') && str_contains($boundary, '$remaining_raw'), 'Round 18: rebuild completion count failure must never become zero remaining rows.');
 $check(str_contains($boundary, 'continuation_schedule_failed') && str_contains($boundary, 'message_search_rebuild_schedule_failed') && str_contains($boundary, 'wp_schedule_single_event(time() + MINUTE_IN_SECONDS, self::SEARCH_CONTINUE_HOOK, [], true)'), 'Round 18: search rebuild continuation scheduling failure must be observable and fail closed.');
 
+
+// Round 19 — terminal privacy completion independently verifies CF01, Two-Plan and Meet.
+$privacy = $read('includes/class-sn-seventh-fresh-r15-privacy-hardening.php');
+$integration = $read('includes/class-sn-fifth-fresh-integration-hardening.php');
+$twoPlanPrivacy = $read('includes/class-sn-fourth-fresh-privacy-hardening.php');
+$twoPlan = $read('includes/class-sn-two-plan-completion.php');
+foreach (['sabri-network-cf01-references','sabri-network-two-plan','sabri-meet'] as $key) $check(str_contains($privacy, "case '$key':"), 'Round 19: terminal verifier lost coverage for '.$key.'.');
+$check(str_contains($integration, 'Clinical-context reference erasure completion could not be verified.') && str_contains($integration, '$wpdb->last_error'), 'Round 19: CF01 child completion query must fail closed.');
+$check(str_contains($twoPlanPrivacy, 'Poll-vote erasure could not enumerate its work.') && str_contains($twoPlanPrivacy, 'Poll-vote legal-hold verification must be retried.'), 'Round 19: poll-vote erasure DB uncertainty must remain retryable.');
+$check(str_contains($twoPlan, 'Scheduled-message privacy erasure must be retried.') && str_contains($twoPlan, 'Message-request privacy erasure must be retried.'), 'Round 19: Two-Plan base eraser write failures must remain retryable.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
