@@ -72,13 +72,14 @@ final class SN_Activator {
         $page = $page_id ? get_post($page_id) : null;
         if ($page instanceof WP_Post && self::is_owned_page($page_id)) {
             if ($repair || !has_shortcode((string) $page->post_content, 'sabri_network') || $page->post_status !== 'publish') {
-                wp_update_post([
+                $updated = wp_update_post([
                     'ID' => $page_id,
                     'post_title' => 'Network',
                     'post_content' => '[sabri_network]',
                     'post_status' => 'publish',
                     'comment_status' => 'closed',
-                ]);
+                ], true);
+                if (is_wp_error($updated) || !$updated) return 0;
             }
             return $page_id;
         }
