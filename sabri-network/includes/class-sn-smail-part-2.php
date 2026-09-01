@@ -138,9 +138,12 @@ trait SN_Smail_Part_2 {
         return rest_ensure_response(['updated' => true, 'field' => $field, 'value' => $value]);
     }
 
-    public static function list_drafts(WP_REST_Request $request): WP_REST_Response {
+    public static function list_drafts(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $rows = $wpdb->get_results($wpdb->prepare('SELECT public_id,version,created_at,updated_at FROM ' . self::drafts_table() . ' WHERE owner_id=%d AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT %d', get_current_user_id(), self::MAX_DRAFTS));
+        if ($wpdb->last_error !== '') {
+            return new WP_Error('smail_drafts_unavailable', 'The Smail draft list could not be read safely.', ['status' => 503]);
+        }
         return rest_ensure_response(['drafts' => array_map(static fn($r): array => ['id' => (string) $r->public_id, 'version' => (int) $r->version, 'created_at' => (string) $r->created_at, 'updated_at' => (string) $r->updated_at], $rows ?: [])]);
     }
 

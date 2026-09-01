@@ -152,6 +152,12 @@ $erasePos=strpos($smailRuntime,'public static function erase_personal_data');$tr
 $check(str_contains($eraseSeg,'Smail erasure state enumeration failed; retry is required.') && str_contains($eraseSeg,'Smail erasure draft enumeration failed; retry is required.') && substr_count($eraseSeg,'$wpdb->last_error')>=4, 'Round 26: Smail erasure must not convert enumeration DB failure into an empty workset.');
 $check(str_contains($eraseSeg,'Smail erasure completion could not verify remaining state rows; retry is required.') && str_contains($eraseSeg,'Smail erasure completion could not verify remaining draft rows; retry is required.') && str_contains($eraseSeg,"'done'=>false"), 'Round 26: Smail erasure completion must not claim done when remaining-row truth is unavailable.');
 
+
+// Round 27 — Smail state/draft reads distinguish database failure from absence.
+$smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');$smail2=$read('includes/class-sn-smail-part-2.php');
+$check(str_contains($smailRuntime,'smail_state_unavailable') && str_contains($smailRuntime,'draft_state_unavailable') && str_contains($smailRuntime,'draft_delete_unavailable') && substr_count($smailRuntime,'$wpdb->last_error')>=7, 'Round 27: Smail state and draft mutations must not convert DB uncertainty into not-found.');
+$check(str_contains($smail2,'WP_REST_Response|WP_Error') && str_contains($smail2,'smail_drafts_unavailable') && str_contains($smail2,'$wpdb->last_error'), 'Round 27: draft-list DB failure must not become a legitimate empty list.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
