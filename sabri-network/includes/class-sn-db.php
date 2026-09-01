@@ -447,13 +447,23 @@ final class SN_DB {
 
     public static function is_blocked(int $a, int $b): bool {
         global $wpdb;
-        return (bool) $wpdb->get_var($wpdb->prepare(
+        $blocked = $wpdb->get_var($wpdb->prepare(
             'SELECT id FROM ' . self::table('blocks') . ' WHERE (user_id=%d AND blocked_user_id=%d) OR (user_id=%d AND blocked_user_id=%d) LIMIT 1',
             $a,
             $b,
             $b,
             $a
         ));
+        if ($wpdb->last_error !== '') {
+            // Block state is a privacy/authorization boundary. Unknown must deny.
+            self::audit('block_state_read_failed', 'block', 0, 'failure', [
+                'actor_hash' => hash('sha256', (string) $a),
+                'target_hash' => hash('sha256', (string) $b),
+                'reason' => (string) $wpdb->last_error,
+            ], 0);
+            return true;
+        }
+        return $blocked !== null;
     }
 
     public static function add_notification(int $user_id, string $type, string $title, string $body = '', string $entity_type = '', int $entity_id = 0): void {
