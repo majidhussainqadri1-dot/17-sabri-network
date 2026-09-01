@@ -35,4 +35,11 @@ $check(str_contains($highRisk,'sn_high_risk_storage_unavailable'),'R5 high-risk 
 $check(str_contains($highRisk,'high_risk_list_read_failed'),'R5 high-risk inventory failures must not collapse to empty lists.');
 $check(str_contains($highRisk,'step_up_grant_read_failed'),'R5 step-up grant DB failures must not masquerade as expired tokens.');
 $check(str_contains($highRisk,'high_risk_cleanup_recovery_failed'),'R5 high-risk cleanup failures must remain observable.');
+// R6 — private attachment delivery/deletion and voice-note postcommit truth.
+$attachment=$read($root.'/includes/class-sn-attachment-runtime-hardening.php');
+$private=$read($root.'/includes/class-sn-private-files.php');
+$check(str_contains($attachment,'sn_voice_note_state_unavailable'),'R6 committed voice-note DB uncertainty must be retryable.');
+$check(str_contains($attachment,'attachment_integrity_state_read_failed'),'R6 integrity preflight DB failures must fail closed.');
+$check(str_contains($private,'attachment_delivery_state_read_failed'),'R6 private delivery DB failures must not masquerade as 404.');
+$check(str_contains($private,'attachment_delete_retry_state_read_failed'),'R6 private-byte deletion retries must survive DB-read outages.');
 if($fail){fwrite(STDERR,"Eleventh fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eleventh fresh contracts: PASS ($checks checks)\n";

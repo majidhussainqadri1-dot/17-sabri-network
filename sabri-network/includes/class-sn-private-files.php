@@ -186,6 +186,7 @@ final class SN_Private_Files {
         }
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('attachments') . ' WHERE id=%d AND deleted_at IS NULL', $attachment_id));
+        if (($wpdb->last_error ?? '') !== '') { SN_DB::audit('attachment_delivery_state_read_failed','attachment',$attachment_id,'failure',['reason'=>(string)$wpdb->last_error],$user_id); status_header(503); exit; }
         if (!$row) {
             status_header(404);
             exit;
@@ -201,6 +202,7 @@ final class SN_Private_Files {
     public static function delete(int $attachment_id, int $actor_id = 0, bool $force = false): bool {
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('attachments') . ' WHERE id=%d AND deleted_at IS NULL', $attachment_id));
+        if (($wpdb->last_error ?? '') !== '') { SN_DB::audit('attachment_delete_state_read_failed','attachment',$attachment_id,'failure',['reason'=>(string)$wpdb->last_error],$actor_id); return false; }
         if (!$row || (!$force && (int) $row->owner_id !== $actor_id)) {
             return false;
         }
@@ -248,6 +250,14 @@ final class SN_Private_Files {
             'SELECT id,storage_key FROM ' . SN_DB::table('attachments') . ' WHERE id=%d AND deleted_at IS NOT NULL',
             $attachment_id
         ));
+        if (($wpdb->last_error ?? '') !== '') {
+            SN_DB::audit('attachment_delete_retry_state_read_failed','attachment',$attachment_id,'failure',['reason'=>(string)$wpdb->last_error],0);
+            if (!wp_next_scheduled('sn_network_retry_private_delete', [$attachment_id])) {
+                $scheduled=wp_schedule_single_event(time()+5*MINUTE_IN_SECONDS,'sn_network_retry_private_delete',[$attachment_id],true);
+                if(is_wp_error($scheduled)||$scheduled===false)SN_DB::audit('attachment_delete_retry_schedule_failed','attachment',$attachment_id,'failure',['reason'=>is_wp_error($scheduled)?$scheduled->get_error_code():'schedule_failed'],0);
+            }
+            return;
+        }
         if (!$row) {
             return;
         }

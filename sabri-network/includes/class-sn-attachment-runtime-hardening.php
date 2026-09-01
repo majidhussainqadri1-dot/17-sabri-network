@@ -40,6 +40,7 @@ final class SN_Attachment_Runtime_Hardening {
 
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare('SELECT id,storage_key,sha256,deleted_at FROM ' . SN_DB::table('attachments') . ' WHERE id=%d', $attachment_id));
+        if (($wpdb->last_error ?? '') !== '') { SN_DB::audit('attachment_integrity_state_read_failed','attachment',$attachment_id,'failure',['reason'=>(string)$wpdb->last_error],$user_id); status_header(503); exit; }
         if (!$row || $row->deleted_at !== null) return;
         $base = realpath(SN_Private_Files::storage_dir());
         $key = ltrim(str_replace(['\\', "\0"], ['/', ''], (string) $row->storage_key), '/');
@@ -84,12 +85,15 @@ final class SN_Attachment_Runtime_Hardening {
         if ($transcript !== '') $voice['transcript'] = $transcript;
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare('SELECT id,metadata,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $id));
+        if (($wpdb->last_error ?? '') !== '') return new WP_Error('sn_voice_note_state_unavailable','The committed voice-note state could not be verified safely. Retry later.',['status'=>503,'message_id'=>$id]);
         if (!$row || $row->deleted_at !== null) return new WP_Error('sn_voice_note_state_changed', 'The voice note changed before metadata finalization.', ['status' => 409]);
         $meta = json_decode((string) $row->metadata, true); $meta = is_array($meta) ? $meta : [];
         $meta['voice_note'] = $voice;
         $changed = $wpdb->query($wpdb->prepare('UPDATE ' . SN_DB::table('messages') . ' SET metadata=%s WHERE id=%d AND metadata=%s AND deleted_at IS NULL', (string) wp_json_encode($meta), $id, (string) $row->metadata));
+        if ($changed === false) { SN_DB::audit('voice_note_metadata_write_failed','message',$id,'failure',['reason'=>(string)($wpdb->last_error??'')],get_current_user_id()); return new WP_Error('sn_voice_note_metadata_finalize_failed','The audio message was committed but its voice-note metadata needs a safe retry.',['status'=>503,'message_id'=>$id]); }
         if ($changed !== 1) {
             $fresh = $wpdb->get_row($wpdb->prepare('SELECT metadata,deleted_at FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $id));
+            if (($wpdb->last_error ?? '') !== '') return new WP_Error('sn_voice_note_state_unavailable','The committed voice-note state could not be reconciled safely. Retry later.',['status'=>503,'message_id'=>$id]);
             $fresh_meta = $fresh ? json_decode((string) $fresh->metadata, true) : null;
             if (!$fresh || $fresh->deleted_at !== null || !is_array($fresh_meta) || ($fresh_meta['voice_note'] ?? null) !== $voice) {
                 SN_DB::audit('voice_note_metadata_finalize_failed', 'message', $id, 'failure', [], get_current_user_id());
