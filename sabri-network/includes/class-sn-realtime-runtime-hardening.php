@@ -40,13 +40,15 @@ final class SN_Realtime_Runtime_Hardening {
         global $wpdb; $locks=array_values(array_unique(array_filter($locks)));sort($locks,SORT_STRING);$held=[];
         try {
             foreach ($locks as $lock) {
-                $ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));
+                $raw=$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));
+                if(($wpdb->last_error ?? '')!==''||$raw===null)return new WP_Error('sn_realtime_lock_unavailable','Realtime concurrency control could not be verified safely.',['status'=>503]);
+                $ok=(int)$raw;
                 if($ok!==1)return new WP_Error('sn_realtime_busy','The realtime state is changing. Retry the request.',['status'=>409]);
                 $held[]=$lock;
             }
             return $callback();
         } finally {
-            foreach(array_reverse($held) as $lock)$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));
+            foreach(array_reverse($held) as $lock){$released=$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));if(($wpdb->last_error ?? '')!==''||$released===null)do_action('sn_realtime_lock_release_failed',$lock,(string)($wpdb->last_error ?? ''));}
         }
     }
 }

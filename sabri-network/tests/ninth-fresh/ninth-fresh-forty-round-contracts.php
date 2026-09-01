@@ -205,6 +205,12 @@ $check(str_contains($search,'message_search_storage_unavailable') && substr_coun
 $check(str_contains($search,'public static function health(): WP_REST_Response|WP_Error') && str_contains($search,'$count===null'), 'Round 33: message-search health must not cast failed table/count reads into missing/zero state.');
 $check(str_contains($search,'message search backfill could not read its next batch') && substr_count($search,'storage_unavailable()')>=6, 'Round 33: search/backfill collection reads must retain DB-error evidence.');
 
+
+// Round 34 — realtime concurrency locks distinguish infrastructure uncertainty from contention.
+$rt=$read('includes/class-sn-realtime-runtime-hardening.php');
+$check(str_contains($rt,'sn_realtime_lock_unavailable') && str_contains($rt,'$raw===null') && str_contains($rt,'sn_realtime_lock_unavailable') && str_contains($rt,'$raw===null'), 'Round 34: realtime GET_LOCK DB uncertainty must fail closed as 503, not ordinary 409 contention.');
+$check(str_contains($rt,'sn_realtime_lock_release_failed') && str_contains($rt,'RELEASE_LOCK(%s)'), 'Round 34: realtime lock-release failure must be observable.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
