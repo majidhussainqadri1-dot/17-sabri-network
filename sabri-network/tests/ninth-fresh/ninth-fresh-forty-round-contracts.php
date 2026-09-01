@@ -198,6 +198,13 @@ $check(str_contains($outbox,'incoming_event_storage_unavailable') && str_contain
 $check(str_contains($outbox,'public static function admin_events(WP_REST_Request $request): WP_REST_Response|WP_Error') && str_contains($outbox,'public static function health(): WP_REST_Response|WP_Error'), 'Round 32: admin list and health endpoints must surface storage unavailability rather than valid empty/zero state.');
 $check(str_contains($outbox,'sn_network_outbox_cleanup_failed') && str_contains($outbox,'$outbox_cleanup===false||$inbox_cleanup===false'), 'Round 32: outbox/inbox retention cleanup failure must be observable.');
 
+
+// Round 33 — message search preserves authorization, source, collection and health database truth.
+$search=$read('includes/class-sn-message-search.php');
+$check(str_contains($search,'message_search_storage_unavailable') && substr_count($search,'self::storage_unavailable()')>=6, 'Round 33: search source/membership/query DB uncertainty must fail closed instead of not-found/empty.');
+$check(str_contains($search,'public static function health(): WP_REST_Response|WP_Error') && str_contains($search,'$count===null'), 'Round 33: message-search health must not cast failed table/count reads into missing/zero state.');
+$check(str_contains($search,'message search backfill could not read its next batch') && substr_count($search,'storage_unavailable()')>=6, 'Round 33: search/backfill collection reads must retain DB-error evidence.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

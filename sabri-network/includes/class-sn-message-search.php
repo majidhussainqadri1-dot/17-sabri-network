@@ -76,6 +76,7 @@ final class SN_Message_Search {
     public static function index_message(int $message_id): bool|WP_Error {
         global $wpdb;
         $message = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . SN_DB::table('messages') . ' WHERE id=%d', $message_id));
+        if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable();
         if (!$message) return new WP_Error('message_not_found', 'The message is unavailable.');
         $table = self::table();
         if (!self::indexable($message)) {
@@ -118,7 +119,7 @@ final class SN_Message_Search {
         global $wpdb;
         $conversation_id = absint($request['id']);
         $viewer_id = get_current_user_id();
-        if (!SN_DB::is_member($conversation_id, $viewer_id)) return self::not_found();
+        if (!SN_DB::is_member($conversation_id, $viewer_id)) { if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable(); return self::not_found(); } if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable();
         if (!SN_Policy::consume_rate_limit('message_search', (string) $viewer_id, 120, MINUTE_IN_SECONDS)) return new WP_Error('rate_limited', 'Too many search requests.', ['status' => 429]);
 
         $query = trim(sanitize_text_field(wp_unslash((string) $request->get_param('q'))));
@@ -162,7 +163,7 @@ final class SN_Message_Search {
             ...$params
         );
         $rows = $wpdb->get_results($sql);
-        if (!is_array($rows)) return new WP_Error('search_unavailable', 'Message search is temporarily unavailable.', ['status' => 500]);
+        if (!is_array($rows) || ($wpdb->last_error ?? '') !== '') return self::storage_unavailable();
         $has_more = count($rows) > $limit;
         if ($has_more) array_pop($rows);
         $page_tail = $rows ? (int) end($rows)->id : 0;
@@ -182,7 +183,7 @@ final class SN_Message_Search {
         global $wpdb;
         $conversation_id = absint($request['id']);
         $viewer_id = get_current_user_id();
-        if (!SN_DB::is_member($conversation_id, $viewer_id)) return self::not_found();
+        if (!SN_DB::is_member($conversation_id, $viewer_id)) { if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable(); return self::not_found(); } if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable();
         if (!SN_Policy::consume_rate_limit('message_search_context', (string) $viewer_id, 120, MINUTE_IN_SECONDS)) return new WP_Error('rate_limited', 'Too many context requests.', ['status' => 429]);
         $cursor = trim((string) $request->get_param('cursor'));
         $state = self::decode_cursor($cursor, 'context', $viewer_id, $conversation_id, '');
@@ -210,7 +211,7 @@ final class SN_Message_Search {
         global $wpdb;
         $after = max(0, (int) get_option('sn_message_search_backfill_after', 0));
         $rows = $wpdb->get_results($wpdb->prepare('SELECT id FROM ' . SN_DB::table('messages') . ' WHERE id>%d ORDER BY id ASC LIMIT %d', $after, self::BACKFILL_BATCH));
-        if (!is_array($rows)) return self::backfill_failure(new WP_Error('search_backfill_query_failed', 'The message search backfill could not read its next batch.'));
+        if (!is_array($rows) || ($wpdb->last_error ?? '') !== '') return self::backfill_failure(new WP_Error('search_backfill_query_failed', 'The message search backfill could not read its next batch.'));
         if (!$rows) { update_option('sn_message_search_backfill_after', 0, false); return true; }
         foreach ($rows as $row) {
             $indexed = self::index_message((int) $row->id);
@@ -240,13 +241,15 @@ final class SN_Message_Search {
         }
     }
 
-    public static function health(): WP_REST_Response {
+    public static function health(): WP_REST_Response|WP_Error {
         global $wpdb;
         $table = self::table();
-        $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) === $table;
+        $found=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))); if (($wpdb->last_error ?? '') !== '') return self::storage_unavailable();
+        $exists = $found === $table; $tokens=0;
+        if($exists){$count=$wpdb->get_var("SELECT COUNT(*) FROM $table"); if (($wpdb->last_error ?? '') !== '' || $count===null) return self::storage_unavailable(); $tokens=(int)$count;}
         $rebuilding = (bool) get_option(self::REBUILDING_OPTION, false);
         $error = (string) get_option(self::REBUILD_ERROR_OPTION, '');
-        return rest_ensure_response(['ok' => $exists && !$rebuilding && $error === '' && (string) get_option('sn_message_search_schema_version', '') === self::SCHEMA_VERSION, 'table' => $exists, 'schema_version' => (string) get_option('sn_message_search_schema_version', ''), 'tokens' => $exists ? (int) $wpdb->get_var("SELECT COUNT(*) FROM $table") : 0, 'backfill_after' => (int) get_option('sn_message_search_backfill_after', 0), 'rebuilding' => $rebuilding, 'error' => $error, 'time' => gmdate('c')]);
+        return rest_ensure_response(['ok' => $exists && !$rebuilding && $error === '' && (string) get_option('sn_message_search_schema_version', '') === self::SCHEMA_VERSION, 'table' => $exists, 'schema_version' => (string) get_option('sn_message_search_schema_version', ''), 'tokens' => $tokens, 'backfill_after' => (int) get_option('sn_message_search_backfill_after', 0), 'rebuilding' => $rebuilding, 'error' => $error, 'time' => gmdate('c')]);
     }
 
     public static function rebuild(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -354,6 +357,7 @@ final class SN_Message_Search {
         return false;
     }
 
+    private static function storage_unavailable(): WP_Error { return new WP_Error('message_search_storage_unavailable','Message search storage truth could not be verified safely.',['status'=>503]); }
     private static function not_found(): WP_Error { return new WP_Error('not_found', 'The requested conversation or message is unavailable.', ['status' => 404]); }
     private static function table(): string { return SN_DB::table('message_search_tokens'); }
 }
