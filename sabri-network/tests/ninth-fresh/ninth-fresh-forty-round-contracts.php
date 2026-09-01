@@ -211,6 +211,14 @@ $rt=$read('includes/class-sn-realtime-runtime-hardening.php');
 $check(str_contains($rt,'sn_realtime_lock_unavailable') && str_contains($rt,'$raw===null') && str_contains($rt,'sn_realtime_lock_unavailable') && str_contains($rt,'$raw===null'), 'Round 34: realtime GET_LOCK DB uncertainty must fail closed as 503, not ordinary 409 contention.');
 $check(str_contains($rt,'sn_realtime_lock_release_failed') && str_contains($rt,'RELEASE_LOCK(%s)'), 'Round 34: realtime lock-release failure must be observable.');
 
+
+// Round 35 — privacy export/erasure preserves lock and destructive-snapshot database truth.
+$privacy=$read('includes/class-sn-privacy-runtime-hardening.php');
+$check(str_contains($privacy,'Privacy erasure concurrency control could not be verified') && str_contains($privacy,'$raw_lock===null') && str_contains($privacy,'sn_network_privacy_lock_release_failed'), 'Round 35: privacy lock acquisition/release DB uncertainty must be distinguished from ordinary contention.');
+$check(str_contains($privacy,'Message-erasure enumeration could not be verified') && str_contains($privacy,'privacy_message_lock_read_failed') && str_contains($privacy,'Temporary-update erasure enumeration could not be verified'), 'Round 35: message/update erasure must not interpret failed enumeration or locked rereads as no work.');
+$check(str_contains($privacy,'Owned-conversation privacy snapshot could not be verified') && str_contains($privacy,'Attachment privacy snapshot could not be verified') && str_contains($privacy,'privacy_membership_enumeration_failed') && str_contains($privacy,'privacy_call_membership_enumeration_failed') && str_contains($privacy,'privacy_direct_call_enumeration_failed'), 'Round 35: relational privacy deletion must not proceed from incomplete conversation/member/call snapshots.');
+$check(str_contains($privacy,'sn_network_privacy_lock_release_failed') && substr_count($privacy,"['done']=false")>=1, 'Round 35: privacy export enrichment DB failure must remain retryable instead of returning an apparently complete export.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
