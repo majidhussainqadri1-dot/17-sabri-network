@@ -181,6 +181,15 @@ $check(str_contains($meet,'meet_health_unavailable') && str_contains($meet,'Sabr
 $check(str_contains($meet,'meetings_unavailable') && str_contains($meet,'meet_participants_unavailable') && str_contains($meet,'meet_sessions_unavailable'), 'Round 30: meeting list and roster DB uncertainty must not become successful empty collections.');
 $check(str_contains($meet,'meet_signals_unavailable') && substr_count($meet,'$wpdb->last_error')>=10, 'Round 30: signaling read DB uncertainty must not become a successful empty signal list.');
 
+
+// Round 31 — CF-01 clinical-context assertions and privacy workflows preserve database truth.
+$cf01=$read('includes/class-sn-cf01-clinical-context.php');
+$check(str_contains($cf01,'sn_cf01_storage_unavailable') && substr_count($cf01,'return self::storage_unavailable();')>=8, 'Round 31: CF-01 membership/conversation/reference DB uncertainty must fail closed as unavailable, not not-found/conflict.');
+$check(str_contains($cf01,'private static function participant_count(int $conversation_id): int|WP_Error') && str_contains($cf01,'$count === null') && str_contains($cf01,'private static function participant_class(int $conversation_id, int $actor_id): string|WP_Error'), 'Round 31: CF-01 participant count/class must not fabricate clinical-context state under DB uncertainty.');
+$check(str_contains($cf01,'private static function direct_conversation_blocked(object $conversation, int $actor_id): bool|WP_Error') && str_contains($cf01,'$other_raw') && substr_count($cf01,'is_wp_error($blocked)')>=2, 'Round 31: direct-conversation block checks must preserve DB uncertainty.');
+$check(str_contains($cf01,"'done' => false") && str_contains($cf01,'Communication-context erasure could not be verified; retry is required.') && str_contains($cf01,"return ['data' => [], 'done' => false];"), 'Round 31: CF-01 privacy export/erasure must remain retryable when DB truth is unavailable.');
+$check(str_contains($cf01,"do_action('sn_cf01_cleanup_failed'") && str_contains($cf01,"throw new RuntimeException('reference_lookup_failed')"), 'Round 31: CF-01 cleanup/idempotency read failures must be observable and fail closed.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

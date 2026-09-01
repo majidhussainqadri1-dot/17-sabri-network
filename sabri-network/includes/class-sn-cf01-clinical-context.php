@@ -72,11 +72,28 @@ final class SN_CF01_Clinical_Context {
     /** @return array<string,mixed>|WP_Error */
     public static function issue_reference(int $conversation_id, int $actor_id, array $context): array|WP_Error {
         global $wpdb;
-        if ($conversation_id <= 0 || $actor_id <= 0 || !SN_DB::is_member($conversation_id, $actor_id)) {
+        if ($conversation_id <= 0 || $actor_id <= 0) {
+            return self::not_found();
+        }
+        $is_member = SN_DB::is_member($conversation_id, $actor_id);
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        if (!$is_member) {
             return self::not_found();
         }
         $conversation = self::conversation($conversation_id);
-        if (!$conversation || (string) $conversation->status !== 'active' || self::direct_conversation_blocked($conversation, $actor_id)) {
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        if (!$conversation || (string) $conversation->status !== 'active') {
+            return self::not_found();
+        }
+        $blocked = self::direct_conversation_blocked($conversation, $actor_id);
+        if (is_wp_error($blocked)) {
+            return $blocked;
+        }
+        if ($blocked) {
             return self::not_found();
         }
         $purpose = sanitize_key((string) ($context['purpose'] ?? ''));
@@ -118,6 +135,9 @@ final class SN_CF01_Clinical_Context {
                 $actor_id,
                 $idempotency_hash
             ));
+            if (($wpdb->last_error ?? '') !== '') {
+                throw new RuntimeException('reference_lookup_failed');
+            }
             if ($existing) {
                 if ((int) $existing->conversation_id !== $conversation_id
                     || !hash_equals((string) $existing->consent_hash, $consent_hash)
@@ -151,6 +171,10 @@ final class SN_CF01_Clinical_Context {
             if ($inserted === false) {
                 throw new RuntimeException('reference_insert_failed');
             }
+            $participant_count = self::participant_count($conversation_id);
+            if (is_wp_error($participant_count)) {
+                throw new RuntimeException('participant_count_failed');
+            }
             $event = SN_Outbox::enqueue(
                 'conversation.clinical_context_reference_issued',
                 'conversation',
@@ -159,7 +183,7 @@ final class SN_CF01_Clinical_Context {
                     'reference_uuid' => $reference_uuid,
                     'purpose' => $purpose,
                     'expires_at' => $expires_at,
-                    'conversation_state_hash' => self::conversation_state_hash($conversation, self::participant_count($conversation_id)),
+                    'conversation_state_hash' => self::conversation_state_hash($conversation, $participant_count),
                     'contains_message_body' => false,
                     'contains_attachment' => false,
                     'contains_call_transcript' => false,
@@ -202,15 +226,32 @@ final class SN_CF01_Clinical_Context {
             return self::not_found();
         }
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::table() . ' WHERE reference_uuid=%s', $reference_uuid));
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
         if (!$row || (string) $row->status !== 'active' || self::timestamp((string) $row->expires_at) <= time()) {
             return self::not_found();
         }
         $conversation_id = (int) $row->conversation_id;
-        if (!SN_DB::is_member($conversation_id, $actor_id)) {
+        $is_member = SN_DB::is_member($conversation_id, $actor_id);
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        if (!$is_member) {
             return self::not_found();
         }
         $conversation = self::conversation($conversation_id);
-        if (!$conversation || (string) $conversation->status !== 'active' || self::direct_conversation_blocked($conversation, $actor_id)) {
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        if (!$conversation || (string) $conversation->status !== 'active') {
+            return self::not_found();
+        }
+        $blocked = self::direct_conversation_blocked($conversation, $actor_id);
+        if (is_wp_error($blocked)) {
+            return $blocked;
+        }
+        if ($blocked) {
             return self::not_found();
         }
         $requested_purpose = sanitize_key((string) ($context['purpose'] ?? (string) $row->purpose));
@@ -222,6 +263,13 @@ final class SN_CF01_Clinical_Context {
         }
 
         $participants = self::participant_count($conversation_id);
+        if (is_wp_error($participants)) {
+            return $participants;
+        }
+        $participant_class = self::participant_class($conversation_id, $actor_id);
+        if (is_wp_error($participant_class)) {
+            return $participant_class;
+        }
         $now = time();
         return [
             'contract' => self::CONTRACT_NAME,
@@ -245,7 +293,7 @@ final class SN_CF01_Clinical_Context {
                 'state' => sanitize_key((string) $conversation->status),
                 'state_version' => self::conversation_state_hash($conversation, $participants),
                 'participant_count' => $participants,
-                'actor_participant_class' => self::participant_class($conversation_id, $actor_id),
+                'actor_participant_class' => $participant_class,
                 'owner_reference' => self::subject_reference((int) $conversation->owner_id),
                 'updated_at' => self::iso_time((string) $conversation->updated_at),
             ],
@@ -269,7 +317,17 @@ final class SN_CF01_Clinical_Context {
             strtolower($reference_uuid),
             'active'
         ));
-        if (!$row || !SN_DB::is_member((int) $row->conversation_id, $actor_id)) {
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        if (!$row) {
+            return self::not_found();
+        }
+        $is_member = SN_DB::is_member((int) $row->conversation_id, $actor_id);
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        if (!$is_member) {
             return self::not_found();
         }
         $url = add_query_arg('conversation', (int) $row->conversation_id, SN_Messages::messages_url());
@@ -292,6 +350,9 @@ final class SN_CF01_Clinical_Context {
         $row = self::valid_uuid($reference_uuid)
             ? $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::table() . ' WHERE reference_uuid=%s', $reference_uuid))
             : null;
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
         if (!$row || $actor_id <= 0) {
             return self::not_found();
         }
@@ -315,6 +376,9 @@ final class SN_CF01_Clinical_Context {
             'version' => (int) $row->version,
         ]);
         if ($changed !== 1) {
+            if ($changed === false || ($wpdb->last_error ?? '') !== '') {
+                return self::storage_unavailable();
+            }
             return self::error('sn_cf01_reference_revoke_conflict', 'The reference changed before it could be revoked.', 409);
         }
         SN_DB::audit('cf01_clinical_context_reference_revoked', 'conversation', (int) $row->conversation_id, 'success', [
@@ -349,11 +413,14 @@ final class SN_CF01_Clinical_Context {
     public static function cleanup(): void {
         global $wpdb;
         $now = self::now();
-        $wpdb->query($wpdb->prepare(
+        $changed = $wpdb->query($wpdb->prepare(
             "UPDATE " . self::table() . " SET status='expired',updated_at=%s,version=version+1 WHERE status='active' AND expires_at<=%s LIMIT 500",
             $now,
             $now
         ));
+        if ($changed === false) {
+            do_action('sn_cf01_cleanup_failed', (string) ($wpdb->last_error ?? ''));
+        }
     }
 
     public static function register_exporter(array $exporters): array {
@@ -385,8 +452,12 @@ final class SN_CF01_Clinical_Context {
             $limit,
             max(0, $page - 1) * $limit
         ));
+        if (($wpdb->last_error ?? '') !== '') {
+            return ['data' => [], 'done' => false];
+        }
+        $rows = is_array($rows) ? $rows : [];
         $data = [];
-        foreach (is_array($rows) ? $rows : [] as $row) {
+        foreach ($rows as $row) {
             $data[] = [
                 'group_id' => 'sabri-network-cf01-references',
                 'group_label' => __('Communication-context references', 'sabri-network'),
@@ -417,6 +488,14 @@ final class SN_CF01_Clinical_Context {
             $now,
             (int) $user->ID
         ));
+        if ($changed === false) {
+            return [
+                'items_removed' => false,
+                'items_retained' => true,
+                'messages' => [__('Communication-context erasure could not be verified; retry is required.', 'sabri-network')],
+                'done' => false,
+            ];
+        }
         return [
             'items_removed' => $changed > 0,
             'items_retained' => true,
@@ -491,30 +570,49 @@ final class SN_CF01_Clinical_Context {
         return is_object($row) ? $row : null;
     }
 
-    private static function participant_count(int $conversation_id): int {
+    private static function participant_count(int $conversation_id): int|WP_Error {
         global $wpdb;
-        return (int) $wpdb->get_var($wpdb->prepare(
+        $count = $wpdb->get_var($wpdb->prepare(
             'SELECT COUNT(*) FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND left_at IS NULL',
             $conversation_id
         ));
+        if (($wpdb->last_error ?? '') !== '' || $count === null) {
+            return self::storage_unavailable();
+        }
+        return (int) $count;
     }
 
-    private static function participant_class(int $conversation_id, int $actor_id): string {
+    private static function participant_class(int $conversation_id, int $actor_id): string|WP_Error {
+        global $wpdb;
         $role = sanitize_key(SN_DB::member_role($conversation_id, $actor_id));
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
         return in_array($role, ['owner', 'administrator', 'moderator', 'editor', 'member', 'observer'], true) ? $role : 'member';
     }
 
-    private static function direct_conversation_blocked(object $conversation, int $actor_id): bool {
+    private static function direct_conversation_blocked(object $conversation, int $actor_id): bool|WP_Error {
         global $wpdb;
         if ((string) $conversation->type !== 'direct') {
             return false;
         }
-        $other = (int) $wpdb->get_var($wpdb->prepare(
+        $other_raw = $wpdb->get_var($wpdb->prepare(
             'SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY id ASC LIMIT 1',
             (int) $conversation->id,
             $actor_id
         ));
-        return $other <= 0 || SN_DB::is_blocked($actor_id, $other);
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        $other = (int) $other_raw;
+        if ($other <= 0) {
+            return true;
+        }
+        $blocked = SN_DB::is_blocked($actor_id, $other);
+        if (($wpdb->last_error ?? '') !== '') {
+            return self::storage_unavailable();
+        }
+        return $blocked;
     }
 
     private static function conversation_state_hash(object $conversation, int $participant_count): string {
@@ -582,6 +680,10 @@ final class SN_CF01_Clinical_Context {
 
     private static function not_found(): WP_Error {
         return self::error('sn_cf01_reference_not_found', 'The communication-context reference is unavailable.', 404);
+    }
+
+    private static function storage_unavailable(): WP_Error {
+        return self::error('sn_cf01_storage_unavailable', 'Communication-context storage truth could not be verified safely.', 503);
     }
 
     private static function error(string $code, string $message, int $status): WP_Error {
