@@ -31,5 +31,5 @@ sma(str_contains($src,'smail_idempotency_state_unavailable')&&str_contains($src,
 sma(str_contains($src,'smail_draft_state_unavailable')&&str_contains($src,'smail_state_unavailable')&&str_contains($src,'smail_health_db_probe_failed'),'R40: draft, mailbox-state and health DB uncertainty must fail closed and remain observable.');
 sma(str_contains($src,"'database_ready'=>\$database_ready")&&str_contains($src,"'ok' => \$database_ready && !\$missing"),'R40: Smail health must distinguish DB probe failure from ordinary missing tables.');
 // Tenth fresh R4 — page-repair readiness is not inferred from a stale owned page id.
-sma(str_contains($src,"$updated = wp_update_post(['ID' => $id")&&str_contains($src,'], true);')&&str_contains($src,'if (is_wp_error($updated) || !$updated) return 0;'),'Tenth R4: Smail page repair must fail closed when WordPress cannot persist the repair.');
+sma(str_contains($src,"\$updated = wp_update_post(['ID' => \$id")&&str_contains($src,'], true);')&&str_contains($src,'if (is_wp_error($updated) || !$updated) return 0;'),'Tenth R4: Smail page repair must fail closed when WordPress cannot persist the repair.');
 if($fails){fwrite(STDERR,"Smail adversarial failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Smail adversarial contracts: PASS ($checks checks)\n";
