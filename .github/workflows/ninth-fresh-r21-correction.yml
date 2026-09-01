@@ -1,4 +1,5 @@
 name: File 17 Ninth Fresh R21 Correction
+# Rerun after aligning the legacy invite-cancel wording contract with locked manager semantics.
 on:
   push:
     branches: [review/file17-ninth-fresh-40-round-2026-09-01]
