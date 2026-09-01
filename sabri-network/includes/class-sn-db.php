@@ -607,14 +607,23 @@ final class SN_DB {
             $attachment_id,
             'private'
         ));
+        if ($wpdb->last_error !== '') {
+            self::audit('attachment_reference_check_failed', 'attachment', $attachment_id, 'failure', ['source'=>'messages','reason'=>(string)$wpdb->last_error], 0);
+            return true;
+        }
         if ($message_reference) {
             return true;
         }
-        return (bool) $wpdb->get_var($wpdb->prepare(
+        $update_reference = $wpdb->get_var($wpdb->prepare(
             'SELECT id FROM ' . self::table('updates') . ' WHERE media_id=%d AND media_source=%s LIMIT 1',
             $attachment_id,
             'private'
         ));
+        if ($wpdb->last_error !== '') {
+            self::audit('attachment_reference_check_failed', 'attachment', $attachment_id, 'failure', ['source'=>'updates','reason'=>(string)$wpdb->last_error], 0);
+            return true;
+        }
+        return $update_reference !== null;
     }
 
     public static function cleanup_expired(): void {
@@ -640,14 +649,16 @@ final class SN_DB {
                 if ($views_deleted === false || $updates_deleted === false) {
                     throw new RuntimeException('expired_update_delete_failed');
                 }
-                $wpdb->query('COMMIT');
+                if ($wpdb->query('COMMIT') === false) {
+                    throw new RuntimeException('expired_update_commit_failed');
+                }
             } catch (Throwable $e) {
                 $wpdb->query('ROLLBACK');
-                self::audit('expired_update_cleanup_failed', 'update', 0, 'failure', ['batch' => $batch]);
+                self::audit('expired_update_cleanup_failed', 'update', 0, 'failure', ['batch' => $batch, 'reason' => sanitize_key($e->getMessage())]);
                 break;
             }
 
-            // Delete bytes only after canonical update records are gone, and never while
+            // Delete bytes only after a confirmed commit removed canonical update records, and never while
             // another live message or update still references the same private object.
             if (class_exists('SN_Private_Files')) {
                 foreach (array_values(array_unique($private_attachment_ids)) as $attachment_id) {

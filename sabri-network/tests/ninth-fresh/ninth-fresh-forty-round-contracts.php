@@ -121,6 +121,14 @@ $check(str_contains($blockedSeg,'block_state_read_failed') && str_contains($bloc
 $check(str_contains($auth,'SN_DB::is_blocked($viewer_id, $user_id)') && str_contains($auth,'can_view_phone'), 'Round 22: public profile/phone disclosure must remain behind canonical block state.');
 $check(str_contains($rest,'if (SN_DB::is_blocked($viewer_id, $id))') && str_contains($rest,'sn_network_allow_phone_directory_lookup'), 'Round 22: directory and phone lookup results must remain behind canonical block suppression.');
 
+
+// Round 23 — private attachment bytes are retained on reference/commit uncertainty.
+$db=$read('includes/class-sn-db.php');
+$refPos=strpos($db,'public static function private_attachment_is_referenced');$refEnd=$refPos===false?false:strpos($db,'public static function cleanup_expired',$refPos);$refSeg=$refPos===false?'':substr($db,$refPos,($refEnd===false?strlen($db):$refEnd)-$refPos);
+$check(substr_count($refSeg,'$wpdb->last_error')>=2 && substr_count($refSeg,'attachment_reference_check_failed')>=2 && substr_count($refSeg,'return true;')>=3, 'Round 23: private attachment reference DB uncertainty must retain bytes.');
+$cleanupPos=strpos($db,'public static function cleanup_expired');$cleanupEnd=$cleanupPos===false?false:strpos($db,'private static function migrate_contacts',$cleanupPos);$cleanupSeg=$cleanupPos===false?'':substr($db,$cleanupPos,($cleanupEnd===false?strlen($db):$cleanupEnd)-$cleanupPos);
+$check(str_contains($cleanupSeg,"query('COMMIT') === false") && str_contains($cleanupSeg,'expired_update_commit_failed') && strpos($cleanupSeg,"query('COMMIT') === false") < strpos($cleanupSeg,'SN_Private_Files::delete'), 'Round 23: expired update attachment bytes require a confirmed commit before deletion.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
