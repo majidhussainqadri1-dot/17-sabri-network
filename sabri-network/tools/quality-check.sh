@@ -69,6 +69,7 @@ tests=(
  sixth-fresh-twenty-round-contracts.php seventh-fresh-twenty-round-contracts.php
   eighth-fresh/eighth-fresh-ten-round-contracts.php
   ninth-fresh/ninth-fresh-forty-round-contracts.php
+  eleventh-fresh/eleventh-fresh-ten-round-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -type f -name '*.php' -printf '%P\n' | LC_ALL=C sort)

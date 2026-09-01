@@ -95,6 +95,10 @@ final class SN_Call_Runtime_Hardening {
                 'SELECT * FROM ' . SN_DB::table('signals') . ' WHERE id=%d AND call_id=%d AND to_user_id=%d AND consumed_at IS NULL AND created_at>=%s',
                 $id, absint($request['id']), get_current_user_id(), $cutoff
             ));
+            if (($wpdb->last_error ?? '') !== '') {
+                SN_DB::audit('call_signal_read_failed','call',absint($request['id']),'failure',['reason'=>(string)$wpdb->last_error],get_current_user_id());
+                return self::signal_error('sn_signal_read_failed');
+            }
             if (!$row) continue;
             $payload = self::unprotect_signal_payload((string)$row->payload, self::classic_signal_context($row), self::CLASSIC_SIGNAL_PREFIX);
             if (is_wp_error($payload)) return $payload;
@@ -135,7 +139,9 @@ final class SN_Call_Runtime_Hardening {
         $authorized = SN_Meet::get_signals($request);
         if (is_wp_error($authorized)) return $authorized;
         $public = (string)$request['meeting'];
-        $meeting_id = (int)$wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s", $public));
+        $meeting_id_raw = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s", $public));
+        if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_meet_state_unavailable');
+        $meeting_id = (int)$meeting_id_raw;
         if ($meeting_id <= 0) return self::not_found();
         $after = absint($request->get_param('after'));
         $now = current_time('mysql', true);
@@ -229,12 +235,14 @@ final class SN_Call_Runtime_Hardening {
                 "SELECT id,host_id,conversation_id,access_mode,status FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s",
                 (string)$meet_match[1]
             ));
+            if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_meet_state_unavailable');
             if (!$meeting || !in_array((string)$meeting->status, ['scheduled','live'], true)) return self::not_found();
             $participant = $wpdb->get_row($wpdb->prepare(
                 "SELECT state FROM {$wpdb->prefix}sn_meet_participants WHERE meeting_id=%d AND user_id=%d",
                 (int)$meeting->id,
                 $actor
             ));
+            if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_meet_state_unavailable');
             if (!$participant || !in_array((string)$participant->state, ['admitted','joined'], true)) return self::not_found();
             if ((string)$meeting->access_mode === 'conversation' && (int)$meeting->conversation_id > 0
                 && !SN_DB::is_member((int)$meeting->conversation_id, $actor)) return self::not_found();
@@ -245,6 +253,7 @@ final class SN_Call_Runtime_Hardening {
 
         $call_id = (int)$call_match[1];
         $call = $wpdb->get_row($wpdb->prepare('SELECT conversation_id,status FROM ' . SN_DB::table('calls') . ' WHERE id=%d', $call_id));
+        if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_call_state_unavailable');
         if (!$call || !in_array((string)$call->status, ['ringing','active','accepted','connected','reconnecting'], true)
             || !SN_DB::is_member((int)$call->conversation_id, $actor)) return self::not_found();
         $member = $wpdb->get_row($wpdb->prepare(
@@ -252,14 +261,17 @@ final class SN_Call_Runtime_Hardening {
             $call_id,
             $actor
         ));
+        if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_call_state_unavailable');
         if (!$member || !in_array((string)$member->status, ['invited','joined'], true)) return self::not_found();
         $type = (string)$wpdb->get_var($wpdb->prepare('SELECT type FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', (int)$call->conversation_id));
+        if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_call_state_unavailable');
         if ($type === 'direct') {
             $peer = (int)$wpdb->get_var($wpdb->prepare(
                 'SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 1',
                 (int)$call->conversation_id,
                 $actor
             ));
+            if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_call_state_unavailable');
             if ($peer <= 0 || SN_DB::is_blocked($actor, $peer) || SN_DB::is_blocked($peer, $actor)) return self::not_found();
         }
         return $result;
@@ -278,16 +290,19 @@ final class SN_Call_Runtime_Hardening {
             $conversation = absint($request->get_param('conversation_id'));
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
-                self::append_direct_pair_lock($locks, $conversation, $actor);
+                $pair_lock = self::append_direct_pair_lock($locks, $conversation, $actor);
+                if (is_wp_error($pair_lock)) return $pair_lock;
             }
         } elseif (preg_match('#^/sabri-network/v2/meetings/([A-Za-z0-9_-]{22,64})(?:/|$)#', $route, $m)) {
             $public = (string)$m[1];
             $locks[] = 'sn:f17:meet:' . substr(hash('sha256', $public), 0, 32);
             $meeting = $wpdb->get_row($wpdb->prepare("SELECT id,host_id,conversation_id FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s", $public));
+            if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_meet_state_unavailable');
             if ($meeting) {
                 if ((int)$meeting->conversation_id > 0) {
                     $locks[] = self::conversation_lock((int)$meeting->conversation_id);
-                    self::append_direct_pair_lock($locks, (int)$meeting->conversation_id, $actor);
+                    $pair_lock = self::append_direct_pair_lock($locks, (int)$meeting->conversation_id, $actor);
+                    if (is_wp_error($pair_lock)) return $pair_lock;
                 }
                 $targets = $request->get_param('user_ids');
                 if (!is_array($targets)) $targets = [absint($request->get_param('user_id'))];
@@ -301,23 +316,30 @@ final class SN_Call_Runtime_Hardening {
             $conversation = absint($request->get_param('conversation_id'));
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
-                self::append_direct_pair_lock($locks, $conversation, $actor);
+                $pair_lock = self::append_direct_pair_lock($locks, $conversation, $actor);
+                if (is_wp_error($pair_lock)) return $pair_lock;
             }
         } elseif (preg_match('#^/sabri-network/v2/calls/(\d+)(?:/|$)#', $route, $m)) {
             $call = (int)$m[1];
             $locks[] = 'sn:f17:call:' . $call;
             $conversation = (int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM ' . SN_DB::table('calls') . ' WHERE id=%d', $call));
+            if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_call_state_unavailable');
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
-                self::append_direct_pair_lock($locks, $conversation, $actor);
+                $pair_lock = self::append_direct_pair_lock($locks, $conversation, $actor);
+                if (is_wp_error($pair_lock)) return $pair_lock;
             }
         }
 
         if (!$locks) return $result;
         $locks = array_values(array_unique($locks)); sort($locks, SORT_STRING); $held=[];
         foreach ($locks as $lock) {
-            $ok=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));
-            if($ok!==1){self::release($held);return new WP_Error('sn_call_mutation_busy','The call or meeting is changing. Retry the request.',['status'=>409]);}
+            $raw=$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));
+            if (($wpdb->last_error ?? '') !== '' || $raw === null) {
+                self::release($held);
+                return new WP_Error('sn_call_lock_unavailable','The call/meeting lock service is temporarily unavailable.',['status'=>503]);
+            }
+            if((int)$raw!==1){self::release($held);return new WP_Error('sn_call_mutation_busy','The call or meeting is changing. Retry the request.',['status'=>409]);}
             $held[]=$lock;
         }
         $request->set_param('_sn_call_runtime_locks',$held);
@@ -374,6 +396,7 @@ final class SN_Call_Runtime_Hardening {
             $actor,
             $key
         ));
+        if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_meet_idempotency_state_unavailable');
         if (!$row) return true;
 
         $title = trim(sanitize_text_field((string)$request->get_param('title')));
@@ -442,17 +465,20 @@ final class SN_Call_Runtime_Hardening {
         return $result;
     }
 
-    private static function append_direct_pair_lock(array &$locks, int $conversation, int $actor): void {
+    private static function append_direct_pair_lock(array &$locks, int $conversation, int $actor): bool|WP_Error {
         global $wpdb;
-        if ($conversation <= 0 || $actor <= 0) return;
+        if ($conversation <= 0 || $actor <= 0) return true;
         $type = (string)$wpdb->get_var($wpdb->prepare('SELECT type FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', $conversation));
-        if ($type !== 'direct') return;
+        if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_call_state_unavailable');
+        if ($type !== 'direct') return true;
         $peer = (int)$wpdb->get_var($wpdb->prepare(
             'SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 1',
             $conversation,
             $actor
         ));
+        if (($wpdb->last_error ?? '') !== '') return self::signal_error('sn_call_state_unavailable');
         if ($peer > 0) $locks[] = SN_Relationships::pair_lock_name($actor, $peer);
+        return true;
     }
 
     private static function requires_fresh_call_eligibility(string $route, WP_REST_Request $request): bool {
@@ -466,6 +492,14 @@ final class SN_Call_Runtime_Hardening {
     }
 
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:' . substr(hash('sha256',(string)$id),0,32); }
-    private static function release(array $locks): void { global $wpdb; foreach(array_reverse($locks) as $lock)$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',(string)$lock)); }
+    private static function release(array $locks): void {
+        global $wpdb;
+        foreach(array_reverse($locks) as $lock){
+            $released=$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',(string)$lock));
+            if (($wpdb->last_error ?? '') !== '' || $released === null) {
+                SN_DB::audit('call_lock_release_failed','system',0,'failure',['lock_hash'=>substr(hash('sha256',(string)$lock),0,16),'reason'=>(string)($wpdb->last_error ?? '')],0);
+            }
+        }
+    }
     private static function not_found(): WP_Error { return new WP_Error('not_found', 'The requested call or meeting is unavailable.', ['status'=>404]); }
 }
