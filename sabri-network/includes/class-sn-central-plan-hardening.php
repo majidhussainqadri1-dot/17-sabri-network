@@ -31,22 +31,53 @@ final class SN_Central_Plan_Hardening {
      * then always suppress File-17's historical local notification table fallback.
      */
     public static function route_notification_to_file19(bool $handled, array $event): bool {
-        if (!$handled) {
-            do_action('sn_network_notification_requested', [
-                'producer' => 'file-17',
-                'user_id' => absint($event['user_id'] ?? 0),
-                'type' => sanitize_key((string) ($event['type'] ?? '')),
-                'title' => sanitize_text_field((string) ($event['title'] ?? '')),
-                'entity_type' => sanitize_key((string) ($event['entity_type'] ?? '')),
-                'entity_id' => absint($event['entity_id'] ?? 0),
-                'created_at' => sanitize_text_field((string) ($event['created_at'] ?? current_time('mysql', true))),
-            ]);
-            if (class_exists('SN_DB')) {
-                SN_DB::audit('notification_deferred_to_file19', sanitize_key((string) ($event['entity_type'] ?? '')), absint($event['entity_id'] ?? 0), 'success', [
-                    'notification_type' => sanitize_key((string) ($event['type'] ?? '')),
-                    'recipient_id' => absint($event['user_id'] ?? 0),
-                ]);
+        if ($handled) return true;
+
+        $requested = [
+            'producer' => 'file-17',
+            'recipient_id' => absint($event['user_id'] ?? 0),
+            'type' => sanitize_key((string) ($event['type'] ?? '')),
+            'title' => sanitize_text_field((string) ($event['title'] ?? '')),
+            'entity_type' => sanitize_key((string) ($event['entity_type'] ?? '')),
+            'entity_id' => absint($event['entity_id'] ?? 0),
+            'created_at' => sanitize_text_field((string) ($event['created_at'] ?? current_time('mysql', true))),
+        ];
+        $requested['idempotency_key'] = 'file17-notification:' . hash('sha256', implode('|', [
+            (string)$requested['recipient_id'], (string)$requested['type'], (string)$requested['entity_type'],
+            (string)$requested['entity_id'], (string)$requested['created_at'],
+        ]));
+
+        $ready = class_exists('SN_Seventh_Fresh_R13_Hardening')
+            ? SN_Seventh_Fresh_R13_Hardening::file19_ready()
+            : (has_action('sn_network_notification_requested') !== false && apply_filters('sn_network_file19_notification_adapter_ready', false) === true);
+        if (!$ready) {
+            if (class_exists('SN_DB')) SN_DB::audit('notification_file19_unavailable', $requested['entity_type'], $requested['entity_id'], 'failure', [
+                'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'],
+                'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
+            ], 0);
+            return true; // File 17's deprecated local center must remain disabled.
+        }
+
+        try {
+            do_action('sn_network_notification_requested', $requested);
+            $ack = apply_filters('sn_network_notification_delivery_result', null, $requested);
+            if (is_wp_error($ack) || $ack !== true) {
+                if (class_exists('SN_DB')) SN_DB::audit('notification_file19_handoff_unacknowledged', $requested['entity_type'], $requested['entity_id'], 'failure', [
+                    'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'],
+                    'reason'=>is_wp_error($ack) ? $ack->get_error_code() : 'missing_explicit_ack',
+                    'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
+                ], 0);
+                return true;
             }
+            if (class_exists('SN_DB')) SN_DB::audit('notification_deferred_to_file19', $requested['entity_type'], $requested['entity_id'], 'success', [
+                'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'],
+                'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
+            ], 0);
+        } catch (Throwable $error) {
+            if (class_exists('SN_DB')) SN_DB::audit('notification_file19_handoff_failed', $requested['entity_type'], $requested['entity_id'], 'failure', [
+                'notification_type'=>$requested['type'], 'recipient_id'=>$requested['recipient_id'], 'reason'=>$error->getMessage(),
+                'idempotency_key_hash'=>hash('sha256', (string)$requested['idempotency_key']),
+            ], 0);
         }
         return true;
     }

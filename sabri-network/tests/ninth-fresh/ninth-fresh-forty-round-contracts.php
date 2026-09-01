@@ -68,7 +68,14 @@ $check(str_contains($transfer7, "apply_filters('sn_network_transfer_scanner_read
 
 // Round 16 — presence device budget fails closed on DB read failure.
 $presence = $read('includes/class-sn-presence-devices.php');
-$check(str_contains($presence, 'presence_device_limit_unavailable') && str_contains($presence, 'presence_device_limit_read_failed') && str_contains($presence, '$count_raw=$wpdb->get_var') && str_contains($presence, "$wpdb->last_error!==''"), 'Round 16: active-device limit DB failure must not become zero active devices.');
+$check(str_contains($presence, 'presence_device_limit_unavailable') && str_contains($presence, 'presence_device_limit_read_failed') && str_contains($presence, '$count_raw=$wpdb->get_var') && str_contains($presence, '$wpdb->last_error'), 'Round 16: active-device limit DB failure must not become zero active devices.');
+
+
+// Round 17 — generic File-19 notification handoff is truthful and explicitly acknowledged.
+$central = $read('includes/class-sn-central-plan-hardening.php');
+$check(str_contains($central, 'SN_Seventh_Fresh_R13_Hardening::file19_ready()') && str_contains($central, 'notification_file19_unavailable'), 'Round 17: generic notifications must verify File 19 readiness before claiming a handoff.');
+$check(str_contains($central, 'sn_network_notification_delivery_result') && str_contains($central, 'notification_file19_handoff_unacknowledged') && str_contains($central, 'missing_explicit_ack'), 'Round 17: generic notification handoff success requires explicit File 19 acknowledgement.');
+$check(str_contains($central, 'file17-notification:') && str_contains($central, 'idempotency_key_hash') && str_contains($central, 'notification_deferred_to_file19') && str_contains($central, "'success'"), 'Round 17: File 19 handoffs carry stable evidence and success is recorded only on the acknowledged path.');
 
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
