@@ -96,6 +96,14 @@ $check(str_contains($integration, 'Clinical-context reference erasure completion
 $check(str_contains($twoPlanPrivacy, 'Poll-vote erasure could not enumerate its work.') && str_contains($twoPlanPrivacy, 'Poll-vote legal-hold verification must be retried.'), 'Round 19: poll-vote erasure DB uncertainty must remain retryable.');
 $check(str_contains($twoPlan, 'Scheduled-message privacy erasure must be retried.') && str_contains($twoPlan, 'Message-request privacy erasure must be retried.'), 'Round 19: Two-Plan base eraser write failures must remain retryable.');
 
+
+// Round 20 — moderation retention and blocking durability fail closed.
+$safetyPrivacy=$read('includes/class-sn-fourth-fresh-privacy-hardening.php');
+$rest=$read('includes/class-sn-rest.php');
+$check(str_contains($safetyPrivacy,'native_legal_hold_verification_failed') && str_contains($safetyPrivacy,'$wpdb->last_error') && str_contains($safetyPrivacy,'return true;'), 'Round 20: native legal-hold DB uncertainty must retain rather than fail open.');
+$blockPos=strpos($rest,'public static function block_user'); $blockEnd=$blockPos===false?false:strpos($rest,'public static function admin_reports',$blockPos); $blockSeg=$blockPos===false?'':substr($rest,$blockPos,($blockEnd===false?strlen($rest):$blockEnd)-$blockPos);
+$check(str_contains($blockSeg,"block_commit_failed") && str_contains($blockSeg,"query('COMMIT') === false"), 'Round 20: block/unblock success requires a confirmed transaction commit.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

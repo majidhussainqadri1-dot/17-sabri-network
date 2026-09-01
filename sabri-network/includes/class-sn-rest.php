@@ -1486,7 +1486,7 @@ final class SN_REST {
                     throw new RuntimeException('contact_unblock_failed');
                 }
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) throw new RuntimeException('block_commit_failed');
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return self::database_error();

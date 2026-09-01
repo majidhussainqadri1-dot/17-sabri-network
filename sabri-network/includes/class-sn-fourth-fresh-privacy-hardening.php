@@ -20,7 +20,7 @@ final class SN_Fourth_Fresh_Privacy_Hardening {
         global $wpdb;
         $reports = SN_DB::table('reports');
         $messages = SN_DB::table('messages');
-        $held = (int) $wpdb->get_var($wpdb->prepare(
+        $held_raw = $wpdb->get_var($wpdb->prepare(
             "SELECT r.id
              FROM $reports r
              LEFT JOIN $messages m ON m.id=r.message_id
@@ -31,7 +31,12 @@ final class SN_Fourth_Fresh_Privacy_Hardening {
             $user_id,
             $user_id
         ));
-        return $held > 0;
+        // Retention authority is safety-critical: database uncertainty must retain, not erase.
+        if ($wpdb->last_error !== '') {
+            if (class_exists('SN_DB')) SN_DB::audit('native_legal_hold_verification_failed','user',$user_id,'failure',['reason'=>(string)$wpdb->last_error],0);
+            return true;
+        }
+        return $held_raw !== null;
     }
 
     public static function override_two_plan_exporter(array $exporters): array {
