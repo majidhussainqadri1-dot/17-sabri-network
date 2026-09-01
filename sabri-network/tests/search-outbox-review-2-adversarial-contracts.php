@@ -25,8 +25,8 @@ $check(str_contains($outbox,"version=%d AND status IN ('dead','retry')"),'Manual
 $adminSection=substr($outbox,strpos($outbox,'public static function admin_events'),3500);
 $check(!str_contains($adminSection,"'payload'=>")&&!str_contains($adminSection,"'payload' =>"),'Administrator inventory must not expose raw event payload.');
 $check(str_contains($outbox,"\$blocked=['body','message_body','content','token','secret','password','credential','ice','sdp','candidate','storage_key','attachment_path']"),'Sensitive fields must be stripped from event metadata.');
-$check(str_contains($outbox,'wp_is_uuid($event_uuid,4)'),'Incoming events must use canonical UUIDv4 identities.');
-$check(str_contains($outbox,"if(\$existing&&(string)\$existing->status==='processed')return true"),'Processed incoming events must be idempotent.');
+$check(str_contains($outbox,'wp_is_uuid($event_uuid, 4)')||str_contains($outbox,'wp_is_uuid($event_uuid,4)'),'Incoming events must use canonical UUIDv4 identities.');
+$check(str_contains($outbox,"status === 'processed'")&&str_contains($outbox,"$wpdb->query('ROLLBACK')")&&str_contains($outbox,'return true;'),'Processed incoming events must be idempotent and close the claim transaction before replay success.');
 $check(str_contains($outbox,'ROLLBACK')&&str_contains($outbox,'INSERT INTO $table')&&str_contains($outbox,"'failed'"),'Failed inbox attempts must remain observable after rollback.');
 $send=substr($integrity,strpos($integrity,'public static function send_message'),6000);
 $check(strpos($send,'SN_Private_Files::create_from_upload')<strpos($send,'START TRANSACTION'),'Attachment bytes/ledger must exist before the message transaction so rollback cleanup remains addressable.');
