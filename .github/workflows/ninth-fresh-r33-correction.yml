@@ -2,7 +2,7 @@ name: File 17 Ninth Fresh R33 Correction
 on:
   push:
     branches: [review/file17-ninth-fresh-40-round-2026-09-01]
-    paths: [.github/workflows/ninth-fresh-r33-correction.yml, .github/scripts/ninth-fresh-r33-correction.py, .github/scripts/ninth-fresh-r33-testcompat.py]
+    paths: [.github/workflows/ninth-fresh-r33-correction.yml, .github/scripts/ninth-fresh-r33-correction.py, .github/scripts/ninth-fresh-r33-testcompat.py, .github/scripts/ninth-fresh-r33-contractcompat.py]
 permissions: {contents: write}
 jobs:
   correct:
@@ -14,6 +14,7 @@ jobs:
         with: {php-version: '8.3'}
       - run: |
           python3 .github/scripts/ninth-fresh-r33-correction.py
+          python3 .github/scripts/ninth-fresh-r33-contractcompat.py
           python3 .github/scripts/ninth-fresh-r33-testcompat.py
       - run: |
           php -l sabri-network/includes/class-sn-message-search.php
