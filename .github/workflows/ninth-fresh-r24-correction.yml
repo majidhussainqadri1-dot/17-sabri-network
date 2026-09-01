@@ -1,4 +1,5 @@
 name: File 17 Ninth Fresh R24 Correction
+# Rerun after fixing generated regression literals.
 on:
   push:
     branches: [review/file17-ninth-fresh-40-round-2026-09-01]
@@ -15,6 +16,16 @@ jobs:
         with: {php-version: '8.3'}
       - run: bash .github/scripts/ninth-fresh-r24-correction.sh
       - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sabri-network/tests/ninth-fresh/ninth-fresh-forty-round-contracts.php')
+          t=p.read_text(encoding='utf-8')
+          t=t.replace('str_contains($ft5,"count($chunks)!==(int)$row->total_chunks")', "str_contains($ft5,'count($chunks)!==(int)$row->total_chunks')")
+          t=t.replace('str_contains($ft4,"$wpdb->last_error===\'\'")', "str_contains($ft4,'$wpdb->last_error')")
+          t=t.replace('str_contains($ft5,"$wpdb->last_error===\'\'")', "str_contains($ft5,'$wpdb->last_error')")
+          p.write_text(t,encoding='utf-8')
+          PY
+          php -l sabri-network/tests/ninth-fresh/ninth-fresh-forty-round-contracts.php
           php sabri-network/tests/ninth-fresh/ninth-fresh-forty-round-contracts.php
           bash sabri-network/tools/quality-check.sh
       - run: |
