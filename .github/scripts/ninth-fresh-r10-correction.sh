@@ -36,17 +36,19 @@ new2="            $scheduled = wp_schedule_single_event(time() + min(HOUR_IN_SEC
 if t.count(old2)!=1: raise SystemExit(f'private retry anchor count {t.count(old2)}')
 p.write_text(t.replace(old2,new2,1),encoding='utf-8')
 
-# Permanent R10 contracts.
-p=root/'tests/ninth-fresh/ninth-fresh-forty-round-contracts.php'; t=p.read_text(encoding='utf-8'); anchor="\nif ($fail) {\n"
+# Repair the prior R9 literal so the contract itself does not interpolate PHP variables.
+p=root/'tests/ninth-fresh/ninth-fresh-forty-round-contracts.php'; t=p.read_text(encoding='utf-8')
+t=t.replace('str_contains($rest,"$raw_reaction = trim")', "str_contains($rest,'$raw_reaction = trim')")
+anchor="\nif ($fail) {\n"
 if anchor not in t: raise SystemExit('ninth suite anchor missing')
 block=r'''
 // Round 10 — critical cron/retry scheduling is fail-closed and observable.
 $activator = $read('includes/class-sn-activator.php');
 $outbox = $read('includes/class-sn-outbox.php');
 $private = $read('includes/class-sn-private-files.php');
-$check(str_contains($activator, "wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'sn_cleanup_hourly', [], true)") && str_contains($activator, "sn_cleanup_schedule_error") && str_contains($activator, "is_wp_error($schedule)"), 'Round 10: hourly cleanup scheduling must expose failure and fail activation closed.');
-$check(str_contains($outbox, "wp_schedule_event(time() + MINUTE_IN_SECONDS, 'sn_every_minute', 'sn_network_outbox_tick', [], true)") && str_contains($outbox, "sn_outbox_schedule_error") && str_contains($outbox, "'ok'=>$outbox_exists&&$inbox_exists&&$next_run>0"), 'Round 10: outbox health must require a successfully scheduled delivery tick.');
-$check(substr_count($private, "attachment_delete_retry_schedule_failed") >= 2 && substr_count($private, "wp_schedule_single_event") >= 2 && str_contains($private, "[$attachment_id], true"), 'Round 10: private-byte retry scheduling failures must be audited rather than silently discarded.');
+$check(str_contains($activator, "wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'sn_cleanup_hourly', [], true)") && str_contains($activator, "sn_cleanup_schedule_error") && str_contains($activator, 'is_wp_error($schedule)'), 'Round 10: hourly cleanup scheduling must expose failure and fail activation closed.');
+$check(str_contains($outbox, "wp_schedule_event(time() + MINUTE_IN_SECONDS, 'sn_every_minute', 'sn_network_outbox_tick', [], true)") && str_contains($outbox, "sn_outbox_schedule_error") && str_contains($outbox, "'ok'=>\$outbox_exists&&\$inbox_exists&&\$next_run>0"), 'Round 10: outbox health must require a successfully scheduled delivery tick.');
+$check(substr_count($private, "attachment_delete_retry_schedule_failed") >= 2 && substr_count($private, "wp_schedule_single_event") >= 2 && str_contains($private, '[$attachment_id], true'), 'Round 10: private-byte retry scheduling failures must be audited rather than silently discarded.');
 '''
 p.write_text(t.replace(anchor,"\n"+block+anchor,1),encoding='utf-8')
 PY
