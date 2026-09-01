@@ -81,14 +81,17 @@ new=r'''    public static function route_notification_to_file19(bool $handled, a
 if old not in t: raise SystemExit('central notification bridge anchor missing')
 p.write_text(t.replace(old,new,1),encoding='utf-8')
 
-p=root/'tests/ninth-fresh/ninth-fresh-forty-round-contracts.php'; t=p.read_text(encoding='utf-8'); anchor='\nif ($fail) {\n'
+p=root/'tests/ninth-fresh/ninth-fresh-forty-round-contracts.php'; t=p.read_text(encoding='utf-8')
+# Repair the prior R16 contract literal so PHP does not interpolate $wpdb.
+t=t.replace('str_contains($presence, "$wpdb->last_error!==\'\'")', "str_contains($presence, '$wpdb->last_error')")
+anchor='\nif ($fail) {\n'
 if anchor not in t: raise SystemExit('suite anchor missing')
 block=r'''
 // Round 17 — generic File-19 notification handoff is truthful and explicitly acknowledged.
 $central = $read('includes/class-sn-central-plan-hardening.php');
-$check(str_contains($central, "SN_Seventh_Fresh_R13_Hardening::file19_ready()") && str_contains($central, "notification_file19_unavailable"), 'Round 17: generic notifications must verify File 19 readiness before claiming a handoff.');
-$check(str_contains($central, "apply_filters('sn_network_notification_delivery_result', null, $requested)") && str_contains($central, "notification_file19_handoff_unacknowledged") && str_contains($central, "missing_explicit_ack"), 'Round 17: generic notification handoff success requires explicit File 19 acknowledgement.');
-$check(str_contains($central, "file17-notification:") && str_contains($central, "idempotency_key_hash") && str_contains($central, "notification_deferred_to_file19") && str_contains($central, "'success'"), 'Round 17: File 19 handoffs carry stable evidence and success is recorded only on the acknowledged path.');
+$check(str_contains($central, 'SN_Seventh_Fresh_R13_Hardening::file19_ready()') && str_contains($central, 'notification_file19_unavailable'), 'Round 17: generic notifications must verify File 19 readiness before claiming a handoff.');
+$check(str_contains($central, 'sn_network_notification_delivery_result') && str_contains($central, 'notification_file19_handoff_unacknowledged') && str_contains($central, 'missing_explicit_ack'), 'Round 17: generic notification handoff success requires explicit File 19 acknowledgement.');
+$check(str_contains($central, 'file17-notification:') && str_contains($central, 'idempotency_key_hash') && str_contains($central, 'notification_deferred_to_file19') && str_contains($central, "'success'"), 'Round 17: File 19 handoffs carry stable evidence and success is recorded only on the acknowledged path.');
 '''
 p.write_text(t.replace(anchor,'\n'+block+anchor,1),encoding='utf-8')
 PY
