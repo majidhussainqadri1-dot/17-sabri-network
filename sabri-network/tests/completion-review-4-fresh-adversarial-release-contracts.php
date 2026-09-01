@@ -25,7 +25,7 @@ $check(str_contains($spaces,'sn_invite_recipient_required')&&str_contains($space
 $check(str_contains($conference,'sn_conference_credentials_audience_invalid')&&str_contains($conference,'sn_conference_credentials_expiry_invalid'),'Credential replay/scope and lifetime attacks must be rejected.');
 $check(str_contains($risk,'sn_high_risk_payload_mismatch')&&str_contains($risk,'hash_equals'),'High-risk payload substitution must be rejected.');
 $check(str_contains($main,"'high_risk_contract' => 'step-up + distinct approval + distinct execution'"),'Published integration contract must disclose high-risk governance.');
-$check(str_contains($activator,'$message_pages = SN_Messages::ensure_pages();')&&str_contains($activator,"$message_pages['messages'] ?? 0")&&str_contains($activator,"$message_pages['settings'] ?? 0")&&str_contains($activator,'Messages or Communication Settings page could not be created safely.'),'Activation must fail closed when either required Messages surface cannot be created.');
+$check(str_contains($activator,'$message_pages = SN_Messages::ensure_pages();')&&str_contains($activator,'$message_pages[\'messages\'] ?? 0')&&str_contains($activator,'$message_pages[\'settings\'] ?? 0')&&str_contains($activator,'Messages or Communication Settings page could not be created safely.'),'Activation must fail closed when either required Messages surface cannot be created.');
 $check(
     stripos($status,'repository')!==false &&
     stripos($status,'not staging-accepted')!==false &&
