@@ -235,7 +235,8 @@ final class SN_Private_Files {
         if (!$bytes_deleted) {
             do_action('sn_network_private_bytes_delete_failed', $attachment_id, (string) $row->storage_key);
             if (!wp_next_scheduled('sn_network_retry_private_delete', [$attachment_id])) {
-                wp_schedule_single_event(time() + 5 * MINUTE_IN_SECONDS, 'sn_network_retry_private_delete', [$attachment_id]);
+                $scheduled = wp_schedule_single_event(time() + 5 * MINUTE_IN_SECONDS, 'sn_network_retry_private_delete', [$attachment_id], true);
+                if (is_wp_error($scheduled) || $scheduled === false) SN_DB::audit('attachment_delete_retry_schedule_failed','attachment',$attachment_id,'failure',['reason'=>is_wp_error($scheduled)?$scheduled->get_error_code():'schedule_failed'],$actor_id);
             }
         }
         return $bytes_deleted;
@@ -271,7 +272,8 @@ final class SN_Private_Files {
         }
         set_transient('sn_private_delete_retry_' . $attachment_id, $attempts, DAY_IN_SECONDS);
         if ($attempts < 5 && !wp_next_scheduled('sn_network_retry_private_delete', [$attachment_id])) {
-            wp_schedule_single_event(time() + min(HOUR_IN_SECONDS, 5 * MINUTE_IN_SECONDS * (2 ** $attempts)), 'sn_network_retry_private_delete', [$attachment_id]);
+            $scheduled = wp_schedule_single_event(time() + min(HOUR_IN_SECONDS, 5 * MINUTE_IN_SECONDS * (2 ** $attempts)), 'sn_network_retry_private_delete', [$attachment_id], true);
+            if (is_wp_error($scheduled) || $scheduled === false) SN_DB::audit('attachment_delete_retry_schedule_failed','attachment',$attachment_id,'failure',['attempt'=>$attempts,'reason'=>is_wp_error($scheduled)?$scheduled->get_error_code():'schedule_failed'],0);
         }
     }
 

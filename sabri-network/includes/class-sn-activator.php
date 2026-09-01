@@ -27,7 +27,8 @@ final class SN_Activator {
         if (SN_File_Transfer::ensure_page(false) <= 0) throw new RuntimeException('File 17 transfer page could not be created safely.');
         if (SN_Smail::ensure_page(false) <= 0) throw new RuntimeException('File 17 Smail page could not be created safely.');
         SN_Messages::mark_routes_current();
-        self::ensure_cleanup_schedule();
+        $schedule = self::ensure_cleanup_schedule();
+        if (is_wp_error($schedule)) throw new RuntimeException($schedule->get_error_message());
         flush_rewrite_rules(false);
     }
 
@@ -36,10 +37,17 @@ final class SN_Activator {
         flush_rewrite_rules(false);
     }
 
-    public static function ensure_cleanup_schedule(): void {
-        if (!wp_next_scheduled('sn_cleanup_hourly')) {
-            wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'sn_cleanup_hourly');
+    public static function ensure_cleanup_schedule(): bool|WP_Error {
+        if (wp_next_scheduled('sn_cleanup_hourly')) { delete_option('sn_cleanup_schedule_error'); return true; }
+        $scheduled = wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'sn_cleanup_hourly', [], true);
+        if (is_wp_error($scheduled) || $scheduled === false) {
+            $code = is_wp_error($scheduled) ? $scheduled->get_error_code() : 'schedule_failed';
+            update_option('sn_cleanup_schedule_error', sanitize_key($code), false);
+            if (class_exists('SN_DB')) SN_DB::audit('cleanup_schedule_failed', 'system', 0, 'failure', ['reason'=>sanitize_key($code)], 0);
+            return is_wp_error($scheduled) ? $scheduled : new WP_Error('sn_cleanup_schedule_failed', 'File 17 hourly maintenance could not be scheduled.');
         }
+        delete_option('sn_cleanup_schedule_error');
+        return true;
     }
 
     public static function safe_url(): string {

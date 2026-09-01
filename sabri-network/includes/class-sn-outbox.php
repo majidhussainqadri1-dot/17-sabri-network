@@ -78,8 +78,17 @@ final class SN_Outbox {
         return $schedules;
     }
 
-    private static function ensure_schedule(): void {
-        if (!wp_next_scheduled('sn_network_outbox_tick')) wp_schedule_event(time() + MINUTE_IN_SECONDS, 'sn_every_minute', 'sn_network_outbox_tick');
+    private static function ensure_schedule(): bool|WP_Error {
+        if (wp_next_scheduled('sn_network_outbox_tick')) { delete_option('sn_outbox_schedule_error'); return true; }
+        $scheduled = wp_schedule_event(time() + MINUTE_IN_SECONDS, 'sn_every_minute', 'sn_network_outbox_tick', [], true);
+        if (is_wp_error($scheduled) || $scheduled === false) {
+            $code = is_wp_error($scheduled) ? $scheduled->get_error_code() : 'schedule_failed';
+            update_option('sn_outbox_schedule_error', sanitize_key($code), false);
+            SN_DB::audit('event_delivery_schedule_failed','event',0,'failure',['reason'=>sanitize_key($code)],0);
+            return is_wp_error($scheduled) ? $scheduled : new WP_Error('sn_outbox_schedule_failed','File 17 event delivery could not be scheduled.');
+        }
+        delete_option('sn_outbox_schedule_error');
+        return true;
     }
 
     public static function register_routes(): void {
@@ -185,7 +194,8 @@ final class SN_Outbox {
     public static function health(): WP_REST_Response {
         global $wpdb;$outbox=self::outbox_table();$inbox=self::inbox_table();$outbox_exists=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($outbox)))===$outbox;$inbox_exists=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($inbox)))===$inbox;$counts=[];
         if($outbox_exists)foreach(['pending','processing','retry','delivered','dead'] as $status)$counts[$status]=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $outbox WHERE status=%s",$status));
-        return rest_ensure_response(['ok'=>$outbox_exists&&$inbox_exists,'outbox_table'=>$outbox_exists,'inbox_table'=>$inbox_exists,'schema_version'=>(string)get_option('sn_event_delivery_schema_version',''),'counts'=>$counts,'next_run'=>(int)wp_next_scheduled('sn_network_outbox_tick'),'max_attempts'=>self::max_attempts(),'time'=>gmdate('c')]);
+        $next_run=(int)wp_next_scheduled('sn_network_outbox_tick');$schedule_error=(string)get_option('sn_outbox_schedule_error','');
+        return rest_ensure_response(['ok'=>$outbox_exists&&$inbox_exists&&$next_run>0&&$schedule_error==='','outbox_table'=>$outbox_exists,'inbox_table'=>$inbox_exists,'schema_version'=>(string)get_option('sn_event_delivery_schema_version',''),'counts'=>$counts,'next_run'=>$next_run,'schedule_error'=>$schedule_error,'max_attempts'=>self::max_attempts(),'time'=>gmdate('c')]);
     }
 
     public static function cleanup(): void {
