@@ -23,8 +23,8 @@ block=r'''
 // Round 12 — transfer quota and scanner readiness truth fail closed.
 $transfer2 = $read('includes/class-sn-file-transfer-part-2.php');
 $transfer7 = $read('includes/class-sn-file-transfer-part-7.php');
-$check(str_contains($transfer2, 'transfer_quota_unavailable') && str_contains($transfer2, "file_transfer_quota_read_failed") && str_contains($transfer2, '$wpdb->last_error'), 'Round 12: daily transfer quota DB failure must not become zero usage.');
-$check(str_contains($transfer7, "apply_filters('sn_network_transfer_scanner_ready',false)===true") && !str_contains($transfer7, "scanner_connected'=>has_filter") && str_contains($transfer7, "'ok'=>!$missing&&$storage&&$scanner_ready"), 'Round 12: scanner health requires an explicit readiness declaration, not hook presence.');
+$check(str_contains($transfer2, 'transfer_quota_unavailable') && str_contains($transfer2, 'file_transfer_quota_read_failed') && str_contains($transfer2, '$wpdb->last_error'), 'Round 12: daily transfer quota DB failure must not become zero usage.');
+$check(str_contains($transfer7, "apply_filters('sn_network_transfer_scanner_ready',false)===true") && !str_contains($transfer7, "scanner_connected'=>has_filter") && str_contains($transfer7, "'ok'=>!\$missing&&!\$storage") === false && str_contains($transfer7, "'ok'=>!\$missing&&\$storage&&\$scanner_ready"), 'Round 12: scanner health requires an explicit readiness declaration, not hook presence.');
 '''
 p.write_text(t.replace(anchor,"\n"+block+anchor,1),encoding='utf-8')
 PY
