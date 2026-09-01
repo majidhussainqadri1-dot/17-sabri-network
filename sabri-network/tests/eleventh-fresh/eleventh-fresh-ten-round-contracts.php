@@ -23,4 +23,10 @@ $check(str_contains($relationships,'relationship_storage_unavailable'),'R3 relat
 $check(str_contains($relationships,'relationship_lock_unavailable'),'R3 relationship lock service failure must differ from contention.');
 $check(str_contains($relationships,'relationship_lock_release_failed'),'R3 relationship lock release failure must be observable.');
 $check(str_contains($relationships,'follow_list_read_failed'),'R3 follow-list DB failures must not collapse to empty lists.');
+// R4 — safety privacy/mutation locks must preserve storage uncertainty.
+$safetyRuntime=$read($root.'/includes/class-sn-safety-runtime-hardening.php');
+$check(str_contains($safetyRuntime,'report_privacy_retention_read_failed'),'R4 legal-hold count failures must not masquerade as zero retained reports.');
+$check(str_contains($safetyRuntime,'report_privacy_lock_unavailable'),'R4 privacy lock DB failures must be observable.');
+$check(str_contains($safetyRuntime,'sn_safety_lock_unavailable'),'R4 safety lock service failure must differ from contention.');
+$check(str_contains($safetyRuntime,'safety_lock_release_failed'),'R4 safety lock release failures must remain observable.');
 if($fail){fwrite(STDERR,"Eleventh fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eleventh fresh contracts: PASS ($checks checks)\n";
