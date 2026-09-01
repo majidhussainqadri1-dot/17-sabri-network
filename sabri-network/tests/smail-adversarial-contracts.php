@@ -23,4 +23,11 @@ sma(!preg_match($debug_pattern, $js),'Production Smail JavaScript contains no de
 sma(str_contains($js,"credentials:'same-origin'")&&str_contains($js,"'X-WP-Nonce'"),'Client requests retain same-origin credentials and REST nonce.');
 sma(str_contains($src,'SN_DB::audit'),'Sensitive Smail state changes are auditable.');
 sma(!str_contains($src,'End-to-End Encrypted'),'Smail makes no unsupported E2EE claim.');
+// Ninth fresh R39 — privacy completion may never succeed through DB/crypto uncertainty.
+sma(str_contains($src,'smail_privacy_export_read_failed')&&str_contains($src,'smail_privacy_export_decrypt_failed')&&str_contains($src,"return ['data' => [], 'done' => false]"),'R39: Smail privacy export must remain retryable on storage or decrypt uncertainty.');
+sma(str_contains($src,'smail_privacy_state_erasure_failed')&&str_contains($src,'smail_privacy_draft_erasure_failed')&&str_contains($src,"'done' => false"),'R39: Smail privacy erasure must not claim completion after failed state/draft writes.');
+// Ninth fresh R40 — action-time Smail storage truth and idempotency reconciliation fail closed.
+sma(str_contains($src,'smail_idempotency_state_unavailable')&&str_contains($src,'smail_projection_reconciliation_read_failed')&&str_contains($src,'smail_projection_postcommit_read_failed'),'R40: Smail send/idempotency paths must surface authoritative-state DB uncertainty.');
+sma(str_contains($src,'smail_draft_state_unavailable')&&str_contains($src,'smail_state_unavailable')&&str_contains($src,'smail_health_db_probe_failed'),'R40: draft, mailbox-state and health DB uncertainty must fail closed and remain observable.');
+sma(str_contains($src,"'database_ready'=>\$database_ready")&&str_contains($src,"'ok' => \$database_ready && !\$missing"),'R40: Smail health must distinguish DB probe failure from ordinary missing tables.');
 if($fails){fwrite(STDERR,"Smail adversarial failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Smail adversarial contracts: PASS ($checks checks)\n";
