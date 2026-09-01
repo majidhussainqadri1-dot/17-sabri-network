@@ -11,7 +11,20 @@ trait SN_File_Transfer_Part_5 {
             $recipient_update=$wpdb->query($wpdb->prepare("UPDATE ".self::recipients_table()." SET state='revoked',revoked_at=%s,updated_at=%s WHERE transfer_id=%d AND revoked_at IS NULL",$now,$now,(int)$row->id));if($recipient_update===false)throw new RuntimeException('revoke_recipients_failed');
             $event=SN_Outbox::enqueue('file-transfer.revoked','file_transfer',(int)$row->id,['transfer_id'=>(int)$row->id,'sender_id'=>$user],'file-transfer-revoked-'.$row->id);if(is_wp_error($event))throw new RuntimeException('revoke_event_failed');
             if($wpdb->query('COMMIT')===false)throw new RuntimeException('revoke_commit_failed');
-        }catch(Throwable $e){$wpdb->query('ROLLBACK');$fresh=self::session((string)$row->public_id);if($fresh&&$fresh->revoked_at){$remaining_raw=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::recipients_table().' WHERE transfer_id=%d AND revoked_at IS NULL',(int)$row->id));if($wpdb->last_error===''){$remaining=(int)$remaining_raw;if($remaining===0)return rest_ensure_response(['revoked'=>true,'duplicate'=>true,'commit_reconciled'=>true]);}else{SN_DB::audit('file_transfer_revoke_reconciliation_read_failed','file_transfer',(int)$row->id,'failure',['reason'=>(string)$wpdb->last_error],$user);}}SN_DB::audit('file_transfer_revoke_failed','file_transfer',(int)$row->id,'failure',['reason'=>$e->getMessage()],$user);return new WP_Error('transfer_revoke_failed','The transfer could not be revoked atomically.',['status'=>500]);}
+        }catch(Throwable $e){
+            $wpdb->query('ROLLBACK');
+            $fresh=self::session((string)$row->public_id);
+            if($wpdb->last_error!==''){
+                SN_DB::audit('file_transfer_revoke_reconciliation_session_read_failed','file_transfer',(int)$row->id,'failure',['reason'=>(string)$wpdb->last_error],$user);
+                return new WP_Error('transfer_state_unavailable','Transfer revocation commit state could not be reconciled safely.',['status'=>503]);
+            }
+            if($fresh&&$fresh->revoked_at){
+                $remaining_raw=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::recipients_table().' WHERE transfer_id=%d AND revoked_at IS NULL',(int)$row->id));
+                if($wpdb->last_error===''){$remaining=(int)$remaining_raw;if($remaining===0)return rest_ensure_response(['revoked'=>true,'duplicate'=>true,'commit_reconciled'=>true]);}
+                else{SN_DB::audit('file_transfer_revoke_reconciliation_read_failed','file_transfer',(int)$row->id,'failure',['reason'=>(string)$wpdb->last_error],$user);return new WP_Error('transfer_state_unavailable','Transfer recipient revocation state could not be reconciled safely.',['status'=>503]);}
+            }
+            SN_DB::audit('file_transfer_revoke_failed','file_transfer',(int)$row->id,'failure',['reason'=>$e->getMessage()],$user);return new WP_Error('transfer_revoke_failed','The transfer could not be revoked atomically.',['status'=>500]);
+        }
         do_action('sn_network_event_queued',$event,'file-transfer.revoked');SN_DB::audit('file_transfer_revoked','file_transfer',(int)$row->id,'success',[],$user);return rest_ensure_response(['revoked'=>true]);
     }
 
