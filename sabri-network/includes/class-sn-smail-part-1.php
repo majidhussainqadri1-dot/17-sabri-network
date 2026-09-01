@@ -121,6 +121,10 @@ trait SN_Smail_Part_1 {
             INNER JOIN $st state ON state.smail_message_id=sm.id AND state.user_id=cm.user_id
             WHERE " . implode(' AND ', $where) . " ORDER BY sm.id DESC LIMIT %d";
         $rows = $wpdb->get_results($wpdb->prepare($sql, ...$args));
+        if ($wpdb->last_error !== '') {
+            SN_DB::audit('smail_mailbox_read_failed', 'smail', 0, 'failure', ['box'=>$box,'reason'=>(string)$wpdb->last_error], $user_id);
+            return new WP_Error('smail_mailbox_unavailable', 'The Smail mailbox could not be read safely.', ['status'=>503]);
+        }
         $items = array_map(static function ($row) use ($user_id): array {
             $plain = SN_Message_Body::decrypt_row($row);
             $unavailable = is_wp_error($plain);

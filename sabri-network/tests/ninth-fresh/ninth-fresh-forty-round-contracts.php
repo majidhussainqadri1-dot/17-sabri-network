@@ -138,6 +138,13 @@ $check(str_contains($ft4,'file_transfer_finalize_reconciliation_read_failed') &&
 $check(str_contains($ft5,'file_transfer_revoke_reconciliation_read_failed') && str_contains($ft5,'$wpdb->last_error') , 'Round 24: revoke commit reconciliation must not convert DB uncertainty into success.');
 $check(str_contains($ft7,'file_transfer_chunk_ledger_read_failed') && str_contains($ft7,'return false;'), 'Round 24: chunk-ledger DB uncertainty must keep cleanup retryable.');
 
+
+// Round 25 — Smail idempotency and mailbox availability truth fail closed.
+$smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');$smail1=$read('includes/class-sn-smail-part-1.php');
+$sendPos=strpos($smailRuntime,'public static function send');$idemPos=strpos($smailRuntime,'private static function idempotency_matches');$sendSeg=$sendPos===false?'':substr($smailRuntime,$sendPos,($idemPos===false?strlen($smailRuntime):$idemPos)-$sendPos);
+$check(str_contains($sendSeg,'smail_idempotency_lookup_failed') && str_contains($sendSeg,'smail_idempotency_unavailable') && str_contains($sendSeg,'$wpdb->last_error'), 'Round 25: Smail send must fail closed when client-key idempotency state cannot be read.');
+$check(str_contains($smail1,'smail_mailbox_read_failed') && str_contains($smail1,'smail_mailbox_unavailable') && str_contains($smail1,'$wpdb->last_error'), 'Round 25: Smail mailbox DB failure must not become a legitimate empty mailbox.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);

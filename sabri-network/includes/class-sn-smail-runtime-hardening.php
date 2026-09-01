@@ -43,6 +43,7 @@ final class SN_Smail_Runtime_Hardening {
         $locks=['sn:f17:smail:'.$client_key];foreach($recipients as $recipient)$locks[]=SN_Relationships::pair_lock_name($sender,$recipient);
         return self::with_locks($locks,function()use($request,$sender,$recipients,$subject,$body,$client_key,$wpdb){
             $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE client_key=%s',$client_key));
+            if($wpdb->last_error!==''){SN_DB::audit('smail_idempotency_lookup_failed','smail',0,'failure',['reason'=>(string)$wpdb->last_error],$sender);return new WP_Error('smail_idempotency_unavailable','Smail idempotency state could not be verified safely.',['status'=>503]);}
             if($existing){$match=self::idempotency_matches($existing,$sender,$recipients,$subject,$body);if(is_wp_error($match))return $match;return rest_ensure_response(['smail'=>self::format($existing),'duplicate'=>true]);}
             foreach($recipients as $recipient){$allowed=SN_Policy::can_contact($sender,$recipient,count($recipients)===1?'message':'group');if(is_wp_error($allowed))return $allowed;}
             $conversation=SN_Central_Plan_Hardening::resolve_smail_conversation($sender,$recipients,$subject,$client_key);if(is_wp_error($conversation))return $conversation;$conversation=(int)$conversation;if($conversation<=0)return new WP_Error('smail_conversation_failed','The Smail conversation could not be resolved.',['status'=>500]);
