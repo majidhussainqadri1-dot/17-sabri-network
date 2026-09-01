@@ -5,6 +5,7 @@ trait SN_File_Transfer_Part_3 {
     public static function upload_chunk(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $row=self::session((string)$request['public_id']);$user_id=get_current_user_id();
+        if($wpdb->last_error!==''){SN_DB::audit('file_transfer_upload_session_read_failed','file_transfer',0,'failure',['reason'=>(string)$wpdb->last_error],$user_id);return new WP_Error('transfer_state_unavailable','Transfer upload state could not be verified safely.',['status'=>503]);}
         if(!$row||(int)$row->sender_id!==$user_id)return self::not_found();
         $policy=self::revalidate($row,$user_id,true);if(is_wp_error($policy))return $policy;
         if((string)$row->status!=='uploading'||strtotime((string)$row->expires_at)<time())return new WP_Error('transfer_not_uploadable','This transfer session is no longer accepting chunks.',['status'=>409]);
