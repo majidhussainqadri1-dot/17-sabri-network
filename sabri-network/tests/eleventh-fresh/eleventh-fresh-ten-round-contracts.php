@@ -11,4 +11,10 @@ $check(str_contains($call,"sn_meet_idempotency_state_unavailable"),'R1 meeting i
 $check(str_contains($call,"sn_call_lock_unavailable"),'R1 advisory-lock DB uncertainty must not be reported as contention.');
 $check(str_contains($call,'append_direct_pair_lock(array &$locks, int $conversation, int $actor): bool|WP_Error'),'R1 pair-lock derivation must propagate DB uncertainty.');
 $check(str_contains($call,"call_lock_release_failed"),'R1 lock release failure must remain observable.');
+// R2 — presence reads, mutations and privacy callbacks must preserve storage uncertainty.
+$presence=$read($root.'/includes/class-sn-presence-devices.php');
+$check(str_contains($presence,'sn_presence_state_unavailable'),'R2 presence state reads must fail closed on DB uncertainty.');
+$check(str_contains($presence,'presence_cleanup_failed'),'R2 presence cleanup failure must remain observable.');
+$check(str_contains($presence,'presence_export_read_failed'),'R2 privacy export must not report completion on failed reads.');
+$check(str_contains($presence,'presence_erase_failed'),'R2 privacy erasure must not report completion on failed deletes.');
 if($fail){fwrite(STDERR,"Eleventh fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eleventh fresh contracts: PASS ($checks checks)\n";

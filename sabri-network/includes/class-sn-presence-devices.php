@@ -68,6 +68,7 @@ final class SN_Presence_Devices {
         $capabilities=self::capabilities($request->get_param('capabilities'));
         $label=self::label((string)$request->get_param('label'));
         $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE user_id=%d AND device_key=%s',$user,$device_key));
+        if(($wpdb->last_error??'')!==''){SN_DB::audit('presence_device_state_read_failed','presence_device',0,'failure',['reason'=>(string)$wpdb->last_error],$user);return self::error('sn_presence_state_unavailable','Presence device state could not be verified safely.',503);}
         if(!$existing){
             // Expired/offline rows are historical device observations, not active
             // sessions. They must not permanently consume the live-device budget.
@@ -81,24 +82,27 @@ final class SN_Presence_Devices {
         }else{
             if($existing->revoked_at)return self::error('sn_presence_device_revoked','This device session was revoked.',403);
             $changed=$wpdb->update(self::table(),['device_label'=>$label,'state'=>$state,'capabilities'=>(string)wp_json_encode($capabilities),'last_seen_at'=>$now,'expires_at'=>$expires,'updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'version'=>(int)$existing->version,'revoked_at'=>null]);
+            if($changed===false)return self::error('sn_presence_write_failed','The presence heartbeat could not be stored safely.',503);
             if($changed!==1)return self::error('sn_presence_conflict','A concurrent heartbeat was detected.',409);
             $version=(int)$existing->version+1;
         }
         return rest_ensure_response(['device_ref'=>self::sign_ref($user,$device_key),'state'=>$state,'expires_at'=>$expires,'version'=>$version]);
     }
 
-    public static function list_own(): WP_REST_Response {
+    public static function list_own(): WP_REST_Response|WP_Error {
         global $wpdb;$user=get_current_user_id();$now=self::now();
-        $rows=$wpdb->get_results($wpdb->prepare('SELECT device_key,device_label,state,last_seen_at,expires_at,revoked_at,version,created_at FROM '.self::table().' WHERE user_id=%d ORDER BY updated_at DESC LIMIT %d',$user,self::MAX_DEVICES));$items=[];
-        foreach(is_array($rows)?$rows:[] as $row)$items[]=['device_ref'=>self::sign_ref($user,(string)$row->device_key),'label'=>(string)$row->device_label,'state'=>self::effective_state($row,$now),'last_seen_at'=>(string)$row->last_seen_at,'expires_at'=>(string)$row->expires_at,'revoked'=>(bool)$row->revoked_at,'version'=>(int)$row->version,'created_at'=>(string)$row->created_at];
+        $rows=$wpdb->get_results($wpdb->prepare('SELECT device_key,device_label,state,last_seen_at,expires_at,revoked_at,version,created_at FROM '.self::table().' WHERE user_id=%d ORDER BY updated_at DESC LIMIT %d',$user,self::MAX_DEVICES));
+        if(($wpdb->last_error??'')!==''||!is_array($rows)){SN_DB::audit('presence_device_list_read_failed','user',$user,'failure',['reason'=>(string)($wpdb->last_error??'')],$user);return self::error('sn_presence_state_unavailable','Presence device state could not be verified safely.',503);}
+        $items=[];foreach($rows as $row)$items[]=['device_ref'=>self::sign_ref($user,(string)$row->device_key),'label'=>(string)$row->device_label,'state'=>self::effective_state($row,$now),'last_seen_at'=>(string)$row->last_seen_at,'expires_at'=>(string)$row->expires_at,'revoked'=>(bool)$row->revoked_at,'version'=>(int)$row->version,'created_at'=>(string)$row->created_at];
         return rest_ensure_response(['items'=>$items]);
     }
 
     public static function revoke(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;$user=get_current_user_id();$ref=self::verify_ref((string)$request->get_param('device_ref'),$user);if(is_wp_error($ref))return $ref;
-        $row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE user_id=%d AND device_key=%s',$user,(string)$ref['device_key']));if(!$row)return self::error('sn_presence_device_missing','The device is unavailable.',404);
+        $row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::table().' WHERE user_id=%d AND device_key=%s',$user,(string)$ref['device_key']));if(($wpdb->last_error??'')!=='')return self::error('sn_presence_state_unavailable','Presence device state could not be verified safely.',503);if(!$row)return self::error('sn_presence_device_missing','The device is unavailable.',404);
         if($row->revoked_at)return rest_ensure_response(['status'=>'revoked']);$now=self::now();
         $changed=$wpdb->update(self::table(),['state'=>'offline','revoked_at'=>$now,'expires_at'=>$now,'updated_at'=>$now,'version'=>(int)$row->version+1],['id'=>(int)$row->id,'version'=>(int)$row->version,'revoked_at'=>null]);
+        if($changed===false)return self::error('sn_presence_revoke_failed','The device revocation could not be stored safely.',503);
         if($changed!==1)return self::error('sn_presence_revoke_conflict','The device changed concurrently.',409);
         SN_DB::audit('presence_device_revoked','presence_device',(int)$row->id,'success',['device_key_prefix'=>substr((string)$row->device_key,0,12)],$user);
         return rest_ensure_response(['status'=>'revoked']);
@@ -108,6 +112,7 @@ final class SN_Presence_Devices {
         global $wpdb;$viewer=get_current_user_id();$target=absint($request['user_id']);
         if(!$target||!SN_Policy::can_view_presence($viewer,$target))return self::error('sn_presence_unavailable','Presence is unavailable.',404);
         $now=self::now();$rows=$wpdb->get_results($wpdb->prepare('SELECT state,last_seen_at,expires_at,revoked_at FROM '.self::table().' WHERE user_id=%d AND revoked_at IS NULL AND expires_at>%s ORDER BY last_seen_at DESC LIMIT %d',$target,$now,self::MAX_DEVICES));
+        if(($wpdb->last_error??'')!==''||!is_array($rows)){SN_DB::audit('presence_aggregate_read_failed','user',$target,'failure',['reason'=>(string)($wpdb->last_error??'')],$viewer);return self::error('sn_presence_state_unavailable','Presence state could not be verified safely.',503);}
         $state='offline';$last=null;$rank=['offline'=>0,'away'=>1,'online'=>2,'dnd'=>3];
         foreach(is_array($rows)?$rows:[] as $row){$effective=self::effective_state($row,$now);if($rank[$effective]>$rank[$state])$state=$effective;if($last===null||strcmp((string)$row->last_seen_at,$last)>0)$last=(string)$row->last_seen_at;}
         $privacy=SN_Policy::privacy_for($target);$show_last=((string)($privacy['last_seen']??'contacts'))!=='nobody';
@@ -117,7 +122,8 @@ final class SN_Presence_Devices {
     }
 
     public static function cleanup(): void {
-        global $wpdb;$cutoff=gmdate('Y-m-d H:i:s',time()-7*DAY_IN_SECONDS);$wpdb->query($wpdb->prepare('DELETE FROM '.self::table().' WHERE (revoked_at IS NOT NULL AND revoked_at<%s) OR (expires_at<%s AND updated_at<%s) LIMIT 500',$cutoff,$cutoff,$cutoff));
+        global $wpdb;$cutoff=gmdate('Y-m-d H:i:s',time()-7*DAY_IN_SECONDS);$deleted=$wpdb->query($wpdb->prepare('DELETE FROM '.self::table().' WHERE (revoked_at IS NOT NULL AND revoked_at<%s) OR (expires_at<%s AND updated_at<%s) LIMIT 500',$cutoff,$cutoff,$cutoff));
+        if($deleted===false)SN_DB::audit('presence_cleanup_failed','system',0,'failure',['reason'=>(string)($wpdb->last_error??'')],0);
     }
 
     public static function register_exporter(array $exporters): array {$exporters['sabri-network-presence-devices']=['exporter_friendly_name'=>__('Network presence devices','sabri-network'),'callback'=>[self::class,'export_data']];return $exporters;}
@@ -126,11 +132,12 @@ final class SN_Presence_Devices {
     public static function export_data(string $email,int $page=1): array {
         global $wpdb;$user=get_user_by('email',$email);if(!$user)return['data'=>[],'done'=>true];$limit=100;$offset=max(0,$page-1)*$limit;
         $rows=$wpdb->get_results($wpdb->prepare('SELECT id,device_label,state,last_seen_at,expires_at,revoked_at,created_at FROM '.self::table().' WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',(int)$user->ID,$limit,$offset));$data=[];
-        foreach(is_array($rows)?$rows:[] as $row)$data[]=['group_id'=>'sabri-network-presence-devices','group_label'=>__('Network presence devices','sabri-network'),'item_id'=>'presence-device-'.(int)$row->id,'data'=>[['name'=>__('Device label','sabri-network'),'value'=>(string)$row->device_label],['name'=>__('State','sabri-network'),'value'=>(string)$row->state],['name'=>__('Last seen','sabri-network'),'value'=>(string)$row->last_seen_at],['name'=>__('Expires','sabri-network'),'value'=>(string)$row->expires_at],['name'=>__('Revoked','sabri-network'),'value'=>(string)$row->revoked_at],['name'=>__('Created','sabri-network'),'value'=>(string)$row->created_at]]];
+        if(($wpdb->last_error??'')!==''||!is_array($rows)){SN_DB::audit('presence_export_read_failed','user',(int)$user->ID,'failure',['reason'=>(string)($wpdb->last_error??'')],0);return['data'=>[],'done'=>false];}
+        foreach($rows as $row)$data[]=['group_id'=>'sabri-network-presence-devices','group_label'=>__('Network presence devices','sabri-network'),'item_id'=>'presence-device-'.(int)$row->id,'data'=>[['name'=>__('Device label','sabri-network'),'value'=>(string)$row->device_label],['name'=>__('State','sabri-network'),'value'=>(string)$row->state],['name'=>__('Last seen','sabri-network'),'value'=>(string)$row->last_seen_at],['name'=>__('Expires','sabri-network'),'value'=>(string)$row->expires_at],['name'=>__('Revoked','sabri-network'),'value'=>(string)$row->revoked_at],['name'=>__('Created','sabri-network'),'value'=>(string)$row->created_at]]];
         return['data'=>$data,'done'=>count($rows)<$limit];
     }
 
-    public static function erase_data(string $email,int $page=1): array {global $wpdb;$user=get_user_by('email',$email);if(!$user)return['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$deleted=$wpdb->delete(self::table(),['user_id'=>(int)$user->ID]);return['items_removed'=>$deleted>0,'items_retained'=>false,'messages'=>[],'done'=>true];}
+    public static function erase_data(string $email,int $page=1): array {global $wpdb;$user=get_user_by('email',$email);if(!$user)return['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$deleted=$wpdb->delete(self::table(),['user_id'=>(int)$user->ID]);if($deleted===false){SN_DB::audit('presence_erase_failed','user',(int)$user->ID,'failure',['reason'=>(string)($wpdb->last_error??'')],0);return['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Presence device erasure could not be completed safely. Retry later.','sabri-network')],'done'=>false];}return['items_removed'=>$deleted>0,'items_retained'=>false,'messages'=>[],'done'=>true];}
 
     private static function effective_state(object $row,string $now): string {
         if($row->revoked_at||strcmp((string)$row->expires_at,$now)<=0)return'offline';$seen=strtotime((string)$row->last_seen_at.' UTC');if(!$seen||$seen>time()+self::FUTURE_SKEW)return'offline';$state=(string)$row->state;return in_array($state,['online','away','dnd','offline'],true)?$state:'offline';
