@@ -229,6 +229,15 @@ $check(str_contains($t5,'file_transfer_download_snapshot_failed') && str_contain
 $check(str_contains($t6,'file_transfer_recipient_enumeration_failed') && str_contains($t7,'file_transfer_cleanup_enumeration_failed') && str_contains($t7,'file_transfer_privacy_export_read_failed'), 'Round 36: recipient enumeration, cleanup and privacy export DB failures must be observable and retryable.');
 $check(str_contains($t8,'file_transfer_privacy_sent_enumeration_failed') && str_contains($t8,'file_transfer_privacy_received_enumeration_failed') && str_contains($t8,'file_transfer_privacy_chunk_probe_failed') && str_contains($t8,'file_transfer_privacy_completion_received_read_failed'), 'Round 36: transfer privacy erasure must never claim completion from failed enumeration/probe/completion reads.');
 
+
+// Round 37 — transfer access, archive inspection, post-finalize truth and download integrity fail closed.
+$t4=$read('includes/class-sn-file-transfer-part-4.php');$t5=$read('includes/class-sn-file-transfer-part-5.php');$t6=$read('includes/class-sn-file-transfer-part-6.php');$t7=$read('includes/class-sn-file-transfer-part-7.php');
+$check(str_contains($t6,'file_transfer_access_read_failed') && str_contains($t6,'bool|WP_Error') && str_contains($t6,'archive_entry_unreadable'), 'Round 37: authorization DB uncertainty and unreadable archive entries must fail closed.');
+$check(substr_count($t4,'$access=self::can_access')>=2 && substr_count($t4,'transfer_state_unavailable')>=4, 'Round 37: transfer status/grant must distinguish authorization/state DB uncertainty from ordinary not-found.');
+$check(str_contains($t4,'file_transfer_quarantine_reread_failed') && str_contains($t4,'file_transfer_ready_recipient_read_failed') && str_contains($t4,'file_transfer_ready_reread_failed'), 'Round 37: quarantine and post-finalize committed state must be re-read truthfully.');
+$check(str_contains($t5,'Private transfer state temporarily unavailable.') && str_contains($t5,'file_transfer_download_preflight_failed') && strpos($t5,'file_transfer_download_preflight_failed') < strpos($t5,'status_header($status)'), 'Round 37: downloads must authenticate the complete encrypted snapshot before success headers and expose state DB failure as unavailable.');
+$check(str_contains($t7,'file_transfer_health_db_probe_failed') && str_contains($t7,"'database_ready'=>\$database_ready") && str_contains($t7,"'ok'=>!\$missing&&\$storage&&\$scanner_ready&&\$database_ready"), 'Round 37: transfer health must distinguish DB probe uncertainty from an ordinary missing table.');
+
 if ($fail) {
     fwrite(STDERR, "Ninth fresh 40-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
