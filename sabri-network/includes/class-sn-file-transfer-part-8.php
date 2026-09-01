@@ -18,9 +18,9 @@ trait SN_File_Transfer_Part_8 {
             "SELECT s.id,s.status FROM $sessions s WHERE s.sender_id=%d AND (s.status NOT IN ('revoked','expired','rejected') OR EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)) ORDER BY s.id ASC LIMIT %d",
             $uid,$page_size
         ));
-        $sent_rows=is_array($sent_rows)?$sent_rows:[];
+        if($wpdb->last_error!==''||!is_array($sent_rows)){SN_DB::audit('file_transfer_privacy_sent_enumeration_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>false,'items_retained'=>true,'messages'=>['Private transfer erasure enumeration could not be verified and must be retried.'],'done'=>false];}
         $sent=array_map(static fn($row):int=>(int)$row->id,$sent_rows);
-        $received=array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT id FROM $recipients WHERE user_id=%d AND state<>'erased' ORDER BY id ASC LIMIT %d",$uid,$page_size))?:[]);
+        $received_raw=$wpdb->get_col($wpdb->prepare("SELECT id FROM $recipients WHERE user_id=%d AND state<>'erased' ORDER BY id ASC LIMIT %d",$uid,$page_size));if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_received_enumeration_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>false,'items_retained'=>true,'messages'=>['Private transfer recipient erasure enumeration could not be verified and must be retried.'],'done'=>false];}$received=array_map('intval',is_array($received_raw)?$received_raw:[]);
         $removed=false;
         if($wpdb->query('START TRANSACTION')===false)return['items_removed'=>false,'items_retained'=>true,'messages'=>['Private transfer erasure could not start and must be retried.'],'done'=>false];
         try{
@@ -50,12 +50,12 @@ trait SN_File_Transfer_Part_8 {
         // A failed unlink keeps its chunk ledger row, making the next eraser call
         // select the terminal session again instead of falsely declaring completion.
         foreach($sent as $id){
-            $had_chunks=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $chunks WHERE transfer_id=%d LIMIT 1",$id));
+            $had_chunks_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $chunks WHERE transfer_id=%d LIMIT 1",$id));if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_chunk_probe_failed','file_transfer',$id,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Private transfer byte-erasure state could not be verified and must be retried.'],'done'=>false];}$had_chunks=(bool)$had_chunks_raw;
             if($had_chunks&&self::delete_chunks($id))$removed=true;
         }
 
-        $more_sent=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $sessions s WHERE s.sender_id=%d AND (s.status NOT IN ('revoked','expired','rejected') OR EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)) LIMIT 1",$uid));
-        $more_received=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $recipients WHERE user_id=%d AND state<>'erased' LIMIT 1",$uid));
+        $more_sent_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $sessions s WHERE s.sender_id=%d AND (s.status NOT IN ('revoked','expired','rejected') OR EXISTS (SELECT 1 FROM $chunks c WHERE c.transfer_id=s.id)) LIMIT 1",$uid));if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_completion_sent_read_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Private transfer erasure completion could not be verified and must be retried.'],'done'=>false];}$more_sent=(bool)$more_sent_raw;
+        $more_received_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $recipients WHERE user_id=%d AND state<>'erased' LIMIT 1",$uid));if($wpdb->last_error!==''){SN_DB::audit('file_transfer_privacy_completion_received_read_failed','user',$uid,'failure',['reason'=>(string)$wpdb->last_error],$uid);return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Private transfer recipient erasure completion could not be verified and must be retried.'],'done'=>false];}$more_received=(bool)$more_received_raw;
         return[
             'items_removed'=>$removed,
             'items_retained'=>true,

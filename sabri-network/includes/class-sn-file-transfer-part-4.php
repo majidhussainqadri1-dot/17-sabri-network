@@ -5,12 +5,14 @@ trait SN_File_Transfer_Part_4 {
     public static function finalize(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $row=self::session((string)$request['public_id']);$sender=get_current_user_id();
+        if($wpdb->last_error!=='')return new WP_Error('transfer_state_unavailable','Transfer state could not be verified safely.',['status'=>503]);
         if(!$row||(int)$row->sender_id!==$sender)return self::not_found();
         $policy=self::revalidate($row,$sender,true);if(is_wp_error($policy))return $policy;
         if((string)$row->status==='ready')return rest_ensure_response(['transfer'=>self::format($row,$sender),'duplicate'=>true]);
         if(!in_array((string)$row->status,['uploading','quarantined'],true))return new WP_Error('transfer_not_finalizable','This transfer is not in an uploadable or quarantined state.',['status'=>409]);
         $chunks=$wpdb->get_results($wpdb->prepare('SELECT * FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY chunk_index ASC',(int)$row->id));
-        if(count($chunks?:[])!==(int)$row->total_chunks)return new WP_Error('transfer_incomplete','All approved chunks must be uploaded before finalization.',['status'=>409]);
+        if($wpdb->last_error!==''||!is_array($chunks)){SN_DB::audit('file_transfer_finalize_chunk_read_failed','file_transfer',(int)$row->id,'failure',['reason'=>(string)$wpdb->last_error],$sender);return new WP_Error('transfer_state_unavailable','Transfer chunk state could not be verified safely.',['status'=>503]);}
+        if(count($chunks)!==(int)$row->total_chunks)return new WP_Error('transfer_incomplete','All approved chunks must be uploaded before finalization.',['status'=>409]);
         $hash=hash_init('sha256');$first='';
         foreach($chunks as $position=>$chunk){
             if((int)$chunk->chunk_index!==$position)return new WP_Error('transfer_chunk_gap','The transfer chunk sequence is incomplete.',['status'=>409]);
@@ -35,6 +37,7 @@ trait SN_File_Transfer_Part_4 {
         if($wpdb->query('START TRANSACTION')===false)return new WP_Error('transfer_finalize_failed','The clean transfer transaction could not start.',['status'=>500]);
         try{
             $locked=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::sessions_table().' WHERE id=%d FOR UPDATE',(int)$row->id));
+            if($wpdb->last_error!=='')throw new RuntimeException('transfer_finalize_read_failed');
             if(!$locked)throw new RuntimeException('transfer_missing');
             if((string)$locked->status==='ready'&&(string)$locked->scan_status==='clean'){$wpdb->query('ROLLBACK');return rest_ensure_response(['transfer'=>self::format($locked,$sender),'duplicate'=>true]);}
             if(!in_array((string)$locked->status,['uploading','quarantined'],true))throw new RuntimeException('transfer_finalize_race');
@@ -45,6 +48,7 @@ trait SN_File_Transfer_Part_4 {
             if($wpdb->query('COMMIT')===false)throw new RuntimeException('transfer_finalize_commit_failed');
         }catch(Throwable $e){
             $wpdb->query('ROLLBACK');$fresh=self::session((string)$row->public_id);
+            if($wpdb->last_error!==''){SN_DB::audit('file_transfer_finalize_reconciliation_session_read_failed','file_transfer',(int)$row->id,'failure',['reason'=>(string)$wpdb->last_error],$sender);return new WP_Error('transfer_state_unavailable','Transfer finalization state could not be reconciled safely.',['status'=>503]);}
             if($fresh&&(string)$fresh->status==='ready'&&(string)$fresh->scan_status==='clean'&&hash_equals((string)$fresh->actual_sha256,$actual)){
                 $recipient_remaining=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::recipients_table()." WHERE transfer_id=%d AND revoked_at IS NULL AND state<>'ready'",(int)$row->id));
                 $recipient_ok=$wpdb->last_error===''&&(int)$recipient_remaining===0;
@@ -59,7 +63,7 @@ trait SN_File_Transfer_Part_4 {
         return rest_ensure_response(['transfer'=>self::format(self::session((string)$row->public_id),$sender)]);
     }
 
-    public static function list_transfers(WP_REST_Request $request): WP_REST_Response {global $wpdb;$user=get_current_user_id();$box=sanitize_key((string)$request->get_param('box'))==='sent'?'sent':'inbox';if($box==='sent')$rows=$wpdb->get_results($wpdb->prepare('SELECT * FROM '.self::sessions_table().' WHERE sender_id=%d ORDER BY id DESC LIMIT 100',$user));else$rows=$wpdb->get_results($wpdb->prepare('SELECT s.* FROM '.self::sessions_table().' s INNER JOIN '.self::recipients_table().' r ON r.transfer_id=s.id AND r.user_id=%d AND r.revoked_at IS NULL ORDER BY s.id DESC LIMIT 100',$user));return rest_ensure_response(['box'=>$box,'transfers'=>array_map(fn($r):array=>self::format($r,$user),$rows?:[])]);}
+    public static function list_transfers(WP_REST_Request $request): WP_REST_Response|WP_Error {global $wpdb;$user=get_current_user_id();$box=sanitize_key((string)$request->get_param('box'))==='sent'?'sent':'inbox';if($box==='sent')$rows=$wpdb->get_results($wpdb->prepare('SELECT * FROM '.self::sessions_table().' WHERE sender_id=%d ORDER BY id DESC LIMIT 100',$user));else$rows=$wpdb->get_results($wpdb->prepare('SELECT s.* FROM '.self::sessions_table().' s INNER JOIN '.self::recipients_table().' r ON r.transfer_id=s.id AND r.user_id=%d AND r.revoked_at IS NULL ORDER BY s.id DESC LIMIT 100',$user));if($wpdb->last_error!==''||!is_array($rows)){SN_DB::audit('file_transfer_list_read_failed','user',$user,'failure',['reason'=>(string)$wpdb->last_error],$user);return new WP_Error('transfer_state_unavailable','Transfer list state could not be verified safely.',['status'=>503]);}return rest_ensure_response(['box'=>$box,'transfers'=>array_map(fn($r):array=>self::format($r,$user),$rows)]);}
     public static function status(WP_REST_Request $request): WP_REST_Response|WP_Error {$row=self::session((string)$request['public_id']);$user=get_current_user_id();if(!$row||!self::can_access($row,$user))return self::not_found();$policy=self::revalidate($row,$user,(int)$row->sender_id===$user);if(is_wp_error($policy))return $policy;return rest_ensure_response(['transfer'=>self::format($row,$user)]);}
     public static function grant(WP_REST_Request $request): WP_REST_Response|WP_Error {$row=self::session((string)$request['public_id']);$user=get_current_user_id();if(!$row||!self::can_access($row,$user))return self::not_found();$policy=self::revalidate($row,$user,(int)$row->sender_id===$user);if(is_wp_error($policy))return $policy;if((string)$row->status!=='ready'||(string)$row->scan_status!=='clean'||$row->revoked_at||strtotime((string)$row->expires_at)<=time())return new WP_Error('transfer_not_ready','The private transfer is not available for download.',['status'=>409]);$exp=time()+self::GRANT_TTL;$token=SN_Communication_Crypto::sign(['transfer'=>(string)$row->public_id,'user'=>$user,'version'=>(int)$row->version,'exp'=>$exp],'file-transfer-download');$url=add_query_arg(['sn_file17_transfer_download'=>(string)$row->public_id,'grant'=>$token],home_url('/'));return rest_ensure_response(['url'=>esc_url_raw($url),'expires_at'=>gmdate('c',$exp)]);}
 }

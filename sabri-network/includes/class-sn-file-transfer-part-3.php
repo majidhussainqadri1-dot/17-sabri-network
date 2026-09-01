@@ -13,6 +13,7 @@ trait SN_File_Transfer_Part_3 {
         if($bytes!==$expected||$bytes<1||$bytes>self::MAX_CHUNK_BYTES)return new WP_Error('invalid_chunk_size','The transfer chunk size does not match the approved plan.',['status'=>400]);
         $sha=hash('sha256',$body);$declared=strtolower(trim((string)$request->get_header('x-chunk-sha256')));if($declared===''||!preg_match('/^[a-f0-9]{64}$/',$declared)||!hash_equals($declared,$sha))return new WP_Error('chunk_integrity_failed','The transfer chunk checksum did not match.',['status'=>422]);
         $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::chunks_table().' WHERE transfer_id=%d AND chunk_index=%d',(int)$row->id,$index));
+        if($wpdb->last_error!==''){SN_DB::audit('file_transfer_chunk_lookup_failed','file_transfer',(int)$row->id,'failure',['index'=>$index,'reason'=>(string)$wpdb->last_error],$user_id);return new WP_Error('transfer_state_unavailable','Transfer chunk state could not be verified safely.',['status'=>503]);}
         if($existing)return hash_equals((string)$existing->sha256,$sha)&&(int)$existing->byte_count===$bytes?rest_ensure_response(['accepted'=>true,'duplicate'=>true,'index'=>$index]):new WP_Error('chunk_idempotency_conflict','This chunk index was already used for different bytes.',['status'=>409]);
         try{$attempt=bin2hex(random_bytes(12));}catch(Throwable $e){return new WP_Error('secure_random_unavailable','Secure transfer storage naming is unavailable.',['status'=>503]);}
         $storage_key=$row->public_id.'/'.str_pad((string)$index,6,'0',STR_PAD_LEFT).'-'.$attempt.'.snc';$path=self::storage_root().'/'.$storage_key;
@@ -21,6 +22,7 @@ trait SN_File_Transfer_Part_3 {
         if($wpdb->query('START TRANSACTION')===false){@unlink($path);return new WP_Error('chunk_store_failed','The encrypted chunk transaction could not start.',['status'=>500]);}
         try{
             $current=$wpdb->get_row($wpdb->prepare('SELECT id,status,expires_at FROM '.self::sessions_table().' WHERE id=%d FOR UPDATE',(int)$row->id));
+            if($wpdb->last_error!=='')throw new RuntimeException('chunk_session_read_failed');
             if(!$current||(string)$current->status!=='uploading'||strtotime((string)$current->expires_at)<time())throw new RuntimeException('chunk_session_changed');
             if($wpdb->insert(self::chunks_table(),['transfer_id'=>(int)$row->id,'chunk_index'=>$index,'byte_count'=>$bytes,'sha256'=>$sha,'storage_key'=>$storage_key,'created_at'=>$now])===false)throw new RuntimeException('chunk_row_failed');
             $updated=$wpdb->query($wpdb->prepare("UPDATE ".self::sessions_table()." SET received_chunks=received_chunks+1,received_bytes=received_bytes+%d,version=version+1,updated_at=%s WHERE id=%d AND status='uploading'",$bytes,$now,(int)$row->id));
@@ -28,10 +30,11 @@ trait SN_File_Transfer_Part_3 {
             if($wpdb->query('COMMIT')===false)throw new RuntimeException('chunk_commit_failed');
         }catch(Throwable $e){
             $wpdb->query('ROLLBACK');@unlink($path);$race=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::chunks_table().' WHERE transfer_id=%d AND chunk_index=%d',(int)$row->id,$index));
+            if($wpdb->last_error!==''){SN_DB::audit('file_transfer_chunk_reconciliation_read_failed','file_transfer',(int)$row->id,'failure',['index'=>$index,'reason'=>(string)$wpdb->last_error],$user_id);return new WP_Error('transfer_state_unavailable','Transfer chunk commit state could not be reconciled safely.',['status'=>503]);}
             if($race&&hash_equals((string)$race->sha256,$sha)&&(int)$race->byte_count===$bytes)return rest_ensure_response(['accepted'=>true,'duplicate'=>true,'index'=>$index,'commit_reconciled'=>true]);
             SN_DB::audit('file_transfer_chunk_commit_failed','file_transfer',(int)$row->id,'failure',['index'=>$index,'reason'=>$e->getMessage()],$user_id);
-            return new WP_Error($e->getMessage()==='chunk_session_changed'?'transfer_not_uploadable':'chunk_store_failed','The encrypted transfer chunk could not be committed.',['status'=>$e->getMessage()==='chunk_session_changed'?409:500]);
+            return new WP_Error($e->getMessage()==='chunk_session_changed'?'transfer_not_uploadable':($e->getMessage()==='chunk_session_read_failed'?'transfer_state_unavailable':'chunk_store_failed'),'The encrypted transfer chunk could not be committed.',['status'=>$e->getMessage()==='chunk_session_changed'?409:($e->getMessage()==='chunk_session_read_failed'?503:500)]);
         }
-        $fresh=self::session((string)$row->public_id);return rest_ensure_response(['accepted'=>true,'index'=>$index,'sha256'=>$sha,'received_bytes'=>$fresh?(int)$fresh->received_bytes:(int)$row->received_bytes+$bytes]);
+        $fresh=self::session((string)$row->public_id);if($wpdb->last_error!==''||!$fresh){SN_DB::audit('file_transfer_chunk_post_commit_read_failed','file_transfer',(int)$row->id,'failure',['index'=>$index,'reason'=>(string)$wpdb->last_error],$user_id);return new WP_Error('transfer_state_unavailable','The committed chunk state could not be re-read safely.',['status'=>503]);}return rest_ensure_response(['accepted'=>true,'index'=>$index,'sha256'=>$sha,'received_bytes'=>(int)$fresh->received_bytes]);
     }
 }

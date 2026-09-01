@@ -28,8 +28,11 @@ trait SN_File_Transfer_Part_2 {
         if ($expected !== '' && !preg_match('/^[a-f0-9]{64}$/', $expected)) { return new WP_Error('invalid_file_hash', 'The expected SHA-256 value is invalid.', ['status' => 400]); }
         $idempotency = hash('sha256', $sender_id . '|' . $client_id);
         $existing = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND idempotency_key=%s', $sender_id, $idempotency));
+        if ($wpdb->last_error !== '') { SN_DB::audit('file_transfer_idempotency_lookup_failed','file_transfer',0,'failure',['reason'=>(string)$wpdb->last_error],$sender_id); return new WP_Error('transfer_state_unavailable', 'Transfer idempotency state could not be verified safely.', ['status'=>503]); }
         if ($existing) {
-            if (!self::same_initiation($existing, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected)) {
+            $same = self::same_initiation($existing, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected);
+            if (is_wp_error($same)) { return $same; }
+            if (!$same) {
                 return new WP_Error('transfer_idempotency_conflict', 'This transfer idempotency key was already used for different transfer parameters.', ['status' => 409]);
             }
             return rest_ensure_response(['transfer' => self::format($existing, $sender_id), 'duplicate' => true]);
@@ -66,8 +69,11 @@ trait SN_File_Transfer_Part_2 {
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             $race = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND idempotency_key=%s', $sender_id, $idempotency));
-            if ($race && self::same_initiation($race, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected)) {
-                return rest_ensure_response(['transfer'=>self::format($race,$sender_id),'duplicate'=>true,'commit_reconciled'=>true]);
+            if ($wpdb->last_error !== '') { SN_DB::audit('file_transfer_reconciliation_read_failed','file_transfer',$transfer_id,'failure',['reason'=>(string)$wpdb->last_error],$sender_id); return new WP_Error('transfer_state_unavailable', 'Transfer commit state could not be reconciled safely.', ['status'=>503]); }
+            if ($race) {
+                $same = self::same_initiation($race, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected);
+                if (is_wp_error($same)) { return $same; }
+                if ($same) { return rest_ensure_response(['transfer'=>self::format($race,$sender_id),'duplicate'=>true,'commit_reconciled'=>true]); }
             }
             if ($race) {
                 return new WP_Error('transfer_idempotency_conflict', 'This transfer idempotency key was committed for different transfer parameters.', ['status' => 409]);
@@ -79,12 +85,15 @@ trait SN_File_Transfer_Part_2 {
         if ($event !== null) do_action('sn_network_event_queued', $event, 'file-transfer.initiated');
         SN_DB::audit('file_transfer_initiated', 'file_transfer', $transfer_id, 'success', ['recipients' => count($recipients), 'bytes' => $total]);
         $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . self::sessions_table() . ' WHERE id=%d', $transfer_id));
+        if ($wpdb->last_error !== '' || !$row) { SN_DB::audit('file_transfer_post_commit_read_failed','file_transfer',$transfer_id,'failure',['reason'=>(string)$wpdb->last_error],$sender_id); return new WP_Error('transfer_state_unavailable', 'The committed transfer state could not be re-read safely.', ['status'=>503]); }
         return rest_ensure_response(['transfer' => self::format($row, $sender_id)]);
     }
 
-    private static function same_initiation(object $row, array $recipients, string $name, string $declared_mime, int $total, int $chunk_bytes, int $conversation_id, string $expected): bool {
+    private static function same_initiation(object $row, array $recipients, string $name, string $declared_mime, int $total, int $chunk_bytes, int $conversation_id, string $expected): bool|WP_Error {
         global $wpdb;
-        $stored = array_values(array_map('intval', $wpdb->get_col($wpdb->prepare('SELECT user_id FROM ' . self::recipients_table() . ' WHERE transfer_id=%d ORDER BY user_id ASC', (int) $row->id)) ?: []));
+        $stored_raw = $wpdb->get_col($wpdb->prepare('SELECT user_id FROM ' . self::recipients_table() . ' WHERE transfer_id=%d ORDER BY user_id ASC', (int) $row->id));
+        if ($wpdb->last_error !== '') { SN_DB::audit('file_transfer_idempotency_recipient_read_failed','file_transfer',(int)$row->id,'failure',['reason'=>(string)$wpdb->last_error]); return new WP_Error('transfer_state_unavailable', 'Transfer recipient state could not be verified safely.', ['status'=>503]); }
+        $stored = array_values(array_map('intval', is_array($stored_raw) ? $stored_raw : []));
         $requested = array_values(array_unique(array_map('intval', $recipients)));
         sort($requested, SORT_NUMERIC);
         return (string) $row->safe_name === $name
