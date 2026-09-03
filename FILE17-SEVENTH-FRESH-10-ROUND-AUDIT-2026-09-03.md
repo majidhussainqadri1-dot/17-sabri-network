@@ -17,16 +17,10 @@
 ## Round 1 — Architecture, bootstrap, migration governance and release-surface inventory
 
 ### Review scope completed before any correction
-Reviewed the plugin bootstrap/registration path, activation/migration governor chain, compatibility/Future-24 loader chain, Round-20 runtime overlay registration, full quality gate inventory and deterministic package gate inventory. The review specifically traced runtime-loaded PHP/JS surfaces from registration to the quality/package gates rather than assuming prior green CI implied present completeness.
+Reviewed the plugin bootstrap/registration path, activation/migration governor chain, compatibility/Future-24 loader chain, Round-20 runtime overlay registration, full quality gate inventory and deterministic package gate inventory.
 
 ### Frozen defect ledger — R1
 **R1-D01 — Loaded Round-20 browser runtime is omitted from both source and package JavaScript syntax gates, and its PHP/JS surfaces are omitted from governed required-surface inventories.**
-
-Evidence at the frozen baseline:
-1. `SN_Round20_Correction::register()` registers `assets/js/round20-correction.js` and enqueues it whenever `sn-two-plan-ui` is enqueued.
-2. `tools/quality-check.sh` JavaScript inventory checks nine JS files but omits `assets/js/round20-correction.js`; its required-surface list also omits `includes/class-sn-round20-correction.php` and the Round-20 JS asset.
-3. `tools/package.sh` repeats the same omission in its package-stage JS syntax loop and governed required-surface list.
-4. Therefore a syntax-broken or accidentally missing Round-20 browser asset could pass the explicit quality/package JavaScript gates until runtime, while a missing Round-20 PHP overlay could escape the governed required-surface assertion.
 
 **Severity:** High release-gate integrity defect.  
 **Correction:** added Round-20 PHP/JS to required source/package inventories, added the JS to both syntax gates, and added permanent seventh-fresh regression assertions.  
@@ -37,15 +31,31 @@ Evidence at the frozen baseline:
 ## Round 2 — Identity authority, authentication boundary, authorization, minors/guardian and object-policy review
 
 ### Review scope completed before any correction
-Reviewed File-00 contract discovery and subject/version/type validation, REST permission entry, central policy fail-closed behavior, suspension/age/guardian/contact/follow/privacy gates, phone projection, and point-of-action authorization assumptions. The review was completed before starting any R2 correction.
+Reviewed File-00 contract discovery and subject/version/type validation, REST permission entry, central policy fail-closed behavior, suspension/age/guardian/contact/follow/privacy gates, phone projection, and point-of-action authorization assumptions.
 
 ### Frozen defect ledger — R2
 **R2-D01 — Valid File-00 communication contract functions can be rejected solely because a legacy heuristic class/function name is absent.**
 
-`SN_Membership_Assertions::available()` correctly defines the contractual authority as the presence of `smc_communication_assertions()` and `smc_membership_assertions()`. However `SN_Policy::identity_authority_available()` seeds the filter with an unrelated legacy heuristic (`Sabri_Membership_Core`, namespaced class, or `sabri_membership_core()`), while `SN_Membership_Assertions::filter_authority_available()` currently returns `self::available() && $available !== false`. Because this filter runs at `PHP_INT_MIN`, a valid contract-only File-00 implementation whose legacy heuristic is false is forced to unavailable before later policy can evaluate it. Result: fail-closed 503 for otherwise valid versioned File-00 assertions.
+`SN_Membership_Assertions::available()` defines the canonical contract as `smc_communication_assertions()` + `smc_membership_assertions()`, but the previous lowest-priority filter also required an unrelated legacy heuristic seed to be non-false. A contract-only File-00 implementation could therefore receive a false 503 despite supplying the required versioned assertion interface.
 
-**Severity:** High cross-file integration/availability defect; the fix must not weaken fail-closed assertion validation.  
-**Correction boundary:** make the canonical contract functions establish base authority availability; later filters remain able to deny/kill the feature, and every actual assertion remains version/subject/type validated.
+**Severity:** High cross-file integration/availability defect.  
+**Correction:** canonical contract functions now establish base authority availability at `PHP_INT_MIN`; later filters can still fail closed, and assertion version/subject/type validation remains unchanged. Permanent regression assertions were added.  
+**Exact-head CI:** `88c53b12a9e143a50627ab484e41850fd6354274`, workflow run `33724091522`; PHP 8.1 boundary job PASS and PHP 8.3 full-quality/deterministic-package job PASS.
+
+---
+
+## Round 3 — Conversations, messages, idempotency, search/visibility and concurrent authorization review
+
+### Review scope completed before any correction
+Reviewed final REST override ordering, canonical message send path, hidden-message visibility overlay, idempotency reconciliation, reply validation, private attachment cleanup, search/outbox atomicity, conversation membership and direct/group contact checks. The review explicitly tested the time gap between the REST permission callback and the locked mutation.
+
+### Frozen defect ledger — R3
+**R3-D01 — Message mutation does not refresh the canonical File-00 assertion at the locked point of action.**
+
+`SN_REST::access()` validates File-00 state before the callback and populates the request-local assertion cache. `SN_Message_Runtime_Hardening::send_message()` later enters the transaction and rechecks conversation/membership/posting/contact state, but it does not clear the File-00 assertion cache and does not rerun `SN_Policy::access()` under the mutation window. In a direct conversation `can_contact()` can therefore consume the cached pre-mutation suspension/age state; in a group/channel `contact_check()` does not perform an actor suspension/identity assertion check at all. A suspension or communication-entitlement revocation occurring after permission dispatch but before commit can consequently miss the required point-of-action revalidation. The duplicate/idempotency reconciliation path has the same stale-assertion window before it repairs search/outbox state.
+
+**Severity:** High authorization race / stale identity assertion defect.  
+**Correction boundary:** before any locked message mutation/reconciliation side effect, clear the actor File-00 assertion cache and rerun the canonical access policy; keep membership/contact/space checks as additional object-level authorization rather than replacing them.
 
 ### Ledger freeze status
-Round 2 review is complete and R2-D01 is frozen. No Round-2 correction was started during the review.
+Round 3 review is complete and R3-D01 is frozen. No Round-3 correction was started during the review.
