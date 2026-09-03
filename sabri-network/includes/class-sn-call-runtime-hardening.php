@@ -52,6 +52,7 @@ final class SN_Call_Runtime_Hardening {
             $conversation = absint($request->get_param('conversation_id'));
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
+                self::append_space_owner_lock($locks, $conversation);
                 self::append_direct_pair_lock($locks, $conversation, $actor);
             }
         } elseif (preg_match('#^/sabri-network/v2/meetings/([A-Za-z0-9_-]{22,64})(?:/|$)#', $route, $m)) {
@@ -61,6 +62,7 @@ final class SN_Call_Runtime_Hardening {
             if ($meeting) {
                 if ((int)$meeting->conversation_id > 0) {
                     $locks[] = self::conversation_lock((int)$meeting->conversation_id);
+                    self::append_space_owner_lock($locks, (int)$meeting->conversation_id);
                     self::append_direct_pair_lock($locks, (int)$meeting->conversation_id, $actor);
                 }
                 $targets = $request->get_param('user_ids');
@@ -73,11 +75,12 @@ final class SN_Call_Runtime_Hardening {
             }
         } elseif ($route === '/sabri-network/v2/calls') {
             // Call creation previously had no call-runtime lock at all. Serializing the
-            // conversation (and the direct peer relationship) ensures that a concurrent
-            // block/member transition cannot pass a stale preflight and then create media.
+            // conversation, its canonical space owner (when present), and the direct
+            // peer relationship ensures membership/block transitions cannot race media.
             $conversation = absint($request->get_param('conversation_id'));
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
+                self::append_space_owner_lock($locks, $conversation);
                 self::append_direct_pair_lock($locks, $conversation, $actor);
             }
         } elseif (preg_match('#^/sabri-network/v2/calls/(\d+)(?:/|$)#', $route, $m)) {
@@ -86,6 +89,7 @@ final class SN_Call_Runtime_Hardening {
             $conversation = (int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM ' . SN_DB::table('calls') . ' WHERE id=%d', $call));
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
+                self::append_space_owner_lock($locks, $conversation);
                 self::append_direct_pair_lock($locks, $conversation, $actor);
             }
         }
@@ -100,9 +104,9 @@ final class SN_Call_Runtime_Hardening {
         $request->set_param('_sn_call_runtime_locks',$held);
 
         // Permission callbacks run before this hook and can populate the File-00 cache.
-        // Once the relationship/call locks are held, refresh eligibility for mutations
-        // that create/join/use media. Exit/decline/leave paths stay available so a newly
-        // restricted account is never trapped in an active communication session.
+        // Once relationship/call/space-owner locks are held, refresh eligibility for
+        // mutations that create/join/use media. Exit/decline/leave stays available so
+        // a newly restricted account is never trapped in an active communication session.
         if (self::requires_fresh_call_eligibility($route, $request)) {
             SN_Membership_Assertions::clear_cache($actor);
             $assertion = SN_Membership_Assertions::communication($actor);
@@ -133,6 +137,17 @@ final class SN_Call_Runtime_Hardening {
         } finally {
             $held=$request->get_param('_sn_call_runtime_locks');if(is_array($held)&&$held)self::release($held);$request->set_param('_sn_call_runtime_locks',[]);
         }
+    }
+
+    /** Join call/meeting authorization to the canonical space mutation domain. */
+    private static function append_space_owner_lock(array &$locks, int $conversation): void {
+        global $wpdb;
+        if ($conversation <= 0) return;
+        $space = (int)$wpdb->get_var($wpdb->prepare(
+            'SELECT id FROM ' . SN_DB::table('spaces') . ' WHERE conversation_id=%d LIMIT 1',
+            $conversation
+        ));
+        if ($space > 0) $locks[] = 'sn:f17:space:' . substr(hash('sha256', (string)$space), 0, 32);
     }
 
     private static function append_direct_pair_lock(array &$locks, int $conversation, int $actor): void {
