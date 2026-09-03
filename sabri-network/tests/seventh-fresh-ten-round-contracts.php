@@ -15,6 +15,7 @@ $attach=$read('includes/class-sn-attachment-runtime-hardening.php');
 $smailFinal=$read('includes/class-sn-fourth-fresh-smail-hardening.php');
 $voiceFinal=$read('includes/class-sn-fifth-fresh-feature-hardening.php');
 $callRuntime=$read('includes/class-sn-call-runtime-hardening.php');
+$privacyFinal=$read('includes/class-sn-sixth-fresh-privacy-hardening.php');
 $readme=$read('readme.txt');
 $changelog=$read('CHANGELOG.md');
 $repoReadme=$readRepo('README.md');
@@ -47,6 +48,10 @@ $check(!str_contains($voiceFinal,'SN_Message_Integrity::send_message($forward)')
 $check(str_contains($callRuntime,'private static function append_space_owner_lock'),'Later R7: call/meeting runtime must resolve the canonical space-owner lock for space-backed conversations.');
 $check(substr_count($callRuntime,'self::append_space_owner_lock($locks,')>=4,'Later R7: creation and existing call/meeting mutation paths must join the canonical space lock.');
 $check(str_contains($callRuntime,"'SELECT id FROM ' . SN_DB::table('spaces') . ' WHERE conversation_id=%d LIMIT 1'")&&str_contains($callRuntime,"'sn:f17:space:'"),'Later R7: media mutation locking must use the same canonical space lock namespace as space governance.');
+$check(str_contains($privacyFinal,"add_action('sn_network_retry_private_delete', [self::class, 'ensure_private_byte_retry'], PHP_INT_MAX, 1)"),'Later R8: final privacy hardening must run after canonical private-byte retry attempts.');
+$check(str_contains($privacyFinal,'public static function ensure_private_byte_retry(int $attachment_id): void'),'Later R8: revoked private bytes need a durable retry owner after the initial retry budget.');
+$check(str_contains($privacyFinal,"wp_schedule_single_event(time() + HOUR_IN_SECONDS, 'sn_network_retry_private_delete', [$attachment_id])"),'Later R8: a still-existing revoked private object must remain scheduled for canonical deletion.');
+$check(str_contains($privacyFinal,"do_action('sn_network_private_bytes_delete_stalled'")&&str_contains($privacyFinal,"SN_DB::audit('attachment_delete_stalled'"),'Later R8: exhausted initial private-byte retries must emit durable stalled-deletion evidence without abandoning cleanup.');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
 $check(str_contains($readme,'54 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
