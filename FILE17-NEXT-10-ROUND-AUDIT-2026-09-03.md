@@ -14,13 +14,13 @@
 Reviewed `readme.txt`, `CHANGELOG.md`, current quality-gate inventory, JavaScript syntax entry points, current regression-suite count and the prior completed review evidence. No correction was started until this review was complete.
 
 ### Frozen defect ledger — R1
-**R1-D01 — Current release-truth documentation understates the actual quality-gate inventory and describes the prior sixth-fresh cycle as if it were still the current review state.**
+**R1-D01 — Current release-truth documentation understated the actual quality-gate inventory and described the prior sixth-fresh cycle as current.**
 
-At the reviewed starting source, the explicit full quality gate already executes **54 PHP review suites** and **10 JavaScript syntax entry points**, including `seventh-fresh-ten-round-contracts.php` and `round20-correction.js`. However both `readme.txt` and `CHANGELOG.md` still state **53 PHP review suites** and **9 JavaScript syntax entry points**, and their “current” cycle prose remains anchored to the sixth-fresh 20-round cycle.
+At the reviewed starting source, the full quality gate already executed **54 PHP review suites** and **10 JavaScript syntax entry points**, while `readme.txt` and `CHANGELOG.md` still stated **53/9** and stale sixth-cycle current-state prose.
 
 **Severity:** Medium-High release-governance/evidence defect.  
-**Correction:** synchronized `readme.txt` and `CHANGELOG.md` to the actual 54/10 gate, latest completed seventh-fresh evidence, and added permanent release-truth assertions to `seventh-fresh-ten-round-contracts.php`.  
-**Exact-head CI:** `9abb566a99e477d33f39174bb70b1b27ac26c761`, workflow run `33728380204` — PHP 8.1 PASS and PHP 8.3 full quality/deterministic package PASS.
+**Correction:** synchronized `readme.txt` and `CHANGELOG.md` to actual 54/10 gate/latest completed seventh-fresh evidence and added permanent release-truth assertions.  
+**Exact-head CI:** `9abb566a99e477d33f39174bb70b1b27ac26c761`, run `33728380204` — PHP 8.1 PASS; PHP 8.3 full quality/deterministic package PASS.
 
 ---
 
@@ -30,16 +30,27 @@ At the reviewed starting source, the explicit full quality gate already executes
 Reviewed root `README.md`, `STATUS.md`, `CODING-COMPLETENESS.md`, `MANIFEST.md`, root `CHECKSUMS.sha256`, `sabri-network/QA-INVENTORY.txt`, and `sabri-network/CURRENT-CANDIDATE-BOUNDARY.txt` against the actual current package/quality implementation. No correction was started until the entire review was complete.
 
 ### Frozen defect ledger — R2
-**R2-D01 — Multiple repository status/candidate documents remain pinned to the fifth/sixth fresh cycles and stale 53/9 quality counts after the seventh-fresh corrections.**
+**R2-D01 — Multiple repository status/candidate documents remained pinned to fifth/sixth fresh cycles and stale 53/9 quality counts.**
 
-`README.md`, `STATUS.md`, `CODING-COMPLETENESS.md`, `QA-INVENTORY.txt` and `CURRENT-CANDIDATE-BOUNDARY.txt` still describe fifth/sixth-cycle current state and/or nine JavaScript entry points / 53 PHP suites. These files are operational evidence surfaces, so conflicting current-state statements undermine exact-head release truth.
-
-**R2-D02 — `MANIFEST.md` and root `CHECKSUMS.sha256` present an obsolete static package manifest as canonical even though the current release pipeline no longer uses it.**
-
-`MANIFEST.md` is titled “File 17 v2.0.0”, lists only an old subset of installable payload files, and states that root `CHECKSUMS.sha256` is the canonical integrity manifest checked by the quality gate. Current `tools/package.sh` instead stages the live package tree, generates `build/17-sabri-network-and-messages-2.1.0.manifest.sha256`, verifies it, and the quality gate compares/rebuilds that generated manifest/package. The root checksum list is therefore stale and can falsely imply integrity coverage for an obsolete payload.
+**R2-D02 — `MANIFEST.md` and root `CHECKSUMS.sha256` presented an obsolete static package manifest as canonical even though the current release pipeline generates and verifies the exact staged manifest.**
 
 **Severity:** High release-evidence / supply-chain truth defect.  
-**Correction boundary:** replace stale current-state documents with exact current repository truth; retire the obsolete root checksum artifact rather than pretending it is current; rewrite `MANIFEST.md` around the generated deterministic package manifest; add regression assertions preventing return of stale fifth/sixth-cycle counts or obsolete canonical-checksum claims; then exact-head CI.
+**Correction:** synchronized all current status/candidate documents to 54/10 and the latest completed reviewed parent; deleted obsolete root `CHECKSUMS.sha256`; rewrote `MANIFEST.md` around executable deterministic package-manifest truth; added permanent current-status/generated-manifest regressions. During regression, several historical suites were found to depend on obsolete literal 53/sixth-cycle wording; those tests were repaired semantically without weakening the substantive historical or production-boundary assertions.  
+**Exact-head CI:** `8a1a87a534582d57586e011220f973f19bedfa80`, run `33729194688` — PHP 8.1 PASS; PHP 8.3 full quality/deterministic package PASS; governed artifact upload PASS.
 
-### Ledger freeze status
-Round 2 review is complete and R2-D01/R2-D02 are frozen. No Round-2 correction was started during the review.
+---
+
+## Round 3 — Authentication, authorization, REST/AJAX/CSRF, policy and high-risk boundaries
+
+### Review completed before correction
+Reviewed authenticated AJAX compatibility (`SN_Ajax`), REST route/permission registration and administrator access (`SN_REST`), central File-17 access/contact/age/privacy policy (`SN_Policy`), File-00 assertion projection/cache/subject/version/type validation (`SN_Membership_Assertions`), identity projection (`SN_Auth`), earliest mutation pre-dispatch/object-membership boundary (`SN_Runtime_Boundary_Policy`), high-risk step-up/approval/executor separation (`SN_High_Risk`), administrator settings/repair nonce/capability controls (`SN_Admin`), front-end REST/AJAX nonce localization (`SN_Shortcode`), and bootstrap/registration ordering (`sabri-network.php`).
+
+The public `/health` route was confirmed to expose only non-sensitive service liveness; state-changing REST endpoints remain permission-gated. The AJAX bridge is authenticated-only and nonce-protected. High-risk actions require recent step-up, distinct requester/approver/executor and payload-hash binding. File-00 assertion failures remain fail closed.
+
+### Frozen defect ledger — R3
+**No new unresolved repository defect found.**
+
+No bypass of authentication, object membership, admin capability, nonce/CSRF control, File-00 fail-closed assertions or high-risk separation was proved in this round. Potentially broader runtime/deployment questions require real WordPress/deployed evidence and are not converted into speculative source defects.
+
+**Regression:** no source correction required.  
+**Exact-head requirement:** this ledger commit must pass both exact-head CI jobs before Round 4 begins.
