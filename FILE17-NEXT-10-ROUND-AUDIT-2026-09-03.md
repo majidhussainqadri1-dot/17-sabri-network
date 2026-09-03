@@ -58,17 +58,14 @@ No bypass of authentication, object membership, admin capability, nonce/CSRF con
 ## Round 4 — Messages, forwarding, private search, visibility, indexing and outbox reliability
 
 ### Review completed before correction
-Reviewed canonical message mutation and duplicate reconciliation (`SN_Message_Runtime_Hardening`), hashed-token private search/cursors/backfill (`SN_Message_Search`), hidden-message visibility overlay (`SN_Message_Visibility`), governed mentions/forwarding/folders/hides (`SN_Message_Operations`), final secure forwarding and encrypted audience transition (`SN_Compatibility_Hardening`), final message edit/delete/version route owner (`SN_Fourth_Fresh_Review_Hardening`), message-body encryption/rotation (`SN_Message_Body`), message/search/outbox atomic integration (`SN_Message_Integrity`), and transactional outbox/inbox delivery/retry behavior (`SN_Outbox`). No correction was started until the entire review was complete.
+Reviewed canonical message mutation and duplicate reconciliation (`SN_Message_Runtime_Hardening`), hashed-token private search/cursors/backfill (`SN_Message_Search`), hidden-message visibility overlay (`SN_Message_Visibility`), governed mentions/forwarding/folders/hides (`SN_Message_Operations`), final secure forwarding and encrypted audience transition (`SN_Compatibility_Hardening`), final message edit/delete/version route owner (`SN_Fourth_Fresh_Review_Hardening`), message-body encryption/rotation (`SN_Message_Body`), message/search/outbox atomic integration (`SN_Message_Integrity`), transactional outbox/inbox delivery/retry behavior (`SN_Outbox`), and finally the active private-search replacement owner (`SN_Fourth_Fresh_Search_Hardening`) plus its loader registration in `SN_Future24_Review_Hardening`.
 
-### Frozen defect ledger — R4
-**R4-D01 — Private-search backfill advances its cursor past an indexing failure, allowing a transient decrypt/index/write error to become a permanently skipped message.**
+### Final frozen defect ledger — R4
+**No new unresolved repository defect found.**
 
-`SN_Message_Search::backfill()` calls `self::index_message()` for each row but discards the returned `WP_Error` and advances `$after` to that message ID anyway. During a key-epoch rebuild, `SN_Runtime_Boundary_Policy::finish_search_rebuild()` determines completion from the monotonic backfill cursor. Consequently one failed message can be skipped while the cursor moves beyond it, and the rebuild can later be declared complete with an incomplete private-search derived index.
+A preliminary candidate finding was recorded before the final active search owner had been inspected: the legacy `SN_Message_Search::backfill()` itself advances past indexing errors. Before any correction was started, final-runtime verification proved that `SN_Fourth_Fresh_Search_Hardening::register()` explicitly removes that legacy hourly/epoch rebuild path and replaces it with a lossless backfill that stops on `WP_Error`, preserves the last successful cursor, records retry-safe error state and schedules continuation. The candidate finding was therefore withdrawn as **not an active runtime defect**. No source fix was made for it.
 
-This is not merely a cosmetic search miss: the release contract explicitly treats private search as an authorized derived state that must rebuild safely after key-epoch change. The correct behavior is to stop at the first failed message, retain the cursor at the last successful ID and retry rather than silently advancing.
+The active final forwarding owner was likewise verified to route through `SN_Compatibility_Hardening::secure_forward_message()`, which decrypts only after locked authorization and re-encrypts for the target audience rather than forwarding stored ciphertext or reusing private attachment identifiers.
 
-**Severity:** High derived-state integrity / recovery defect.  
-**Correction boundary:** make backfill progress conditional on successful indexing, audit/persist retry-safe failure evidence without exposing plaintext, preserve the last successful cursor, and add a permanent regression before exact-head CI.
-
-### Ledger freeze status
-Round 4 review is complete and R4-D01 is frozen. No Round-4 correction was started during the review.
+**Regression:** no source correction required.  
+**Exact-head requirement:** this corrected final R4 ledger commit must pass both exact-head CI jobs before Round 5 begins.
