@@ -1,16 +1,21 @@
 <?php
-/** Sixth fresh review: do not advance privacy progress past a failed deletion. */
+/** Sixth fresh review plus later privacy recovery: progress-safe erasure and durable private-byte deletion retry. */
 declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 final class SN_Sixth_Fresh_Privacy_Hardening {
     private const BATCH = 100;
     private const VERSION_SCAN = 200;
+    private const PRIVATE_DELETE_STALLED_AFTER = 5;
 
     public static function register(): void {
         // Replace only the Future-capability eraser after the fifth-cycle override;
         // the global privacy guard still wraps this callback at priority 9999.
         add_filter('wp_privacy_personal_data_erasers', [self::class, 'override_eraser'], 9600);
+        // SN_Private_Files owns the actual safe unlink at default priority. Run after
+        // it and make sure a still-existing revoked object is never abandoned merely
+        // because the initial bounded retry threshold was reached.
+        add_action('sn_network_retry_private_delete', [self::class, 'ensure_private_byte_retry'], PHP_INT_MAX, 1);
     }
 
     public static function override_eraser(array $erasers): array {
@@ -92,6 +97,49 @@ final class SN_Sixth_Fresh_Privacy_Hardening {
             'messages'=>$retained>0 ? ['Governed key-transparency/interoperability or held integrity evidence was retained.'] : [],
             'done'=>!$more_records && !$more_versions,
         ];
+    }
+
+    /**
+     * Persist the cleanup workflow after SN_Private_Files' initial retry budget.
+     * This method never unlinks bytes itself; the canonical private-file owner keeps
+     * path-containment and unlink authority. It only ensures another canonical retry
+     * remains scheduled while a revoked object's bytes still exist.
+     */
+    public static function ensure_private_byte_retry(int $attachment_id): void {
+        if ($attachment_id <= 0 || !class_exists('SN_Private_Files')) return;
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT id,storage_key FROM ' . SN_DB::table('attachments') . ' WHERE id=%d AND deleted_at IS NOT NULL',
+            $attachment_id
+        ));
+        if (!$row) return;
+
+        $root = untrailingslashit(wp_normalize_path(SN_Private_Files::storage_dir()));
+        $storage_key = ltrim(str_replace('\\', '/', (string) $row->storage_key), '/');
+        $candidate = wp_normalize_path($root . '/' . $storage_key);
+        if ($root === '' || ($candidate !== $root && !str_starts_with($candidate . '/', $root . '/'))) {
+            SN_DB::audit('attachment_delete_retry_path_invalid', 'attachment', $attachment_id, 'failure', [
+                'storage_key_hash'=>hash('sha256', (string)$row->storage_key),
+            ], 0);
+            return;
+        }
+        if (!is_file($candidate)) return;
+
+        $attempts = max(1, (int) get_transient('sn_private_delete_retry_' . $attachment_id));
+        if ($attempts >= self::PRIVATE_DELETE_STALLED_AFTER) {
+            $notice_key = 'sn_private_delete_stalled_notice_' . $attachment_id;
+            if (!get_transient($notice_key)) {
+                SN_DB::audit('attachment_delete_stalled', 'attachment', $attachment_id, 'failure', [
+                    'attempts'=>$attempts,
+                    'storage_key_hash'=>hash('sha256', (string)$row->storage_key),
+                ], 0);
+                do_action('sn_network_private_bytes_delete_stalled', $attachment_id, hash('sha256', (string)$row->storage_key), $attempts);
+                set_transient($notice_key, 1, DAY_IN_SECONDS);
+            }
+        }
+        if (!wp_next_scheduled('sn_network_retry_private_delete', [$attachment_id])) {
+            wp_schedule_single_event(time() + HOUR_IN_SECONDS, 'sn_network_retry_private_delete', [$attachment_id]);
+        }
     }
 
     private static function retry(string $message): array {
