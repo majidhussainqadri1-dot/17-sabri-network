@@ -29,7 +29,10 @@ final class SN_Fourth_Fresh_Smail_Hardening {
         if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $client)) {
             return new WP_Error('invalid_client_id', 'A caller-supplied Smail idempotency key is required.', ['status'=>400]);
         }
-        return SN_Smail::send($request);
+        // Preserve this final route owner's caller-owned retry contract while using
+        // the strongest Smail mutation envelope: recipient/pair locks, current
+        // contact checks and the canonical point-of-action message runtime.
+        return SN_Smail_Runtime_Hardening::send($request);
     }
 
     public static function save_draft(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -49,7 +52,7 @@ final class SN_Fourth_Fresh_Smail_Hardening {
         } elseif ($expected !== 0) {
             return self::conflict();
         }
-        return SN_Smail::save_draft($request);
+        return SN_Smail_Runtime_Hardening::save_draft($request);
     }
 
     public static function delete_draft(WP_REST_Request $request): WP_REST_Response|WP_Error {
