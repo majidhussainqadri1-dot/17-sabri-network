@@ -35,7 +35,10 @@ final class SN_Fifth_Fresh_Feature_Hardening {
         $forward->set_param('message_type', 'audio');
         $forward->set_param('client_id', (string)$request->get_param('client_id'));
         $forward->set_file_params(['attachment'=>$files['attachment']]);
-        $result = SN_Message_Integrity::send_message($forward);
+        // The feature route must not bypass the final canonical message owner. This
+        // wrapper enforces caller-owned idempotency and delegates to the point-of-action
+        // File-00/space/contact revalidation in SN_Message_Runtime_Hardening.
+        $result = SN_Fourth_Fresh_Review_Hardening::send_message($forward);
         if (is_wp_error($result)) return $result;
         $data = $result->get_data();
         $message_id = absint($data['message']['id'] ?? 0);
