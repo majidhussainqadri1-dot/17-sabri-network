@@ -36,8 +36,6 @@ Reviewed File-00 contract discovery and subject/version/type validation, REST pe
 ### Frozen defect ledger — R2
 **R2-D01 — Valid File-00 communication contract functions can be rejected solely because a legacy heuristic class/function name is absent.**
 
-`SN_Membership_Assertions::available()` defines the canonical contract as `smc_communication_assertions()` + `smc_membership_assertions()`, but the previous lowest-priority filter also required an unrelated legacy heuristic seed to be non-false. A contract-only File-00 implementation could therefore receive a false 503 despite supplying the required versioned assertion interface.
-
 **Severity:** High cross-file integration/availability defect.  
 **Correction:** canonical contract functions now establish base authority availability at `PHP_INT_MIN`; later filters can still fail closed, and assertion version/subject/type validation remains unchanged. Permanent regression assertions were added.  
 **Exact-head CI:** `88c53b12a9e143a50627ab484e41850fd6354274`, workflow run `33724091522`; PHP 8.1 boundary job PASS and PHP 8.3 full-quality/deterministic-package job PASS.
@@ -52,10 +50,24 @@ Reviewed final REST override ordering, canonical message send path, hidden-messa
 ### Frozen defect ledger — R3
 **R3-D01 — Message mutation does not refresh the canonical File-00 assertion at the locked point of action.**
 
-`SN_REST::access()` validates File-00 state before the callback and populates the request-local assertion cache. `SN_Message_Runtime_Hardening::send_message()` later enters the transaction and rechecks conversation/membership/posting/contact state, but it does not clear the File-00 assertion cache and does not rerun `SN_Policy::access()` under the mutation window. In a direct conversation `can_contact()` can therefore consume the cached pre-mutation suspension/age state; in a group/channel `contact_check()` does not perform an actor suspension/identity assertion check at all. A suspension or communication-entitlement revocation occurring after permission dispatch but before commit can consequently miss the required point-of-action revalidation. The duplicate/idempotency reconciliation path has the same stale-assertion window before it repairs search/outbox state.
-
 **Severity:** High authorization race / stale identity assertion defect.  
-**Correction boundary:** before any locked message mutation/reconciliation side effect, clear the actor File-00 assertion cache and rerun the canonical access policy; keep membership/contact/space checks as additional object-level authorization rather than replacing them.
+**Correction:** both new-message and duplicate reconciliation paths now clear the actor assertion cache and rerun `SN_Policy::access()` inside the transaction before mutation/reconciliation side effects.  
+**Exact-head CI:** `645093cd73655b9477450004b4e1b8b1aa5f2c4e`, workflow run `33724292523`; PHP 8.1 boundary job PASS and PHP 8.3 full-quality/deterministic-package job PASS.
+
+---
+
+## Round 4 — Private attachments, transfer, voice-note metadata, scanning, signed delivery and storage review
+
+### Review scope completed before any correction
+Reviewed private attachment storage outside web root, MIME/signature/extension validation, image normalization, malware scanner behavior, content hashing, deletion/retry lifecycle, private download nonce/access path, transfer chunk encryption/hash verification, quarantine/scanner requirement, signed transfer grants, recipient/access revalidation, transfer revocation and voice-note transcript encryption/migration. The apparent legacy plaintext voice-note metadata path is not current because the later priority-3000 fifth-fresh route encrypts transcript metadata and migrates legacy rows.
+
+### Frozen defect ledger — R4
+**R4-D01 — Private attachment integrity hashing executes before authentication/nonce/object authorization, enabling unauthenticated disk/hash work by attachment ID.**
+
+`SN_Attachment_Runtime_Hardening::verify_private_download_integrity()` is registered at `template_redirect` priority `-101`, before the canonical `SN_Private_Files::maybe_deliver()` authorization handler at `-100`. It resolves a requested attachment row/path and performs `hash_file('sha256', ...)` without first requiring login, validating the per-user nonce, or confirming `SN_DB::user_can_access_attachment()`. The later delivery handler correctly performs those checks, but the expensive integrity read has already happened. An unauthenticated requester can therefore repeatedly force full-file hashing for guessed attachment IDs, creating an avoidable resource-exhaustion side channel against private storage.
+
+**Severity:** High private-storage availability / authorization-order defect.  
+**Correction boundary:** integrity verification must be authorization-gated before database/path/hash work; the canonical delivery handler will still repeat authorization before streaming.
 
 ### Ledger freeze status
-Round 3 review is complete and R3-D01 is frozen. No Round-3 correction was started during the review.
+Round 4 review is complete and R4-D01 is frozen. No Round-4 correction was started during the review.
