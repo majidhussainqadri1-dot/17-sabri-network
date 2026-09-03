@@ -41,6 +41,12 @@ final class SN_Message_Runtime_Hardening {
         $now=current_time('mysql',true);$message_id=0;$event_id=null;
         if($wpdb->query('START TRANSACTION')===false){if($attachment)SN_Private_Files::delete((int)$attachment['id'],$user_id);return self::database_error();}
         try{
+            // REST permission dispatch can precede the actual mutation by enough time
+            // for File-00 suspension/entitlement/age state to change. Discard the
+            // request-local assertion cache and re-authorize at the mutation point.
+            SN_Membership_Assertions::clear_cache($user_id);
+            $fresh_access=SN_Policy::access();
+            if(is_wp_error($fresh_access)){$wpdb->query('ROLLBACK');if($attachment)SN_Private_Files::delete((int)$attachment['id'],$user_id);return $fresh_access;}
             $locked=SN_Spaces::assert_post_allowed_in_transaction($conversation_id,$user_id);if(is_wp_error($locked)){$wpdb->query('ROLLBACK');if($attachment)SN_Private_Files::delete((int)$attachment['id'],$user_id);return $locked;}
             $fresh=self::conversation($conversation_id);if(!$fresh||!SN_DB::is_member($conversation_id,$user_id))throw new RuntimeException('message_membership_changed');
             $post=SN_Policy::can_post_to_conversation($fresh,$user_id);if(is_wp_error($post)){$wpdb->query('ROLLBACK');if($attachment)SN_Private_Files::delete((int)$attachment['id'],$user_id);return $post;}
@@ -79,6 +85,9 @@ final class SN_Message_Runtime_Hardening {
         $secured=SN_Message_Body::ensure_encrypted_row($message);if(is_wp_error($secured))return $secured;$message=$secured;
         if($wpdb->query('START TRANSACTION')===false)return self::database_error();
         try{
+            SN_Membership_Assertions::clear_cache($user);
+            $fresh_access=SN_Policy::access();
+            if(is_wp_error($fresh_access)){ $wpdb->query('ROLLBACK'); return $fresh_access; }
             $fresh=self::conversation($conversation_id);if(!$fresh||!SN_DB::is_member($conversation_id,$user))throw new RuntimeException('message_membership_changed');
             $post=SN_Policy::can_post_to_conversation($fresh,$user);if(is_wp_error($post)){ $wpdb->query('ROLLBACK'); return $post; }
             $contact=self::contact_check($fresh,$conversation_id,$user);if(is_wp_error($contact)){ $wpdb->query('ROLLBACK'); return $contact; }
