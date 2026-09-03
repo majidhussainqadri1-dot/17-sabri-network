@@ -13,7 +13,7 @@ required=(
   includes/class-sn-membership-assertions.php includes/class-sn-relationship-runtime-hardening.php includes/class-sn-message-runtime-hardening.php
   includes/class-sn-attachment-runtime-hardening.php includes/class-sn-space-runtime-hardening.php includes/class-sn-realtime-runtime-hardening.php
   includes/class-sn-call-runtime-hardening.php includes/class-sn-smail-runtime-hardening.php includes/class-sn-privacy-runtime-hardening.php includes/class-sn-safety-runtime-hardening.php
-  includes/class-sn-runtime-boundary-policy.php
+  includes/class-sn-runtime-boundary-policy.php includes/class-sn-round20-correction.php
   includes/class-sn-fourth-fresh-review-hardening.php includes/class-sn-fourth-fresh-search-hardening.php includes/class-sn-fourth-fresh-media-hardening.php
   includes/class-sn-fourth-fresh-lifecycle-hardening.php includes/class-sn-fourth-fresh-space-hardening.php includes/class-sn-fourth-fresh-realtime-hardening.php
   includes/class-sn-fourth-fresh-call-hardening.php includes/class-sn-fourth-fresh-smail-hardening.php includes/class-sn-fourth-fresh-transfer-hardening.php
@@ -24,7 +24,7 @@ required=(
   includes/class-sn-fifth-fresh-migration-hardening.php includes/class-sn-fifth-fresh-ui-hardening.php
   includes/class-sn-sixth-fresh-privacy-hardening.php
   templates/network-standalone.php templates/messages-standalone.php templates/meet-app.php templates/smail-app.php templates/file-transfer-app.php
-  assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js
+  assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js assets/js/round20-correction.js
   assets/css/network.css assets/css/messages.css assets/css/meet.css assets/css/message-search.css assets/css/smail.css assets/css/file-transfer.css assets/css/brand-green-overrides.css assets/css/two-plan-ui.css assets/css/future-superset.css
   tools/quality-check.sh tools/package.sh
 )
@@ -41,7 +41,7 @@ done < <(find . -path './build' -prune -o -name '*.php' -type f -print0 | sort -
 (( php_count >= 90 )) || { echo "Unexpected PHP inventory contraction: $php_count" >&2; exit 1; }
 
 echo '== JavaScript and shell syntax =='
-js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js)
+js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js assets/js/round20-correction.js)
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
@@ -66,7 +66,7 @@ tests=(
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
  two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php fourth-fresh-twenty-round-contracts.php
  fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php fifth-fresh-closure-contracts.php fifth-fresh-release-truth-contracts.php
- sixth-fresh-twenty-round-contracts.php
+ sixth-fresh-twenty-round-contracts.php seventh-fresh-ten-round-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)
