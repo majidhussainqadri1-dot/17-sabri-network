@@ -1,8 +1,8 @@
-# File 17 — Next Fresh 10-Round Audit — Round 8 Frozen Ledger
+# File 17 — Next Fresh 10-Round Audit — Round 8 Closure
 
 **Round:** 8  
 **Reviewed parent:** `0bc5d388aa8fffa5254deb241961b75939668e9b`  
-**Review discipline:** privacy/safety review completed before correction; no Round-8 fix began during review.
+**Review discipline:** privacy/safety review completed before the ledger was frozen; no Round-8 fix began during review.
 
 ## Scope reviewed
 
@@ -10,12 +10,25 @@ Reviewed hardened communication export/erasure ordering and File-17-wide hold gu
 
 ## Frozen defect ledger — R8
 
-### R8-D01 — Failed private attachment byte deletion is silently abandoned after the fifth retry
+### R8-D01 — Failed private attachment byte deletion was silently abandoned after the fifth retry
 
-`SN_Private_Files::delete()` correctly revokes the attachment row before byte deletion and schedules `sn_network_retry_private_delete` if `unlink()` fails. `SN_Private_Files::retry_delete_bytes()` then retries with bounded backoff, but schedules another retry only while `attempts < 5`. After the fifth failed attempt the database row remains revoked and the private file may still physically exist, yet no further retry is scheduled and no durable stalled-deletion workflow remains.
-
-This matters directly to privacy erasure because message/update erasure can legitimately finish its relational work after access revocation while relying on the byte-deletion retry workflow for physical destruction. A transient or operator-correctable filesystem permission/storage fault persisting through five attempts can therefore become permanent retained private bytes without a future self-healing attempt.
+`SN_Private_Files::delete()` correctly revokes the attachment row before byte deletion and schedules `sn_network_retry_private_delete` if `unlink()` fails. Its original retry owner stopped scheduling after the fifth failed attempt, so a revoked private object could remain physically present forever after a persistent but operator-correctable storage fault.
 
 **Severity:** High privacy-erasure / private-storage recovery defect.
 
-**Correction boundary:** never silently abandon a known revoked private object whose bytes still exist. Keep capped-backoff retries scheduled, emit explicit stalled-deletion evidence after the initial retry threshold, and add a permanent regression proving retry exhaustion cannot terminate the deletion workflow. Then run exact-head CI before Round 9.
+## Correction after ledger freeze
+
+`SN_Sixth_Fresh_Privacy_Hardening` now registers an after-owner continuation on `sn_network_retry_private_delete` at `PHP_INT_MAX`. The canonical `SN_Private_Files` owner remains the only component that performs the protected unlink; the later privacy hardening only checks whether a revoked object's contained path still exists after the canonical attempt. If bytes remain, another canonical retry is scheduled with capped hourly backoff instead of abandoning cleanup. After the initial retry threshold, one bounded stalled-deletion audit/action is emitted so operators can repair the underlying storage fault while automatic cleanup continues.
+
+The continuation verifies that the reconstructed storage path remains within File-17's private root before scheduling recovery work and does not restore authorization to the revoked object.
+
+## Regression
+
+Permanent current-boundary assertions were added to `seventh-fresh-ten-round-contracts.php` proving:
+
+- the after-owner private-byte recovery hook is registered;
+- the durable retry method remains present;
+- a still-existing revoked private object schedules another canonical deletion attempt;
+- retry exhaustion emits stalled-deletion evidence rather than terminating the workflow.
+
+**Exact-head CI requirement:** this final Round-8 closure HEAD must pass PHP 8.1 current-boundary, PHP 8.3 full quality/deterministic packaging and governed artifact upload before Round 9 begins.
