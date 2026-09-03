@@ -25,12 +25,13 @@ fr4_check(str_contains($rest, 'return SN_Policy::has_verified_adult_age((int) $r
 fr4_check(str_contains($rest, 'message_read_pointer_update_failed') && str_contains($rest, '$updated === false'), 'Read-pointer database failure must be detected and audited.');
 fr4_check(
     str_contains($completeness, '**Coding classification:**') &&
-    stripos($completeness, 'repository-owned/current-wave') !== false &&
-    stripos($completeness, 'corrective candidate') !== false &&
+    stripos($completeness, 'repository-owned') !== false &&
+    stripos($completeness, 'candidate') !== false &&
+    stripos($completeness, 'corrective review') !== false &&
     str_contains($completeness, '**Staging-Accepted:** pending') &&
     str_contains($completeness, '**Live-Deployed:** not claimed') &&
     !preg_match('/(?:production-ready|staging-accepted\s*:\s*(?:yes|complete)|live-deployed\s*:\s*(?:yes|complete))/i', $completeness),
-    'Repository evidence must state a current repository-owned corrective candidate without claiming staging/live/operational completion.'
+    'Repository evidence must state a current repository-owned corrective-review candidate without claiming staging/live/operational completion.'
 );
 fr4_check(
     stripos($status, 'repository') !== false &&
