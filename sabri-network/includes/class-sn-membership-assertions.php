@@ -20,7 +20,11 @@ final class SN_Membership_Assertions {
     }
 
     public static function filter_authority_available($available): bool {
-        return self::available() && $available !== false;
+        // This lowest-priority adapter establishes availability from the canonical
+        // versioned File-00 contract itself. SN_Policy's legacy class/function
+        // heuristic is only a seed and must not veto a valid contract-only File-00
+        // implementation. Later filters still retain the ability to fail closed.
+        return self::available();
     }
 
     public static function filter_access($allowed, int $user_id) {
