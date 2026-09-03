@@ -14,6 +14,7 @@ $msg=$read('includes/class-sn-message-runtime-hardening.php');
 $attach=$read('includes/class-sn-attachment-runtime-hardening.php');
 $smailFinal=$read('includes/class-sn-fourth-fresh-smail-hardening.php');
 $voiceFinal=$read('includes/class-sn-fifth-fresh-feature-hardening.php');
+$callRuntime=$read('includes/class-sn-call-runtime-hardening.php');
 $readme=$read('readme.txt');
 $changelog=$read('CHANGELOG.md');
 $repoReadme=$readRepo('README.md');
@@ -43,6 +44,9 @@ $check(str_contains($smailFinal,'return SN_Smail_Runtime_Hardening::save_draft($
 $check(!str_contains($smailFinal,'return SN_Smail::send($request);'),'Later R5: final Smail route must not fall back to the legacy Smail mutation path.');
 $check(str_contains($voiceFinal,'SN_Fourth_Fresh_Review_Hardening::send_message($forward)'),'Later R5: final voice-note route must use the canonical hardened message owner.');
 $check(!str_contains($voiceFinal,'SN_Message_Integrity::send_message($forward)'),'Later R5: final voice-note route must not bypass current point-of-action authorization/idempotency hardening.');
+$check(str_contains($callRuntime,'private static function append_space_owner_lock'),'Later R7: call/meeting runtime must resolve the canonical space-owner lock for space-backed conversations.');
+$check(substr_count($callRuntime,'self::append_space_owner_lock($locks,')>=4,'Later R7: creation and existing call/meeting mutation paths must join the canonical space lock.');
+$check(str_contains($callRuntime,"'SELECT id FROM ' . SN_DB::table('spaces') . ' WHERE conversation_id=%d LIMIT 1'")&&str_contains($callRuntime,"'sn:f17:space:'"),'Later R7: media mutation locking must use the same canonical space lock namespace as space governance.');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
 $check(str_contains($readme,'54 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
