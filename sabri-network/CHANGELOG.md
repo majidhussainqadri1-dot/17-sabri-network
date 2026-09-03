@@ -7,21 +7,20 @@
 - Preserved File 17 as the only communication owner and retained File 00/02 identity, File 19 notification, File 20 shell, File 26 global-search and File 08/CF-01 clinical ownership boundaries.
 - Fresh review cycles remain independently counted/audited; a green workflow for one SHA is never reused as evidence for another.
 
-### Current sixth fresh 20-round cycle — 2026-08-18
-- Frozen starting reviewed source: `a3a435b162167c9078ded22b08d6c8fb39b6ca27`.
-- Defect rounds: **R2, R5, R6, R8, R9, R12, R18, R19, R20**.
-- Clean rounds: **R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17**.
-- Preserved canonical File-00/09 phone and verification truth after File-03 presentation enrichment.
-- Required caller-supplied stable retry identities for canonical message and Smail sends.
-- Kept hidden-for-self messages out of private search/context and corrected pagination after visibility filtering.
-- Bound verified-transfer idempotency to exact file/chunk/conversation/hash/recipient semantics.
-- Made Future message-version privacy erasure failure-safe so cursor progress cannot skip a failed deletion.
-- Restored exact Sabri Meet `sn_meet_db_version` rollback truth in migration failure handling.
-- Extended exact Sabri Green/accessibility hardening to standalone Messages/communication-settings surfaces.
-- Added `sixth-fresh-twenty-round-contracts.php`, restored omitted fifth closure/release-truth suites to the full gate, and required the sixth runtime privacy layer in quality/package surfaces.
+### Latest completed seventh fresh 10-round cycle — 2026-09-03
+- Reviewed parent before this later fresh audit: `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2`.
+- Defect rounds: **R1, R2, R3, R4, R10**.
+- Clean rounds: **R5, R6, R7, R8, R9**.
+- Added Round-20 PHP/JS runtime surfaces to governed quality/package inventories and JavaScript syntax checks.
+- Made canonical File-00 contract functions establish base identity-authority availability while preserving later fail-closed veto and strict assertion validation.
+- Refreshed File-00 access assertions at the actual message mutation/reconciliation point.
+- Moved private-attachment integrity hashing behind login, nonce and object authorization.
+- Required the seventh-fresh regression suite on both PHP 8.1 and PHP 8.3 workflow gates.
+- Preserved repository-only evidence boundaries: staging, deployed artifact, DB version/schema, migration state and live behavior remain separately verified realities.
 
 ### Current quality and release truth
-- Current explicit full quality inventory is **53 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current explicit full quality inventory is **54 PHP review suites** and **10 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- The current permanent fresh-cycle regression suite is `seventh-fresh-ten-round-contracts.php`.
 - Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
 - Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
 - Historical review evidence remains historical; staging, live and operational acceptance remain separate external gates.
