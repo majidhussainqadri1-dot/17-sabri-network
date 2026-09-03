@@ -21,9 +21,9 @@ $check(str_contains($m,"add_filter('sn_network_identity_authority_available', [s
 $check(substr_count($msg,'SN_Membership_Assertions::clear_cache(')>=2,'R3: both new-message and duplicate-reconciliation mutation paths must refresh File-00 assertion state.');
 $check(substr_count($msg,'$fresh_access=SN_Policy::access();')>=2,'R3: both mutation paths must rerun canonical access policy at the mutation point.');
 $check(strpos($msg,'SN_Membership_Assertions::clear_cache($user_id);')<strpos($msg,'$locked=SN_Spaces::assert_post_allowed_in_transaction'),'R3: new-message File-00 revalidation must precede locked mutation side effects.');
-$hashPos=strpos($attach,"hash_file('sha256', $candidate)");
+$hashPos=strpos($attach,"hash_file('sha256', \$candidate)");
 $authPos=strpos($attach,'if (!is_user_logged_in()) return;');
-$noncePos=strpos($attach,"wp_verify_nonce($nonce, 'sn_private_file_'");
+$noncePos=strpos($attach,"wp_verify_nonce(\$nonce, 'sn_private_file_'");
 $accessPos=strpos($attach,'SN_DB::user_can_access_attachment($attachment_id, $user_id)');
 $check($authPos!==false&&$noncePos!==false&&$accessPos!==false&&$hashPos!==false&&$authPos<$hashPos&&$noncePos<$hashPos&&$accessPos<$hashPos,'R4: private-file integrity hashing must happen only after login, nonce and object authorization checks.');
 if($fail){fwrite(STDERR,"Seventh fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh fresh contracts: PASS ($checks checks)\n";
