@@ -63,9 +63,29 @@ Reviewed canonical message mutation and duplicate reconciliation (`SN_Message_Ru
 ### Final frozen defect ledger — R4
 **No new unresolved repository defect found.**
 
-A preliminary candidate finding was recorded before the final active search owner had been inspected: the legacy `SN_Message_Search::backfill()` itself advances past indexing errors. Before any correction was started, final-runtime verification proved that `SN_Fourth_Fresh_Search_Hardening::register()` explicitly removes that legacy hourly/epoch rebuild path and replaces it with a lossless backfill that stops on `WP_Error`, preserves the last successful cursor, records retry-safe error state and schedules continuation. The candidate finding was therefore withdrawn as **not an active runtime defect**. No source fix was made for it.
-
-The active final forwarding owner was likewise verified to route through `SN_Compatibility_Hardening::secure_forward_message()`, which decrypts only after locked authorization and re-encrypts for the target audience rather than forwarding stored ciphertext or reusing private attachment identifiers.
+A preliminary candidate finding was withdrawn before correction after final-runtime verification proved the legacy search-backfill owner is removed and replaced by lossless `SN_Fourth_Fresh_Search_Hardening`. The active forwarding owner was likewise verified to use locked authorization and target-context re-encryption.
 
 **Regression:** no source correction required.  
-**Exact-head requirement:** this corrected final R4 ledger commit must pass both exact-head CI jobs before Round 5 begins.
+**Exact-head CI:** `d4f8ed4ceecf20773ca9d4004ed688dd7f17af06`, run `33729888968` — PHP 8.1 PASS; PHP 8.3 full quality/deterministic package PASS; governed artifact upload PASS.
+
+---
+
+## Round 5 — Smail, private files, verified transfer, cryptography, voice-note protected metadata
+
+### Review completed before correction
+Reviewed final active Smail route precedence (`SN_Smail_Runtime_Hardening`, `SN_Fourth_Fresh_Smail_Hardening`, `SN_Smail` parts), private attachment storage/download/integrity ordering (`SN_Private_Files`, `SN_Attachment_Runtime_Hardening`), verified-transfer initiation/storage/finalization/grants/download/revocation (`SN_File_Transfer` parts and `SN_Fourth_Fresh_Transfer_Hardening`), communication key creation/keyring/rotation and dedicated-key hardening (`SN_Communication_Crypto`, `SN_Fourth_Fresh_Crypto_Hardening`), and final priority-3000 voice-note/transcript route (`SN_Fifth_Fresh_Feature_Hardening`). Active route owners were identified before freezing findings.
+
+### Frozen defect ledger — R5
+**R5-D01 — The final priority-2240 Smail route overrides the stronger priority-2150 Smail runtime owner and delegates send to the legacy `SN_Smail::send()` path, thereby bypassing the hardened Smail lock/revalidation/canonical-message runtime.**
+
+`SN_Smail_Runtime_Hardening::send()` serializes Smail idempotency and recipient relationship locks and sends through `SN_Message_Runtime_Hardening::send_message()`. The later `SN_Fourth_Fresh_Smail_Hardening::send()` validates only caller idempotency and then calls `SN_Smail::send()`, whose canonical message call is the older `SN_Message_Integrity::send_message()`. Because the later route wins, current File-00 point-of-action refresh and the stronger Smail mutation envelope can be bypassed on the active `/smail/send` route.
+
+**R5-D02 — The final priority-3000 voice-note route also calls the older `SN_Message_Integrity::send_message()` directly, bypassing the hardened canonical message runtime and caller-owned idempotency enforcement.**
+
+The final `SN_Fifth_Fresh_Feature_Hardening::send_voice_note()` forwards the supplied `client_id` to `SN_Message_Integrity::send_message()`, which can manufacture an idempotency key when none was supplied and does not contain the later point-of-action File-00 refresh. Thus a later feature overlay reopens a message-mutation boundary already hardened in the canonical send route.
+
+**Severity:** High final-route precedence / authorization-and-retry-safety regression.  
+**Correction boundary:** preserve the later Smail/draft and voice-note feature semantics while delegating their actual message mutation to the strongest current owners: Smail through `SN_Smail_Runtime_Hardening::send()` after caller-id validation, and voice notes through `SN_Fourth_Fresh_Review_Hardening::send_message()` (which requires caller idempotency and delegates to `SN_Message_Runtime_Hardening`). Add permanent regression assertions that the later route owners cannot call `SN_Message_Integrity::send_message()` for these mutations, then run exact-head CI.
+
+### Ledger freeze status
+Round 5 review is complete and R5-D01/R5-D02 are frozen. No Round-5 correction was started during the review.
