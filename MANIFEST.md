@@ -1,68 +1,32 @@
-# Repository Manifest — File 17 v2.0.0
+# Repository Manifest — File 17 v2.1.0
 
-`CHECKSUMS.sha256` is the canonical integrity manifest for the exact installable package source tree. The quality gate proves that its file list equals the files selected by `tools/package.sh`, verifies every digest, then rebuilds the ZIP twice and compares the outputs byte-for-byte. Tests, tools and repository evidence documents are deliberately excluded from the installable package.
+File 17 no longer treats a committed root checksum list as current package truth. The authoritative package-integrity evidence is generated from the exact staged release tree by `sabri-network/tools/package.sh` for the exact evaluated commit.
 
-## Installable payload — checksum governed
+## Current deterministic package evidence
 
-```text
-sabri-network/ARCHITECTURE.md
-sabri-network/CHANGELOG.md
-sabri-network/INSTALLATION-URDU.txt
-sabri-network/README.md
-sabri-network/SECURITY.md
-sabri-network/SYSTEM-STATUS.txt
-sabri-network/UPGRADE-URDU.txt
-sabri-network/assets/css/meet.css
-sabri-network/assets/css/message-search.css
-sabri-network/assets/css/messages.css
-sabri-network/assets/css/network.css
-sabri-network/assets/js/meet.js
-sabri-network/assets/js/message-search.js
-sabri-network/assets/js/messages.js
-sabri-network/assets/js/network.js
-sabri-network/assets/network-default-avatar.svg
-sabri-network/includes/class-sn-activator.php
-sabri-network/includes/class-sn-admin.php
-sabri-network/includes/class-sn-ajax.php
-sabri-network/includes/class-sn-auth.php
-sabri-network/includes/class-sn-db.php
-sabri-network/includes/class-sn-meet.php
-sabri-network/includes/class-sn-message-integrity.php
-sabri-network/includes/class-sn-message-search.php
-sabri-network/includes/class-sn-messages.php
-sabri-network/includes/class-sn-outbox.php
-sabri-network/includes/class-sn-policy.php
-sabri-network/includes/class-sn-privacy.php
-sabri-network/includes/class-sn-private-files.php
-sabri-network/includes/class-sn-relationships.php
-sabri-network/includes/class-sn-rest.php
-sabri-network/includes/class-sn-safety.php
-sabri-network/includes/class-sn-shortcode.php
-sabri-network/readme.txt
-sabri-network/sabri-network.php
-sabri-network/templates/communication-settings.php
-sabri-network/templates/meet-app.php
-sabri-network/templates/messages-app.php
-sabri-network/templates/messages-standalone.php
-sabri-network/templates/network-app.php
-sabri-network/templates/network-standalone.php
-```
+For an exact repository HEAD, `tools/package.sh`:
 
-## Current repository-only quality and evidence additions
+1. stages the installable `sabri-network/` tree while excluding repository-only evidence/tests/tools/build output;
+2. refuses symbolic links in the staged release tree;
+3. normalizes permissions and timestamps;
+4. lints staged PHP and syntax-checks every governed JavaScript runtime entry point;
+5. verifies required governed release surfaces;
+6. generates `sabri-network/MANIFEST.sha256` inside the staged tree from every staged release file;
+7. verifies that staged manifest before packaging;
+8. copies the exact source manifest to `build/17-sabri-network-and-messages-2.1.0.manifest.sha256`;
+9. builds `build/17-sabri-network-and-messages-2.1.0.zip` deterministically; and
+10. writes the ZIP SHA-256 to `build/17-sabri-network-and-messages-2.1.0.zip.sha256`.
 
-```text
-.github/workflows/quality.yml
-CHECKSUMS.sha256
-CODING-COMPLETENESS.md
-MANIFEST.md
-MESSAGE-SEARCH-OUTBOX-REPORT.md
-MESSAGES-SURFACES-RECEIPTS-REPORT.md
-REVIEW-REPORT.md
-SAFETY-HARDENING-REPORT.md
-STATUS.md
-sabri-network/tests/*
-sabri-network/tools/package.sh
-sabri-network/tools/quality-check.sh
-```
+`tools/quality-check.sh` then runs the package process twice and requires byte-for-byte identical ZIP, ZIP checksum and source-manifest output, extracts the package, compares the embedded manifest with the build manifest, and verifies every packaged digest.
 
-Generated output under `sabri-network/build/` is never committed and is not part of the source manifest.
+## Installable payload rule
+
+The installable payload is whatever the exact current `tools/package.sh` stages from `sabri-network/` after its explicit exclusions. This rule deliberately avoids maintaining a second hand-edited file list that can drift from the executable packaging truth.
+
+Repository-only files such as `.github/`, review/audit ledgers, tests, tools and generated `build/` output are not installed unless explicitly changed by the package script.
+
+## Evidence boundary
+
+A generated manifest, reproducible ZIP and successful exact-head CI establish repository/package evidence only. They do not establish staging acceptance, deployed-artifact parity, database/schema version, migration execution, live behavior or operational readiness.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
