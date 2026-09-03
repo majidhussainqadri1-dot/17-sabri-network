@@ -1,5 +1,5 @@
 <?php
-/** Seventh fresh 10-round permanent regression contracts. */
+/** Seventh fresh 10-round permanent regression contracts plus later release-truth guards. */
 declare(strict_types=1);
 $root=dirname(__DIR__);$fail=[];$checks=0;
 $read=static fn(string $p):string=>(string)file_get_contents($root.'/'.$p);
@@ -11,6 +11,8 @@ $r=$read('includes/class-sn-round20-correction.php');
 $m=$read('includes/class-sn-membership-assertions.php');
 $msg=$read('includes/class-sn-message-runtime-hardening.php');
 $attach=$read('includes/class-sn-attachment-runtime-hardening.php');
+$readme=$read('readme.txt');
+$changelog=$read('CHANGELOG.md');
 $check(str_contains($r,"assets/js/round20-correction.js"),'R1: Round-20 correction must retain its registered browser runtime asset.');
 $check(str_contains($q,'assets/js/round20-correction.js')&&str_contains($q,'includes/class-sn-round20-correction.php'),'R1: source quality gate must require the Round-20 PHP/JS runtime surfaces.');
 $check(str_contains($q,'round20-correction.js'),'R1: source quality gate must syntax-check the Round-20 browser runtime.');
@@ -29,4 +31,7 @@ $accessPos=strpos($attach,'SN_DB::user_can_access_attachment($attachment_id, $us
 $check($authPos!==false&&$noncePos!==false&&$accessPos!==false&&$hashPos!==false&&$authPos<$hashPos&&$noncePos<$hashPos&&$accessPos<$hashPos,'R4: private-file integrity hashing must happen only after login, nonce and object authorization checks.');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
-if($fail){fwrite(STDERR,"Seventh fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh fresh contracts: PASS ($checks checks)\n";
+$check(str_contains($readme,'54 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
+$check(str_contains($changelog,'54 PHP review suites')&&str_contains($changelog,'10 JavaScript syntax entry points'),'Later R1: changelog release truth must match the current explicit QA inventory.');
+$check(str_contains($readme,'f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2'),'Later R1: readme must identify the latest completed reviewed source candidate instead of silently reusing sixth-cycle evidence.');
+if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";
