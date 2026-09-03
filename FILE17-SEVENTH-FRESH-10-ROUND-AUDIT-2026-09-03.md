@@ -118,12 +118,33 @@ The priority `-101` integrity hook ran before the `-100` canonical delivery hand
 **Review completed before correction.** Re-reviewed workflow immutable-head checkout, PHP 8.1 minimum-runtime gate, PHP 8.3 full quality gate, explicit review-suite inventory, package manifest, reproducibility and artifact upload path.
 
 ### Frozen defect ledger — R10
-**R10-D01 — The PHP 8.1 minimum-runtime workflow does not execute the new seventh-fresh regression suite.**
+**R10-D01 — The PHP 8.1 minimum-runtime workflow did not execute the new seventh-fresh regression suite.**
 
-The full PHP 8.3 quality gate runs `tools/quality-check.sh`, which includes `seventh-fresh-ten-round-contracts.php`, but the distinct PHP 8.1 boundary job explicitly enumerates review suites only through `sixth-fresh-twenty-round-contracts.php`. Thus the newest regression contracts are linted but not executed on the declared minimum PHP runtime.
+The PHP 8.3 full gate executed `tools/quality-check.sh`, which included the new suite, while the distinct PHP 8.1 boundary job stopped at the sixth-fresh suite.
 
 **Severity:** High release-gate coverage defect.  
-**Correction boundary:** add the seventh-fresh suite to the PHP 8.1 boundary job and permanently assert that the workflow cannot omit it.
+**Correction:** added `seventh-fresh-ten-round-contracts.php` to the PHP 8.1 current-boundary job and explicitly to the PHP 8.3 release job; permanent R10 regression now asserts both workflow paths.  
+**Post-correction exact-head CI:** `bb766615c1e74e4abb00924fb1d5c1210f4816fb`, run `33724991860` — PHP 8.1 PASS, PHP 8.3 full quality/deterministic package PASS, governed artifact upload PASS.
 
-### Ledger freeze status
-Round 10 review is complete and R10-D01 is frozen. No Round-10 correction was started during the review.
+---
+
+## Ten-round result
+
+| Round | Result |
+|---|---|
+| 1 | Defect found and corrected |
+| 2 | Defect found and corrected |
+| 3 | Defect found and corrected |
+| 4 | Defect found and corrected; first regression probe failed and was repaired before acceptance |
+| 5 | Clean |
+| 6 | Clean |
+| 7 | Clean |
+| 8 | Clean |
+| 9 | Clean |
+| 10 | Defect found and corrected |
+
+**Defect-bearing rounds:** **1, 2, 3, 4, 10**.  
+**Clean rounds:** **5, 6, 7, 8, 9**.
+
+## Repository-only completion boundary
+The ten sequential source-review rounds are complete under the required discipline. At the post-correction code HEAD, both CI jobs are green and the deterministic package stage succeeded. This is **not** evidence of staging or live deployment. Exact deployed code, database version/schema, migration execution state and live behavior still require separate parity verification before any production-resolution claim.
