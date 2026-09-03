@@ -48,7 +48,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             update_option('sn_plugin_version', SN_VERSION, false);
             update_option(self::STATE_OPTION, [
                 'status'=>'complete','from'=>$from,'to'=>SN_VERSION,'completed_at'=>gmdate('c'),
-                'verification'=>'critical-current-wave-tables-and-columns-pass',
+                'verification'=>'all-governed-installer-tables-plus-critical-columns-pass',
             ], false);
             return true;
         } catch (Throwable $e) {
@@ -66,9 +66,40 @@ final class SN_Fifth_Fresh_Migration_Hardening {
 
     public static function verify_schema(): bool {
         global $wpdb;
-        // Exact table suffixes/columns below are taken from the active File-17
-        // installers. This is deliberately narrower than a guessed schema manifest:
-        // false verification is worse than refusing an incomplete migration.
+
+        // Table existence is verified for every surface created by the governed
+        // installer list. Installer-local version options and the final value of
+        // $wpdb->last_error are not accepted as proof that earlier dbDelta statements
+        // succeeded: a later successful query can otherwise mask a missing table.
+        $required_tables = [
+            // SN_DB core.
+            'conversations','members','messages','reactions','contacts','follows','updates','update_views',
+            'calls','call_members','signals','presence','typing','notifications','blocks','reports','attachments','rate_limits','audit_log',
+            // High-risk, spaces and presence devices.
+            'high_risk_actions','spaces','space_members','space_invites','space_join_requests','space_bans','space_audit','presence_devices',
+            // Message organization, context, provider and receipts.
+            'message_mentions','message_pins','message_stars','message_folders','message_folder_items','message_hides',
+            'conversation_contexts','cf01_context_refs','conference_providers','message_receipts',
+            // File transfer, Smail and private search/event delivery.
+            'transfer_sessions','transfer_chunks','transfer_recipients','smail_messages','smail_states','smail_drafts',
+            'message_search_tokens','event_outbox','event_inbox',
+            // Sabri Meet uses the sn_meet_* physical namespace; SN_DB::table maps
+            // these logical names to that exact prefix.
+            'meet_meetings','meet_participants','meet_sessions','meet_signals','meet_events',
+            // Two-plan completion.
+            'message_requests','scheduled_messages','poll_votes','community_settings','community_artifacts','community_responses',
+            // Future-24 superset.
+            'future_records','future_device_keys','future_key_log','future_message_versions',
+        ];
+        foreach ($required_tables as $name) {
+            $table = SN_DB::table($name);
+            $exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
+            if ($exists !== $table) return false;
+        }
+
+        // Mutation-sensitive tables additionally require exact critical columns. This
+        // preserves the earlier fail-closed column gate while the table gate above
+        // expands completion truth to the whole governed installer surface.
         $required = [
             'conversations'=>['id','type','owner_id','direct_key','status'],
             'members'=>['conversation_id','user_id','role','left_at'],
@@ -91,12 +122,21 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'smail_drafts'=>['public_id','owner_id','encrypted_payload','payload_hash','version'],
             'future_records'=>['feature_id','owner_id','scope_type','scope_id','state','payload_cipher'],
             'conversation_contexts'=>['conversation_id','provider','external_id','attached_by','version'],
-            'cf01_context_refs'=>['conversation_id','context_ref','issued_by','status','version'],
+            'cf01_context_refs'=>['conversation_id','reference_uuid','issued_by','status','version'],
+            'message_receipts'=>['message_id','conversation_id','user_id','device_key','updated_at'],
+            'message_search_tokens'=>['message_id','conversation_id','sender_id','token_hash'],
+            'event_outbox'=>['event_uuid','event_key','event_type','status','attempts','version'],
+            'event_inbox'=>['producer','event_uuid','payload_hash','status','attempts'],
+            'meet_meetings'=>['public_id','host_id','conversation_id','status','version'],
+            'meet_participants'=>['meeting_id','user_id','role','state','version'],
+            'message_requests'=>['requester_id','recipient_id','status','version'],
+            'scheduled_messages'=>['conversation_id','sender_id','deliver_at','status'],
+            'community_artifacts'=>['space_id','type','author_id','status','version'],
+            'future_device_keys'=>['user_id','device_id','fingerprint','state'],
+            'future_message_versions'=>['message_id','conversation_id','editor_id','revision','body_cipher'],
         ];
         foreach ($required as $name=>$columns) {
             $table = SN_DB::table($name);
-            $exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table)));
-            if ($exists !== $table) return false;
             $actual = array_map('strval', $wpdb->get_col('SHOW COLUMNS FROM `' . esc_sql($table) . '`', 0)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             foreach ($columns as $column) if (!in_array($column,$actual,true)) return false;
         }
