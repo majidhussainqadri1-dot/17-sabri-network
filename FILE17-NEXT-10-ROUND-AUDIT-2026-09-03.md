@@ -45,12 +45,30 @@ Reviewed root `README.md`, `STATUS.md`, `CODING-COMPLETENESS.md`, `MANIFEST.md`,
 ### Review completed before correction
 Reviewed authenticated AJAX compatibility (`SN_Ajax`), REST route/permission registration and administrator access (`SN_REST`), central File-17 access/contact/age/privacy policy (`SN_Policy`), File-00 assertion projection/cache/subject/version/type validation (`SN_Membership_Assertions`), identity projection (`SN_Auth`), earliest mutation pre-dispatch/object-membership boundary (`SN_Runtime_Boundary_Policy`), high-risk step-up/approval/executor separation (`SN_High_Risk`), administrator settings/repair nonce/capability controls (`SN_Admin`), front-end REST/AJAX nonce localization (`SN_Shortcode`), and bootstrap/registration ordering (`sabri-network.php`).
 
-The public `/health` route was confirmed to expose only non-sensitive service liveness; state-changing REST endpoints remain permission-gated. The AJAX bridge is authenticated-only and nonce-protected. High-risk actions require recent step-up, distinct requester/approver/executor and payload-hash binding. File-00 assertion failures remain fail closed.
-
 ### Frozen defect ledger — R3
 **No new unresolved repository defect found.**
 
-No bypass of authentication, object membership, admin capability, nonce/CSRF control, File-00 fail-closed assertions or high-risk separation was proved in this round. Potentially broader runtime/deployment questions require real WordPress/deployed evidence and are not converted into speculative source defects.
+No bypass of authentication, object membership, admin capability, nonce/CSRF control, File-00 fail-closed assertions or high-risk separation was proved in this round.
 
 **Regression:** no source correction required.  
-**Exact-head requirement:** this ledger commit must pass both exact-head CI jobs before Round 4 begins.
+**Exact-head CI:** `139c624f034557f25f980ba3edb590b596d2d61a`, run `33729499767` — PHP 8.1 PASS; PHP 8.3 full quality/deterministic package PASS.
+
+---
+
+## Round 4 — Messages, forwarding, private search, visibility, indexing and outbox reliability
+
+### Review completed before correction
+Reviewed canonical message mutation and duplicate reconciliation (`SN_Message_Runtime_Hardening`), hashed-token private search/cursors/backfill (`SN_Message_Search`), hidden-message visibility overlay (`SN_Message_Visibility`), governed mentions/forwarding/folders/hides (`SN_Message_Operations`), final secure forwarding and encrypted audience transition (`SN_Compatibility_Hardening`), final message edit/delete/version route owner (`SN_Fourth_Fresh_Review_Hardening`), message-body encryption/rotation (`SN_Message_Body`), message/search/outbox atomic integration (`SN_Message_Integrity`), and transactional outbox/inbox delivery/retry behavior (`SN_Outbox`). No correction was started until the entire review was complete.
+
+### Frozen defect ledger — R4
+**R4-D01 — Private-search backfill advances its cursor past an indexing failure, allowing a transient decrypt/index/write error to become a permanently skipped message.**
+
+`SN_Message_Search::backfill()` calls `self::index_message()` for each row but discards the returned `WP_Error` and advances `$after` to that message ID anyway. During a key-epoch rebuild, `SN_Runtime_Boundary_Policy::finish_search_rebuild()` determines completion from the monotonic backfill cursor. Consequently one failed message can be skipped while the cursor moves beyond it, and the rebuild can later be declared complete with an incomplete private-search derived index.
+
+This is not merely a cosmetic search miss: the release contract explicitly treats private search as an authorized derived state that must rebuild safely after key-epoch change. The correct behavior is to stop at the first failed message, retain the cursor at the last successful ID and retry rather than silently advancing.
+
+**Severity:** High derived-state integrity / recovery defect.  
+**Correction boundary:** make backfill progress conditional on successful indexing, audit/persist retry-safe failure evidence without exposing plaintext, preserve the last successful cursor, and add a permanent regression before exact-head CI.
+
+### Ledger freeze status
+Round 4 review is complete and R4-D01 is frozen. No Round-4 correction was started during the review.
