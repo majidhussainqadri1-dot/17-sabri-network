@@ -29,6 +29,20 @@ final class SN_Attachment_Runtime_Hardening {
         $attachment_id = absint(get_query_var(self::PRIVATE_QUERY_VAR));
         if (!$attachment_id && isset($_GET[self::PRIVATE_QUERY_VAR])) $attachment_id = absint(wp_unslash($_GET[self::PRIVATE_QUERY_VAR]));
         if ($attachment_id <= 0) return;
+
+        // This hook intentionally runs before the canonical delivery handler so it
+        // can reject corrupted bytes before any stream starts. It must therefore
+        // repeat the same authorization envelope *before* touching the private
+        // record/path or hashing a potentially large file; otherwise an anonymous
+        // attachment-id probe could force private-storage I/O.
+        if (!is_user_logged_in()) return;
+        $user_id = get_current_user_id();
+        $nonce = sanitize_text_field(wp_unslash((string) ($_GET['sn_file_nonce'] ?? '')));
+        if (!wp_verify_nonce($nonce, 'sn_private_file_' . $attachment_id . '_' . $user_id)
+            || !SN_DB::user_can_access_attachment($attachment_id, $user_id)) {
+            return;
+        }
+
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare('SELECT id,storage_key,sha256,deleted_at FROM ' . SN_DB::table('attachments') . ' WHERE id=%d', $attachment_id));
         if (!$row || $row->deleted_at !== null) return;
@@ -38,7 +52,7 @@ final class SN_Attachment_Runtime_Hardening {
         if ($base === false || $candidate === false || !str_starts_with($candidate, $base . DIRECTORY_SEPARATOR) || !is_file($candidate)) return;
         $actual = hash_file('sha256', $candidate);
         if (!is_string($actual) || strlen($actual) !== 64 || !hash_equals((string) $row->sha256, $actual)) {
-            SN_DB::audit('attachment_integrity_mismatch', 'attachment', $attachment_id, 'failure', ['storage_key_hash' => hash('sha256', (string) $row->storage_key)], get_current_user_id());
+            SN_DB::audit('attachment_integrity_mismatch', 'attachment', $attachment_id, 'failure', ['storage_key_hash' => hash('sha256', (string) $row->storage_key)], $user_id);
             status_header(404);
             exit;
         }
