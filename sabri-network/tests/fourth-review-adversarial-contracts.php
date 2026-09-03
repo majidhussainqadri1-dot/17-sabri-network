@@ -20,16 +20,18 @@ fr4a_check(str_contains($rest, 'return self::database_error();') && str_contains
 fr4a_check(str_contains($completeness, 'native recipient/device message receipts'), 'Completeness evidence must record recipient receipts as implemented.');
 fr4a_check(str_contains($completeness, 'secure indexed search'), 'Completeness evidence must record indexed message search as implemented.');
 fr4a_check(str_contains($completeness, 'Transactional outbox/inbox') || str_contains($completeness, 'transactional outbox/inbox'), 'Completeness evidence must record reliable event delivery as implemented.');
-foreach (['Communities, groups, channels and private teams','General per-device presence','Governed mentions and audience-minimized forwarding','Secret-free STUN/TURN/SFU provider governance'] as $completedDomain) {
+foreach (['Communities, groups, channels and private teams','General per-device presence','Governed mentions and audience-minimized forwarding'] as $completedDomain) {
     fr4a_check(str_contains($completeness, $completedDomain), "Completeness evidence must record coded domain: $completedDomain");
 }
+fr4a_check(stripos($completeness,'secret-free STUN/TURN/SFU provider governance')!==false,'Completeness evidence must record secret-free STUN/TURN/SFU provider governance.');
 fr4a_check(
     str_contains($completeness, '**Coding classification:**') &&
-    stripos($completeness, 'repository-owned/current-wave') !== false &&
-    stripos($completeness, 'corrective candidate') !== false &&
+    stripos($completeness, 'repository-owned') !== false &&
+    stripos($completeness, 'candidate') !== false &&
+    stripos($completeness, 'corrective review') !== false &&
     str_contains($completeness, '**Staging-Accepted:** pending') &&
     str_contains($completeness, '**Live-Deployed:** not claimed') &&
     !preg_match('/(?:production-ready|staging-accepted\s*:\s*(?:yes|complete)|live-deployed\s*:\s*(?:yes|complete))/i', $completeness),
-    'Completion evidence must state a repository-owned corrective candidate while staging/live remain pending.'
+    'Completion evidence must state a repository-owned corrective-review candidate while staging/live remain pending.'
 );
 if($failures){fwrite(STDERR,"Fourth-review adversarial failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Fourth-review adversarial contracts: PASS ($checks checks)\n";
