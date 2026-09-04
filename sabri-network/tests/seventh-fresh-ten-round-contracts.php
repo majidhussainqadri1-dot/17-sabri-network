@@ -17,6 +17,7 @@ $voiceFinal=$read('includes/class-sn-fifth-fresh-feature-hardening.php');
 $callRuntime=$read('includes/class-sn-call-runtime-hardening.php');
 $privacyFinal=$read('includes/class-sn-sixth-fresh-privacy-hardening.php');
 $migration=$read('includes/class-sn-fifth-fresh-migration-hardening.php');
+$admin=$read('includes/class-sn-admin.php');
 $readme=$read('readme.txt');
 $changelog=$read('CHANGELOG.md');
 $repoReadme=$readRepo('README.md');
@@ -55,6 +56,8 @@ $check(str_contains($privacyFinal,"wp_schedule_single_event(time() + HOUR_IN_SEC
 $check(str_contains($privacyFinal,"do_action('sn_network_private_bytes_delete_stalled'")&&str_contains($privacyFinal,"SN_DB::audit('attachment_delete_stalled'"),'Later R8: exhausted initial private-byte retries must emit durable stalled-deletion evidence without abandoning cleanup.');
 $check(str_contains($migration,"'completion_path'=>'post-lock-fast-path'")&&str_contains($migration,"'status'=>'complete'")&&str_contains($migration,'if (!$force && (string)get_option(\'sn_plugin_version\',\'\') === SN_VERSION && self::verify_schema()) {'),'Fresh R1: verified post-lock migration fast-path must republish complete migration state before returning.');
 $check(str_contains($migration,"'sn_message_receipts_schema_version'")&&!str_contains($migration,"'sn_conference_provider_schema_version','sn_messages_schema_version'"),'Fresh R1: migration rollback snapshot must track the actual Messages receipt schema-version option rather than the obsolete key.');
+$check(str_contains($admin,'SN_Fifth_Fresh_Migration_Hardening::upgrade(true)')&&!str_contains($admin,'SN_DB::install();')&&!str_contains($admin,"update_option('sn_plugin_version', SN_VERSION"),'Fresh R2: administrator repair must use the governed full migration and must not publish plugin-version truth independently.');
+$check(str_contains($admin,"esc_html__('Sabri Network repair failed', 'sabri-network')")&&str_contains($admin,"['response' => 503]"),'Fresh R2: governed repair migration failure must fail closed instead of reporting success.');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
 $check(str_contains($readme,'54 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
