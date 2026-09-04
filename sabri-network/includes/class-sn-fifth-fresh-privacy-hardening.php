@@ -100,27 +100,58 @@ final class SN_Fifth_Fresh_Privacy_Hardening {
         $uid = (int)$user->ID;
         $states = SN_DB::table('smail_states');
         $drafts = SN_DB::table('smail_drafts');
+        $state_ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+            "SELECT id FROM $states WHERE user_id=%d ORDER BY id ASC LIMIT %d",
+            $uid,
+            self::BATCH
+        )) ?: []);
+        $draft_ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+            "SELECT id FROM $drafts WHERE owner_id=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d",
+            $uid,
+            self::BATCH
+        )) ?: []);
+        if (!$state_ids && !$draft_ids) {
+            return [
+                'items_removed'=>false,
+                'items_retained'=>true,
+                'messages'=>['Canonical shared messages remain subject to File-17 conversation retention, participant rights and legal-hold policy.'],
+                'done'=>true,
+            ];
+        }
         $now = current_time('mysql', true);
         $empty_hash = hash_hmac('sha256', '', wp_salt('auth') . '|sn-sm-draft-blind-v1');
+        $removed = 0;
         if ($wpdb->query('START TRANSACTION') === false) return self::retry('Smail privacy erasure could not start.');
         try {
-            $deleted = $wpdb->delete($states, ['user_id'=>$uid], ['%d']);
-            if ($deleted === false) throw new RuntimeException('smail_state_erase_failed');
-            $drafted = $wpdb->query($wpdb->prepare(
-                "UPDATE $drafts SET encrypted_payload='',payload_hash=%s,deleted_at=COALESCE(deleted_at,%s),updated_at=%s,version=version+1 WHERE owner_id=%d AND deleted_at IS NULL",
-                $empty_hash, $now, $now, $uid
-            ));
-            if ($drafted === false) throw new RuntimeException('smail_draft_erase_failed');
+            foreach ($state_ids as $id) {
+                $deleted = $wpdb->delete($states, ['id'=>$id,'user_id'=>$uid], ['%d','%d']);
+                if ($deleted !== 1) throw new RuntimeException('smail_state_erase_failed');
+                $removed++;
+            }
+            foreach ($draft_ids as $id) {
+                $changed = $wpdb->query($wpdb->prepare(
+                    "UPDATE $drafts SET encrypted_payload='',payload_hash=%s,deleted_at=%s,updated_at=%s,version=version+1 WHERE id=%d AND owner_id=%d AND deleted_at IS NULL",
+                    $empty_hash,
+                    $now,
+                    $now,
+                    $id,
+                    $uid
+                ));
+                if ($changed !== 1) throw new RuntimeException('smail_draft_erase_failed');
+                $removed++;
+            }
             if ($wpdb->query('COMMIT') === false) throw new RuntimeException('smail_erase_commit_failed');
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             return self::retry('Smail privacy erasure could not be committed.');
         }
+        $more_states = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $states WHERE user_id=%d LIMIT 1", $uid));
+        $more_drafts = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $drafts WHERE owner_id=%d AND deleted_at IS NULL LIMIT 1", $uid));
         return [
-            'items_removed'=>(int)$deleted>0 || (int)$drafted>0,
+            'items_removed'=>$removed>0,
             'items_retained'=>true,
             'messages'=>['Canonical shared messages remain subject to File-17 conversation retention, participant rights and legal-hold policy.'],
-            'done'=>true,
+            'done'=>!$more_states&&!$more_drafts,
         ];
     }
 
