@@ -3,7 +3,7 @@
 **Assessment target:** Sabri Network and Messages 2.1.0  
 **Governing audit set:** current consolidated central governing plan + current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24  
 **Current assessment date:** 4 September 2026  
-**Coding classification:** **repository-owned candidate with the fresh 10-round source review/fix cycle completed; staging/live/operational completion is not claimed**
+**Coding classification:** **repository-owned current corrective review candidate; the fresh 10-round source review/fix cycle is completed; staging/live/operational completion is not claimed**
 
 This document records repository implementation evidence only. It does not establish real provider acceptance, staging acceptance, live deployment, database/migration parity or operational readiness. Exact-commit GitHub Actions is evidence only for the exact commit on which it runs.
 
@@ -41,7 +41,7 @@ The current cycle on `review/file17-fresh-10-round-2026-09-04` completed all ten
 ## Seven separate statuses
 
 1. **Specified:** current File-17 repository scope is represented against the governing plan set.
-2. **Coded:** current 2.1.0 candidate completed the fresh 10-round repository source review/fix cycle.
+2. **Coded:** current 2.1.0 corrective review candidate completed the fresh 10-round repository source review/fix cycle.
 3. **Packaged:** true only for an exact commit whose deterministic package job succeeds.
 4. **Automated-QA Green:** true only for the exact commit carrying successful PHP 8.1 and PHP 8.3/full-quality jobs.
 5. **Staging-Accepted:** pending real WordPress/MySQL/roles/companions/providers/migration/rollback acceptance.
