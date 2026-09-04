@@ -18,5 +18,13 @@ $check(!preg_match('/(?:100% secure|unhackable|E2EE enabled)/i',$all)&&!preg_mat
 $check(substr_count($quality,'forty-round-review-')===4&&substr_count($workflow,'forty-round-review-')===4,'Exactly four historical forty-round suite invocations must remain explicit in each quality path.');
 $check(str_contains($audit,'**Known unresolved repository/current-wave coding defects after round 40:** **0**'),'Historical audit must retain its exact freeze result.');
 $check(str_contains($package,'includes/class-sn-compatibility-hardening.php')&&str_contains($package,'includes/class-sn-two-plan-completion.php')&&str_contains($quality,'includes/class-sn-two-plan-completion.php'),'Current corrective/completion hardening must be required by package and full quality gate.');
-$check(str_contains($audit,'2.0.3')&&stripos($audit,'historical')!==false&&str_contains($complete,'2.1.0')&&str_contains($rootreadme,'Historical review ledgers')&&str_contains($complete,'latest completed seventh-fresh'),'Historical 2.0.3 evidence must remain attributable to its own ledger while current documents publish the latest 2.1.0 review state without reusing stale counts.');
+$currentBranch='review/file17-fresh-10-round-2026-09-04';
+$check(
+    str_contains($audit,'2.0.3')&&stripos($audit,'historical')!==false&&
+    str_contains($complete,'2.1.0')&&str_contains($rootreadme,'Historical review ledgers')&&
+    str_contains($complete,$currentBranch)&&str_contains($rootreadme,$currentBranch)&&
+    str_contains($complete,'R1, R2, R3, R4, R5, R6, R7, R8, R9, R10')&&
+    !str_contains($complete,'53 PHP review suites')&&!str_contains($complete,'9 JavaScript syntax entry points'),
+    'Historical 2.0.3 evidence must remain attributable to its own ledger while current documents publish the current 2.1.0 review state without reusing stale counts.'
+);
 if($fail){fwrite(STDERR,"Forty-round suite 4 failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Forty-round review 4 historical/current release truth: PASS ($checks checks)\n";
