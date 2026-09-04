@@ -32,12 +32,16 @@ trait SN_Spaces_Part_6 {
         $space_id=absint($request['id']);$actor=get_current_user_id();$target=absint($request->get_param('user_id'));$action_id=absint($request->get_param('high_risk_action_id'));
         $space=self::space($space_id);if(!$space)return self::error('sn_space_not_found','The space is unavailable.',404);
         if(!current_user_can('manage_options')&&!(bool)apply_filters('sn_network_can_execute_space_transfer',false,$actor,$space))return self::error('sn_space_transfer_executor_forbidden','A distinct authorized executor is required.',403);
+        $identity=self::communication_eligible($target);if(is_wp_error($identity))return $identity;
         $current_owner=(int)$space->owner_user_id;
         $target_member=self::member($space_id,$target);if(!$target_member||!in_array((string)$target_member->role,['administrator','moderator','editor','member'],true))return self::error('sn_space_successor_invalid','Select an eligible active successor.',400);
         $payload=['space_id'=>$space_id,'current_owner_id'=>$current_owner,'new_owner_id'=>$target];
         $wpdb->query('START TRANSACTION');
         try{
             $space=self::space($space_id,true);if(!$space||(int)$space->owner_user_id!==$current_owner)throw new RuntimeException('owner_changed');
+            // Refresh target identity after the space row is locked so ownership is
+            // never transferred on a stale pre-transaction File-00 assertion.
+            $identity=self::communication_eligible($target);if(is_wp_error($identity)){$wpdb->query('ROLLBACK');return $identity;}
             $claim=SN_High_Risk::claim($action_id,$actor,'space_ownership_transfer',$payload);
             if(is_wp_error($claim)){$wpdb->query('ROLLBACK');return $claim;}
             $owner_member=self::member($space_id,$current_owner,true);$target_member=self::member($space_id,$target,true);
