@@ -87,7 +87,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'calls','call_members','signals','presence','typing','notifications','blocks','reports','attachments','rate_limits','audit_log',
             // High-risk, spaces and presence devices. The spaces audit owner is
             // SN_Spaces::audit_table() => SN_DB::table('space_governance').
-            'high_risk_actions','spaces','space_members','space_invites','space_join_requests','space_bans','space_governance','presence_devices',
+            'step_up_grants','high_risk_actions','spaces','space_members','space_invites','space_join_requests','space_bans','space_governance','presence_devices',
             // Message organization, context, provider and receipts.
             'message_mentions','message_pins','message_stars','message_folders','message_folder_items','message_hides',
             'conversation_contexts','cf01_context_refs','conference_providers','message_receipts',
@@ -98,7 +98,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             // these logical names to that exact prefix.
             'meet_meetings','meet_participants','meet_sessions','meet_signals','meet_events',
             // Two-plan completion.
-            'message_requests','scheduled_messages','poll_votes','community_settings','community_artifacts','community_responses',
+            'message_requests','scheduled_messages','poll_votes','community_settings','community_artifacts','community_responses','two_plan_idempotency',
             // Future-24 superset.
             'future_records','future_device_keys','future_key_log','future_message_versions',
         ];
@@ -123,6 +123,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'space_invites'=>['space_id','invitee_id','status','token_hash','version'],
             'space_join_requests'=>['space_id','requester_id','status','version'],
             'presence_devices'=>['user_id','device_key','state','expires_at','revoked_at','version'],
+            'step_up_grants'=>['grant_uuid','user_id','purpose','token_hash','status','expires_at','version'],
             'high_risk_actions'=>['action_type','requester_id','approver_id','executor_id','status','version'],
             'conference_providers'=>['provider_key','provider_type','status','version'],
             'transfer_sessions'=>['public_id','sender_id','total_bytes','status','scan_status','version'],
@@ -143,6 +144,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'message_requests'=>['requester_id','recipient_id','status','version'],
             'scheduled_messages'=>['conversation_id','sender_id','deliver_at','status'],
             'community_artifacts'=>['space_id','type','author_id','status','version'],
+            'two_plan_idempotency'=>['scope_key','actor_id','method','route_hash','request_hash','state','response_code','response_cipher','updated_at'],
             'future_device_keys'=>['user_id','device_id','fingerprint','state'],
             'future_message_versions'=>['message_id','conversation_id','editor_id','revision','body_cipher'],
         ];
@@ -162,7 +164,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             [SN_Conference_Provider::class,'install'], [SN_Messages::class,'install'],
             [SN_File_Transfer::class,'install'], [SN_Smail::class,'install'], [SN_Message_Search::class,'install'],
             [SN_Outbox::class,'install'], [SN_Meet::class,'install'], [SN_Two_Plan_Completion::class,'install'],
-            [SN_Future_Superset::class,'install'],
+            [SN_Two_Plan_Contract_Firewall::class,'install'], [SN_Future_Superset::class,'install'],
         ];
     }
 
@@ -185,7 +187,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'sn_presence_devices_schema_version','sn_message_operations_schema_version','sn_context_adapters_schema_version',
             'sn_cf01_context_schema_version','sn_conference_provider_schema_version','sn_message_receipts_schema_version',
             'sn_file_transfer_schema_version','sn_smail_schema_version','sn_message_search_schema_version',
-            'sn_event_delivery_schema_version','sn_meet_db_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_future_schema_version',
+            'sn_event_delivery_schema_version','sn_meet_db_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_two_plan_firewall_schema_version','sn_future_schema_version',
             'sn_future_superset_schema_version','sn_central_plan_schema_version',
         ];
         $sentinel = new stdClass();
