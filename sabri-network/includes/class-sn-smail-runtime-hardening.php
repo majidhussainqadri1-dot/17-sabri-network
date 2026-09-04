@@ -31,6 +31,7 @@ final class SN_Smail_Runtime_Hardening {
         global $wpdb;
         $sender=get_current_user_id();
         $recipients=array_values(array_diff(array_values(array_unique(array_filter(array_map('absint',(array)$request->get_param('recipient_ids'))))),[$sender]));
+        sort($recipients, SORT_NUMERIC);
         if(!$recipients||count($recipients)>self::MAX_RECIPIENTS)return new WP_Error('invalid_recipients','Select between one and fifty permitted recipients.',['status'=>400]);
         $subject=mb_substr(sanitize_text_field((string)$request->get_param('subject')),0,self::MAX_SUBJECT);
         $body=trim(sanitize_textarea_field(wp_unslash((string)$request->get_param('body'))));
@@ -41,7 +42,11 @@ final class SN_Smail_Runtime_Hardening {
         $client_key=hash('sha256',$sender.'|'.$client);
         $locks=['sn:f17:smail:'.$client_key];foreach($recipients as $recipient)$locks[]=SN_Relationships::pair_lock_name($sender,$recipient);
         return self::with_locks($locks,function()use($request,$sender,$recipients,$subject,$body,$client_key,$wpdb){
-            $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE client_key=%s',$client_key));if($existing)return rest_ensure_response(['smail'=>self::format($existing),'duplicate'=>true]);
+            $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE client_key=%s',$client_key));
+            if($existing){
+                if(!self::same_send_request($existing,$sender,$recipients,$subject,$body))return self::idempotency_conflict();
+                return rest_ensure_response(['smail'=>self::format($existing),'duplicate'=>true]);
+            }
             foreach($recipients as $recipient){$allowed=SN_Policy::can_contact($sender,$recipient,count($recipients)===1?'message':'group');if(is_wp_error($allowed))return $allowed;}
             $conversation=SN_Central_Plan_Hardening::resolve_smail_conversation($sender,$recipients,$subject,$client_key);if(is_wp_error($conversation))return $conversation;$conversation=(int)$conversation;if($conversation<=0)return new WP_Error('smail_conversation_failed','The Smail conversation could not be resolved.',['status'=>500]);
             foreach($recipients as $recipient){$allowed=SN_Policy::can_contact($sender,$recipient,count($recipients)===1?'message':'group');if(is_wp_error($allowed))return $allowed;}
@@ -51,13 +56,26 @@ final class SN_Smail_Runtime_Hardening {
             if($wpdb->query('START TRANSACTION')===false)return new WP_Error('smail_projection_failed','The Smail projection transaction could not start.',['status'=>500]);
             try{
                 $existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE client_key=%s FOR UPDATE',$client_key));
-                if($existing){$wpdb->query('ROLLBACK');return rest_ensure_response(['smail'=>self::format($existing),'message'=>$message_data['message']??null,'duplicate'=>true]);}
+                if($existing){
+                    $same=self::same_send_request($existing,$sender,$recipients,$subject,$body);
+                    $wpdb->query('ROLLBACK');
+                    if(!$same)return self::idempotency_conflict();
+                    return rest_ensure_response(['smail'=>self::format($existing),'message'=>$message_data['message']??null,'duplicate'=>true]);
+                }
                 if($wpdb->insert(SN_DB::table('smail_messages'),['message_id'=>$message_id,'conversation_id'=>$conversation,'sender_id'=>$sender,'subject'=>$subject,'client_key'=>$client_key,'created_at'=>$now])===false)throw new RuntimeException('smail_projection_failed');
                 $smail_id=(int)$wpdb->insert_id;
                 foreach(array_values(array_unique(array_merge([$sender],$recipients))) as $user){if($wpdb->insert(SN_DB::table('smail_states'),['smail_message_id'=>$smail_id,'user_id'=>$user,'updated_at'=>$now,'read_at'=>$user===$sender?$now:null])===false)throw new RuntimeException('smail_state_failed');}
                 $event=SN_Outbox::enqueue('smail.sent','smail',$smail_id,['smail_id'=>$smail_id,'conversation_id'=>$conversation,'message_id'=>$message_id,'sender_id'=>$sender,'recipient_count'=>count($recipients)],'smail-sent-'.$smail_id);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());
                 if($wpdb->query('COMMIT')===false)throw new RuntimeException('smail_projection_commit_failed');
-            }catch(Throwable $e){$wpdb->query('ROLLBACK');$race=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE client_key=%s',$client_key));if($race)return rest_ensure_response(['smail'=>self::format($race),'message'=>$message_data['message']??null,'duplicate'=>true,'commit_reconciled'=>true]);SN_DB::audit('smail_projection_failed','message',$message_id,'failure',['conversation_id'=>$conversation,'reason'=>$e->getMessage()],$sender);return new WP_Error('smail_projection_failed','The canonical message exists but its mailbox projection needs a safe retry.',['status'=>503,'message_id'=>$message_id]);}
+            }catch(Throwable $e){
+                $wpdb->query('ROLLBACK');
+                $race=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE client_key=%s',$client_key));
+                if($race){
+                    if(!self::same_send_request($race,$sender,$recipients,$subject,$body))return self::idempotency_conflict();
+                    return rest_ensure_response(['smail'=>self::format($race),'message'=>$message_data['message']??null,'duplicate'=>true,'commit_reconciled'=>true]);
+                }
+                SN_DB::audit('smail_projection_failed','message',$message_id,'failure',['conversation_id'=>$conversation,'reason'=>$e->getMessage()],$sender);return new WP_Error('smail_projection_failed','The canonical message exists but its mailbox projection needs a safe retry.',['status'=>503,'message_id'=>$message_id]);
+            }
             foreach($recipients as $recipient)SN_DB::add_notification($recipient,'smail_received','New Smail message','','smail',$smail_id);do_action('sn_network_event_queued',$event,'smail.sent');SN_DB::audit('smail_sent','smail',$smail_id,'success',['conversation_id'=>$conversation,'recipients'=>count($recipients)],$sender);
             $draft=sanitize_text_field((string)$request->get_param('draft_id'));if($draft!=='')self::trash_draft($draft,$sender);
             $row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('smail_messages').' WHERE id=%d',$smail_id));return rest_ensure_response(['smail'=>self::format($row),'message'=>$message_data['message']??null]);
@@ -89,6 +107,21 @@ final class SN_Smail_Runtime_Hardening {
         if($wpdb->query('START TRANSACTION')===false)return['items_removed'=>false,'items_retained'=>true,'messages'=>['Smail erasure could not start; retry is required.'],'done'=>false];
         try{foreach($ids as $id){if($wpdb->delete($states,['id'=>$id,'user_id'=>$uid],['%d','%d'])===false)throw new RuntimeException('smail_state_erase_failed');$removed=true;}foreach($draft_ids as $id){$changed=$wpdb->query($wpdb->prepare("UPDATE $drafts SET encrypted_payload='',payload_hash=%s,deleted_at=%s,updated_at=%s WHERE id=%d AND owner_id=%d AND deleted_at IS NULL",$empty,$now,$now,$id,$uid));if($changed!==1)throw new RuntimeException('smail_draft_erase_failed');$removed=true;}if($wpdb->query('COMMIT')===false)throw new RuntimeException('smail_erasure_commit_failed');}catch(Throwable $e){$wpdb->query('ROLLBACK');return['items_removed'=>false,'items_retained'=>true,'messages'=>['Smail erasure could not be committed and must be retried.'],'done'=>false];}
         $more=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $states WHERE user_id=%d LIMIT 1",$uid))||(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $drafts WHERE owner_id=%d AND deleted_at IS NULL LIMIT 1",$uid));return['items_removed'=>$removed,'items_retained'=>true,'messages'=>['Canonical messages remain subject to File-17 conversation retention, legal hold and participant rights.'],'done'=>!$more];
+    }
+
+    private static function same_send_request(object $row,int $sender,array $recipients,string $subject,string $body): bool {
+        global $wpdb;
+        if((int)$row->sender_id!==$sender||(string)$row->subject!==$subject)return false;
+        $message=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d',(int)$row->message_id));
+        if(!$message||(int)$message->conversation_id!==(int)$row->conversation_id||(int)$message->sender_id!==$sender||$message->deleted_at)return false;
+        $plain=SN_Message_Body::decrypt_row($message);if(is_wp_error($plain)||(string)$plain!==$body)return false;
+        $stored=array_values(array_map('intval',$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.SN_DB::table('smail_states').' WHERE smail_message_id=%d AND user_id<>%d ORDER BY user_id ASC',(int)$row->id,$sender))?:[]));
+        $requested=array_values(array_unique(array_map('intval',$recipients)));sort($requested,SORT_NUMERIC);
+        return $stored===$requested;
+    }
+
+    private static function idempotency_conflict(): WP_Error {
+        return new WP_Error('smail_idempotency_conflict','This Smail idempotency key was already committed for different recipients or content.',['status'=>409]);
     }
 
     private static function trash_draft(string $public,int $owner): bool {global $wpdb;$now=current_time('mysql',true);return $wpdb->query($wpdb->prepare("UPDATE ".SN_DB::table('smail_drafts')." SET deleted_at=%s,encrypted_payload='',payload_hash=%s,updated_at=%s WHERE public_id=%s AND owner_id=%d AND deleted_at IS NULL",$now,hash_hmac('sha256','',wp_salt('auth').'|sn-sm-draft-blind-v1'),$now,$public,$owner))===1;}
