@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 $root=dirname(__DIR__);$main=file_get_contents($root.'/sabri-network.php');$hard=file_get_contents($root.'/includes/class-sn-central-plan-hardening.php');$css=file_get_contents($root.'/assets/css/brand-green-overrides.css');$fails=[];$checks=0;
+$spaces='';for($i=1;$i<=6;$i++)$spaces.=(string)file_get_contents($root.'/includes/class-sn-spaces-part-'.$i.'.php');
 function fpr1(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 fpr1(str_contains($main,"'notification_owner' => 'file-19'"),'File 19 is declared as the sole notification owner.');
 fpr1(str_contains($main,"'legacy_file17_notification_center' => false"),'File 17 declares no active notification center.');
@@ -12,4 +13,7 @@ fpr1(str_contains($css,'--sn-brand-green')&&str_contains(strtolower($css),'#087a
 fpr1(str_contains($css,'--sn-secondary-orange'),'Orange remains only as an explicit secondary accent.');
 fpr1(str_contains($main,"'owner' => 'file-17'")&&str_contains($main,"'messages_url' => SN_Messages::messages_url()"),'File 17 remains the canonical communication owner while exposing distinct Network/Messages surfaces.');
 fpr1(str_contains($main,'SN_Central_Plan_Hardening::register()')&&str_contains($main,'SN_Central_Plan_Hardening::maybe_upgrade()'),'Central-plan hardening is active for runtime and migration.');
+$starts=substr_count($spaces,"\$wpdb->query('START TRANSACTION')");$checked=substr_count($spaces,"\$wpdb->query('START TRANSACTION') === false");
+fpr1($starts===10&&$checked===10,'Next R2: all ten active space-governance transaction starts must be explicitly fail-closed.');
+fpr1(substr_count($spaces,"sn_space_transaction_failed")===10,'Next R2: each active space mutation must return the stable fail-closed transaction error before writes.');
 if($fails){fwrite(STDERR,"Four-plan review 1 failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Four-plan review 1 governance: PASS ($checks checks)\n";
