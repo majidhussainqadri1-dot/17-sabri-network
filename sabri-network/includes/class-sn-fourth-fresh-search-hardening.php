@@ -23,6 +23,56 @@ final class SN_Fourth_Fresh_Search_Hardening {
         add_action(self::CONTINUE_HOOK, [self::class, 'continue_rebuild']);
         add_action('sn_cleanup_hourly', [self::class, 'backfill'], 20);
         add_action('sn_cleanup_hourly', [self::class, 'finish_rebuild'], 9999);
+        // The legacy administrator rebuild callback still called the lossy base
+        // backfill directly. Own that route last so manual reconstruction follows
+        // exactly the same fail-closed state machine as epoch/hourly rebuilding.
+        add_action('rest_api_init', [self::class, 'override_routes'], 2300);
+    }
+
+    public static function override_routes(): void {
+        register_rest_route('sabri-network/v2', '/admin/message-search/rebuild', [
+            'methods'=>'POST',
+            'callback'=>[self::class, 'rebuild'],
+            'permission_callback'=>[SN_REST::class, 'admin_access'],
+        ], true);
+    }
+
+    public static function rebuild(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        if ($request->get_param('confirm') !== true) {
+            return new WP_Error('confirmation_required', 'Exact boolean confirmation is required.', ['status'=>400]);
+        }
+        $actor = get_current_user_id();
+        if (!SN_Policy::consume_rate_limit('message_search_rebuild', (string)$actor, 3, DAY_IN_SECONDS)) {
+            return new WP_Error('rate_limited', 'Too many rebuild requests.', ['status'=>429]);
+        }
+        $tokens = SN_DB::table('message_search_tokens');
+        if ($wpdb->query('TRUNCATE TABLE ' . $tokens) === false) {
+            update_option(self::ERROR_OPTION, 'truncate_failed', false);
+            update_option(self::REBUILD_OPTION, true, false);
+            return new WP_Error('search_rebuild_failed', 'The search index could not be reset.', ['status'=>500]);
+        }
+        update_option('sn_message_search_backfill_after', 0, false);
+        update_option(self::EPOCH_OPTION, self::epoch(), false);
+        update_option(self::REBUILD_OPTION, true, false);
+        delete_option(self::ERROR_OPTION);
+        SN_DB::audit('message_search_rebuild_started', 'message_search', 0, 'success', ['mode'=>'manual-lossless'], $actor);
+
+        self::backfill();
+        self::finish_rebuild();
+        $error = (string)get_option(self::ERROR_OPTION, '');
+        if ($error !== '') {
+            return new WP_Error('search_rebuild_deferred', 'The private search rebuild encountered a row that could not be indexed and will retry without skipping it.', [
+                'status'=>503,
+                'reason'=>$error,
+                'backfill_after'=>(int)get_option('sn_message_search_backfill_after', 0),
+            ]);
+        }
+        return rest_ensure_response([
+            'rebuild_started'=>(bool)get_option(self::REBUILD_OPTION, false),
+            'rebuild_complete'=>!(bool)get_option(self::REBUILD_OPTION, false),
+            'backfill_after'=>(int)get_option('sn_message_search_backfill_after', 0),
+        ]);
     }
 
     public static function reconcile_epoch(): void {
