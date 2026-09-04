@@ -85,8 +85,9 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             // SN_DB core.
             'conversations','members','messages','reactions','contacts','follows','updates','update_views',
             'calls','call_members','signals','presence','typing','notifications','blocks','reports','attachments','rate_limits','audit_log',
-            // High-risk, spaces and presence devices.
-            'high_risk_actions','spaces','space_members','space_invites','space_join_requests','space_bans','space_audit','presence_devices',
+            // High-risk, spaces and presence devices. The spaces audit owner is
+            // SN_Spaces::audit_table() => SN_DB::table('space_governance').
+            'high_risk_actions','spaces','space_members','space_invites','space_join_requests','space_bans','space_governance','presence_devices',
             // Message organization, context, provider and receipts.
             'message_mentions','message_pins','message_stars','message_folders','message_folder_items','message_hides',
             'conversation_contexts','cf01_context_refs','conference_providers','message_receipts',
