@@ -150,20 +150,21 @@ final class SN_Two_Plan_Contract_Firewall {
             $data = self::response_data($response);
             $json = wp_json_encode($data);
             if (!is_string($json)) {
-                $wpdb->delete(self::table(), ['scope_key' => $scope_key], ['%s']);
+                self::mark_unreplayable($scope_key, 'response_encode_failed', $code);
                 return $response;
             }
             $cipher = SN_Communication_Crypto::encrypt($json, 'two-plan-idempotency|'.$scope_key);
             if (is_wp_error($cipher)) {
-                SN_DB::audit('idempotency_response_cache_failed', 'two_plan_idempotency', 0, 'failure', ['scope_hash' => hash('sha256', $scope_key)], get_current_user_id());
+                self::mark_unreplayable($scope_key, 'response_encrypt_failed', $code);
                 return $response;
             }
-            $wpdb->update(self::table(), [
+            $finalized = $wpdb->update(self::table(), [
                 'state' => 'complete',
                 'response_code' => $code,
                 'response_cipher' => $cipher,
                 'updated_at' => current_time('mysql', true),
-            ], ['scope_key' => $scope_key]);
+            ], ['scope_key' => $scope_key, 'state' => 'processing']);
+            if ($finalized !== 1) self::mark_unreplayable($scope_key, 'response_finalize_failed', $code);
         } else {
             $wpdb->delete(self::table(), ['scope_key' => $scope_key], ['%s']);
         }
@@ -172,6 +173,7 @@ final class SN_Two_Plan_Contract_Firewall {
 
     private static function existing_result(object $existing, string $request_hash, string $scope_key) {
         if (!hash_equals((string) $existing->request_hash, $request_hash)) return new WP_Error('sn_idempotency_key_reused', 'The same Idempotency-Key cannot be reused with a different request.', ['status' => 409]);
+        if ((string) $existing->state === 'unreplayable') return new WP_Error('sn_idempotency_replay_unavailable', 'The prior mutation completed but its response cannot be replayed safely.', ['status' => 503]);
         if ((string) $existing->state !== 'complete') return new WP_Error('sn_idempotency_in_progress', 'A request with this Idempotency-Key is already processing or requires reconciliation.', ['status' => 409]);
         $plain = SN_Communication_Crypto::decrypt((string) $existing->response_cipher, 'two-plan-idempotency|'.$scope_key);
         if (is_wp_error($plain)) return new WP_Error('sn_idempotency_replay_unavailable', 'The prior result cannot be replayed safely.', ['status' => 503]);
@@ -252,10 +254,25 @@ final class SN_Two_Plan_Contract_Firewall {
         return $response;
     }
 
+    private static function mark_unreplayable(string $scope_key, string $reason, int $response_code): void {
+        global $wpdb;
+        $changed = $wpdb->update(self::table(), [
+            'state' => 'unreplayable',
+            'response_code' => max(200, min(299, $response_code)),
+            'response_cipher' => '',
+            'updated_at' => current_time('mysql', true),
+        ], ['scope_key' => $scope_key, 'state' => 'processing']);
+        SN_DB::audit('idempotency_response_cache_failed', 'two_plan_idempotency', 0, 'failure', [
+            'scope_hash' => hash('sha256', $scope_key),
+            'reason' => $reason,
+            'terminal_state_published' => $changed === 1,
+        ], get_current_user_id());
+    }
+
     public static function cleanup(): void {
         global $wpdb;
         $cutoff = gmdate('Y-m-d H:i:s', time() - self::CACHE_TTL);
-        $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE state='complete' AND updated_at<%s LIMIT 500", $cutoff));
+        $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE state IN ('complete','unreplayable') AND updated_at<%s LIMIT 500", $cutoff));
     }
 
     public static function register_eraser(array $erasers): array {
@@ -270,8 +287,10 @@ final class SN_Two_Plan_Contract_Firewall {
         global $wpdb;
         $user = get_user_by('email', $email_address);
         if (!$user) return ['items_removed' => false, 'items_retained' => false, 'messages' => [], 'done' => true];
-        $removed = $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE actor_id=%d AND state='complete' LIMIT 100", (int) $user->ID));
-        return ['items_removed' => (int) $removed > 0, 'items_retained' => false, 'messages' => [], 'done' => (int) $removed < 100];
+        $removed = $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE actor_id=%d LIMIT 100", (int) $user->ID));
+        if ($removed === false) return ['items_removed' => false, 'items_retained' => true, 'messages' => ['The request cache could not be erased and will be retried.'], 'done' => false];
+        $remaining = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::table()." WHERE actor_id=%d", (int) $user->ID));
+        return ['items_removed' => $removed > 0, 'items_retained' => $remaining > 0, 'messages' => [], 'done' => $remaining === 0];
     }
 
     private static function table(): string { return SN_DB::table('two_plan_idempotency'); }
