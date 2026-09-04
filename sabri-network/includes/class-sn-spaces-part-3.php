@@ -8,7 +8,7 @@ trait SN_Spaces_Part_3 {
         $space_id=absint($request['id']);$target=absint($request['user_id']);$actor=get_current_user_id();$decision=sanitize_key((string)$request->get_param('decision'));
         if(!in_array($decision,['accept','reject'],true))return self::error('sn_join_decision_invalid','Select accept or reject.',400);
         if(!self::can_manage($space_id,$actor,'members'))return self::error('sn_space_manage_forbidden','Membership management permission is required.',403);
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return self::error('sn_space_transaction_failed','The space change could not start safely.',500);
         try{
             $space=self::space($space_id,true);if(!$space)throw new RuntimeException('space_missing');
             $request_row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::requests_table()." WHERE space_id=%d AND requester_id=%d AND status='pending' ORDER BY id DESC LIMIT 1 FOR UPDATE",$space_id,$target));
@@ -39,7 +39,7 @@ trait SN_Spaces_Part_3 {
         $role=self::enum((string)$request->get_param('role'),['editor','member','observer'],'member');
         $raw=wp_generate_uuid4().'.'.wp_generate_password(32,false,false);$hash=hash_hmac('sha256',$raw,wp_salt('auth'));
         $now=self::now();$expires=gmdate('Y-m-d H:i:s',time()+min(30*DAY_IN_SECONDS,max(HOUR_IN_SECONDS,absint($request->get_param('ttl'))?:7*DAY_IN_SECONDS)));
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return self::error('sn_space_transaction_failed','The space change could not start safely.',500);
         try{
             $space=self::space($space_id,true);$elig=self::join_eligibility($space,$invitee,true);if(is_wp_error($elig)){$wpdb->query('ROLLBACK');return $elig;}
             $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::invites_table()." WHERE space_id=%d AND invitee_id=%d AND status='pending' ORDER BY id DESC LIMIT 1 FOR UPDATE",$space_id,$invitee));
