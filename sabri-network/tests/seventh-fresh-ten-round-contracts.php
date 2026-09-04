@@ -13,6 +13,7 @@ $m=$read('includes/class-sn-membership-assertions.php');
 $msg=$read('includes/class-sn-message-runtime-hardening.php');
 $attach=$read('includes/class-sn-attachment-runtime-hardening.php');
 $smailFinal=$read('includes/class-sn-fourth-fresh-smail-hardening.php');
+$smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');
 $voiceFinal=$read('includes/class-sn-fifth-fresh-feature-hardening.php');
 $callRuntime=$read('includes/class-sn-call-runtime-hardening.php');
 $privacyFinal=$read('includes/class-sn-sixth-fresh-privacy-hardening.php');
@@ -62,6 +63,8 @@ $check(str_contains($admin,"esc_html__('Sabri Network repair failed', 'sabri-net
 $check(str_contains($searchHardening,"add_action('rest_api_init', [self::class, 'override_routes'], 2300)")&&str_contains($searchHardening,"'/admin/message-search/rebuild'")&&str_contains($searchHardening,"'callback'=>[self::class, 'rebuild']"),'Fresh R3: final administrator search-rebuild route must be owned by the lossless search hardening layer.');
 $check(str_contains($searchHardening,"update_option(self::REBUILD_OPTION, true, false)")&&str_contains($searchHardening,"update_option(self::ERROR_OPTION")&&str_contains($searchHardening,"return new WP_Error('search_rebuild_deferred'"),'Fresh R3: manual rebuild must publish fail-closed rebuild/error state and defer rather than skip an unindexable row.');
 $check(str_contains($searchHardening,"self::backfill();")&&str_contains($searchHardening,"self::finish_rebuild();")&&!str_contains($searchHardening,'SN_Message_Search::backfill();'),'Fresh R3: manual/final rebuild must stay on the monotonic hardening owner and never delegate to the lossy legacy backfill.');
+$check(str_contains($smailRuntime,'private static function same_send_request')&&substr_count($smailRuntime,'self::same_send_request(')>=3,'Fresh R4: every Smail duplicate/race reconciliation path must prove exact recipients, subject and body before returning success.');
+$check(str_contains($smailRuntime,"new WP_Error('smail_idempotency_conflict'")&&str_contains($smailRuntime,"SELECT user_id FROM '.SN_DB::table('smail_states')")&&str_contains($smailRuntime,'SN_Message_Body::decrypt_row($message)'),'Fresh R4: Smail request identity must be reconstructed from committed recipient state and canonical body and conflict explicitly on mismatch.');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
 $check(str_contains($readme,'54 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
