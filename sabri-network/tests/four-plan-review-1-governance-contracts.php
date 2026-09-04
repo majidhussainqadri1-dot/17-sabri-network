@@ -3,6 +3,8 @@ declare(strict_types=1);
 $root=dirname(__DIR__);$main=file_get_contents($root.'/sabri-network.php');$hard=file_get_contents($root.'/includes/class-sn-central-plan-hardening.php');$css=file_get_contents($root.'/assets/css/brand-green-overrides.css');$fails=[];$checks=0;
 $spaces='';for($i=1;$i<=6;$i++)$spaces.=(string)file_get_contents($root.'/includes/class-sn-spaces-part-'.$i.'.php');
 $firewall=(string)file_get_contents($root.'/includes/class-sn-two-plan-contract-firewall.php');
+$nextOps=(string)file_get_contents($root.'/includes/class-sn-next-message-operations-hardening.php');
+$loader=(string)file_get_contents($root.'/includes/class-sn-future24-review-hardening.php');
 function fpr1(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 fpr1(str_contains($main,"'notification_owner' => 'file-19'"),'File 19 is declared as the sole notification owner.');
 fpr1(str_contains($main,"'legacy_file17_notification_center' => false"),'File 17 declares no active notification center.');
@@ -21,4 +23,8 @@ fpr1(str_contains($firewall,"'state' => 'unreplayable'")&&substr_count($firewall
 fpr1(str_contains($firewall,"if (\$finalized !== 1) self::mark_unreplayable")&&str_contains($firewall,"['scope_key' => \$scope_key, 'state' => 'processing']"),'Next R3: idempotency completion persistence must be checked and transition only from the owned processing state.');
 fpr1(str_contains($firewall,"\$existing->state === 'unreplayable'")&&str_contains($firewall,"sn_idempotency_replay_unavailable"),'Next R3: unreplayable completed mutations must fail closed on replay instead of executing again.');
 fpr1(str_contains($firewall,"state IN ('complete','unreplayable')")&&!str_contains($firewall,"actor_id=%d AND state='complete'")&&str_contains($firewall,'SELECT COUNT(*) FROM '),'Next R3: cleanup and privacy erasure must cover terminal/relevant actor-owned idempotency rows and publish remaining-row truth.');
+fpr1(str_contains($loader,"class-sn-next-message-operations-hardening.php")&&str_contains($loader,'SN_Next_Message_Operations_Hardening::register()'),'Next R4: final message-organization hardening must be loaded and registered.');
+fpr1(str_contains($nextOps,"add_action('rest_api_init', [self::class, 'override_routes'], 2350)")&&str_contains($nextOps,"'/messages/(?P<id>\\d+)/mentions'")&&str_contains($nextOps,"'/message-folders/(?P<id>\\d+)'"),'Next R4: the hardened owner must replace active mentions/folder-delete routes after the legacy route registration.');
+fpr1(str_contains($nextOps,'sn_mentions_transaction_failed')&&str_contains($nextOps,"SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d FOR UPDATE")&&substr_count($nextOps,'SN_DB::is_member((int) $message->conversation_id')>=2&&str_contains($nextOps,'SN_DB::is_blocked($actor, $user)'),'Next R4: mentions must fail closed on transaction start and revalidate locked source, actor/target membership and block authority before mutation.');
+fpr1(str_contains($nextOps,'sn_folder_transaction_failed')&&str_contains($nextOps,"SELECT id FROM '.SN_DB::table('message_folders').' WHERE id=%d AND user_id=%d FOR UPDATE"),'Next R4: final folder deletion must prove its transaction and lock current folder ownership before deletes.');
 if($fails){fwrite(STDERR,"Four-plan review 1 failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Four-plan review 1 governance: PASS ($checks checks)\n";
