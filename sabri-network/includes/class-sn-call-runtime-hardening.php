@@ -13,9 +13,37 @@ final class SN_Call_Runtime_Hardening {
     }
 
     public static function override_routes(): void {
+        register_rest_route('sabri-network/v2', '/meetings', [
+            ['methods'=>'GET','callback'=>[SN_Meet::class,'list_meetings'],'permission_callback'=>[SN_Meet::class,'access']],
+            ['methods'=>'POST','callback'=>[self::class,'create_meeting'],'permission_callback'=>[SN_Meet::class,'access']],
+        ], true);
         register_rest_route('sabri-network/v2', '/calls/(?P<id>\d+)/media-credentials', [
             'methods' => 'POST', 'callback' => [self::class, 'issue_credentials'], 'permission_callback' => [SN_REST::class, 'access'],
         ], true);
+    }
+
+    /** Preserve caller-owned Meet idempotency semantics by proving an existing key is the same normalized request. */
+    public static function create_meeting(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $user = get_current_user_id();
+        $raw_key = trim((string) ($request->get_header('X-Idempotency-Key') ?: $request->get_param('idempotency_key')));
+        if (!preg_match('/^[A-Za-z0-9._:-]{16,128}$/', $raw_key)) {
+            return new WP_Error('idempotency_key_required', 'A valid idempotency key is required.', ['status'=>400]);
+        }
+        $request_key = hash_hmac('sha256', $user . ':' . $raw_key, wp_salt('nonce'));
+        $existing = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}sn_meet_meetings WHERE host_id=%d AND idempotency_key=%s LIMIT 1",
+            $user,
+            $request_key
+        ));
+        if ($existing) {
+            $same = self::same_meeting_create_request($existing, $request, $user);
+            if (is_wp_error($same)) return $same;
+            if ($same !== true) {
+                return new WP_Error('sn_meet_idempotency_conflict', 'This meeting idempotency key was already used for different meeting parameters.', ['status'=>409]);
+            }
+        }
+        return SN_Meet::create_meeting($request);
     }
 
     public static function issue_credentials(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -118,6 +146,12 @@ final class SN_Call_Runtime_Hardening {
                     : new WP_Error('sn_call_eligibility_denied', 'Current File 00 communication eligibility does not permit this call action.', ['status'=>403]);
             }
         }
+        $target_eligibility = self::positive_target_call_eligibility($route, $request);
+        if (is_wp_error($target_eligibility)) {
+            self::release($held);
+            $request->set_param('_sn_call_runtime_locks', []);
+            return $target_eligibility;
+        }
         return $result;
     }
 
@@ -171,6 +205,63 @@ final class SN_Call_Runtime_Hardening {
         if (preg_match('#^/sabri-network/v2/calls/\d+/(?:signals|media-credentials|hand-raise|speaker-queue|breakouts|host-transfer|network-quality)#', $route)) return true;
         if (preg_match('#^/sabri-network/v2/meetings/[A-Za-z0-9_-]{22,64}/(?:join|heartbeat|invite|moderate|signals)#', $route)) return true;
         return false;
+    }
+
+    /** Positive moderator transitions must not grant call authority to a target whose File-00 state has changed. */
+    private static function positive_target_call_eligibility(string $route, WP_REST_Request $request): bool|WP_Error {
+        if (!preg_match('#^/sabri-network/v2/meetings/[A-Za-z0-9_-]{22,64}/moderate$#', $route)) return true;
+        $action = sanitize_key((string)$request->get_param('action'));
+        if (!in_array($action, ['admit','promote'], true)) return true;
+        $target = absint($request->get_param('user_id'));
+        if ($target <= 0) return true; // Canonical moderation owns invalid-target response shaping.
+        SN_Membership_Assertions::clear_cache($target);
+        $assertion = SN_Membership_Assertions::communication($target);
+        if (is_wp_error($assertion)) return $assertion;
+        if (($assertion['eligible'] ?? false) !== true || ($assertion['can_call'] ?? false) !== true || ($assertion['suspended'] ?? true) === true) {
+            return new WP_Error('sn_call_target_eligibility_denied', 'The target account is no longer eligible for this positive meeting transition.', ['status'=>403]);
+        }
+        return true;
+    }
+
+    /** Compare every stable caller-controlled create field that can be reconstructed from the committed meeting. */
+    private static function same_meeting_create_request(object $meeting, WP_REST_Request $request, int $user): bool|WP_Error {
+        $title = trim(sanitize_text_field((string)$request->get_param('title')));
+        $description = trim(sanitize_textarea_field((string)$request->get_param('description')));
+        if ($title === '' || mb_strlen($title) > 191) return new WP_Error('invalid_meeting_title', 'Enter a meeting title of 1 to 191 characters.', ['status'=>400]);
+        if (mb_strlen($description) > 2000) return new WP_Error('invalid_meeting_description', 'The meeting description is too long.', ['status'=>400]);
+        $conversation = absint($request->get_param('conversation_id'));
+        $access = $conversation > 0 && sanitize_key((string)$request->get_param('access_mode')) === 'conversation' ? 'conversation' : 'invited';
+        if ($request->has_param('lobby_enabled') && !is_bool($request->get_param('lobby_enabled'))) {
+            return new WP_Error('invalid_boolean', 'Boolean meeting settings must use JSON true or false.', ['status'=>400]);
+        }
+        $lobby = $request->has_param('lobby_enabled') ? (bool)$request->get_param('lobby_enabled') : true;
+        $max = max(2, min(500, (int)apply_filters('sn_network_meet_max_participants', 100, $user)));
+        $requested_limit = absint($request->get_param('participant_limit'));
+        $limit = min($max, max(2, $requested_limit ?: min(100, $max)));
+        if ((string)$meeting->title !== $title || (string)$meeting->description !== $description
+            || (int)$meeting->conversation_id !== $conversation || (string)$meeting->access_mode !== $access
+            || (bool)$meeting->lobby_enabled !== $lobby || (int)$meeting->participant_limit !== $limit) return false;
+        foreach (['scheduled_start','scheduled_end'] as $field) {
+            if (!$request->has_param($field)) continue;
+            $value = trim((string)$request->get_param($field));
+            if ($value === '') {
+                if ($field === 'scheduled_end' && $meeting->$field !== null && (string)$meeting->$field !== '') return false;
+                continue;
+            }
+            $parsed = self::parse_exact_utc($value);
+            if (is_wp_error($parsed)) return $parsed;
+            if ((string)$meeting->$field !== $parsed) return false;
+        }
+        return true;
+    }
+
+    private static function parse_exact_utc(string $value): string|WP_Error {
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s\Z', $value, new DateTimeZone('UTC'));
+        $errors = DateTimeImmutable::getLastErrors();
+        if (!$date || ($errors !== false && ((int)$errors['warning_count'] > 0 || (int)$errors['error_count'] > 0)) || $date->format('Y-m-d\TH:i:s\Z') !== $value) {
+            return new WP_Error('invalid_meeting_datetime', 'Meeting dates must use exact UTC ISO-8601 format.', ['status'=>400]);
+        }
+        return $date->format('Y-m-d H:i:s');
     }
 
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:' . substr(hash('sha256',(string)$id),0,32); }
