@@ -35,6 +35,6 @@ final class SN_Fifth_Fresh_UI_Hardening {
         if ((int)get_query_var('sn_network_app') === 1) return true;
         if ((int)get_query_var('sn_messages_app') === 1) return true;
         if ((string)get_query_var('sn_meet_app') !== '') return true;
-        return isset($_GET['sn-network-safe']);
+        return false;
     }
 }
