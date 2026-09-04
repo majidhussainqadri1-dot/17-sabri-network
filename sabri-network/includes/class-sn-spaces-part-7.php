@@ -64,8 +64,24 @@ trait SN_Spaces_Part_7 {
         return ['items_removed'=>$removed,'items_retained'=>false,'messages'=>[],'done'=>!$more_members&&!$more_invites&&!$more_requests];
     }
 
+    /** Revalidate the target against File-00 at the actual space mutation boundary. */
+    private static function communication_eligible(int $user): bool|WP_Error {
+        if($user<=0||!get_user_by('id',$user))return self::error('sn_space_member_invalid','The target account is unavailable.',404);
+        SN_Membership_Assertions::clear_cache($user);
+        $assertion=SN_Membership_Assertions::communication($user);
+        if(is_wp_error($assertion)){
+            $data=$assertion->get_error_data();$status=is_array($data)?(int)($data['status']??503):503;
+            return self::error('sn_space_identity_unavailable','Current File-00 communication eligibility could not be verified.',$status>=500?503:403);
+        }
+        if(($assertion['eligible']??false)!==true||($assertion['can_message']??false)!==true||($assertion['suspended']??true)===true){
+            return self::error('sn_space_member_ineligible','The target account is not currently eligible for File-17 communication.',403);
+        }
+        return true;
+    }
+
     private static function join_eligibility(?object $space,int $user,bool $invited=false): bool|WP_Error {
         if(!$space)return self::error('sn_space_not_found','The space is unavailable.',404);
+        $identity=self::communication_eligible($user);if(is_wp_error($identity))return $identity;
         if(!in_array((string)$space->state,['active','restricted'],true))return self::error('sn_space_not_joinable','This space is not accepting memberships.',409);
         if(self::active_until((string)$space->anti_raid_until)&&!$invited)return self::error('sn_space_anti_raid_join_pause','New joins are temporarily paused.',409);
         if(self::is_banned((int)$space->id,$user)||SN_Policy::is_suspended($user))return self::error('sn_space_member_unavailable','This account cannot join the space.',403);
