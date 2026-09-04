@@ -29,7 +29,7 @@ trait SN_Spaces_Part_1 {
         $slug_base = sanitize_title((string) $request->get_param('slug')) ?: sanitize_title($name);
         $slug = self::unique_slug($slug_base);
         $now = self::now();
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return self::error('sn_space_transaction_failed','The space change could not start safely.',500);
         try {
             $ok = $wpdb->insert(self::spaces_table(), [
                 'public_id'=>wp_generate_uuid4(),'parent_id'=>$parent_id,'owner_user_id'=>$actor,
