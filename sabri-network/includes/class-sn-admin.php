@@ -20,10 +20,25 @@ final class SN_Admin {
         }
         check_admin_referer('sn_repair_network');
         SN_Activator::retire_legacy_secrets();
-        SN_DB::install();
-        SN_Private_Files::ensure_storage();
-        SN_Activator::ensure_network_page(true);
-        update_option('sn_plugin_version', SN_VERSION, false);
+        $migration = SN_Fifth_Fresh_Migration_Hardening::upgrade(true);
+        if (is_wp_error($migration)) {
+            wp_die(
+                esc_html($migration->get_error_message()),
+                esc_html__('Sabri Network repair failed', 'sabri-network'),
+                ['response' => 503]
+            );
+        }
+        if (!SN_Private_Files::ensure_storage()) {
+            wp_die(esc_html__('File 17 private storage could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
+        }
+        if (SN_Activator::ensure_network_page(true) <= 0) {
+            wp_die(esc_html__('The File 17 Network page could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
+        }
+        SN_Messages::ensure_pages(true);
+        SN_File_Transfer::ensure_page(true);
+        SN_Smail::ensure_page(true);
+        SN_Messages::mark_routes_current();
+        SN_Activator::ensure_cleanup_schedule();
         if (function_exists('wp_cache_flush')) {
             wp_cache_flush();
         }
