@@ -17,6 +17,7 @@ $smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');
 $voiceFinal=$read('includes/class-sn-fifth-fresh-feature-hardening.php');
 $callRuntime=$read('includes/class-sn-call-runtime-hardening.php');
 $privacyFinal=$read('includes/class-sn-sixth-fresh-privacy-hardening.php');
+$privacyFifth=$read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 $migration=$read('includes/class-sn-fifth-fresh-migration-hardening.php');
 $admin=$read('includes/class-sn-admin.php');
 $searchHardening=$read('includes/class-sn-fourth-fresh-search-hardening.php');
@@ -78,6 +79,9 @@ $check(str_contains($callRuntime,"['methods'=>'POST','callback'=>[self::class,'c
 $check(str_contains($callRuntime,"new WP_Error('sn_meet_idempotency_conflict'")&&str_contains($callRuntime,"'scheduled_start','scheduled_end'")&&str_contains($callRuntime,'participant_limit'),'Fresh R6: a reused Meet idempotency key must conflict when stable caller-controlled meeting parameters differ.');
 $check(str_contains($callRuntime,'private static function positive_target_call_eligibility')&&str_contains($callRuntime,"['admit','promote']")&&str_contains($callRuntime,"(\$assertion['eligible'] ?? false) !== true")&&str_contains($callRuntime,"(\$assertion['can_call'] ?? false) !== true"),'Fresh R6: positive meeting target transitions must refresh File-00 eligible/can_call state under the call lock.');
 $check(!str_contains($callRuntime,"['admit','promote','deny'")&&!str_contains($callRuntime,"['admit','promote','remove'"),'Fresh R6: safety/exit moderation transitions must remain available even when target call eligibility is lost.');
+$check(str_contains($privacyFinal,'$remaining_versions = (int) $wpdb->get_var')&&str_contains($privacyFinal,'$retained_any = $retained > 0 || $remaining_versions > 0;')&&str_contains($privacyFinal,"'items_retained'=>\$retained_any"),'Fresh R7: final Future erasure receipt must derive retained truth from committed remaining message-version rows.');
+$check(str_contains($privacyFifth,'SELECT id FROM $states WHERE user_id=%d ORDER BY id ASC LIMIT %d')&&str_contains($privacyFifth,'SELECT id FROM $drafts WHERE owner_id=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d')&&substr_count($privacyFifth,'self::BATCH')>=4,'Fresh R7: final Smail eraser must process bounded state/draft batches rather than an unbounded account-wide mutation.');
+$check(str_contains($privacyFifth,'$more_states')&&str_contains($privacyFifth,'$more_drafts')&&str_contains($privacyFifth,"'done'=>!\$more_states&&!\$more_drafts"),'Fresh R7: Smail privacy completion must remain retryable until both bounded domains are exhausted.');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
 $check(str_contains($readme,'54 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
