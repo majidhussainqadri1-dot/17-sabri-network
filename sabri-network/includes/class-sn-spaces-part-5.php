@@ -7,7 +7,7 @@ trait SN_Spaces_Part_5 {
         global $wpdb;
         $space_id=absint($request['id']);$target=absint($request['user_id']);$actor=get_current_user_id();$action=sanitize_key((string)$request->get_param('action'))?:'role';$now=self::now();
         if(!self::can_manage($space_id,$actor,'members'))return self::error('sn_space_manage_forbidden','Membership management permission is required.',403);
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return self::error('sn_space_transaction_failed','The space change could not start safely.',500);
         try{
             $space=self::space($space_id,true);$actor_member=self::member($space_id,$actor,true);$target_member=self::member($space_id,$target,true);
             if(!$space||!$actor_member||!$target_member){$wpdb->query('ROLLBACK');return self::error('sn_space_membership_missing','The membership is unavailable.',404);}
@@ -55,7 +55,7 @@ trait SN_Spaces_Part_5 {
             return rest_ensure_response(['status'=>'revoked']);
         }
         $expiry=self::future_or_null((string)$request->get_param('expires_at'),365*DAY_IN_SECONDS);if(is_wp_error($expiry))return $expiry;
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return self::error('sn_space_transaction_failed','The space change could not start safely.',500);
         try{
             $data=['status'=>'active','reason'=>self::text((string)$request->get_param('reason'),500),'banned_by'=>$actor,'expires_at'=>$expiry,'updated_at'=>$now];
             if($existing){$data['version']=(int)$existing->version+1;$ok=$wpdb->update(self::bans_table(),$data,['id'=>(int)$existing->id,'version'=>(int)$existing->version]);if($ok!==1)throw new RuntimeException('ban_conflict');}
