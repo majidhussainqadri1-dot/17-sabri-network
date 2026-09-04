@@ -91,10 +91,18 @@ final class SN_Sixth_Fresh_Privacy_Hardening {
             "SELECT 1 FROM $records WHERE owner_id=%d AND feature_id NOT IN ('F17-FUT-03','F17-FUT-24') AND state NOT IN ('deleted','erased') LIMIT 1",
             $uid
         ));
+        // A prior scan page may have advanced beyond held rows. Query the committed
+        // remainder directly so the final privacy receipt never claims that nothing
+        // was retained while lawfully held message-version evidence still exists.
+        $remaining_versions = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $versions v INNER JOIN $messages m ON m.id=v.message_id WHERE m.sender_id=%d",
+            $uid
+        ));
+        $retained_any = $retained > 0 || $remaining_versions > 0;
         return [
             'items_removed'=>$removed>0,
-            'items_retained'=>$retained>0,
-            'messages'=>$retained>0 ? ['Governed key-transparency/interoperability or held integrity evidence was retained.'] : [],
+            'items_retained'=>$retained_any,
+            'messages'=>$retained_any ? ['Governed key-transparency/interoperability or held integrity evidence was retained.'] : [],
             'done'=>!$more_records && !$more_versions,
         ];
     }
