@@ -52,6 +52,17 @@ The later `fifth-fresh-ui.js` accessibility layer attempts to solve modal focus 
 
 **Required correction:** replace the historical-SHA requirement with semantic guards for the current 4-September cycle/branch, absence of stale current-branch claims, exact inventory truth, canonical UI surface detection and active modal focus restoration.
 
-## Correction gate
+## Corrections applied after ledger freeze
 
-The 10-round cycle is not complete until all four frozen defects are corrected, permanent regression coverage passes and the resulting exact branch HEAD has green PHP 8.1 and PHP 8.3/full-quality deterministic-package CI. No Round-10 source correction began before this ledger freeze.
+- **R10-D01:** reconciled `README.md`, `STATUS.md`, `CODING-COMPLETENESS.md`, installable `readme.txt`, `CHANGELOG.md` and `CURRENT-CANDIDATE-BOUNDARY.txt` to the 4-September branch/cycle. They now record R1–R10 as defect-bearing, preserve the 54-PHP/10-JS executable inventory and explicitly classify prior candidate `f832f7b2...` as historical evidence only. No tracked document claims a self-referential final SHA as current proof.
+- **R10-D02:** removed the raw `$_GET['sn-network-safe']` surface heuristic. Final File-17 UI assets now rely on owned page IDs plus canonical registered `sn_network_app`, `sn_messages_app` and `sn_meet_app` query truth.
+- **R10-D03:** rebound accessibility hardening to the active `#sntp-modal` / `[data-sntp-close]` implementation, capture the invoking control before the dynamic modal opens, and restore focus after button/backdrop/Escape or programmatic modal removal while retaining message-search ARIA synchronization.
+- **R10-D04:** the prior SHA is no longer permitted to function as current release proof. It remains only as explicitly labelled historical evidence so older historical-presence contracts remain compatible, while stronger current-cycle semantic guards in `fifth-fresh-release-truth-contracts.php` require the current branch, all-ten-round result, 54/10 inventory, absence of the stale prior branch, canonical UI surface ownership and active modal focus restoration. This removes the historical pin's ability to block or masquerade as current candidate truth without adding another test file.
+
+## Regression state
+
+No new PHP test file was added, so the executable inventory remains **54 PHP review suites** and **10 JavaScript syntax entry points**. Current-cycle permanent guards were added to the already-governed release-truth suite.
+
+## Final correction gate
+
+All four frozen R10 defects have repository corrections. The cycle reaches repository-reviewed closure only after the resulting exact branch HEAD receives green PHP 8.1 current-boundary CI and green PHP 8.3 full-quality/deterministic-package CI. Exact-head CI is pending for the ledger-inclusive correction HEAD.
