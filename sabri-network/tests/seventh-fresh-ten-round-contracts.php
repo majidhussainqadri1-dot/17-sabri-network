@@ -18,6 +18,7 @@ $callRuntime=$read('includes/class-sn-call-runtime-hardening.php');
 $privacyFinal=$read('includes/class-sn-sixth-fresh-privacy-hardening.php');
 $migration=$read('includes/class-sn-fifth-fresh-migration-hardening.php');
 $admin=$read('includes/class-sn-admin.php');
+$searchHardening=$read('includes/class-sn-fourth-fresh-search-hardening.php');
 $readme=$read('readme.txt');
 $changelog=$read('CHANGELOG.md');
 $repoReadme=$readRepo('README.md');
@@ -58,6 +59,9 @@ $check(str_contains($migration,"'completion_path'=>'post-lock-fast-path'")&&str_
 $check(str_contains($migration,"'sn_message_receipts_schema_version'")&&!str_contains($migration,"'sn_conference_provider_schema_version','sn_messages_schema_version'"),'Fresh R1: migration rollback snapshot must track the actual Messages receipt schema-version option rather than the obsolete key.');
 $check(str_contains($admin,'SN_Fifth_Fresh_Migration_Hardening::upgrade(true)')&&!str_contains($admin,'SN_DB::install();')&&!str_contains($admin,"update_option('sn_plugin_version', SN_VERSION"),'Fresh R2: administrator repair must use the governed full migration and must not publish plugin-version truth independently.');
 $check(str_contains($admin,"esc_html__('Sabri Network repair failed', 'sabri-network')")&&str_contains($admin,"['response' => 503]"),'Fresh R2: governed repair migration failure must fail closed instead of reporting success.');
+$check(str_contains($searchHardening,"add_action('rest_api_init', [self::class, 'override_routes'], 2300)")&&str_contains($searchHardening,"'/admin/message-search/rebuild'")&&str_contains($searchHardening,"'callback'=>[self::class, 'rebuild']"),'Fresh R3: final administrator search-rebuild route must be owned by the lossless search hardening layer.');
+$check(str_contains($searchHardening,"update_option(self::REBUILD_OPTION, true, false)")&&str_contains($searchHardening,"update_option(self::ERROR_OPTION")&&str_contains($searchHardening,"return new WP_Error('search_rebuild_deferred'"),'Fresh R3: manual rebuild must publish fail-closed rebuild/error state and defer rather than skip an unindexable row.');
+$check(str_contains($searchHardening,"self::backfill();")&&str_contains($searchHardening,"self::finish_rebuild();")&&!str_contains($searchHardening,'SN_Message_Search::backfill();'),'Fresh R3: manual/final rebuild must stay on the monotonic hardening owner and never delegate to the lossy legacy backfill.');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
 $check(str_contains($readme,'54 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
