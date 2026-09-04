@@ -22,6 +22,9 @@ trait SN_Spaces_Part_5 {
                 if($wpdb->query('COMMIT')===false)throw new RuntimeException('space_member_remove_commit_failed');
                 return rest_ensure_response(['status'=>'removed']);
             }
+            // Positive privilege changes must never revive/promote an account whose
+            // current File-00 communication assertion is no longer eligible.
+            $identity=self::communication_eligible($target);if(is_wp_error($identity)){$wpdb->query('ROLLBACK');return $identity;}
             $role=self::enum((string)$request->get_param('role'),self::ROLES,'member');
             if($role==='owner'){$wpdb->query('ROLLBACK');return self::error('sn_space_owner_transfer_required','Use the protected ownership transfer workflow.',409);}
             if(self::ROLE_RANK[$role]>=self::ROLE_RANK[(string)$actor_member->role]){$wpdb->query('ROLLBACK');return self::error('sn_space_role_escalation_forbidden','A manager cannot assign an equal or higher role.',403);}
