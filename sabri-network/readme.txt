@@ -16,7 +16,7 @@ Identity/authentication/verification remain File 00/File 02 authority. File 19 o
 Private message bodies use authenticated server-side encryption at rest, not an audited E2EE claim. Durable File-17 ciphertext uses a dedicated communication master secret. Provider-dependent translation, AI, interoperability and real STUN/TURN/SFU remain fail-closed until approved adapters and separate staging acceptance exist.
 
 == Latest fresh 10-round review cycle ==
-The 4 September 2026 cycle on `review/file17-fresh-10-round-2026-09-04` completed all ten rounds with Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round discipline. Defect-bearing rounds were R1, R2, R3, R4, R5, R6, R7, R8, R9 and R10; there were no clean rounds in this cycle.
+The 4 September 2026 cycle on `review/file17-fresh-10-round-2026-09-04` completed all ten rounds with Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round discipline. Defect-bearing rounds were R1, R2, R3, R4, R5, R6, R7, R8, R9, R10; there were no clean rounds in this cycle.
 
 The previous seventh-fresh reviewed source candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remains historical evidence only. A prior green SHA is never reused as proof for a changed HEAD; exact automated-QA/package truth belongs only to the workflow attached to the exact current branch commit.
 
