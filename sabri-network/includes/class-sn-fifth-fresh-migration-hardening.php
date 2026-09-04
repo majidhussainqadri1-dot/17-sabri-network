@@ -37,7 +37,17 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         $from = (string)get_option('sn_plugin_version','');
         update_option(self::STATE_OPTION, ['status'=>'running','from'=>$from,'to'=>SN_VERSION,'started_at'=>gmdate('c')], false);
         try {
-            if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) return true;
+            if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) {
+                // Another request may have completed the migration while this request
+                // waited for the global lock. Never leave operational migration truth
+                // stuck at "running" on this verified post-lock fast path.
+                update_option(self::STATE_OPTION, [
+                    'status'=>'complete','from'=>$from,'to'=>SN_VERSION,'completed_at'=>gmdate('c'),
+                    'verification'=>'all-governed-installer-tables-plus-critical-columns-pass',
+                    'completion_path'=>'post-lock-fast-path',
+                ], false);
+                return true;
+            }
             self::preserve_legacy_otp_table();
             foreach (self::installers() as [$class,$method]) {
                 $wpdb->last_error = '';
@@ -172,7 +182,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         $keys = [
             'sn_plugin_version','sn_db_version','sn_high_risk_schema_version','sn_spaces_schema_version',
             'sn_presence_devices_schema_version','sn_message_operations_schema_version','sn_context_adapters_schema_version',
-            'sn_cf01_context_schema_version','sn_conference_provider_schema_version','sn_messages_schema_version',
+            'sn_cf01_context_schema_version','sn_conference_provider_schema_version','sn_message_receipts_schema_version',
             'sn_file_transfer_schema_version','sn_smail_schema_version','sn_message_search_schema_version',
             'sn_event_delivery_schema_version','sn_meet_db_version','sn_meet_schema_version','sn_two_plan_schema_version','sn_future_schema_version',
             'sn_future_superset_schema_version','sn_central_plan_schema_version',
