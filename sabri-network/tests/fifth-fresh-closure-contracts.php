@@ -70,4 +70,21 @@ $erasePos=strpos($twoPlan,"'attachment_source'=>'expired'",$holdPos===false?0:$h
 $check($holdPos!==false&&$erasePos!==false&&$holdPos<$erasePos&&str_contains($twoPlan,'SELECT * FROM $messages WHERE id=%d FOR UPDATE'),'Another R4: expiry worker must re-read locked message/hold truth before destructive expiry.');
 $check(str_contains($safetyRuntime,"sn:f17:message-retention:")&&str_contains($safetyRuntime,"_sn_safety_retention_lock")&&str_contains($safetyRuntime,"SELECT RELEASE_LOCK(%s)"),'Another R4: report/legal-hold mutation guard must share and release the message-retention lock namespace.');
 
+
+// Another fresh Round 5 — transfer privacy/integrity must fail closed.
+$transfer2=(string)file_get_contents($root.'/includes/class-sn-file-transfer-part-2.php');
+$transfer5=(string)file_get_contents($root.'/includes/class-sn-file-transfer-part-5.php');
+$transfer6=(string)file_get_contents($root.'/includes/class-sn-file-transfer-part-6.php');
+$transfer7=(string)file_get_contents($root.'/includes/class-sn-file-transfer-part-7.php');
+$transfer8=(string)file_get_contents($root.'/includes/class-sn-file-transfer-part-8.php');
+$check(str_contains($transfer2,'transfer_volume_read_failed')&&str_contains($transfer2,'$wpdb->last_error !== \'\' || $used_raw === null'),'Another R5: daily transfer-volume truth must fail closed on database read failure.');
+$check(str_contains($transfer6,'recipient_ids_authoritative')&&str_contains($transfer6,'transfer_recipient_ledger_unavailable')&&str_contains($transfer6,'if(is_wp_error($recipients))return $recipients;'),'Another R5: sender authorization must fail closed when the authoritative recipient ledger cannot be read.');
+$check(str_contains($transfer7,'file_transfer_chunk_ledger_read_failed')&&str_contains($transfer7,'$wpdb->last_error!==\'\'||!is_array($rows)'),'Another R5: encrypted chunk cleanup must not treat a failed ledger read as successful deletion.');
+$check(str_contains($transfer8,'private static function privacy_read_retry')&&substr_count($transfer8,'$wpdb->last_error!==\'\'')>=5&&str_contains($transfer8,"'done'=>false"),'Another R5: transfer privacy batch/completion reads must remain retryable on database failure.');
+$preflight=strpos($transfer5,'file_transfer_download_preflight_failed');
+$successHeader=strpos($transfer5,'status_header($status)');
+$firstEcho=strpos($transfer5,'echo $slice');
+$check($preflight!==false&&$successHeader!==false&&$firstEcho!==false&&$preflight<$successHeader&&$successHeader<$firstEcho,'Another R5: encrypted download integrity preflight must complete before a success envelope or plaintext body is emitted.');
+$check(str_contains($transfer5,'count($chunks)!==(int)$row->total_chunks')&&str_contains($transfer5,'if($offset!==$total)')&&substr_count($transfer5,'hash_equals((string)$chunk->sha256')>=2,'Another R5: download preflight must prove complete sequence, byte coverage and chunk hashes before streaming.');
+
 if($fail){fwrite(STDERR,"Fifth fresh closure failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fifth fresh closure contracts: PASS ($checks checks)\n";
