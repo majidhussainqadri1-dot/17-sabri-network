@@ -99,7 +99,11 @@ final class SN_Policy {
         if (self::is_suspended($actor_id) || self::is_suspended($target_id)) {
             return new WP_Error('contact_unavailable', 'This Network member is unavailable.', ['status' => 403]);
         }
-        if (SN_DB::is_blocked($actor_id, $target_id)) {
+        $blocked = SN_DB::blocked_state($actor_id, $target_id);
+        if (is_wp_error($blocked)) {
+            return $blocked;
+        }
+        if ($blocked) {
             return new WP_Error('blocked', 'This Network connection is unavailable.', ['status' => 403]);
         }
         $actor_age_state = self::age_state($actor_id);
@@ -147,7 +151,11 @@ final class SN_Policy {
         if (self::is_suspended($actor_id) || self::is_suspended($target_id)) {
             return new WP_Error('follow_unavailable', 'This Network member is unavailable.', ['status' => 403]);
         }
-        if (SN_DB::is_blocked($actor_id, $target_id)) {
+        $blocked = SN_DB::blocked_state($actor_id, $target_id);
+        if (is_wp_error($blocked)) {
+            return $blocked;
+        }
+        if ($blocked) {
             return new WP_Error('blocked', 'This Network connection is unavailable.', ['status' => 403]);
         }
         $actor_age = self::age_state($actor_id);

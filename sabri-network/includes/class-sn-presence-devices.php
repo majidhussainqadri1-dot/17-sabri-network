@@ -71,8 +71,9 @@ final class SN_Presence_Devices {
         if(!$existing){
             // Expired/offline rows are historical device observations, not active
             // sessions. They must not permanently consume the live-device budget.
-            $count=(int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::table().' WHERE user_id=%d AND revoked_at IS NULL AND expires_at>%s',$user,$now));
-            if($count>=self::MAX_DEVICES)return self::error('sn_presence_device_limit','Revoke an active device before adding another.',409);
+            $wpdb->last_error='';$count_raw=$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM '.self::table().' WHERE user_id=%d AND revoked_at IS NULL AND expires_at>%s',$user,$now));
+            if($wpdb->last_error!==''||$count_raw===null||!is_numeric($count_raw))return self::error('sn_presence_device_count_unavailable','Active device capacity could not be verified. Retry the heartbeat.',503);
+            $count=(int)$count_raw;if($count>=self::MAX_DEVICES)return self::error('sn_presence_device_limit','Revoke an active device before adding another.',409);
             $ok=$wpdb->insert(self::table(),['user_id'=>$user,'device_key'=>$device_key,'device_label'=>$label,'state'=>$state,'capabilities'=>(string)wp_json_encode($capabilities),'last_seen_at'=>$now,'expires_at'=>$expires,'created_at'=>$now,'updated_at'=>$now]);
             if($ok===false)return self::error('sn_presence_write_failed','The presence heartbeat could not be stored.',500);
             $version=1;
@@ -128,7 +129,7 @@ final class SN_Presence_Devices {
         return['data'=>$data,'done'=>count($rows)<$limit];
     }
 
-    public static function erase_data(string $email,int $page=1): array {global $wpdb;$user=get_user_by('email',$email);if(!$user)return['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$deleted=$wpdb->delete(self::table(),['user_id'=>(int)$user->ID]);return['items_removed'=>$deleted>0,'items_retained'=>false,'messages'=>[],'done'=>true];}
+    public static function erase_data(string $email,int $page=1): array {global $wpdb;$user=get_user_by('email',$email);if(!$user)return['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$deleted=$wpdb->delete(self::table(),['user_id'=>(int)$user->ID]);if($deleted===false)return['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Presence-device erasure could not be committed and must be retried.','sabri-network')],'done'=>false];return['items_removed'=>$deleted>0,'items_retained'=>false,'messages'=>[],'done'=>true];}
 
     private static function effective_state(object $row,string $now): string {
         if($row->revoked_at||strcmp((string)$row->expires_at,$now)<=0)return'offline';$seen=strtotime((string)$row->last_seen_at.' UTC');if(!$seen||$seen>time()+self::FUTURE_SKEW)return'offline';$state=(string)$row->state;return in_array($state,['online','away','dnd','offline'],true)?$state:'offline';

@@ -287,7 +287,10 @@ final class SN_Relationship_Runtime_Hardening {
         $calls = SN_DB::table('calls');
         $members = SN_DB::table('call_members');
         $signals = SN_DB::table('signals');
-        $ids = array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT id FROM $calls WHERE conversation_id=%d AND status IN ('ringing','active') FOR UPDATE",$conversation)));
+        $wpdb->last_error = '';
+        $raw_ids = $wpdb->get_col($wpdb->prepare("SELECT id FROM $calls WHERE conversation_id=%d AND status IN ('ringing','active') FOR UPDATE",$conversation));
+        if ($wpdb->last_error !== '' || !is_array($raw_ids)) throw new RuntimeException('active_call_block_ledger_read_failed');
+        $ids = array_map('intval',$raw_ids);
         if (!$ids) return;
         $p = implode(',',array_fill(0,count($ids),'%d'));
         if ($wpdb->query($wpdb->prepare("UPDATE $calls SET status='ended',active_key=NULL,ended_at=%s WHERE id IN ($p)",$now,...$ids)) === false) throw new RuntimeException('active_call_block_cleanup_failed');

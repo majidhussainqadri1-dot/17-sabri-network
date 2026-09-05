@@ -445,15 +445,29 @@ final class SN_DB {
         ];
     }
 
-    public static function is_blocked(int $a, int $b): bool {
+    public static function blocked_state(int $a, int $b): bool|WP_Error {
         global $wpdb;
-        return (bool) $wpdb->get_var($wpdb->prepare(
+        if ($a <= 0 || $b <= 0 || $a === $b) {
+            return false;
+        }
+        $wpdb->last_error = '';
+        $value = $wpdb->get_var($wpdb->prepare(
             'SELECT id FROM ' . self::table('blocks') . ' WHERE (user_id=%d AND blocked_user_id=%d) OR (user_id=%d AND blocked_user_id=%d) LIMIT 1',
             $a,
             $b,
             $b,
             $a
         ));
+        if ($wpdb->last_error !== '' || ($value !== null && !is_numeric($value))) {
+            return new WP_Error('relationship_block_state_unavailable', 'The relationship block state could not be verified.', ['status' => 503]);
+        }
+        return $value !== null;
+    }
+
+    /** Boolean privacy wrapper: unavailable block truth is treated as blocked. */
+    public static function is_blocked(int $a, int $b): bool {
+        $state = self::blocked_state($a, $b);
+        return is_wp_error($state) ? true : $state;
     }
 
     public static function add_notification(int $user_id, string $type, string $title, string $body = '', string $entity_type = '', int $entity_id = 0): void {
