@@ -28,7 +28,7 @@ trait SN_File_Transfer_Part_6 {
     private static function revalidate(object $row,int $user,bool $sender): bool|WP_Error {
         if(!self::is_verified_user($user)||SN_Policy::is_suspended($user))return new WP_Error('transfer_account_unavailable','The verified transfer account is no longer eligible.',['status'=>403]);
         $conversation=(int)($row->conversation_id??0);
-        $recipients=self::recipient_ids((int)$row->id);
+        $recipients=self::recipient_ids_authoritative((int)$row->id);if(is_wp_error($recipients))return $recipients;
         if($conversation>0){
             if(!SN_DB::is_member($conversation,(int)$row->sender_id))return new WP_Error('transfer_relationship_changed','The transfer sender is no longer an active member of the bound conversation.',['status'=>403]);
             if($sender){
@@ -60,5 +60,6 @@ trait SN_File_Transfer_Part_6 {
     private static function looks_like_archive(string $name,string $mime): bool{return preg_match('/\.(zip|docx|xlsx|pptx)$/i',$name)===1||in_array($mime,['application/zip','application/x-zip-compressed'],true);}
     private static function chunk_context(object $row,int $index): string{return 'file-transfer|'.$row->public_id.'|'.$row->sender_id.'|'.$index;}
     private static function session(string $public):?object{global $wpdb;$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::sessions_table().' WHERE public_id=%s',sanitize_text_field($public)));return $row?:null;}
-    private static function recipient_ids(int $transfer): array{global $wpdb;return array_map('intval',$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.self::recipients_table().' WHERE transfer_id=%d AND revoked_at IS NULL',$transfer)));}
+    private static function recipient_ids(int $transfer): array{global $wpdb;return array_map('intval',$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.self::recipients_table().' WHERE transfer_id=%d AND revoked_at IS NULL',$transfer))?:[]);}
+    private static function recipient_ids_authoritative(int $transfer): array|WP_Error {global $wpdb;$wpdb->last_error='';$raw=$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.self::recipients_table().' WHERE transfer_id=%d AND revoked_at IS NULL ORDER BY user_id ASC',$transfer));if($wpdb->last_error!==''||!is_array($raw))return new WP_Error('transfer_recipient_ledger_unavailable','The transfer recipient ledger could not be verified safely.',['status'=>503]);return array_map('intval',$raw);}
 }

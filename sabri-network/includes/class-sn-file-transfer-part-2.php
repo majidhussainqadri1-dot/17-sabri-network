@@ -36,7 +36,10 @@ trait SN_File_Transfer_Part_2 {
         }
         $daily_limit = max(self::MAX_FILE_BYTES, (int) apply_filters('sn_network_daily_transfer_bytes', 3 * self::MAX_FILE_BYTES, $sender_id));
         $today = gmdate('Y-m-d 00:00:00');
-        $used = (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(total_bytes),0) FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND created_at>=%s AND status NOT IN (\'rejected\',\'revoked\',\'expired\')', $sender_id, $today));
+        $wpdb->last_error = '';
+        $used_raw = $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(total_bytes),0) FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND created_at>=%s AND status NOT IN (\'rejected\',\'revoked\',\'expired\')', $sender_id, $today));
+        if ($wpdb->last_error !== '' || $used_raw === null) return new WP_Error('transfer_volume_read_failed', 'The current transfer-volume total could not be verified safely.', ['status'=>503]);
+        $used = (int) $used_raw;
         if ($used + $total > $daily_limit) { return new WP_Error('daily_transfer_volume_exceeded', 'The transparent daily transfer volume limit has been reached.', ['status' => 429]); }
         $public_id = wp_generate_uuid4(); $now = current_time('mysql', true);
         $retention_days = min(365, max(1, (int) apply_filters('sn_network_transfer_retention_days', 30, $sender_id, $recipients)));

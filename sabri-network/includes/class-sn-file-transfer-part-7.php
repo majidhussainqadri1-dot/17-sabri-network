@@ -42,7 +42,7 @@ trait SN_File_Transfer_Part_7 {
 
     /** Keep ledger rows until their encrypted bytes are actually gone, so cleanup is retryable. */
     private static function delete_chunks(int $transfer_id): bool {
-        global $wpdb;$rows=$wpdb->get_results($wpdb->prepare('SELECT id,storage_key FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY id ASC',$transfer_id));$all=true;
+        global $wpdb;$wpdb->last_error='';$rows=$wpdb->get_results($wpdb->prepare('SELECT id,storage_key FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY id ASC',$transfer_id));if($wpdb->last_error!==''||!is_array($rows)){SN_DB::audit('file_transfer_chunk_ledger_read_failed','file_transfer',$transfer_id,'failure',[]);return false;}$all=true;
         foreach(is_array($rows)?$rows:[] as $row){
             $path=self::existing_storage_path((string)$row->storage_key);
             if(is_wp_error($path)){
