@@ -112,7 +112,9 @@ final class SN_CF01_Clinical_Context {
         $consent_hash = self::keyed_hash($consent_reference, 'consent');
         $now = self::now();
 
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return self::error('sn_cf01_transaction_failed', 'The communication-context reference transaction could not start safely.', 503);
+        }
         try {
             $existing = $wpdb->get_row($wpdb->prepare(
                 'SELECT * FROM ' . self::table() . ' WHERE issued_by=%d AND idempotency_key=%s FOR UPDATE',
