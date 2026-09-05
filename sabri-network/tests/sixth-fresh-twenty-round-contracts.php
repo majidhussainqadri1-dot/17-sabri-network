@@ -74,10 +74,10 @@ foreach (['sabri-meet','sabri-network-message-receipts','sabri-network-message-o
     $check(str_contains($r7privacy, "'{$key}'"), "Next R7: {$key} must have a failure-safe final eraser callback.");
 }
 $check(str_contains($r7privacy, "SN_Meet::privacy_erase(\$email, \$page)") && str_contains($r7privacy, "\$result['done'] = false"), 'Next R7: Meet transaction/commit failure receipts must remain retryable instead of terminating erasure.');
-$check(str_contains($r7privacy, "DELETE FROM $table WHERE id IN") && str_contains($r7privacy, "Message receipts could not be erased and must be retried."), 'Next R7: message-receipt deletion failure must be an explicit retryable result.');
-$check(str_contains($r7privacy, "DELETE FROM $table WHERE user_id=%d LIMIT %d") && str_contains($r7privacy, "message_organization_privacy_erase_failed"), 'Next R7: message-organization erasure must use bounded checked deletes under a transaction.');
-$check(str_contains($r7privacy, "two_plan_scheduled_erase_failed") && str_contains($r7privacy, "two_plan_request_erase_failed") && str_contains($r7privacy, "two_plan_poll_vote_erase_failed"), 'Next R7: Two-Plan scheduled/request/vote erasure must fail closed on every write domain.');
-$check(str_contains($r7privacy, "'done'=>!$more_scheduled && !$more_requests && !$more_votes"), 'Next R7: Two-Plan completion must be derived from committed remaining work, not affected-row arithmetic.');
+$check(str_contains($r7privacy, 'DELETE FROM $table WHERE id IN') && str_contains($r7privacy, 'Message receipts could not be erased and must be retried.'), 'Next R7: message-receipt deletion failure must be an explicit retryable result.');
+$check(str_contains($r7privacy, 'DELETE FROM $table WHERE user_id=%d LIMIT %d') && str_contains($r7privacy, 'message_organization_privacy_erase_failed'), 'Next R7: message-organization erasure must use bounded checked deletes under a transaction.');
+$check(str_contains($r7privacy, 'two_plan_scheduled_erase_failed') && str_contains($r7privacy, 'two_plan_request_erase_failed') && str_contains($r7privacy, 'two_plan_poll_vote_erase_failed'), 'Next R7: Two-Plan scheduled/request/vote erasure must fail closed on every write domain.');
+$check(str_contains($r7privacy, "'done'=>!\$more_scheduled && !\$more_requests && !\$more_votes"), 'Next R7: Two-Plan completion must be derived from committed remaining work, not affected-row arithmetic.');
 
 if ($fail) {
     fwrite(STDERR, "Sixth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
