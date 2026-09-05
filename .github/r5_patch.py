@@ -98,6 +98,6 @@ new_method='''    private static function stream_download(object $row,int $user)
 
     public static function materialize_for_scan'''
 if 'file_transfer_download_preflight_failed' not in s:
-    s,n=re.subn(pattern,new_method,s,count=1,flags=re.S)
+    s,n=re.subn(pattern,lambda _m:new_method,s,count=1,flags=re.S)
     if n!=1: raise SystemExit('R5 stream download target mismatch')
 p.write_text(s,encoding='utf-8')
