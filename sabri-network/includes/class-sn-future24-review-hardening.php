@@ -44,6 +44,7 @@ require_once SN_DIR . 'includes/class-sn-sixth-fresh-privacy-hardening.php';
 require_once SN_DIR . 'includes/class-sn-next-message-operations-hardening.php';
 require_once SN_DIR . 'includes/class-sn-r6-transaction-hardening.php';
 require_once SN_DIR . 'includes/class-sn-r7-privacy-hardening.php';
+require_once SN_DIR . 'includes/class-sn-r8-interop-finalization-hardening.php';
 
 final class SN_Future24_Review_Hardening {
     public static function register(): void {
@@ -88,5 +89,6 @@ final class SN_Future24_Review_Hardening {
         SN_Next_Message_Operations_Hardening::register();
         SN_R6_Transaction_Hardening::register();
         SN_R7_Privacy_Hardening::register();
+        SN_R8_Interop_Finalization_Hardening::register();
     }
 }
