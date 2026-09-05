@@ -1,0 +1,36 @@
+name: R4 one-time regression literal repair
+
+on:
+  push:
+    branches:
+      - review/file17-another-10-round-2026-09-05
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-another-10-round-2026-09-05
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sabri-network/tests/fifth-fresh-closure-contracts.php')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('$canonicalInsert=strpos($twoPlan,"$wpdb->insert(SN_DB::table(\'messages\')");', '$canonicalInsert=strpos($twoPlan,\'$wpdb->insert(SN_DB::table(\\\'messages\\\')\');')
+          s=s.replace('str_contains($twoPlan,"if($wpdb->query(\'START TRANSACTION\')===false)return self::error(\'sn_checklist_transaction_failed\'")', 'str_contains($twoPlan,\'if($wpdb->query(\\\'START TRANSACTION\\\')===false)return self::error(\\\'sn_checklist_transaction_failed\\\'\')')
+          s=s.replace('str_contains($twoPlan,"$wpdb->last_error!==\'\'")', 'str_contains($twoPlan,\'$wpdb->last_error!==\\\'\\\'\')')
+          p.write_text(s,encoding='utf-8')
+          PY
+          php -l sabri-network/tests/fifth-fresh-closure-contracts.php
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/tests/fifth-fresh-closure-contracts.php
+          git diff --cached --quiet && exit 0
+          git commit -m 'R4 regression repair: quote static contract needles'
+          git push origin HEAD:review/file17-another-10-round-2026-09-05
