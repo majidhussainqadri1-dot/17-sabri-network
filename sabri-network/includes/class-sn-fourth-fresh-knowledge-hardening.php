@@ -55,21 +55,10 @@ final class SN_Fourth_Fresh_Knowledge_Hardening {
         if($c<=0)return self::not_found();
         return self::with_lock($c,static function()use($r,$c,$u){
             if(!SN_DB::is_member($c,$u))return self::not_found();
-            $owner=sanitize_key((string)$r->get_param('source_owner'));
-            $source_id=mb_substr(sanitize_text_field((string)$r->get_param('canonical_id')),0,191);
-            if(!in_array($owner,['file-06','file-12'],true)||$source_id==='')return new WP_Error('sn_citation_source_invalid','Select a canonical File 06 or File 12 source.',['status'=>400]);
-            $resolved=apply_filters('sn_network_citation_source_resolve',null,$owner,$source_id,$u,$c);
-            if($resolved===null)return new WP_Error('sn_citation_source_unavailable','Scholarly citation requires the approved File 06/File 12 source resolver.',['status'=>503]);
-            if(is_wp_error($resolved))return $resolved;
-            if(!is_array($resolved)||sanitize_key((string)($resolved['source_owner']??''))!==$owner||!hash_equals($source_id,(string)($resolved['canonical_id']??'')))return new WP_Error('sn_citation_source_mismatch','The canonical source resolver did not confirm this citation.',['status'=>409]);
-            $url=esc_url_raw((string)($resolved['canonical_url']??''));
-            if($url!==''&&wp_parse_url($url,PHP_URL_HOST)!==wp_parse_url(home_url('/'),PHP_URL_HOST))return new WP_Error('sn_citation_url_invalid','The canonical source URL must remain on the platform.',['status'=>409]);
-            $forward=new WP_REST_Request('POST','/sabri-network/v2/future/citations');
-            $forward->set_param('conversation_id',$c);$forward->set_param('source_owner',$owner);$forward->set_param('canonical_id',$source_id);
-            $forward->set_param('canonical_url',$url);$forward->set_param('title',mb_substr(sanitize_text_field((string)($resolved['title']??'')),0,300));
-            $forward->set_param('locator',mb_substr(sanitize_text_field((string)($resolved['locator']??$r->get_param('locator'))),0,120));
-            $forward->set_param('client_id',(string)$r->get_param('client_id'));
-            return SN_Future_Superset::create_citation_card($forward);
+            // Preserve the stronger canonical-owner contract from Future24-C on the
+            // final route owner: exists/current/allowed, same-site canonical URL and
+            // authoritative File-06/File-12 resolution all remain mandatory.
+            return SN_Future24_Review_Hardening_C::create_citation_card($r);
         });
     }
 
@@ -78,12 +67,10 @@ final class SN_Fourth_Fresh_Knowledge_Hardening {
         if($c<=0)return self::not_found();
         return self::with_lock($c,static function()use($r,$c,$u){
             if(!SN_DB::is_member($c,$u))return self::not_found();
-            $summary=mb_substr(sanitize_textarea_field(wp_unslash((string)$r->get_param('summary'))),0,12000);
-            if($summary==='')return new WP_Error('sn_case_discussion_pii','A de-identified case summary is required.',['status'=>400]);
-            if(!has_filter('sn_network_case_discussion_deidentified')||apply_filters('sn_network_case_discussion_deidentified',false,$summary,$u,$c)!==true){
-                return new WP_Error('sn_case_deidentification_required','Case discussion requires an approved de-identification check before storage.',['status'=>503]);
-            }
-            return SN_Future_Superset::create_case_discussion($r);
+            // Future24-C owns the stronger case contract: approved de-identification,
+            // consent sufficiency, professional authority, locked revalidation and
+            // bounded retention. Final route precedence must never weaken it.
+            return SN_Future24_Review_Hardening_C::create_case_discussion($r);
         });
     }
 
