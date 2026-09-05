@@ -17,17 +17,13 @@
 
 ### R10-D01 — repository release-truth documents still identify the previous 4-September cycle as the current completed candidate
 
-The current branch is `review/file17-next-10-round-2026-09-04`, but `README.md`, `STATUS.md`, `CODING-COMPLETENESS.md` and `sabri-network/CURRENT-CANDIDATE-BOUNDARY.txt` still describe `review/file17-fresh-10-round-2026-09-04` as the current completed cycle and retain that prior cycle's round ledger/result as current truth.
-
-This is now stale repository-state evidence. Once this Round-10 gate closes, those documents must identify the present next-fresh cycle and its actual defect-bearing/clean rounds without reusing an earlier branch as current proof.
+The current branch is `review/file17-next-10-round-2026-09-04`, but `README.md`, `STATUS.md`, `CODING-COMPLETENESS.md` and `sabri-network/CURRENT-CANDIDATE-BOUNDARY.txt` still described `review/file17-fresh-10-round-2026-09-04` as the current completed cycle and retained that prior cycle's round ledger/result as current truth.
 
 **Severity:** High release-truth / audit-evidence defect.
 
-**Required correction:** reconcile the current status/boundary documents to this exact cycle, preserve previous cycles explicitly as historical evidence, and do not hard-code a final self-referential SHA before the final exact-head CI exists.
+### R10-D02 — standalone `tools/package.sh` did not fail closed if late runtime hardening surfaces were missing
 
-### R10-D02 — standalone `tools/package.sh` does not fail closed if late runtime hardening surfaces are missing
-
-The active loader requires and registers late runtime owners including:
+The active loader requires late runtime owners including:
 
 - `includes/class-sn-next-message-operations-hardening.php`
 - `includes/class-sn-r6-transaction-hardening.php`
@@ -35,14 +31,16 @@ The active loader requires and registers late runtime owners including:
 - `includes/class-sn-r8-interop-finalization-hardening.php`
 - `includes/class-sn-r9-runtime-hardening.php`
 
-However the package script's explicit `required=(...)` release-surface inventory stops at `class-sn-sixth-fresh-privacy-hardening.php`. Because the rsync/package phase copies whatever happens to exist and PHP lint does not execute the loader, a direct invocation of `tools/package.sh` could build a syntactically valid but runtime-broken plugin if one of those late required files were absent.
-
-CI's full quality gate currently catches this indirectly through regression suites, but the installable package builder itself is not independently fail-closed.
+The standalone package script did not explicitly require these surfaces, so a direct package invocation could have produced a syntactically valid but runtime-broken plugin after accidental source loss.
 
 **Severity:** High package/runtime-integrity defect.
 
-**Required correction:** add every active late hardening surface to the package script's required inventory and add a permanent regression assertion that the standalone package gate requires those files.
+## Corrections applied after ledger freeze
 
-## Correction gate
+- `README.md`, `STATUS.md`, `CODING-COMPLETENESS.md` and `sabri-network/CURRENT-CANDIDATE-BOUNDARY.txt` now identify `review/file17-next-10-round-2026-09-04` as the current completed repository-review cycle, record the actual defect-bearing rounds `R1,R2,R3,R4,R6,R7,R8,R9,R10`, and record `R5` as clean while keeping staging/live truth explicitly separate.
+- `sabri-network/tools/package.sh` now requires all five late runtime hardening surfaces before it can create an installable ZIP.
+- Permanent regression coverage was added to the already-governed `fifth-fresh-closure-contracts.php`, avoiding a new one-off test file and therefore preserving the explicit 54-suite inventory.
 
-No completion report may be issued until R10-D01 and R10-D02 are corrected, permanent regression coverage passes, and the exact resulting branch HEAD has green PHP 8.1 plus PHP 8.3/full-quality deterministic-package CI. Any documentation commit after a green run changes HEAD and therefore requires its own fresh exact-head CI.
+## Final gate
+
+Corrections are source-complete. Round 10 is not closed until the exact resulting branch HEAD has green PHP 8.1 plus PHP 8.3/full-quality deterministic-package CI. No later documentation commit may be treated as covered by an earlier run.
