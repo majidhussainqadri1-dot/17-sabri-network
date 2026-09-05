@@ -60,11 +60,11 @@ $check(str_contains($privacyR9,'$more_keys_raw')&&str_contains($privacyR9,'$key_
 $twoPlan=(string)file_get_contents($root.'/includes/class-sn-two-plan-completion.php');
 $safetyRuntime=(string)file_get_contents($root.'/includes/class-sn-safety-runtime-hardening.php');
 $canonicalTx=strpos($twoPlan,"sn_two_plan_transaction_failed");
-$canonicalInsert=strpos($twoPlan,"$wpdb->insert(SN_DB::table('messages')");
+$canonicalInsert=strpos($twoPlan,'$wpdb->insert(SN_DB::table(\'messages\')');
 $check($canonicalTx!==false&&$canonicalInsert!==false&&$canonicalTx<$canonicalInsert,'Another R4: canonical structured/scheduled message helper must prove transaction start before its first message insert.');
-$check(str_contains($twoPlan,"sn_checklist_transaction_failed")&&str_contains($twoPlan,"if($wpdb->query('START TRANSACTION')===false)return self::error('sn_checklist_transaction_failed'"),'Another R4: checklist mutation must fail closed when its transaction cannot start.');
+$check(str_contains($twoPlan,"sn_checklist_transaction_failed")&&str_contains($twoPlan,'if($wpdb->query(\'START TRANSACTION\')===false)return self::error(\'sn_checklist_transaction_failed\''),'Another R4: checklist mutation must fail closed when its transaction cannot start.');
 $check(str_contains($twoPlan,"stale_processing_max_attempts")&&str_contains($twoPlan,"schedule_finalize_failed")&&str_contains($twoPlan,"status='processing' AND updated_at<=%s"),'Another R4: scheduled delivery must reclaim stale processing claims and verify terminal sent-state publication.');
-$check(str_contains($twoPlan,"sn_legal_hold_read_failed")&&str_contains($twoPlan,"$wpdb->last_error!==''")&&str_contains($twoPlan,"sn:f17:message-retention:"),'Another R4: disappearing-message erasure must fail closed on legal-hold read failure under the canonical retention lock.');
+$check(str_contains($twoPlan,"sn_legal_hold_read_failed")&&str_contains($twoPlan,'$wpdb->last_error!==\'\'')&&str_contains($twoPlan,"sn:f17:message-retention:"),'Another R4: disappearing-message erasure must fail closed on legal-hold read failure under the canonical retention lock.');
 $holdPos=strpos($twoPlan,'$held=self::message_has_legal_hold($id)');
 $erasePos=strpos($twoPlan,"'attachment_source'=>'expired'",$holdPos===false?0:$holdPos);
 $check($holdPos!==false&&$erasePos!==false&&$holdPos<$erasePos&&str_contains($twoPlan,'SELECT * FROM $messages WHERE id=%d FOR UPDATE'),'Another R4: expiry worker must re-read locked message/hold truth before destructive expiry.');
