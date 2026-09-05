@@ -18,16 +18,18 @@ jobs:
         with:
           ref: review/file17-another-10-round-2026-09-05
           fetch-depth: 0
-      - name: Apply exact frozen R4 correction
+      - name: Apply exact frozen R4 correction and regression
         shell: bash
         run: |
           set -euo pipefail
           python3 .github/r4_patch.py
+          python3 .github/r4_regression.py
           php -l sabri-network/includes/class-sn-two-plan-completion.php
           php -l sabri-network/includes/class-sn-safety-runtime-hardening.php
-          if git diff --quiet -- sabri-network/includes/class-sn-two-plan-completion.php sabri-network/includes/class-sn-safety-runtime-hardening.php; then exit 0; fi
+          php -l sabri-network/tests/fifth-fresh-closure-contracts.php
+          if git diff --quiet -- sabri-network/includes/class-sn-two-plan-completion.php sabri-network/includes/class-sn-safety-runtime-hardening.php sabri-network/tests/fifth-fresh-closure-contracts.php; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add sabri-network/includes/class-sn-two-plan-completion.php sabri-network/includes/class-sn-safety-runtime-hardening.php
-          git commit -m 'R4 fix: harden lifecycle retention and scheduled recovery'
+          git add sabri-network/includes/class-sn-two-plan-completion.php sabri-network/includes/class-sn-safety-runtime-hardening.php sabri-network/tests/fifth-fresh-closure-contracts.php
+          git commit -m 'R4 regression: protect lifecycle retention and recovery'
           git push origin HEAD:review/file17-another-10-round-2026-09-05
