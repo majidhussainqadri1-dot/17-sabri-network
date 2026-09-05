@@ -37,4 +37,11 @@ $check($staleSelect!==false&&$staleTerminal!==false&&$terminalCleanup!==false&&$
 $check(str_contains($firewall,"idempotency_processing_stale")&&str_contains($firewall,"'reconciliation_required' => true"),'Another R1: stale processing recovery must emit reconciliation-required audit evidence.');
 $check(str_contains($firewall,"time() - 2 * HOUR_IN_SECONDS")&&!str_contains($firewall,"DELETE FROM ".'".self::table()."'." WHERE state='processing'"),'Another R1: uncertain processing reservations need a bounded stale threshold and must never be deleted for automatic re-execution.');
 
+// Another fresh Round 2 — CF-01 issuance must prove transaction start before any lock/write.
+$cf01=(string)file_get_contents($root.'/includes/class-sn-cf01-clinical-context.php');
+$cfTx=strpos($cf01,"if (\$wpdb->query('START TRANSACTION') === false)");
+$cfLock=strpos($cf01,'FOR UPDATE');
+$check($cfTx!==false&&$cfLock!==false&&$cfTx<$cfLock,'Another R2: CF-01 issue_reference must fail closed if transaction start fails before its first locking read.');
+$check(str_contains($cf01,"sn_cf01_transaction_failed")&&str_contains($cf01,'could not start safely'),'Another R2: CF-01 transaction-start failure needs an explicit fail-closed error contract.');
+
 if($fail){fwrite(STDERR,"Fifth fresh closure failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fifth fresh closure contracts: PASS ($checks checks)\n";
