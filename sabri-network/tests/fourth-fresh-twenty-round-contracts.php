@@ -18,6 +18,7 @@ $privacy=$read('includes/class-sn-fourth-fresh-privacy-hardening.php');
 $safety=$read('includes/class-sn-fourth-fresh-safety-hardening.php');
 $crypto=$read('includes/class-sn-fourth-fresh-crypto-hardening.php');
 $knowledge=$read('includes/class-sn-fourth-fresh-knowledge-hardening.php');
+$knowledgeC=$read('includes/class-sn-future24-review-hardening-c.php');
 $interop=$read('includes/class-sn-fourth-fresh-interop-hardening.php');
 $high=$read('includes/class-sn-high-risk.php');
 
@@ -44,7 +45,7 @@ $check(str_contains($transfer,'sn_network_transfer_storage_root')&&str_contains(
 $check(str_contains($privacy,'sn_network_retention_prevents_erasure')&&str_contains($privacy,'r.legal_hold=1'),'Round 14 native legal holds must remain authoritative for File-17 erasure.');
 $check(str_contains($safety,"'mass_moderation'")&&str_contains($safety,"'legal_hold_release'")&&str_contains($safety,'high_risk_actions_must_be_separate')&&str_contains($safety,'SN_High_Risk::claim'),'Round 15 report closure and legal-hold release must remain separately dual-controlled.');
 $check(str_contains($crypto,'INVALID_SENTINEL')&&str_contains($crypto,'is_link($path)')&&str_contains($crypto,'($perms & 0077)')&&str_contains($crypto,'ctype_xdigit'),'Round 16 communication master-key strength and filesystem hygiene must remain fail-closed.');
-$check(str_contains($knowledge,'SN_Message_Operations::is_hidden')&&str_contains($knowledge,'sn_network_citation_source_resolve')&&str_contains($knowledge,'sn_network_case_discussion_deidentified'),'Round 17 AI visibility, canonical citations and case de-identification must remain enforced.');
+$check(str_contains($knowledge,'SN_Message_Operations::is_hidden')&&str_contains($knowledge,'SN_Future24_Review_Hardening_C::create_citation_card($r)')&&str_contains($knowledge,'SN_Future24_Review_Hardening_C::create_case_discussion($r)')&&str_contains($knowledgeC,"empty(\$resolved['exists'])")&&str_contains($knowledgeC,"empty(\$resolved['current'])")&&str_contains($knowledgeC,"empty(\$resolved['allowed'])")&&str_contains($knowledgeC,'sn_network_case_discussion_deidentify')&&str_contains($knowledgeC,'sn_network_case_discussion_professional_allowed'),'Round 17 AI visibility, authoritative canonical citations and governed case de-identification must remain enforced by the strongest final route contract.');
 $check(str_contains($interop,'sn_interop_idempotency_required')&&str_contains($interop,'sn_interop_event_conflict')&&str_contains($interop,'sn_interop_reconciliation_required')&&str_contains($interop,'shutdown_idempotency_hash'),'Round 18 interoperability must bind keys/payloads and preserve uncertain outcomes fail-closed.');
 $check(str_contains($interop,'sn_network_interop_outbound_reconcile_result')&&str_contains($interop,'sn_network_interop_kill_switch_reconcile_result')&&str_contains($interop,"'confirmed'")&&str_contains($interop,"'sanitized_payload'"),'Round 18 provider reconciliation and encrypted inbound replay state must remain explicit.');
 
