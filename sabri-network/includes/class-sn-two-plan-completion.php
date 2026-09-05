@@ -423,17 +423,25 @@ final class SN_Two_Plan_Completion {
     }
 
     public static function dispatch_due_scheduled(): void {
-        global $wpdb;$now=current_time('mysql',true);$table=self::scheduled_table();
-        $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM $table WHERE status IN ('pending','failed') AND deliver_at<=%s AND attempts<5 ORDER BY deliver_at ASC,id ASC LIMIT 50",$now));
+        global $wpdb;
+        $now=current_time('mysql',true);$table=self::scheduled_table();$stale=gmdate('Y-m-d H:i:s',time()-15*MINUTE_IN_SECONDS);
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM $table WHERE deliver_at<=%s AND ((status IN ('pending','failed') AND attempts<5) OR (status='processing' AND updated_at<=%s)) ORDER BY deliver_at ASC,id ASC LIMIT 50",$now,$stale));
         foreach(is_array($rows)?$rows:[] as $row){
-            $claimed=$wpdb->query($wpdb->prepare("UPDATE $table SET status='processing',attempts=attempts+1,updated_at=%s WHERE id=%d AND status IN ('pending','failed')",$now,(int)$row->id));if($claimed!==1)continue;
+            if((string)$row->status==='processing'&&(int)$row->attempts>=5){
+                $wpdb->update($table,['status'=>'failed','last_error'=>'stale_processing_max_attempts','updated_at'=>$now],['id'=>(int)$row->id,'status'=>'processing']);
+                SN_DB::audit('scheduled_message_reconciliation_required','scheduled_message',(int)$row->id,'failure',['reason'=>'stale_processing_max_attempts'],0);
+                continue;
+            }
+            $claimed=$wpdb->query($wpdb->prepare("UPDATE $table SET status='processing',attempts=attempts+1,updated_at=%s WHERE id=%d AND ((status IN ('pending','failed') AND attempts<5) OR (status='processing' AND updated_at<=%s AND attempts<5))",$now,(int)$row->id,$stale));
+            if($claimed!==1)continue;
             $conversation=self::conversation((int)$row->conversation_id);$policy=$conversation?self::post_policy($conversation,(int)$row->sender_id):self::error('sn_schedule_conversation_missing','Conversation unavailable.',404);
             if(is_wp_error($policy)){self::schedule_failed((int)$row->id,$policy->get_error_code());continue;}
             $plain=SN_Communication_Crypto::decrypt((string)$row->body_cipher,'scheduled-message|'.(int)$row->sender_id.'|'.(int)$row->conversation_id);
             if(is_wp_error($plain)){self::schedule_failed((int)$row->id,$plain->get_error_code());continue;}
             $message=self::insert_canonical_message((int)$row->conversation_id,(int)$row->sender_id,(string)$plain,'text',['scheduled'=>true,'scheduled_id'=>(int)$row->id],(string)$row->client_key);
             if(is_wp_error($message)){self::schedule_failed((int)$row->id,$message->get_error_code());continue;}
-            $wpdb->update($table,['status'=>'sent','message_id'=>(int)$message,'body_cipher'=>'','last_error'=>'','updated_at'=>$now],['id'=>(int)$row->id]);
+            $published=$wpdb->update($table,['status'=>'sent','message_id'=>(int)$message,'body_cipher'=>'','last_error'=>'','updated_at'=>$now],['id'=>(int)$row->id,'status'=>'processing']);
+            if($published!==1){self::schedule_failed((int)$row->id,'schedule_finalize_failed');SN_DB::audit('scheduled_message_reconciliation_required','scheduled_message',(int)$row->id,'failure',['message_id'=>(int)$message,'reason'=>'schedule_finalize_failed'],0);continue;}
             SN_DB::audit('scheduled_message_sent','message',(int)$message,'success',['scheduled_id'=>(int)$row->id],(int)$row->sender_id);
         }
     }
@@ -469,7 +477,7 @@ final class SN_Two_Plan_Completion {
     }
 
     public static function toggle_checklist(WP_REST_Request $request): WP_REST_Response|WP_Error {
-        global $wpdb;$id=absint($request['id']);$index=absint($request['item']);$actor=get_current_user_id();$wpdb->query('START TRANSACTION');
+        global $wpdb;$id=absint($request['id']);$index=absint($request['item']);$actor=get_current_user_id();if($wpdb->query('START TRANSACTION')===false)return self::error('sn_checklist_transaction_failed','The checklist transaction could not be started safely.',503);
         try{$message=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d FOR UPDATE',$id));if(!$message||!SN_DB::is_member((int)$message->conversation_id,$actor)||$message->deleted_at)throw new DomainException('not_found');
             $meta=self::message_meta($message);$items=$meta['checklist']['items']??null;if((string)$message->message_type!=='checklist'||!is_array($items)||!array_key_exists($index,$items))throw new DomainException('invalid_item');
             $done=rest_sanitize_boolean($request->get_param('done'));$items[$index]['done']=$done;$items[$index]['by']=$actor;$items[$index]['at']=current_time('mysql',true);$meta['checklist']['items']=$items;
@@ -491,13 +499,27 @@ final class SN_Two_Plan_Completion {
     public static function expire_messages(): void {
         global $wpdb;$now=current_time('mysql',true);$messages=SN_DB::table('messages');
         $rows=$wpdb->get_results("SELECT * FROM $messages WHERE deleted_at IS NULL AND metadata IS NOT NULL AND metadata<>'' ORDER BY id ASC LIMIT 1000");
-        foreach(is_array($rows)?$rows:[] as $row){$meta=self::message_meta($row);$expires=(string)($meta['expires_at']??'');if($expires===''||strtotime($expires.' UTC')>time()||self::message_has_legal_hold((int)$row->id))continue;
-            $attachment=(string)$row->attachment_source==='private'?(int)$row->attachment_id:0;$wpdb->query('START TRANSACTION');
-            try{if($wpdb->update($messages,['body'=>'','attachment_id'=>0,'attachment_source'=>'expired','metadata'=>(string)wp_json_encode(['expired'=>true,'expired_at'=>$now]),'deleted_at'=>$now],['id'=>(int)$row->id,'deleted_at'=>null])===false)throw new RuntimeException('expire_update_failed');
-                if($wpdb->delete(SN_DB::table('reactions'),['message_id'=>(int)$row->id],['%d'])===false)throw new RuntimeException('expire_reactions_failed');$removed=SN_Message_Search::remove_message((int)$row->id);if(is_wp_error($removed))throw new RuntimeException($removed->get_error_code());
-                $event=SN_Outbox::enqueue('message.expired','message',(int)$row->id,['message_id'=>(int)$row->id,'conversation_id'=>(int)$row->conversation_id,'expired_at'=>$now],'message.expired:'.(int)$row->id);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());if($wpdb->query('COMMIT')===false)throw new RuntimeException('expire_commit_failed');
-                if($attachment>0)SN_Private_Files::delete($attachment,(int)$row->sender_id);SN_DB::audit('message_expired','message',(int)$row->id,'success',[],0);do_action('sn_network_event_queued',$event,'message.expired');
-            }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('message_expiry_failed','message',(int)$row->id,'failure',['reason'=>$e->getMessage()],0);}
+        foreach(is_array($rows)?$rows:[] as $row){
+            $meta=self::message_meta($row);$expires=(string)($meta['expires_at']??'');if($expires===''||strtotime($expires.' UTC')>time())continue;
+            $id=(int)$row->id;$lock='sn:f17:message-retention:'.$id;$got=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,5));
+            if($got!==1){SN_DB::audit('message_expiry_deferred','message',$id,'failure',['reason'=>'retention_lock_busy'],0);continue;}
+            try{
+                if($wpdb->query('START TRANSACTION')===false){SN_DB::audit('message_expiry_failed','message',$id,'failure',['reason'=>'transaction_start_failed'],0);continue;}
+                try{
+                    $locked=$wpdb->get_row($wpdb->prepare("SELECT * FROM $messages WHERE id=%d FOR UPDATE",$id));
+                    if(!$locked||$locked->deleted_at!==null){$wpdb->query('ROLLBACK');continue;}
+                    $locked_meta=self::message_meta($locked);$locked_expires=(string)($locked_meta['expires_at']??'');
+                    if($locked_expires===''||strtotime($locked_expires.' UTC')>time()){$wpdb->query('ROLLBACK');continue;}
+                    $held=self::message_has_legal_hold($id);if(is_wp_error($held))throw new RuntimeException($held->get_error_code());if($held){$wpdb->query('ROLLBACK');continue;}
+                    $attachment=(string)$locked->attachment_source==='private'?(int)$locked->attachment_id:0;
+                    if($wpdb->update($messages,['body'=>'','attachment_id'=>0,'attachment_source'=>'expired','metadata'=>(string)wp_json_encode(['expired'=>true,'expired_at'=>$now]),'deleted_at'=>$now],['id'=>$id,'deleted_at'=>null])===false)throw new RuntimeException('expire_update_failed');
+                    if($wpdb->delete(SN_DB::table('reactions'),['message_id'=>$id],['%d'])===false)throw new RuntimeException('expire_reactions_failed');
+                    $removed=SN_Message_Search::remove_message($id);if(is_wp_error($removed))throw new RuntimeException($removed->get_error_code());
+                    $event=SN_Outbox::enqueue('message.expired','message',$id,['message_id'=>$id,'conversation_id'=>(int)$locked->conversation_id,'expired_at'=>$now],'message.expired:'.$id);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());
+                    if($wpdb->query('COMMIT')===false)throw new RuntimeException('expire_commit_failed');
+                    if($attachment>0)SN_Private_Files::delete($attachment,(int)$locked->sender_id);SN_DB::audit('message_expired','message',$id,'success',[],0);do_action('sn_network_event_queued',$event,'message.expired');
+                }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('message_expiry_failed','message',$id,'failure',['reason'=>$e->getMessage()],0);}
+            }finally{$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));}
         }
     }
 
@@ -621,7 +643,7 @@ final class SN_Two_Plan_Completion {
     private static function insert_canonical_message(int $conversation_id,int $sender_id,string $body,string $type,array $metadata,string $idempotency,bool $already_in_transaction=false): int|WP_Error {
         global $wpdb;$conversation=self::conversation($conversation_id);if(!$conversation||!SN_DB::is_member($conversation_id,$sender_id))return self::not_found();$policy=self::post_policy($conversation,$sender_id);if(is_wp_error($policy))return $policy;
         $idem=hash('sha256',$idempotency);$existing=(int)$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('messages').' WHERE idempotency_key=%s',$idem));if($existing>0)return $existing;$stored=SN_Message_Body::encrypt($body,$conversation_id,$sender_id);if(is_wp_error($stored))return $stored;$now=current_time('mysql',true);
-        $started=!$already_in_transaction;if($started)$wpdb->query('START TRANSACTION');
+        $started=!$already_in_transaction;if($started&&$wpdb->query('START TRANSACTION')===false)return self::error('sn_two_plan_transaction_failed','The communication transaction could not be started safely.',503);
         try{$space=SN_Spaces::assert_post_allowed_in_transaction($conversation_id,$sender_id);if(is_wp_error($space))throw new DomainException($space->get_error_code());$ok=$wpdb->insert(SN_DB::table('messages'),['conversation_id'=>$conversation_id,'sender_id'=>$sender_id,'message_type'=>$type,'body'=>$stored,'attachment_id'=>0,'attachment_source'=>'none','reply_to'=>0,'idempotency_key'=>$idem,'metadata'=>(string)wp_json_encode($metadata),'created_at'=>$now]);if($ok===false)throw new RuntimeException('insert_failed');$id=(int)$wpdb->insert_id;
             if($wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('conversations').' SET last_message_id=GREATEST(last_message_id,%d),updated_at=GREATEST(updated_at,%s) WHERE id=%d',$id,$now,$conversation_id))===false)throw new RuntimeException('pointer_failed');SN_Spaces::mark_posted_for_conversation($conversation_id,$sender_id,$now);$indexed=SN_Message_Search::index_message($id);if(is_wp_error($indexed))throw new RuntimeException($indexed->get_error_code());$event=SN_Outbox::enqueue('message.sent','message',$id,['message_id'=>$id,'conversation_id'=>$conversation_id,'sender_id'=>$sender_id,'message_type'=>$type,'created_at'=>$now],'message.sent:'.$id);if(is_wp_error($event))throw new RuntimeException($event->get_error_code());if($started&&$wpdb->query('COMMIT')===false)throw new RuntimeException('commit_failed');if(!$already_in_transaction)do_action('sn_network_event_queued',$event,'message.sent');return $id;
         }catch(Throwable $e){if($started)$wpdb->query('ROLLBACK');$race=(int)$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('messages').' WHERE idempotency_key=%s',$idem));return $race>0?$race:self::error('sn_two_plan_message_failed','The communication item could not be committed safely.',500);}
@@ -637,7 +659,7 @@ final class SN_Two_Plan_Completion {
     private static function message(int $id): ?object {global $wpdb;return$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('messages').' WHERE id=%d',$id))?:null;}
     private static function message_meta(?object $message): array {$decoded=$message?json_decode((string)($message->metadata??''),true):null;return is_array($decoded)?$decoded:[];}
     private static function poll_counts(int $message_id,int $count): array {global $wpdb;$out=array_fill(0,$count,0);foreach($wpdb->get_results($wpdb->prepare('SELECT option_index,COUNT(*) total FROM '.self::poll_votes_table().' WHERE message_id=%d GROUP BY option_index',$message_id))?:[] as $row){$i=(int)$row->option_index;if(isset($out[$i]))$out[$i]=(int)$row->total;}return$out;}
-    private static function message_has_legal_hold(int $message_id): bool {global $wpdb;return(bool)$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('reports').' WHERE message_id=%d AND legal_hold=1 LIMIT 1',$message_id));}
+    private static function message_has_legal_hold(int $message_id): bool|WP_Error {global $wpdb;$wpdb->last_error='';$held=$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('reports').' WHERE message_id=%d AND legal_hold=1 LIMIT 1',$message_id));if($wpdb->last_error!=='')return self::error('sn_legal_hold_read_failed','Legal-hold state could not be verified safely.',503);return $held!==null;}
     private static function schedule_failed(int $id,string $code): void {global $wpdb;$wpdb->update(self::scheduled_table(),['status'=>'failed','last_error'=>sanitize_key($code),'updated_at'=>current_time('mysql',true)],['id'=>$id]);}
     public static function scheduled_payload(object $row): array {return['id'=>(int)$row->id,'conversation_id'=>(int)$row->conversation_id,'deliver_at'=>(string)$row->deliver_at,'status'=>(string)$row->status,'message_id'=>(int)$row->message_id,'attempts'=>(int)$row->attempts,'last_error'=>(string)$row->last_error];}
 

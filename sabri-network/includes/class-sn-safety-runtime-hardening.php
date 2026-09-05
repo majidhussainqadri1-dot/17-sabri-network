@@ -30,10 +30,14 @@ final class SN_Safety_Runtime_Hardening {
     public static function lock_report_mutations($result, WP_REST_Server $server, WP_REST_Request $request) {
         if($result!==null)return$result;$method=strtoupper($request->get_method());if(in_array($method,['GET','HEAD','OPTIONS'],true))return$result;$route=$request->get_route();
         if(!str_contains($route,'/reports')&&!str_contains($route,'/high-risk-actions'))return$result;
-        global $wpdb;$id=0;if(preg_match('#/(?:reports|high-risk-actions)/(\d+)#',$route,$m))$id=(int)$m[1];$lock='sn:f17:safety:'.($id>0?$id:substr(hash('sha256',$route),0,32));$got=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));if($got!==1)return new WP_Error('sn_safety_mutation_busy','This safety record is changing. Retry the request.',['status'=>409]);$request->set_param('_sn_safety_lock',$lock);return$result;
+        global $wpdb;$id=0;if(preg_match('#/(?:reports|high-risk-actions)/(\d+)#',$route,$m))$id=(int)$m[1];$lock='sn:f17:safety:'.($id>0?$id:substr(hash('sha256',$route),0,32));$got=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));if($got!==1)return new WP_Error('sn_safety_mutation_busy','This safety record is changing. Retry the request.',['status'=>409]);$request->set_param('_sn_safety_lock',$lock);
+        $message_id=absint($request->get_param('message_id'));
+        if($message_id<=0&&str_contains($route,'/reports/')&&$id>0){$message_id=(int)$wpdb->get_var($wpdb->prepare('SELECT message_id FROM '.SN_DB::table('reports').' WHERE id=%d',$id));}
+        if($message_id>0){$retention='sn:f17:message-retention:'.$message_id;$held=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$retention,self::LOCK_TIMEOUT));if($held!==1){$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));$request->set_param('_sn_safety_lock','');return new WP_Error('sn_message_retention_busy','The retained message state is changing. Retry the request.',['status'=>409]);}$request->set_param('_sn_safety_retention_lock',$retention);}
+        return$result;
     }
 
     public static function release_report_mutations($response, WP_REST_Server $server, WP_REST_Request $request) {
-        $lock=(string)$request->get_param('_sn_safety_lock');if($lock!==''){global $wpdb;$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));$request->set_param('_sn_safety_lock','');}return$response;
+        global $wpdb;$retention=(string)$request->get_param('_sn_safety_retention_lock');if($retention!==''){$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$retention));$request->set_param('_sn_safety_retention_lock','');}$lock=(string)$request->get_param('_sn_safety_lock');if($lock!==''){$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));$request->set_param('_sn_safety_lock','');}return$response;
     }
 }
