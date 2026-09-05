@@ -18,6 +18,7 @@ $smail = $read('includes/class-sn-smail-part-2.php');
 $privacy = $read('includes/class-sn-sixth-fresh-privacy-hardening.php');
 $r7privacy = $read('includes/class-sn-r7-privacy-hardening.php');
 $r8interop = $read('includes/class-sn-r8-interop-finalization-hardening.php');
+$r9 = $read('includes/class-sn-r9-runtime-hardening.php');
 $knowledge = $read('includes/class-sn-fourth-fresh-knowledge-hardening.php');
 $knowledgeC = $read('includes/class-sn-future24-review-hardening-c.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
@@ -89,6 +90,19 @@ $check(str_contains($loader, 'class-sn-r8-interop-finalization-hardening.php') &
 $check(str_contains($r8interop, "add_action('rest_api_init', [self::class, 'override_route'], 3400)") && str_contains($r8interop, 'SN_Fourth_Fresh_Interop_Hardening::outbound($request)'), 'Next R8: final outbound route must execute after prior owners while preserving Fourth-Fresh replay/reconciliation behavior.');
 $check(str_contains($r8interop, 'receipt_is_durably_sent($receipt_id)') && str_contains($r8interop, "(string)(\$payload['delivery_state'] ?? '') === 'sent'"), 'Next R8: no outbound success may escape without a durably persisted sent receipt.');
 $check(str_contains($r8interop, 'sn_interop_reconciliation_required') && str_contains($r8interop, 'future_interop_outbound_local_finalize_failed'), 'Next R8: local receipt-finalization failure must become a reconciliation-required response and corrective audit evidence.');
+
+// Next fresh Round 9 — transaction, Future-erasure and scheduler-recovery truth.
+$check(str_contains($loader, 'class-sn-r9-runtime-hardening.php') && str_contains($loader, 'SN_R9_Runtime_Hardening::register()'), 'Next R9: final runtime correction layer must be loaded and registered.');
+$check(str_contains($r9, "add_action('rest_api_init', [self::class, 'override_routes'], 3500)"), 'Next R9: transaction routes must be final after earlier Future24 owners.');
+$check(str_contains($r9, "'/calls/(?P<id>\\d+)/hand-raise'") && str_contains($r9, 'SN_Future24_Review_Hardening_D::hand_raise($request)'), 'Next R9: final hand-raise transaction entry must be guarded.');
+$check(str_contains($r9, "'/calls/(?P<id>\\d+)/speaker-queue'") && str_contains($r9, 'SN_Future24_Review_Hardening_D::manage_speaker_queue($request)'), 'Next R9: final speaker-queue mutation entry must be guarded.');
+$check(str_contains($r9, "'/future/templates/(?P<id>\\d+)'") && str_contains($r9, 'SN_Future24_Review_Hardening_N::update_template($request)') && str_contains($r9, 'SN_Future24_Review_Hardening_N::delete_template($request)'), 'Next R9: final template update/delete transaction entries must be guarded.');
+$check(str_contains($r9, 'new SN_R6_WPDB_Guard($original)') && str_contains($r9, 'finally') && str_contains($r9, '$wpdb = $original;'), 'Next R9: transaction failure promotion must be request-scoped and restore wpdb.');
+$check(str_contains($r9, "add_filter('wp_privacy_personal_data_erasers', [self::class, 'override_future_eraser'], 9700)"), 'Next R9: Future eraser must replace the sixth-cycle callback before the global wrapper.');
+$check(str_contains($r9, 'sn_future_device_keys') && str_contains($r9, 'DEVICE_KEY_BATCH') && str_contains($r9, 'device_key_delete_failed'), 'Next R9: final Future eraser must perform bounded checked device-key deletion.');
+$check(str_contains($r9, "'done'=>!\$more_keys") && str_contains($r9, 'Append-only key-transparency integrity entries were retained'), 'Next R9: privacy receipt must not finish while device keys remain and must disclose retained transparency history.');
+$check(str_contains($r9, "remove_action('sn_cleanup_hourly', [SN_Future24_Review_Hardening_O::class, 'bulk_job_preflight'], 0)") && str_contains($r9, "add_action('sn_cleanup_hourly', [self::class, 'bulk_job_preflight'], 0)"), 'Next R9: unchecked bulk scheduler recovery owner must be replaced.');
+$check(str_contains($r9, '$wpdb->query($query) === false') && str_contains($r9, 'future_bulk_recovery_failed'), 'Next R9: bulk scheduler recovery must detect and audit DB failure.');
 
 if ($fail) {
     fwrite(STDERR, "Sixth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
