@@ -28,4 +28,13 @@ foreach(['README'=>$readme,'STATUS'=>$status,'CODING-COMPLETENESS'=>$coding,'CUR
     $check(!str_contains($text,'Current repository state: fresh 10-round corrective cycle completed on `review/file17-fresh-10-round-2026-09-04`'),'Next R10: '.$name.' must not present the prior fresh branch as current repository truth.');
 }
 
+// Another fresh Round 1 — crash-abandoned idempotency reservations must become terminal fail-closed evidence.
+$firewall=(string)file_get_contents($root.'/includes/class-sn-two-plan-contract-firewall.php');
+$staleSelect=strpos($firewall,"WHERE state='processing' AND updated_at<%s");
+$staleTerminal=strpos($firewall,"'state' => 'unreplayable'",$staleSelect===false?0:$staleSelect);
+$terminalCleanup=strpos($firewall,"WHERE state IN ('complete','unreplayable') AND updated_at<%s");
+$check($staleSelect!==false&&$staleTerminal!==false&&$terminalCleanup!==false&&$staleSelect<$terminalCleanup,'Another R1: stale processing reservations must be terminalized before ordinary terminal-cache cleanup.');
+$check(str_contains($firewall,"idempotency_processing_stale")&&str_contains($firewall,"'reconciliation_required' => true"),'Another R1: stale processing recovery must emit reconciliation-required audit evidence.');
+$check(str_contains($firewall,"time() - 2 * HOUR_IN_SECONDS")&&!str_contains($firewall,"DELETE FROM ".'".self::table()."'." WHERE state='processing'"),'Another R1: uncertain processing reservations need a bounded stale threshold and must never be deleted for automatic re-execution.');
+
 if($fail){fwrite(STDERR,"Fifth fresh closure failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fifth fresh closure contracts: PASS ($checks checks)\n";
