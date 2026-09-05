@@ -1,0 +1,28 @@
+name: R5 one-time transfer source patch
+
+on:
+  push:
+    branches:
+      - review/file17-another-10-round-2026-09-05
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-another-10-round-2026-09-05
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/r5_patch.py
+          for f in sabri-network/includes/class-sn-file-transfer-part-{2,5,6,7,8}.php; do php -l "$f"; done
+          if git diff --quiet -- sabri-network/includes/class-sn-file-transfer-part-2.php sabri-network/includes/class-sn-file-transfer-part-5.php sabri-network/includes/class-sn-file-transfer-part-6.php sabri-network/includes/class-sn-file-transfer-part-7.php sabri-network/includes/class-sn-file-transfer-part-8.php; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/includes/class-sn-file-transfer-part-2.php sabri-network/includes/class-sn-file-transfer-part-5.php sabri-network/includes/class-sn-file-transfer-part-6.php sabri-network/includes/class-sn-file-transfer-part-7.php sabri-network/includes/class-sn-file-transfer-part-8.php
+          git commit -m 'R5 fix: harden transfer authorization privacy and download integrity'
+          git push origin HEAD:review/file17-another-10-round-2026-09-05
