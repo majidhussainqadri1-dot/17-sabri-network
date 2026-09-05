@@ -10,7 +10,7 @@ ra_check(str_contains($p,'$actor_id === $target_id'),'Self-follow authorization 
 ra_check(str_contains($p,'!get_user_by(\'id\', $target_id)'),'Nonexistent follow targets must be rejected.');
 ra_check(str_contains($p,'is_suspended($actor_id)'),'Suspended actor must be rejected.');
 ra_check(str_contains($p,'is_suspended($target_id)'),'Suspended target must be rejected.');
-ra_check(str_contains($p,'SN_DB::is_blocked($actor_id, $target_id)'),'Block state must override follow availability.');
+ra_check(str_contains($p,'SN_DB::blocked_state($actor_id, $target_id)')&&str_contains($p,'if (is_wp_error($blocked))'),'Block state must override follow availability and unavailable block truth must fail closed.');
 ra_check(str_contains($p,'$actor_age === \'unknown\''),'Unknown actor age must be handled.');
 ra_check(str_contains($p,'$target_age === \'unknown\''),'Unknown target age must be handled.');
 ra_check(str_contains($p,'$actor_age === \'minor\''),'Minor actor state must be handled.');
