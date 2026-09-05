@@ -19,10 +19,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/r5_patch.py
-          for f in sabri-network/includes/class-sn-file-transfer-part-{2,5,6,7,8}.php; do php -l "$f"; done
-          if git diff --quiet -- sabri-network/includes/class-sn-file-transfer-part-2.php sabri-network/includes/class-sn-file-transfer-part-5.php sabri-network/includes/class-sn-file-transfer-part-6.php sabri-network/includes/class-sn-file-transfer-part-7.php sabri-network/includes/class-sn-file-transfer-part-8.php; then exit 0; fi
+          python3 .github/r5_regression.py
+          for f in sabri-network/includes/class-sn-file-transfer-part-{2,5,6,7,8}.php sabri-network/tests/fifth-fresh-closure-contracts.php; do php -l "$f"; done
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add sabri-network/includes/class-sn-file-transfer-part-2.php sabri-network/includes/class-sn-file-transfer-part-5.php sabri-network/includes/class-sn-file-transfer-part-6.php sabri-network/includes/class-sn-file-transfer-part-7.php sabri-network/includes/class-sn-file-transfer-part-8.php
-          git commit -m 'R5 fix: harden transfer authorization privacy and download integrity'
+          git add sabri-network/includes/class-sn-file-transfer-part-2.php sabri-network/includes/class-sn-file-transfer-part-5.php sabri-network/includes/class-sn-file-transfer-part-6.php sabri-network/includes/class-sn-file-transfer-part-7.php sabri-network/includes/class-sn-file-transfer-part-8.php sabri-network/tests/fifth-fresh-closure-contracts.php
+          git diff --cached --quiet && exit 0
+          git commit -m 'R5 regression: protect transfer privacy and integrity'
           git push origin HEAD:review/file17-another-10-round-2026-09-05
