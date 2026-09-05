@@ -41,14 +41,21 @@ trait SN_Spaces_Part_7 {
 
     public static function erase_data(string $email,int $page=1): array {
         global $wpdb;$user=get_user_by('email',$email);if(!$user)return ['items_removed'=>false,'items_retained'=>false,'messages'=>[],'done'=>true];$uid=(int)$user->ID;
-        $owners=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::members_table()." WHERE user_id=%d AND role='owner' AND status='active'",$uid));
+        $retry=static fn(string $message):array=>['items_removed'=>false,'items_retained'=>true,'messages'=>[__($message,'sabri-network')],'done'=>false];
+
+        $wpdb->last_error='';
+        $owners_raw=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::members_table()." WHERE user_id=%d AND role='owner' AND status='active'",$uid));
+        if($wpdb->last_error!==''||$owners_raw===null||!is_numeric($owners_raw))return $retry('Space ownership state could not be verified and erasure must be retried.');
+        $owners=(int)$owners_raw;
         if($owners>0)return ['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Active space ownership must be transferred before erasure.','sabri-network')],'done'=>true];
-        $limit=100;$now=self::now();
+
+        $limit=100;$now=self::now();$wpdb->last_error='';
         $rows=$wpdb->get_results($wpdb->prepare('SELECT m.id,m.space_id,m.version,s.conversation_id FROM '.self::members_table().' m INNER JOIN '.self::spaces_table().' s ON s.id=m.space_id WHERE m.user_id=%d AND m.status=\'active\' ORDER BY m.id ASC LIMIT %d',$uid,$limit));
-        if($wpdb->query('START TRANSACTION')===false)return ['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Space privacy erasure could not start and must be retried.','sabri-network')],'done'=>false];
+        if($wpdb->last_error!==''||!is_array($rows))return $retry('Space membership state could not be read and erasure must be retried.');
+        if($wpdb->query('START TRANSACTION')===false)return $retry('Space privacy erasure could not start and must be retried.');
         $removed=false;
         try{
-            foreach(is_array($rows)?$rows:[] as $row){
+            foreach($rows as $row){
                 $changed=$wpdb->update(self::members_table(),['status'=>'left','left_at'=>$now,'updated_at'=>$now,'version'=>(int)$row->version+1],['id'=>(int)$row->id,'user_id'=>$uid,'status'=>'active','version'=>(int)$row->version]);
                 if($changed!==1)throw new RuntimeException('space_privacy_membership_conflict');
                 if((int)$row->conversation_id>0)self::remove_conversation_member((int)$row->conversation_id,$uid,$now);
@@ -57,11 +64,14 @@ trait SN_Spaces_Part_7 {
             $q=$wpdb->query($wpdb->prepare("UPDATE ".self::invites_table()." SET status='cancelled',active_key=NULL,cancelled_at=COALESCE(cancelled_at,%s),updated_at=%s,version=version+1 WHERE (invitee_id=%d OR inviter_id=%d) AND status='pending' LIMIT 500",$now,$now,$uid,$uid));if($q===false)throw new RuntimeException('space_privacy_invites_failed');
             $q=$wpdb->query($wpdb->prepare("UPDATE ".self::requests_table()." SET status='cancelled',active_key=NULL,updated_at=%s,version=version+1 WHERE requester_id=%d AND status='pending' LIMIT 500",$now,$uid));if($q===false)throw new RuntimeException('space_privacy_requests_failed');
             if($wpdb->query('COMMIT')===false)throw new RuntimeException('space_privacy_commit_failed');
-        }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('space_privacy_erase_failed','user',$uid,'failure',['reason'=>$e->getMessage()],$uid);return ['items_removed'=>false,'items_retained'=>true,'messages'=>[__('Space privacy erasure could not be committed and must be retried.','sabri-network')],'done'=>false];}
-        $more_members=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::members_table()." WHERE user_id=%d AND status='active' LIMIT 1",$uid));
-        $more_invites=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::invites_table()." WHERE (invitee_id=%d OR inviter_id=%d) AND status='pending' LIMIT 1",$uid,$uid));
-        $more_requests=(bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::requests_table()." WHERE requester_id=%d AND status='pending' LIMIT 1",$uid));
-        return ['items_removed'=>$removed,'items_retained'=>false,'messages'=>[],'done'=>!$more_members&&!$more_invites&&!$more_requests];
+        }catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('space_privacy_erase_failed','user',$uid,'failure',['reason'=>$e->getMessage()],$uid);return $retry('Space privacy erasure could not be committed and must be retried.');}
+
+        $wpdb->last_error='';$more_members_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::members_table()." WHERE user_id=%d AND status='active' LIMIT 1",$uid));$probe_error=$wpdb->last_error!=='';
+        $wpdb->last_error='';$more_invites_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::invites_table()." WHERE (invitee_id=%d OR inviter_id=%d) AND status='pending' LIMIT 1",$uid,$uid));$probe_error=$probe_error||$wpdb->last_error!=='';
+        $wpdb->last_error='';$more_requests_raw=$wpdb->get_var($wpdb->prepare("SELECT 1 FROM ".self::requests_table()." WHERE requester_id=%d AND status='pending' LIMIT 1",$uid));$probe_error=$probe_error||$wpdb->last_error!=='';
+        if($probe_error)return ['items_removed'=>$removed,'items_retained'=>true,'messages'=>[__('Space privacy completion could not be verified and must be retried.','sabri-network')],'done'=>false];
+        $more_members=$more_members_raw!==null;$more_invites=$more_invites_raw!==null;$more_requests=$more_requests_raw!==null;
+        return ['items_removed'=>$removed,'items_retained'=>$more_members||$more_invites||$more_requests,'messages'=>[],'done'=>!$more_members&&!$more_invites&&!$more_requests];
     }
 
     /** Revalidate the target against File-00 at the actual space mutation boundary. */
@@ -84,10 +94,10 @@ trait SN_Spaces_Part_7 {
         $identity=self::communication_eligible($user);if(is_wp_error($identity))return $identity;
         if(!in_array((string)$space->state,['active','restricted'],true))return self::error('sn_space_not_joinable','This space is not accepting memberships.',409);
         if(self::active_until((string)$space->anti_raid_until)&&!$invited)return self::error('sn_space_anti_raid_join_pause','New joins are temporarily paused.',409);
-        if(self::is_banned((int)$space->id,$user)||SN_Policy::is_suspended($user))return self::error('sn_space_member_unavailable','This account cannot join the space.',403);
+        $banned=self::is_banned_strict((int)$space->id,$user);if(is_wp_error($banned))return $banned;if($banned||SN_Policy::is_suspended($user))return self::error('sn_space_member_unavailable','This account cannot join the space.',403);
         if(self::member((int)$space->id,$user))return self::error('sn_space_already_member','The account is already an active member.',409);
         if(SN_Policy::requires_protective_age_defaults($user)&&!(bool)apply_filters('sn_network_minor_space_allowed',false,$user,$space))return self::error('sn_space_minor_restricted','This space is not approved for the account age context.',403);
-        $count=self::member_count((int)$space->id);if($count>=(int)$space->member_limit)return self::error('sn_space_capacity_reached','The space member limit has been reached.',409);
+        $count=self::member_count_strict((int)$space->id);if(is_wp_error($count))return $count;if($count>=(int)$space->member_limit)return self::error('sn_space_capacity_reached','The space member limit has been reached.',409);
         return true;
     }
 }
