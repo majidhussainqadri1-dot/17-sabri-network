@@ -16,6 +16,7 @@ $search = $read('includes/class-sn-message-search.php');
 $transfer = $read('includes/class-sn-file-transfer-part-2.php');
 $smail = $read('includes/class-sn-smail-part-2.php');
 $privacy = $read('includes/class-sn-sixth-fresh-privacy-hardening.php');
+$r7privacy = $read('includes/class-sn-r7-privacy-hardening.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
 $migration = $read('includes/class-sn-fifth-fresh-migration-hardening.php');
 $ui = $read('includes/class-sn-fifth-fresh-ui-hardening.php');
@@ -65,6 +66,18 @@ $check(str_contains($quality, 'fifth-fresh-closure-contracts.php') && str_contai
 $check(str_contains($package, 'includes/class-sn-sixth-fresh-privacy-hardening.php'), 'R20: installable package required-source inventory must include sixth-cycle runtime hardening.');
 $check(str_contains($workflow, 'run_test sixth-fresh-twenty-round-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-closure-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-release-truth-contracts.php'), 'R20: PHP 8.1 exact-head workflow must execute the complete current closure set.');
 $check(substr_count($workflow, 'sixth-fresh-twenty-round-contracts.php') >= 2, 'R20: sixth-cycle regression suite must run in both minimum and full-quality workflow paths.');
+
+// Next fresh Round 7 — every proven privacy failure remains retryable and bounded.
+$check(str_contains($loader, "class-sn-r7-privacy-hardening.php") && str_contains($loader, 'SN_R7_Privacy_Hardening::register()'), 'Next R7: final privacy retry/completion hardening must be loaded and registered.');
+$check(str_contains($r7privacy, "add_filter('wp_privacy_personal_data_erasers', [self::class, 'override_erasers'], 9800)"), 'Next R7: privacy callbacks must be replaced after earlier domain overrides but before the priority-9999 global guard.');
+foreach (['sabri-meet','sabri-network-message-receipts','sabri-network-message-organization','sabri-network-two-plan'] as $key) {
+    $check(str_contains($r7privacy, "'{$key}'"), "Next R7: {$key} must have a failure-safe final eraser callback.");
+}
+$check(str_contains($r7privacy, "SN_Meet::privacy_erase(\$email, \$page)") && str_contains($r7privacy, "\$result['done'] = false"), 'Next R7: Meet transaction/commit failure receipts must remain retryable instead of terminating erasure.');
+$check(str_contains($r7privacy, "DELETE FROM $table WHERE id IN") && str_contains($r7privacy, "Message receipts could not be erased and must be retried."), 'Next R7: message-receipt deletion failure must be an explicit retryable result.');
+$check(str_contains($r7privacy, "DELETE FROM $table WHERE user_id=%d LIMIT %d") && str_contains($r7privacy, "message_organization_privacy_erase_failed"), 'Next R7: message-organization erasure must use bounded checked deletes under a transaction.');
+$check(str_contains($r7privacy, "two_plan_scheduled_erase_failed") && str_contains($r7privacy, "two_plan_request_erase_failed") && str_contains($r7privacy, "two_plan_poll_vote_erase_failed"), 'Next R7: Two-Plan scheduled/request/vote erasure must fail closed on every write domain.');
+$check(str_contains($r7privacy, "'done'=>!$more_scheduled && !$more_requests && !$more_votes"), 'Next R7: Two-Plan completion must be derived from committed remaining work, not affected-row arithmetic.');
 
 if ($fail) {
     fwrite(STDERR, "Sixth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
