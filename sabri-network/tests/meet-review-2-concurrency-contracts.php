@@ -38,7 +38,8 @@ $check(str_contains($loader, "require_once SN_DIR . 'includes/class-sn-r6-transa
 $check(str_contains($r6, "add_action('rest_api_init', [self::class, 'override_routes'], 3200)"), 'R6 transaction hardening must register after the existing Meet/call route owners.');
 $check(str_contains($r6, "['methods'=>'POST','callback'=>[self::class,'create_meeting']") && str_contains($r6, "SN_Call_Runtime_Hardening::create_meeting(\$request)"), 'Final Meet creation must preserve exact-request idempotency while running under the R6 DB guard.');
 foreach (['invite','join','heartbeat','leave','moderate'] as $method) {
-    $check(str_contains($r6, "'{$method}'    => '{$method}'") || str_contains($r6, "'{$method}' => '{$method}'") || str_contains($r6, "'{$method}'      => '{$method}'"), "R6 final route map must guard Meet {$method}.");
+    $pattern = "/'" . preg_quote($method, '/') . "'\\s*=>\\s*'" . preg_quote($method, '/') . "'/";
+    $check((bool) preg_match($pattern, $r6), "R6 final route map must guard Meet {$method}.");
 }
 $check(str_contains($r6, "'/admin/conference-providers'") && str_contains($r6, "SN_Conference_Provider::configure_provider(\$request)"), 'Final provider configuration must execute under the same fail-closed direct-query guard.');
 $check(str_contains($r6, '$wpdb = new SN_R6_WPDB_Guard($original);') && str_contains($r6, 'finally') && str_contains($r6, '$wpdb = $original;'), 'R6 DB guarding must be request-scoped and must always restore the canonical wpdb object.');
