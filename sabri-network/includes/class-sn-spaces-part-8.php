@@ -44,7 +44,23 @@ trait SN_Spaces_Part_8 {
 
     private static function is_banned(int $space_id,int $user): bool {global $wpdb;$now=self::now();return(bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM ".self::bans_table()." WHERE space_id=%d AND user_id=%d AND status='active' AND (expires_at IS NULL OR expires_at>%s) LIMIT 1",$space_id,$user,$now));}
 
+    /** Authoritative ban read for positive membership transitions; DB failure is retryable, never equivalent to no ban. */
+    private static function is_banned_strict(int $space_id,int $user): bool|WP_Error {
+        global $wpdb;$now=self::now();$wpdb->last_error='';
+        $value=$wpdb->get_var($wpdb->prepare("SELECT id FROM ".self::bans_table()." WHERE space_id=%d AND user_id=%d AND status='active' AND (expires_at IS NULL OR expires_at>%s) LIMIT 1",$space_id,$user,$now));
+        if($wpdb->last_error!==''||($value!==null&&!is_numeric($value)))return self::error('sn_space_ban_state_unavailable','Current space ban state could not be verified.',503);
+        return $value!==null;
+    }
+
     private static function member_count(int $space_id): int {global $wpdb;return(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::members_table()." WHERE space_id=%d AND status='active'",$space_id));}
+
+    /** Authoritative capacity read for positive membership transitions; DB failure must fail closed. */
+    private static function member_count_strict(int $space_id): int|WP_Error {
+        global $wpdb;$wpdb->last_error='';
+        $value=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".self::members_table()." WHERE space_id=%d AND status='active'",$space_id));
+        if($wpdb->last_error!==''||$value===null||!is_numeric($value))return self::error('sn_space_capacity_state_unavailable','Current space capacity could not be verified.',503);
+        return max(0,(int)$value);
+    }
 
     private static function member(int $space_id,int $user,bool $lock=false): ?object {global $wpdb;$sql=$wpdb->prepare("SELECT * FROM ".self::members_table()." WHERE space_id=%d AND user_id=%d AND status='active' LIMIT 1".($lock?' FOR UPDATE':''),$space_id,$user);return $wpdb->get_row($sql)?:null;}
 
