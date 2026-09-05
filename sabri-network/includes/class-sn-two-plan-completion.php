@@ -489,7 +489,7 @@ final class SN_Two_Plan_Completion {
 
     public static function set_message_expiry(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;$id=absint($request['id']);$actor=get_current_user_id();$message=self::message($id);if(!$message||!SN_DB::is_member((int)$message->conversation_id,$actor))return self::not_found();if((int)$message->sender_id!==$actor)return self::error('sn_expiry_author_required','Only the sender may configure disappearing-message expiry.',403);
-        if(self::message_has_legal_hold($id))return self::error('sn_expiry_legal_hold','This message is preserved by a safety/legal hold.',409);
+        $hold=self::message_has_legal_hold($id);if(is_wp_error($hold))return $hold;if($hold)return self::error('sn_expiry_legal_hold','This message is preserved by a safety/legal hold.',409);
         $seconds=absint($request->get_param('seconds'));if(!in_array($seconds,[0,3600,86400,604800,2592000],true))return self::error('sn_expiry_invalid','Expiry must be off, 1 hour, 1 day, 7 days or 30 days.',400);
         $meta=self::message_meta($message);if($seconds===0)unset($meta['expires_at']);else$meta['expires_at']=gmdate('Y-m-d H:i:s',time()+$seconds);
         if($wpdb->update(SN_DB::table('messages'),['metadata'=>(string)wp_json_encode($meta)],['id'=>$id,'sender_id'=>$actor])===false)return self::error('sn_expiry_failed','The expiry setting could not be saved.',500);

@@ -55,4 +55,19 @@ $check(str_contains($privacyRuntime,"sn_privacy_completion_read_failed")&&str_co
 $check(str_contains($privacySixth,'if (!is_array($rows)) return self::retry(')&&str_contains($privacySixth,'if (!is_array($scan)) return self::retry(')&&str_contains($privacySixth,'$remaining_versions_raw'),'Another R3: Future record/version erasure must reject invalid scans and verify retained-version truth.');
 $check(str_contains($privacyR9,'$more_keys_raw')&&str_contains($privacyR9,'$key_log_raw')&&str_contains($privacyR9,'Key-transparency retained-data truth could not be verified safely.'),'Another R3: final device-key erasure must verify both pending-key and retained transparency reads.');
 
+
+// Another fresh Round 4 — lifecycle/retention mutations must fail closed and recover deterministically.
+$twoPlan=(string)file_get_contents($root.'/includes/class-sn-two-plan-completion.php');
+$safetyRuntime=(string)file_get_contents($root.'/includes/class-sn-safety-runtime-hardening.php');
+$canonicalTx=strpos($twoPlan,"sn_two_plan_transaction_failed");
+$canonicalInsert=strpos($twoPlan,"$wpdb->insert(SN_DB::table('messages')");
+$check($canonicalTx!==false&&$canonicalInsert!==false&&$canonicalTx<$canonicalInsert,'Another R4: canonical structured/scheduled message helper must prove transaction start before its first message insert.');
+$check(str_contains($twoPlan,"sn_checklist_transaction_failed")&&str_contains($twoPlan,"if($wpdb->query('START TRANSACTION')===false)return self::error('sn_checklist_transaction_failed'"),'Another R4: checklist mutation must fail closed when its transaction cannot start.');
+$check(str_contains($twoPlan,"stale_processing_max_attempts")&&str_contains($twoPlan,"schedule_finalize_failed")&&str_contains($twoPlan,"status='processing' AND updated_at<=%s"),'Another R4: scheduled delivery must reclaim stale processing claims and verify terminal sent-state publication.');
+$check(str_contains($twoPlan,"sn_legal_hold_read_failed")&&str_contains($twoPlan,"$wpdb->last_error!==''")&&str_contains($twoPlan,"sn:f17:message-retention:"),'Another R4: disappearing-message erasure must fail closed on legal-hold read failure under the canonical retention lock.');
+$holdPos=strpos($twoPlan,'$held=self::message_has_legal_hold($id)');
+$erasePos=strpos($twoPlan,"'attachment_source'=>'expired'",$holdPos===false?0:$holdPos);
+$check($holdPos!==false&&$erasePos!==false&&$holdPos<$erasePos&&str_contains($twoPlan,'SELECT * FROM $messages WHERE id=%d FOR UPDATE'),'Another R4: expiry worker must re-read locked message/hold truth before destructive expiry.');
+$check(str_contains($safetyRuntime,"sn:f17:message-retention:")&&str_contains($safetyRuntime,"_sn_safety_retention_lock")&&str_contains($safetyRuntime,"SELECT RELEASE_LOCK(%s)"),'Another R4: report/legal-hold mutation guard must share and release the message-retention lock namespace.');
+
 if($fail){fwrite(STDERR,"Fifth fresh closure failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fifth fresh closure contracts: PASS ($checks checks)\n";
