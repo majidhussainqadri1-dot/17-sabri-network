@@ -110,11 +110,17 @@ final class SN_R9_Runtime_Hardening {
             }
         }
 
-        $more_keys = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $table WHERE user_id=%d LIMIT 1", $uid));
-        $key_log_count = (int)$wpdb->get_var($wpdb->prepare(
+        $wpdb->last_error = '';
+        $more_keys_raw = $wpdb->get_var($wpdb->prepare("SELECT 1 FROM $table WHERE user_id=%d LIMIT 1", $uid));
+        if ($wpdb->last_error !== '') return self::retry('Device-key privacy completion could not be verified safely.');
+        $more_keys = (bool)$more_keys_raw;
+        $wpdb->last_error = '';
+        $key_log_raw = $wpdb->get_var($wpdb->prepare(
             'SELECT COUNT(*) FROM ' . $wpdb->prefix . 'sn_future_key_log WHERE user_id=%d',
             $uid
         ));
+        if ($wpdb->last_error !== '') return self::retry('Key-transparency retained-data truth could not be verified safely.');
+        $key_log_count = (int)$key_log_raw;
         $messages = is_array($base['messages'] ?? null) ? $base['messages'] : [];
         if ($key_log_count > 0) {
             $messages[] = 'Append-only key-transparency integrity entries were retained so the security ledger cannot be rewritten by unilateral erasure.';

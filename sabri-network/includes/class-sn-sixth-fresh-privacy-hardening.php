@@ -34,16 +34,20 @@ final class SN_Sixth_Fresh_Privacy_Hardening {
         $versions = $wpdb->prefix . 'sn_future_message_versions';
         $messages = SN_DB::table('messages');
         $removed = 0;
-        $retained = (int) $wpdb->get_var($wpdb->prepare(
+        $wpdb->last_error = '';
+        $retained_raw = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM $records WHERE owner_id=%d AND feature_id IN ('F17-FUT-03','F17-FUT-24') AND state NOT IN ('deleted','erased')",
             $uid
         ));
+        if ($wpdb->last_error !== '') return self::retry('Future retained-data privacy truth could not be read safely.');
+        $retained = (int) $retained_raw;
 
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT id FROM $records WHERE owner_id=%d AND feature_id NOT IN ('F17-FUT-03','F17-FUT-24') AND state NOT IN ('deleted','erased') ORDER BY id ASC LIMIT %d",
             $uid,
             self::BATCH
         ));
+        if (!is_array($rows)) return self::retry('Future-capability erasure could not read its next record batch safely.');
         if ($wpdb->query('START TRANSACTION') === false) return self::retry('Future-capability erasure could not start.');
         try {
             foreach (is_array($rows) ? $rows : [] as $row) {
@@ -69,6 +73,7 @@ final class SN_Sixth_Fresh_Privacy_Hardening {
             $cursor,
             self::VERSION_SCAN
         ));
+        if (!is_array($scan)) return self::retry('Message-version privacy erasure could not read its scan safely.');
         foreach (is_array($scan) ? $scan : [] as $version) {
             $vid = (int) $version->id;
             if ((bool) apply_filters('sn_network_message_version_hold', false, (int) $version->message_id, $uid)) {
@@ -94,10 +99,13 @@ final class SN_Sixth_Fresh_Privacy_Hardening {
         // A prior scan page may have advanced beyond held rows. Query the committed
         // remainder directly so the final privacy receipt never claims that nothing
         // was retained while lawfully held message-version evidence still exists.
-        $remaining_versions = (int) $wpdb->get_var($wpdb->prepare(
+        $wpdb->last_error = '';
+        $remaining_versions_raw = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM $versions v INNER JOIN $messages m ON m.id=v.message_id WHERE m.sender_id=%d",
             $uid
         ));
+        if ($wpdb->last_error !== '') return self::retry('Message-version retained-data truth could not be verified safely.');
+        $remaining_versions = (int) $remaining_versions_raw;
         $retained_any = $retained > 0 || $remaining_versions > 0;
         return [
             'items_removed'=>$removed>0,

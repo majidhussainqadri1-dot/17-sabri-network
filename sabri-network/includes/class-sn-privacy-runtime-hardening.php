@@ -55,6 +55,17 @@ final class SN_Privacy_Runtime_Hardening {
                         $result['done'] = false;
                     }
                 }
+                if ($user && !empty($result['done'])) {
+                    $verified = self::verify_erasure_completion($eraser_key, (int)$user->ID);
+                    if (is_wp_error($verified)) {
+                        return ['items_removed'=>(bool)($result['items_removed'] ?? false),'items_retained'=>true,'messages'=>array_values(array_unique(array_merge((array)($result['messages'] ?? []),[__('Privacy completion could not be verified and must be retried.','sabri-network')]))),'done'=>false];
+                    }
+                    if ($verified !== true) {
+                        $result['items_retained'] = true;
+                        $result['done'] = false;
+                        $result['messages'] = array_values(array_unique(array_merge((array)($result['messages'] ?? []),[__('Additional File 17 personal data remains and will be erased in a later batch.','sabri-network')])));
+                    }
+                }
                 return $result;
             };
         }
@@ -101,7 +112,7 @@ final class SN_Privacy_Runtime_Hardening {
     }
 
     private static function erase_message_batch(int $uid): ?array {
-        global $wpdb;$table=SN_DB::table('messages');$rows=$wpdb->get_results($wpdb->prepare("SELECT id,attachment_id,attachment_source FROM $table WHERE sender_id=%d ORDER BY id ASC LIMIT %d",$uid,self::BATCH));if(!$rows)return null;$now=current_time('mysql',true);$attachments=[];
+        global $wpdb;$table=SN_DB::table('messages');$rows=$wpdb->get_results($wpdb->prepare("SELECT id,attachment_id,attachment_source FROM $table WHERE sender_id=%d ORDER BY id ASC LIMIT %d",$uid,self::BATCH));if(!is_array($rows))return self::retry('Message privacy erasure could not read its next batch safely.');if(!$rows)return null;$now=current_time('mysql',true);$attachments=[];
         if($wpdb->query('START TRANSACTION')===false)return self::retry('The message-erasure transaction could not start.');
         try{
             foreach($rows as $row){$id=(int)$row->id;$locked=$wpdb->get_row($wpdb->prepare("SELECT id,sender_id,attachment_id,attachment_source FROM $table WHERE id=%d FOR UPDATE",$id));if(!$locked||(int)$locked->sender_id!==$uid)continue;if((string)$locked->attachment_source==='private'&&(int)$locked->attachment_id>0)$attachments[]=(int)$locked->attachment_id;
@@ -116,7 +127,7 @@ final class SN_Privacy_Runtime_Hardening {
     }
 
     private static function erase_update_batch(int $uid): ?array {
-        global $wpdb;$updates=SN_DB::table('updates');$views=SN_DB::table('update_views');$rows=$wpdb->get_results($wpdb->prepare("SELECT id,media_id,media_source FROM $updates WHERE user_id=%d ORDER BY id ASC LIMIT %d",$uid,self::BATCH));if(!$rows)return null;$ids=[];$media=[];foreach($rows as $row){$ids[]=(int)$row->id;if((string)$row->media_source==='private'&&(int)$row->media_id>0)$media[]=(int)$row->media_id;}
+        global $wpdb;$updates=SN_DB::table('updates');$views=SN_DB::table('update_views');$rows=$wpdb->get_results($wpdb->prepare("SELECT id,media_id,media_source FROM $updates WHERE user_id=%d ORDER BY id ASC LIMIT %d",$uid,self::BATCH));if(!is_array($rows))return self::retry('Temporary-update privacy erasure could not read its next batch safely.');if(!$rows)return null;$ids=[];$media=[];foreach($rows as $row){$ids[]=(int)$row->id;if((string)$row->media_source==='private'&&(int)$row->media_id>0)$media[]=(int)$row->media_id;}
         if($wpdb->query('START TRANSACTION')===false)return self::retry('The update-erasure transaction could not start.');
         try{$ph=implode(',',array_fill(0,count($ids),'%d'));if($wpdb->query($wpdb->prepare("DELETE FROM $views WHERE update_id IN ($ph)",...$ids))===false)throw new RuntimeException('privacy_update_views_failed');$args=array_merge([$uid],$ids);$idph=implode(',',array_fill(0,count($ids),'%d'));if($wpdb->query($wpdb->prepare("DELETE FROM $updates WHERE user_id=%d AND id IN ($idph)",...$args))===false)throw new RuntimeException('privacy_updates_failed');if($wpdb->query('COMMIT')===false)throw new RuntimeException('privacy_update_commit_failed');}catch(Throwable $e){$wpdb->query('ROLLBACK');SN_DB::audit('privacy_update_batch_failed','user',$uid,'failure',['reason'=>$e->getMessage()],0);return self::retry('A temporary-update erasure batch could not be committed.');}
         foreach(array_values(array_unique($media)) as $attachment)SN_Private_Files::delete($attachment,$uid);return['items_removed'=>true,'items_retained'=>true,'messages'=>[__('Temporary update records were removed before their private media access was revoked.','sabri-network')],'done'=>false];
@@ -124,14 +135,14 @@ final class SN_Privacy_Runtime_Hardening {
 
     private static function erase_relational_state(int $uid): array {
         global $wpdb;$now=current_time('mysql',true);$conversations=SN_DB::table('conversations');$members=SN_DB::table('members');
-        $owned_non_direct=array_values(array_filter(array_map('absint',$wpdb->get_col($wpdb->prepare("SELECT id FROM $conversations WHERE owner_id=%d AND type<>'direct' AND status='active' ORDER BY id ASC",$uid))?:[])));
-        $attachments=array_values(array_filter(array_map('absint',$wpdb->get_col($wpdb->prepare('SELECT id FROM '.SN_DB::table('attachments').' WHERE owner_id=%d AND deleted_at IS NULL',$uid))?:[])));
+        $owned_raw=$wpdb->get_col($wpdb->prepare("SELECT id FROM $conversations WHERE owner_id=%d AND type<>'direct' AND status='active' ORDER BY id ASC",$uid));if(!is_array($owned_raw))return self::retry('Relational privacy erasure could not read owned conversations safely.');$owned_non_direct=array_values(array_filter(array_map('absint',$owned_raw)));
+        $attachment_raw=$wpdb->get_col($wpdb->prepare('SELECT id FROM '.SN_DB::table('attachments').' WHERE owner_id=%d AND deleted_at IS NULL',$uid));if(!is_array($attachment_raw))return self::retry('Relational privacy erasure could not read private attachments safely.');$attachments=array_values(array_filter(array_map('absint',$attachment_raw)));
         if($wpdb->query('START TRANSACTION')===false)return self::retry('The relational privacy-erasure transaction could not start.');
         try{
             // Lock memberships first; an owned non-direct conversation must retain its
             // owner membership until a governed ownership transfer succeeds.
-            $wpdb->get_results($wpdb->prepare("SELECT id,conversation_id,role FROM $members WHERE user_id=%d FOR UPDATE",$uid));
-            $conversation_ids=array_map('intval',$wpdb->get_col($wpdb->prepare("SELECT conversation_id FROM $members WHERE user_id=%d",$uid))?:[]);
+            $locked_members=$wpdb->get_results($wpdb->prepare("SELECT id,conversation_id,role FROM $members WHERE user_id=%d FOR UPDATE",$uid));if(!is_array($locked_members))throw new RuntimeException('privacy_membership_lock_read_failed');
+            $conversation_raw=$wpdb->get_col($wpdb->prepare("SELECT conversation_id FROM $members WHERE user_id=%d",$uid));if(!is_array($conversation_raw))throw new RuntimeException('privacy_membership_read_failed');$conversation_ids=array_map('intval',$conversation_raw);
             if($conversation_ids){$ph=implode(',',array_fill(0,count($conversation_ids),'%d'));if($wpdb->query($wpdb->prepare("UPDATE $conversations SET status='archived',updated_at=%s WHERE type='direct' AND id IN ($ph)",$now,...$conversation_ids))===false)throw new RuntimeException('privacy_direct_conversation_archive_failed');}
 
             self::must_delete(SN_DB::table('typing'),['user_id'=>$uid],['%d']);
@@ -139,8 +150,8 @@ final class SN_Privacy_Runtime_Hardening {
             if($owned_non_direct){$ph=implode(',',array_fill(0,count($owned_non_direct),'%d'));$args=array_merge([$uid],$owned_non_direct);if($wpdb->query($wpdb->prepare("DELETE FROM $members WHERE user_id=%d AND conversation_id NOT IN ($ph)",...$args))===false)throw new RuntimeException('privacy_membership_delete_failed');}
             else self::must_delete($members,['user_id'=>$uid],['%d']);
 
-            $call_ids=array_map('intval',$wpdb->get_col($wpdb->prepare('SELECT call_id FROM '.SN_DB::table('call_members').' WHERE user_id=%d',$uid))?:[]);
-            if($call_ids){$ph=implode(',',array_fill(0,count($call_ids),'%d'));$direct=array_map('intval',$wpdb->get_col($wpdb->prepare('SELECT c.id FROM '.SN_DB::table('calls')." c INNER JOIN $conversations cv ON cv.id=c.conversation_id AND cv.type='direct' WHERE c.id IN ($ph)",...$call_ids))?:[]);if($direct){$dph=implode(',',array_fill(0,count($direct),'%d'));if($wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('calls')." SET status='ended',active_key=NULL,ended_at=COALESCE(ended_at,%s) WHERE id IN ($dph) AND status IN ('ringing','active')",$now,...$direct))===false)throw new RuntimeException('privacy_direct_call_end_failed');if($wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('call_members')." SET status=CASE WHEN status='invited' THEN 'missed' ELSE 'left' END,left_at=COALESCE(left_at,%s) WHERE call_id IN ($dph) AND status IN ('invited','joined')",$now,...$direct))===false)throw new RuntimeException('privacy_direct_call_member_end_failed');}}
+            $call_raw=$wpdb->get_col($wpdb->prepare('SELECT call_id FROM '.SN_DB::table('call_members').' WHERE user_id=%d',$uid));if(!is_array($call_raw))throw new RuntimeException('privacy_call_membership_read_failed');$call_ids=array_map('intval',$call_raw);
+            if($call_ids){$ph=implode(',',array_fill(0,count($call_ids),'%d'));$direct_raw=$wpdb->get_col($wpdb->prepare('SELECT c.id FROM '.SN_DB::table('calls')." c INNER JOIN $conversations cv ON cv.id=c.conversation_id AND cv.type='direct' WHERE c.id IN ($ph)",...$call_ids));if(!is_array($direct_raw))throw new RuntimeException('privacy_direct_call_read_failed');$direct=array_map('intval',$direct_raw);if($direct){$dph=implode(',',array_fill(0,count($direct),'%d'));if($wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('calls')." SET status='ended',active_key=NULL,ended_at=COALESCE(ended_at,%s) WHERE id IN ($dph) AND status IN ('ringing','active')",$now,...$direct))===false)throw new RuntimeException('privacy_direct_call_end_failed');if($wpdb->query($wpdb->prepare('UPDATE '.SN_DB::table('call_members')." SET status=CASE WHEN status='invited' THEN 'missed' ELSE 'left' END,left_at=COALESCE(left_at,%s) WHERE call_id IN ($dph) AND status IN ('invited','joined')",$now,...$direct))===false)throw new RuntimeException('privacy_direct_call_member_end_failed');}}
             self::must_delete(SN_DB::table('call_members'),['user_id'=>$uid],['%d']);
             if($wpdb->update(SN_DB::table('calls'),['initiator_id'=>0],['initiator_id'=>$uid],['%d'],['%d'])===false)throw new RuntimeException('privacy_call_initiator_anonymize_failed');
 
@@ -164,6 +175,27 @@ final class SN_Privacy_Runtime_Hardening {
         $messages=[];$retained=false;
         if($owned_non_direct){$retained=true;$messages[]=sprintf(__('%d active non-direct conversation(s) remain because ownership must be transferred before the owner membership can be erased.','sabri-network'),count($owned_non_direct));}
         return['items_removed'=>true,'items_retained'=>$retained,'messages'=>$messages,'done'=>true];
+    }
+
+    private static function verify_erasure_completion(string $eraser_key,int $uid): bool|WP_Error {
+        global $wpdb;
+        $q=null;
+        switch($eraser_key){
+            case 'sabri-network-contexts': $q=$wpdb->prepare('SELECT 1 FROM '.SN_DB::table('conversation_contexts').' WHERE attached_by=%d LIMIT 1',$uid);break;
+            case 'sabri-network-cf01-references': $q=$wpdb->prepare("SELECT 1 FROM ".SN_DB::table('cf01_context_refs')." WHERE issued_by=%d AND status='active' LIMIT 1",$uid);break;
+            case 'sabri-network-smail': $q=$wpdb->prepare("SELECT 1 FROM ".SN_DB::table('smail_states')." WHERE user_id=%d LIMIT 1 UNION ALL SELECT 1 FROM ".SN_DB::table('smail_drafts')." WHERE owner_id=%d AND deleted_at IS NULL LIMIT 1",$uid,$uid);break;
+            case 'sabri-network-presence-devices': $q=$wpdb->prepare('SELECT 1 FROM '.SN_DB::table('presence_devices').' WHERE user_id=%d LIMIT 1',$uid);break;
+            case 'sabri-network-transfers': $q=$wpdb->prepare("SELECT 1 FROM ".SN_DB::table('transfer_sessions')." WHERE sender_id=%d AND status IN ('revoked','expired','rejected') LIMIT 1 UNION ALL SELECT 1 FROM ".SN_DB::table('transfer_recipients')." WHERE user_id=%d LIMIT 1",$uid,$uid);break;
+            case 'sabri-network-message-receipts': $q=$wpdb->prepare('SELECT 1 FROM '.SN_DB::table('message_receipts').' WHERE user_id=%d LIMIT 1',$uid);break;
+            case 'sabri-network-message-organization': $q=$wpdb->prepare('SELECT 1 FROM '.SN_DB::table('message_folder_items').' WHERE user_id=%d LIMIT 1 UNION ALL SELECT 1 FROM '.SN_DB::table('message_folders').' WHERE user_id=%d LIMIT 1 UNION ALL SELECT 1 FROM '.SN_DB::table('message_stars').' WHERE user_id=%d LIMIT 1 UNION ALL SELECT 1 FROM '.SN_DB::table('message_hides').' WHERE user_id=%d LIMIT 1',$uid,$uid,$uid,$uid);break;
+            case 'sabri-network-two-plan': $q=$wpdb->prepare("SELECT 1 FROM ".SN_DB::table('scheduled_messages')." WHERE sender_id=%d AND status IN ('pending','cancelled','failed') LIMIT 1 UNION ALL SELECT 1 FROM ".SN_DB::table('message_requests')." WHERE requester_id=%d AND status IN ('declined','cancelled') AND body_cipher<>'' LIMIT 1 UNION ALL SELECT 1 FROM ".SN_DB::table('poll_votes')." pv WHERE pv.user_id=%d AND NOT EXISTS (SELECT 1 FROM ".SN_DB::table('reports')." r WHERE r.message_id=pv.message_id AND r.legal_hold=1) LIMIT 1",$uid,$uid,$uid);break;
+            case 'sabri-network-future': $q=$wpdb->prepare("SELECT 1 FROM {$wpdb->prefix}sn_future_records WHERE owner_id=%d AND feature_id NOT IN ('F17-FUT-03','F17-FUT-24') AND state NOT IN ('deleted','erased') LIMIT 1 UNION ALL SELECT 1 FROM {$wpdb->prefix}sn_future_device_keys WHERE user_id=%d LIMIT 1",$uid,$uid);break;
+            default:return true;
+        }
+        $wpdb->last_error='';
+        $pending=$wpdb->get_var($q);
+        if($wpdb->last_error!=='')return new WP_Error('sn_privacy_completion_read_failed','Privacy completion could not be verified safely.',['status'=>503]);
+        return $pending===null;
     }
 
     private static function must_delete(string $table,array $where,array $where_format): void {global $wpdb;if($wpdb->delete($table,$where,$where_format)===false)throw new RuntimeException('privacy_delete_failed');}
