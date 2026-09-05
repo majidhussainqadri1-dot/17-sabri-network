@@ -48,7 +48,7 @@ bash -n tools/package.sh
 
 echo '== All File 17 review and correction suites =='
 tests=(
- another-fresh-r6-spaces-contracts.php another-fresh-r7-relationship-contracts.php
+ another-fresh-r6-spaces-contracts.php another-fresh-r7-relationship-contracts.php another-fresh-r8-messaging-privacy-search-contracts.php
  static-contracts.php adversarial-contracts.php
  realtime-static-contracts.php realtime-adversarial-contracts.php
  package-static-contracts.php package-adversarial-contracts.php
