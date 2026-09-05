@@ -2,6 +2,8 @@
 /** Sabri Meet review 2: concurrency, idempotency and bounded sessions. */
 $root = dirname(__DIR__);
 $meet = file_get_contents($root . '/includes/class-sn-meet.php');
+$r6 = file_get_contents($root . '/includes/class-sn-r6-transaction-hardening.php');
+$loader = file_get_contents($root . '/includes/class-sn-future24-review-hardening.php');
 $checks = 0;
 $failures = [];
 $check = static function (bool $condition, string $message) use (&$checks, &$failures): void {
@@ -30,6 +32,19 @@ $check(str_contains($meet, "WHERE meeting_id=%d AND user_id=%d AND session_hash=
 $check(str_contains($meet, "['id' => (int) \$session->id, 'state' => (string) \$session->state]) !== 1"), 'Leave must compare the observed session state before mutation.');
 $check(str_contains($meet, "'duplicate' => true"), 'Repeated leave requests must be idempotent.');
 $check(str_contains($meet, "if (\$updated === false)"), 'Signal acknowledgement database failures must not be reported as zero acknowledgements.');
+
+// Next fresh Round 6: final-route DB failure promotion without replacing the canonical Meet owner.
+$check(str_contains($loader, "require_once SN_DIR . 'includes/class-sn-r6-transaction-hardening.php'") && str_contains($loader, 'SN_R6_Transaction_Hardening::register();'), 'R6 transaction hardening must be loaded and registered by the canonical hardening loader.');
+$check(str_contains($r6, "add_action('rest_api_init', [self::class, 'override_routes'], 3200)"), 'R6 transaction hardening must register after the existing Meet/call route owners.');
+$check(str_contains($r6, "['methods'=>'POST','callback'=>[self::class,'create_meeting']") && str_contains($r6, "SN_Call_Runtime_Hardening::create_meeting(\$request)"), 'Final Meet creation must preserve exact-request idempotency while running under the R6 DB guard.');
+foreach (['invite','join','heartbeat','leave','moderate'] as $method) {
+    $check(str_contains($r6, "'{$method}'    => '{$method}'") || str_contains($r6, "'{$method}' => '{$method}'") || str_contains($r6, "'{$method}'      => '{$method}'"), "R6 final route map must guard Meet {$method}.");
+}
+$check(str_contains($r6, "'/admin/conference-providers'") && str_contains($r6, "SN_Conference_Provider::configure_provider(\$request)"), 'Final provider configuration must execute under the same fail-closed direct-query guard.');
+$check(str_contains($r6, '$wpdb = new SN_R6_WPDB_Guard($original);') && str_contains($r6, 'finally') && str_contains($r6, '$wpdb = $original;'), 'R6 DB guarding must be request-scoped and must always restore the canonical wpdb object.');
+$check(str_contains($r6, '$result === false') && str_contains($r6, "!preg_match('/^ROLLBACK") && str_contains($r6, "throw new RuntimeException('sn_r6_direct_query_failed:"), 'Any failed direct transactional/moderation query except rollback must be promoted to an exception.');
+$check(str_contains($r6, "'sn_meet_transaction_failed'") && str_contains($r6, "'sn_provider_transaction_failed'"), 'Escaped transaction-start failures must fail closed with stable Meet/provider errors.');
+
 if ($failures) {
     fwrite(STDERR, "Sabri Meet review 2 failures (" . count($failures) . "/$checks):\n - " . implode("\n - ", $failures) . "\n");
     exit(1);
