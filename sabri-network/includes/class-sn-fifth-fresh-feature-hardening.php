@@ -43,6 +43,8 @@ final class SN_Fifth_Fresh_Feature_Hardening {
         $data = $result->get_data();
         $message_id = absint($data['message']['id'] ?? 0);
         if ($message_id <= 0) return new WP_Error('sn_voice_note_send_failed', 'The voice note could not be finalized.', ['status'=>500]);
+        $was_duplicate = !empty($data['duplicate']);
+        $transcript = mb_substr(trim(sanitize_textarea_field(wp_unslash((string)$request->get_param('transcript')))), 0, 10000);
 
         global $wpdb;
         if ($wpdb->query('START TRANSACTION') === false) {
@@ -55,12 +57,25 @@ final class SN_Fifth_Fresh_Feature_Hardening {
             }
             $meta = json_decode((string)$row->metadata, true);
             $meta = is_array($meta) ? $meta : [];
+            if ($was_duplicate && isset($meta['voice_note']) && is_array($meta['voice_note'])) {
+                $existing_voice = $meta['voice_note'];
+                $existing_transcript = '';
+                if (!empty($existing_voice['transcript_cipher'])) {
+                    $decoded = SN_Communication_Crypto::decrypt((string)$existing_voice['transcript_cipher'], self::transcript_context($row));
+                    if (is_wp_error($decoded)) throw new RuntimeException($decoded->get_error_code());
+                    $existing_transcript = (string)$decoded;
+                } elseif (isset($existing_voice['transcript'])) {
+                    $existing_transcript = mb_substr(trim((string)$existing_voice['transcript']), 0, 10000);
+                }
+                if ($existing_transcript !== $transcript) throw new UnexpectedValueException('voice_note_idempotency_conflict');
+                if ($wpdb->query('COMMIT') === false) throw new RuntimeException('voice_note_duplicate_commit_failed');
+                return rest_ensure_response(['message_id'=>$message_id,'message'=>$data['message']??null,'voice_note'=>['playback_speeds'=>[0.75,1,1.25,1.5,2],'transcript_available'=>$transcript!=='','transcript'=>$transcript],'duplicate'=>true]);
+            }
             $meta['voice_note'] = [
                 'playback_speeds'=>[0.75,1,1.25,1.5,2],
                 'waveform_adapter'=>'sn_network_voice_waveform',
                 'transcript_available'=>false,
             ];
-            $transcript = mb_substr(trim(sanitize_textarea_field(wp_unslash((string)$request->get_param('transcript')))), 0, 10000);
             if ($transcript !== '') {
                 $cipher = SN_Communication_Crypto::encrypt($transcript, self::transcript_context($row));
                 if (is_wp_error($cipher)) throw new RuntimeException($cipher->get_error_code());
@@ -80,6 +95,9 @@ final class SN_Fifth_Fresh_Feature_Hardening {
             $data['message']['version'] = $version + 1;
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
+            if ($e instanceof UnexpectedValueException && $e->getMessage() === 'voice_note_idempotency_conflict') {
+                return new WP_Error('voice_note_idempotency_conflict', 'This voice-note idempotency key is already bound to a different transcript request.', ['status'=>409]);
+            }
             SN_DB::audit('voice_note_metadata_failed', 'message', $message_id, 'failure', ['reason'=>$e->getMessage()], $actor);
             return new WP_Error('sn_voice_note_metadata_failed', 'The voice note was created but its protected metadata could not be finalized. Retry with the same idempotency key.', ['status'=>500]);
         }

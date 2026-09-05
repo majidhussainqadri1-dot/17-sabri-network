@@ -137,10 +137,16 @@ final class SN_Fourth_Fresh_Search_Hardening {
         if (!(bool) get_option(self::REBUILD_OPTION, false) || !class_exists('SN_DB')) return;
         global $wpdb;
         $after = max(0, (int) get_option('sn_message_search_backfill_after', 0));
-        $next = (int) $wpdb->get_var($wpdb->prepare(
+        $wpdb->last_error = '';
+        $next_raw = $wpdb->get_var($wpdb->prepare(
             'SELECT id FROM ' . SN_DB::table('messages') . ' WHERE id>%d ORDER BY id ASC LIMIT 1',
             $after
         ));
+        if ($wpdb->last_error !== '' || ($next_raw !== null && !is_numeric($next_raw))) {
+            self::record_error('finish_rebuild_read_failed', $after, 0);
+            return;
+        }
+        $next = $next_raw === null ? 0 : (int)$next_raw;
         if ($next <= 0 && (string) get_option(self::ERROR_OPTION, '') === '') {
             // Keep the high-water mark so ordinary hourly maintenance only considers
             // genuinely newer message ids rather than reindexing the entire corpus.

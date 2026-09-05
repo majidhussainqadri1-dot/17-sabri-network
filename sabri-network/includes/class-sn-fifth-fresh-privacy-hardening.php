@@ -100,16 +100,22 @@ final class SN_Fifth_Fresh_Privacy_Hardening {
         $uid = (int)$user->ID;
         $states = SN_DB::table('smail_states');
         $drafts = SN_DB::table('smail_drafts');
-        $state_ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+        $wpdb->last_error = '';
+        $state_raw = $wpdb->get_col($wpdb->prepare(
             "SELECT id FROM $states WHERE user_id=%d ORDER BY id ASC LIMIT %d",
             $uid,
             self::BATCH
-        )) ?: []);
-        $draft_ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+        ));
+        if ($wpdb->last_error !== '' || !is_array($state_raw)) return self::retry('Smail state privacy truth could not be read safely.');
+        $state_ids = array_map('intval', $state_raw);
+        $wpdb->last_error = '';
+        $draft_raw = $wpdb->get_col($wpdb->prepare(
             "SELECT id FROM $drafts WHERE owner_id=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d",
             $uid,
             self::BATCH
-        )) ?: []);
+        ));
+        if ($wpdb->last_error !== '' || !is_array($draft_raw)) return self::retry('Smail draft privacy truth could not be read safely.');
+        $draft_ids = array_map('intval', $draft_raw);
         if (!$state_ids && !$draft_ids) {
             return [
                 'items_removed'=>false,
@@ -145,8 +151,14 @@ final class SN_Fifth_Fresh_Privacy_Hardening {
             $wpdb->query('ROLLBACK');
             return self::retry('Smail privacy erasure could not be committed.');
         }
-        $more_states = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $states WHERE user_id=%d LIMIT 1", $uid));
-        $more_drafts = (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM $drafts WHERE owner_id=%d AND deleted_at IS NULL LIMIT 1", $uid));
+        $wpdb->last_error = '';
+        $more_states_raw = $wpdb->get_var($wpdb->prepare("SELECT 1 FROM $states WHERE user_id=%d LIMIT 1", $uid));
+        if ($wpdb->last_error !== '') return self::retry('Smail state privacy completion could not be verified safely.');
+        $wpdb->last_error = '';
+        $more_drafts_raw = $wpdb->get_var($wpdb->prepare("SELECT 1 FROM $drafts WHERE owner_id=%d AND deleted_at IS NULL LIMIT 1", $uid));
+        if ($wpdb->last_error !== '') return self::retry('Smail draft privacy completion could not be verified safely.');
+        $more_states = $more_states_raw !== null;
+        $more_drafts = $more_drafts_raw !== null;
         return [
             'items_removed'=>$removed>0,
             'items_retained'=>true,
