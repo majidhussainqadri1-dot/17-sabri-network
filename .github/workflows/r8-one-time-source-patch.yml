@@ -1,0 +1,27 @@
+name: R8 one-time messaging privacy search patch
+on:
+  push:
+    branches:
+      - review/file17-another-10-round-2026-09-05
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-another-10-round-2026-09-05
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/r8_patch.py
+          for f in sabri-network/includes/class-sn-message-runtime-hardening.php sabri-network/includes/class-sn-fifth-fresh-privacy-hardening.php sabri-network/includes/class-sn-fifth-fresh-feature-hardening.php sabri-network/includes/class-sn-fourth-fresh-search-hardening.php; do php -l "$f"; done
+          if git diff --quiet -- sabri-network/includes/class-sn-message-runtime-hardening.php sabri-network/includes/class-sn-fifth-fresh-privacy-hardening.php sabri-network/includes/class-sn-fifth-fresh-feature-hardening.php sabri-network/includes/class-sn-fourth-fresh-search-hardening.php; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/includes/class-sn-message-runtime-hardening.php sabri-network/includes/class-sn-fifth-fresh-privacy-hardening.php sabri-network/includes/class-sn-fifth-fresh-feature-hardening.php sabri-network/includes/class-sn-fourth-fresh-search-hardening.php
+          git commit -m 'R8 fix: harden message idempotency privacy voice and search truth'
+          git push origin HEAD:review/file17-another-10-round-2026-09-05
