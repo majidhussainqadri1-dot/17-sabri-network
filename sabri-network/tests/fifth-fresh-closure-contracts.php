@@ -44,4 +44,15 @@ $cfLock=strpos($cf01,'FOR UPDATE');
 $check($cfTx!==false&&$cfLock!==false&&$cfTx<$cfLock,'Another R2: CF-01 issue_reference must fail closed if transaction start fails before its first locking read.');
 $check(str_contains($cf01,"sn_cf01_transaction_failed")&&str_contains($cf01,'could not start safely'),'Another R2: CF-01 transaction-start failure needs an explicit fail-closed error contract.');
 
+// Another fresh Round 3 — privacy reads/completion must never collapse DB failure into empty/done truth.
+$privacyRuntime=(string)file_get_contents($root.'/includes/class-sn-privacy-runtime-hardening.php');
+$privacySixth=(string)file_get_contents($root.'/includes/class-sn-sixth-fresh-privacy-hardening.php');
+$privacyR9=(string)file_get_contents($root.'/includes/class-sn-r9-runtime-hardening.php');
+$check(substr_count($privacyRuntime,'if(!is_array($rows))return self::retry(')>=2,'Another R3: canonical message/update erasure reads must fail closed instead of treating DB errors as empty batches.');
+$check(str_contains($privacyRuntime,'$owned_raw=')&&str_contains($privacyRuntime,'$attachment_raw=')&&str_contains($privacyRuntime,'privacy_membership_lock_read_failed')&&str_contains($privacyRuntime,'privacy_call_membership_read_failed'),'Another R3: relational privacy decisions must validate owner/attachment/membership/call reads before dependent destructive mutations.');
+$check(str_contains($privacyRuntime,'private static function verify_erasure_completion')&&str_contains($privacyRuntime,"case 'sabri-network-smail'")&&str_contains($privacyRuntime,"case 'sabri-network-two-plan'")&&str_contains($privacyRuntime,"case 'sabri-network-future'"),'Another R3: the final privacy guard must independently verify extension-domain completion before allowing done=true.');
+$check(str_contains($privacyRuntime,"sn_privacy_completion_read_failed")&&str_contains($privacyRuntime,"$wpdb->last_error!==''"),'Another R3: failed final privacy completion reads must become retryable rather than false success.');
+$check(str_contains($privacySixth,'if (!is_array($rows)) return self::retry(')&&str_contains($privacySixth,'if (!is_array($scan)) return self::retry(')&&str_contains($privacySixth,'$remaining_versions_raw'),'Another R3: Future record/version erasure must reject invalid scans and verify retained-version truth.');
+$check(str_contains($privacyR9,'$more_keys_raw')&&str_contains($privacyR9,'$key_log_raw')&&str_contains($privacyR9,'Key-transparency retained-data truth could not be verified safely.'),'Another R3: final device-key erasure must verify both pending-key and retained transparency reads.');
+
 if($fail){fwrite(STDERR,"Fifth fresh closure failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fifth fresh closure contracts: PASS ($checks checks)\n";
