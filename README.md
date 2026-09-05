@@ -8,14 +8,14 @@ File 17 is the single communication/realtime owner for relationships, contacts/f
 
 It does not duplicate File 00/02 identity/verification, File 19 notification transport, File 20 shell/navigation, File 24 assurance governance, File 25 presentation, File 26 global search/ranking or clinical-domain truth. Private messages and contacts remain inside File 17.
 
-## Latest fresh 10-round corrective cycle — 4 September 2026
+## Current next-fresh 10-round corrective cycle — 4–5 September 2026
 
-The current cycle on `review/file17-fresh-10-round-2026-09-04` completed all ten rounds under the mandatory sequence: **complete review → Ledger Freeze → fix all proved defects → regression/retest → exact-head CI → only then next round**.
+The current cycle on `review/file17-next-10-round-2026-09-04` completed all ten rounds under the mandatory sequence: **complete review → Ledger Freeze → fix all proved defects → regression/retest → exact-head CI → only then next round**.
 
-- Defect-bearing rounds: **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10**.
-- Clean rounds: **none**.
-- Frozen ledgers: `FILE17-FRESH-10-ROUND-2026-09-04-R1-LEDGER.md` through `FILE17-FRESH-10-ROUND-2026-09-04-R10-LEDGER.md`.
-- The previous seventh-fresh reviewed candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remains historical evidence only and is not current-head proof.
+- Defect-bearing rounds: **R1, R2, R3, R4, R6, R7, R8, R9, R10**.
+- Clean rounds: **R5**.
+- Frozen ledgers: `FILE17-NEXT-10-ROUND-2026-09-04-R1-LEDGER.md` through `FILE17-NEXT-10-ROUND-2026-09-04-R10-LEDGER.md`.
+- The prior `review/file17-fresh-10-round-2026-09-04` cycle and the older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remain historical evidence only and are not current-head proof.
 
 The executable repository quality inventory remains **54 PHP review suites** and **10 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. Exact automated-QA status belongs only to the workflow attached to the exact current branch HEAD; tracked documentation deliberately does not hard-code a self-referential final SHA.
 
@@ -26,7 +26,7 @@ Canonical private message bodies use authenticated server-side encryption at res
 ## Status law
 
 - **Specified:** current governing File-17 requirements represented in repository scope.
-- **Coded:** current 2.1.0 repository candidate has completed the fresh 10-round source review/fix cycle.
+- **Coded:** current 2.1.0 repository candidate has completed this next-fresh 10-round source review/fix cycle.
 - **Packaged:** true only for an exact commit whose deterministic package job succeeds.
 - **Automated-QA Green:** true only for the exact commit whose attached PHP 8.1 and PHP 8.3/full-quality checks succeed.
 - **Staging-Accepted:** pending real WordPress/MySQL/roles/providers/migration/rollback evidence.
