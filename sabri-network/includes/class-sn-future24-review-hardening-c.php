@@ -28,7 +28,7 @@ final class SN_Future24_Review_Hardening_C {
         if(!(bool)apply_filters('sn_network_case_discussion_professional_allowed',false,$actor,$conversation))return self::error('sn_case_discussion_forbidden','Professional case-discussion permission is required.',403);
         $r->set_param('summary',$redacted);$r->set_param('consent_asserted',true);
         $days=max(1,min(2555,(int)apply_filters('sn_network_case_discussion_retention_days',365,$actor,$conversation)));$new_expiry=gmdate('Y-m-d H:i:s',time()+$days*DAY_IN_SECONDS);
-        $wpdb->query('START TRANSACTION');
+        if($wpdb->query('START TRANSACTION')===false)return self::error('sn_case_transaction_failed','The case-discussion transaction could not start safely.',500);
         try{
             // Recheck current access at the storage transition.
             $member=$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$conversation,$actor));if(!$member)throw new RuntimeException('membership_changed');
