@@ -17,6 +17,9 @@ $transfer = $read('includes/class-sn-file-transfer-part-2.php');
 $smail = $read('includes/class-sn-smail-part-2.php');
 $privacy = $read('includes/class-sn-sixth-fresh-privacy-hardening.php');
 $r7privacy = $read('includes/class-sn-r7-privacy-hardening.php');
+$r8interop = $read('includes/class-sn-r8-interop-finalization-hardening.php');
+$knowledge = $read('includes/class-sn-fourth-fresh-knowledge-hardening.php');
+$knowledgeC = $read('includes/class-sn-future24-review-hardening-c.php');
 $loader = $read('includes/class-sn-future24-review-hardening.php');
 $migration = $read('includes/class-sn-fifth-fresh-migration-hardening.php');
 $ui = $read('includes/class-sn-fifth-fresh-ui-hardening.php');
@@ -78,6 +81,14 @@ $check(str_contains($r7privacy, 'DELETE FROM $table WHERE id IN') && str_contain
 $check(str_contains($r7privacy, 'DELETE FROM $table WHERE user_id=%d LIMIT %d') && str_contains($r7privacy, 'message_organization_privacy_erase_failed'), 'Next R7: message-organization erasure must use bounded checked deletes under a transaction.');
 $check(str_contains($r7privacy, 'two_plan_scheduled_erase_failed') && str_contains($r7privacy, 'two_plan_request_erase_failed') && str_contains($r7privacy, 'two_plan_poll_vote_erase_failed'), 'Next R7: Two-Plan scheduled/request/vote erasure must fail closed on every write domain.');
 $check(str_contains($r7privacy, "'done'=>!\$more_scheduled && !\$more_requests && !\$more_votes"), 'Next R7: Two-Plan completion must be derived from committed remaining work, not affected-row arithmetic.');
+
+// Next fresh Round 8 — final knowledge and interoperability routes must preserve the strongest governance/truth contracts.
+$check(str_contains($knowledge, 'SN_Future24_Review_Hardening_C::create_citation_card($r)') && str_contains($knowledge, 'SN_Future24_Review_Hardening_C::create_case_discussion($r)'), 'Next R8: final citation/case route owner must delegate to the stronger Future24-C governance contract.');
+$check(str_contains($knowledgeC, "if(\$wpdb->query('START TRANSACTION')===false)") && str_contains($knowledgeC, 'sn_case_transaction_failed'), 'Next R8: case-discussion transactional storage must fail closed if START TRANSACTION is not proven.');
+$check(str_contains($loader, 'class-sn-r8-interop-finalization-hardening.php') && str_contains($loader, 'SN_R8_Interop_Finalization_Hardening::register()'), 'Next R8: final interoperability sent-receipt truth guard must be loaded and registered.');
+$check(str_contains($r8interop, "add_action('rest_api_init', [self::class, 'override_route'], 3400)") && str_contains($r8interop, 'SN_Fourth_Fresh_Interop_Hardening::outbound($request)'), 'Next R8: final outbound route must execute after prior owners while preserving Fourth-Fresh replay/reconciliation behavior.');
+$check(str_contains($r8interop, 'receipt_is_durably_sent($receipt_id)') && str_contains($r8interop, "(string)(\$payload['delivery_state'] ?? '') === 'sent'"), 'Next R8: no outbound success may escape without a durably persisted sent receipt.');
+$check(str_contains($r8interop, 'sn_interop_reconciliation_required') && str_contains($r8interop, 'future_interop_outbound_local_finalize_failed'), 'Next R8: local receipt-finalization failure must become a reconciliation-required response and corrective audit evidence.');
 
 if ($fail) {
     fwrite(STDERR, "Sixth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
