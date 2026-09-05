@@ -3,7 +3,7 @@
 **Round:** 6  
 **Reviewed parent:** `9c512e7046b092bafeddb13ac82a392e691ac6b2`  
 **Scope:** active Sabri Meet, call runtime, realtime/presence, and conference-provider mutation/credential paths.  
-**Discipline:** the entire Round-6 review was completed before any correction began.
+**Discipline:** the entire Round-6 review was completed before any correction began. This ledger was finalized before the first source-code correction.
 
 ## Verified clean areas before freeze
 
@@ -13,6 +13,7 @@
 - `SN_Realtime_Runtime_Hardening` and `SN_Fourth_Fresh_Realtime_Hardening` serialize presence/device and typing mutations; presence aggregation rechecks visibility while the relationship lock is held.
 - Presence heartbeat device limits count only active non-revoked devices, and revocation uses optimistic version checks.
 - Conference credentials are short-lived, audience-bound, provider-health-gated, and never persisted by File 17.
+- Meet signal acknowledgement checks database failure and is scoped to the authenticated joined session.
 
 ## Frozen defects
 
@@ -36,6 +37,14 @@ Because this path changes conference infrastructure and consumes a high-risk act
 
 **Required correction:** fail closed before `SN_High_Risk::claim()` or any provider mutation if transaction start cannot be proven.
 
+### R6-D03 — Meet moderation can commit success after unchecked session/participant bulk updates fail
+
+Within `SN_Meet::moderate()`, the `end`, `admit`, `deny`, and `remove` transitions issue raw `$wpdb->query(...)` updates for meeting sessions and/or participants without checking for `false`. The later participant/event work and commit can therefore succeed while required session/participant side effects failed, leaving a moderation response that overstates committed state.
+
+**Severity:** High moderation state-consistency defect.
+
+**Required correction:** every required moderation bulk update must throw on database failure so the surrounding transaction rolls back. Zero affected rows may remain valid where the transition permits it; only database execution failure must be fatal.
+
 ## Correction gate
 
-No Round-7 review may begin until R6-D01 and R6-D02 are corrected, permanent regression coverage passes, and the exact resulting branch HEAD has green PHP 8.1 plus PHP 8.3/full-quality deterministic-package CI.
+No Round-7 review may begin until R6-D01, R6-D02 and R6-D03 are corrected, permanent regression coverage passes, and the exact resulting branch HEAD has green PHP 8.1 plus PHP 8.3/full-quality deterministic-package CI.
