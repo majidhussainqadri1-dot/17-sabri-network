@@ -271,6 +271,30 @@ final class SN_Two_Plan_Contract_Firewall {
 
     public static function cleanup(): void {
         global $wpdb;
+        // A worker can die after reserving a key but before post_dispatch() publishes
+        // the terminal response. Never delete/re-run that uncertain mutation: first
+        // convert sufficiently stale reservations into a fail-closed reconciliation
+        // state so future retries cannot duplicate an already-committed side effect.
+        $processing_cutoff = gmdate('Y-m-d H:i:s', time() - 2 * HOUR_IN_SECONDS);
+        $stale = $wpdb->get_col($wpdb->prepare(
+            "SELECT scope_key FROM ".self::table()." WHERE state='processing' AND updated_at<%s ORDER BY updated_at ASC LIMIT 500",
+            $processing_cutoff
+        ));
+        foreach (is_array($stale) ? $stale : [] as $scope_key) {
+            $changed = $wpdb->update(self::table(), [
+                'state' => 'unreplayable',
+                'response_code' => 503,
+                'response_cipher' => '',
+                'updated_at' => current_time('mysql', true),
+            ], ['scope_key' => (string) $scope_key, 'state' => 'processing']);
+            if ($changed === 1) {
+                SN_DB::audit('idempotency_processing_stale', 'two_plan_idempotency', 0, 'failure', [
+                    'scope_hash' => hash('sha256', (string) $scope_key),
+                    'reconciliation_required' => true,
+                ], 0);
+            }
+        }
+
         $cutoff = gmdate('Y-m-d H:i:s', time() - self::CACHE_TTL);
         $wpdb->query($wpdb->prepare("DELETE FROM ".self::table()." WHERE state IN ('complete','unreplayable') AND updated_at<%s LIMIT 500", $cutoff));
     }
