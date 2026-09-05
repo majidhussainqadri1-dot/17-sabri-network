@@ -1,0 +1,32 @@
+name: R3 one-time regression patch
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-another-10-round-2026-09-05
+          fetch-depth: 0
+      - name: Apply exact regression repair
+        run: python3 .github/r3_regression_patch.py
+      - name: Commit regression repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l sabri-network/tests/fifth-fresh-closure-contracts.php
+          php -l sabri-network/tests/seventh-fresh-ten-round-contracts.php
+          if git diff --quiet -- sabri-network/tests/fifth-fresh-closure-contracts.php sabri-network/tests/seventh-fresh-ten-round-contracts.php; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/tests/fifth-fresh-closure-contracts.php sabri-network/tests/seventh-fresh-ten-round-contracts.php
+          git commit -m 'R3 regression repair: align privacy retained-truth contracts'
+          git push origin HEAD:review/file17-another-10-round-2026-09-05
