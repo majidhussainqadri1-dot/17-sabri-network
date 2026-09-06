@@ -3,7 +3,7 @@
 **Plugin version:** 2.1.0  
 **WordPress:** 6.5 or later  
 **PHP:** 8.1 or later  
-**Repository status:** coding/review candidate; staging/live/operational acceptance remains separate.
+**Repository status:** fresh-20 source review/fix cycle completed; exact-head Automated-QA/package evidence, staging, live and operational states remain separate.
 
 File 17 is the Sabri Social Homeopathy Platform's single canonical communication/realtime owner: relationships, contacts/follows, message requests, communities/groups/channels, conversations/messages, private attachments, internal Smail, verified-user private transfer, temporary updates, presence/typing, calls/signaling/Sabri Meet, blocks/reports, native privacy lifecycle, receipts, private search and communication-event evidence. Network and Messages are distinct experiences over the same backend.
 
@@ -11,13 +11,13 @@ File 17 is the Sabri Social Homeopathy Platform's single canonical communication
 
 2.1.0 is reconciled to the current consolidated central governing plan, the current File 17 Final Harmonized Master Plan and the Founder-approved Future Communication Superset 24. Earlier review ledgers remain historical evidence for their own exact commits.
 
-The current executable full quality gate discovers and cross-checks every PHP review suite under `tests/`; at the Round-19 reviewed state this is **63 unique PHP review suites**. It also performs PHP 8.1/8.3 checks and syntax-checks all **10 governed JavaScript runtime entry points**. Every explicit PHP suite executes through the warning-fatal canonical wrapper.
+## Fresh-20 final source-review record
 
-## Active fresh 20-round review boundary
+**Active branch:** `review/file17-fresh-20-round-2026-09-06`  
+**Defect-bearing rounds:** R1, R2, R3, R5, R7, R8, R11, R12, R15, R16, R17, R18, R19, R20.  
+**Clean rounds:** R4, R6, R9, R10, R13, R14.
 
-The active branch is `review/file17-fresh-20-round-2026-09-06`. Every review round is completed before its defect ledger is frozen; only after that freeze are all proved defects corrected, regression-tested and required to pass exact-head CI before the next round starts.
-
-Rounds 1–18 are completed. Round 19 is defect-bearing and covers release/migration/package/runtime-closure truth; its corrections must pass exact-current-head CI before Round 20 begins. Older sixth-fresh, seventh-fresh, fresh-10 and another-fresh cycles remain historical evidence only and are not current-head proof.
+All 20 review rounds were completed before their own corrections were started. The executable full quality gate now enumerates **64 PHP review suites** and **10 governed JavaScript syntax entry points**; every PHP suite is executed through the warning-fatal canonical wrapper and the inventory is cross-checked against the filesystem.
 
 ## Canonical boundaries
 
@@ -44,15 +44,15 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The gate verifies every PHP review suite by exact filename, all 10 governed JavaScript runtime entry points, shell syntax, CSS/accessibility, repository hygiene, required current runtime surfaces, exact staged-source manifest and deterministic byte-for-byte package reproduction. The executable gate, not prose documentation, is authoritative for the current PHP-suite count.
+The gate verifies all 64 current PHP review suites by exact filename, all 10 governed JavaScript runtime entry points, shell syntax, CSS/accessibility, repository hygiene, required active runtime/source/package surfaces, exact staged-source manifest and deterministic byte-for-byte package reproduction. The executable gate, not prose documentation, is authoritative for the current inventory.
 
 ## Completion truth
 
 **Specified:** current governing-plan File-17 scope represented.  
-**Coded:** 2.1.0 active fresh-20 repository candidate.  
-**Packaged / Automated-QA Green:** only after exact-head workflow success for the exact current commit.  
-**Staging-Accepted:** pending real environment/integration acceptance.  
-**Live-Deployed:** not claimed.  
-**Operational:** not claimed.
+**Coded:** fresh-20 R1–R20 source correction set completed.  
+**Packaged / Automated-QA Green:** only the workflow attached to the exact current HEAD may establish these states.  
+**Staging-Accepted:** unverified.  
+**Live-Deployed:** unverified.  
+**Operational:** unverified.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
