@@ -124,11 +124,13 @@ p.write_text(s,encoding='utf-8')
 # Permanent regression in existing Smail adversarial suite.
 p=Path('sabri-network/tests/smail-adversarial-contracts.php')
 t=p.read_text(encoding='utf-8')
-marker='if($fail){fwrite(STDERR,'
+if "$runtime=file_get_contents($root.'/includes/class-sn-smail-runtime-hardening.php');" not in t:
+    t=t.replace("$js=file_get_contents($root.'/assets/js/smail.js');$fails=[];$checks=0;", "$js=file_get_contents($root.'/assets/js/smail.js');$runtime=file_get_contents($root.'/includes/class-sn-smail-runtime-hardening.php');$fails=[];$checks=0;",1)
+marker='if($fails){fwrite(STDERR,'
 insert="""
-$check(str_contains($runtime,'smail_database_read_failed')&&str_contains($runtime,'bool|WP_Error'),'Fresh20 R5: Smail duplicate truth must propagate canonical DB/decryption read failure instead of conflict.');
-$check(substr_count($runtime,"last_error=''")>=5&&substr_count($runtime,"last_error!==''")>=5,'Fresh20 R5: runtime Smail authoritative reads must explicitly clear and verify DB error state.');
-$check(str_contains($runtime,"if(is_wp_error($same))return $same")&&substr_count($runtime,'if(is_wp_error($same))return $same')>=3,'Fresh20 R5: every send duplicate/race reconciliation path must propagate read failure distinctly.');
+sma(str_contains($runtime,'smail_database_read_failed')&&str_contains($runtime,'bool|WP_Error'),'Fresh20 R5: Smail duplicate truth must propagate canonical DB/decryption read failure instead of conflict.');
+sma(substr_count($runtime,"last_error=''")>=5&&substr_count($runtime,"last_error!==''")>=5,'Fresh20 R5: runtime Smail authoritative reads must explicitly clear and verify DB error state.');
+sma(substr_count($runtime,'if(is_wp_error($same))return $same')>=3,'Fresh20 R5: every send duplicate/race reconciliation path must propagate read failure distinctly.');
 """
 idx=t.rfind(marker)
 if idx<0: raise SystemExit('smail test tail missing')
@@ -137,12 +139,11 @@ p.write_text(t,encoding='utf-8')
 
 p=Path('sabri-network/tests/smail-static-contracts.php')
 t=p.read_text(encoding='utf-8')
-# load final hardening for route-owner assertions without changing suite inventory
 if "$final = file_get_contents($root.'/includes/class-sn-fourth-fresh-smail-hardening.php');" not in t:
-    t=t.replace("$css = file_get_contents($root.'/assets/css/smail.css');", "$css = file_get_contents($root.'/assets/css/smail.css'); $final = file_get_contents($root.'/includes/class-sn-fourth-fresh-smail-hardening.php');",1)
+    t=t.replace("$css = file_get_contents($root.'/assets/css/smail.css'); $fails=[];$checks=0;", "$css = file_get_contents($root.'/assets/css/smail.css'); $final = file_get_contents($root.'/includes/class-sn-fourth-fresh-smail-hardening.php'); $fails=[];$checks=0;",1)
 marker='if($fails){fwrite(STDERR,'
 insert="""
-smc(str_contains($final,'smail_database_read_failed')&&substr_count($final,"last_error")>=4,'Fresh20 R5: final Smail draft owner must distinguish SQL failure from not-found/version conflict.');
+smc(str_contains($final,'smail_database_read_failed')&&substr_count($final,'last_error')>=4,'Fresh20 R5: final Smail draft owner must distinguish SQL failure from not-found/version conflict.');
 """
 idx=t.rfind(marker)
 if idx<0: raise SystemExit('smail static tail missing')
