@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-$root = dirname(__DIR__); $main = file_get_contents($root.'/sabri-network.php'); $src = implode("\n", array_map('file_get_contents', array_merge([$root.'/includes/class-sn-smail.php'], glob($root.'/includes/class-sn-smail-part-*.php')))); $tpl = file_get_contents($root.'/templates/smail-app.php'); $js = file_get_contents($root.'/assets/js/smail.js'); $css = file_get_contents($root.'/assets/css/smail.css'); $fails=[];$checks=0;
+$root = dirname(__DIR__); $main = file_get_contents($root.'/sabri-network.php'); $migration=file_get_contents($root.'/includes/class-sn-fifth-fresh-migration-hardening.php'); $src = implode("\n", array_map('file_get_contents', array_merge([$root.'/includes/class-sn-smail.php'], glob($root.'/includes/class-sn-smail-part-*.php')))); $tpl = file_get_contents($root.'/templates/smail-app.php'); $js = file_get_contents($root.'/assets/js/smail.js'); $css = file_get_contents($root.'/assets/css/smail.css'); $fails=[];$checks=0;
 function smc(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
-smc(str_contains($main,'class-sn-smail.php')&&str_contains($main,'SN_Smail::register()')&&str_contains($main,'SN_Smail::install()'),'Smail lifecycle is loaded, registered and installed.');
+smc(str_contains($main,'class-sn-smail.php')&&str_contains($main,'SN_Smail::register()')&&str_contains($migration,"[SN_Smail::class,'install']")&&!str_contains($main,'SN_Smail::install()'),'Smail lifecycle is loaded/registered while schema install is owned only by serialized migration governance.');
 foreach(['inbox','sent','drafts','starred','archive','spam','trash'] as $box){smc(str_contains($src,"'$box'"),"Mailbox $box is implemented.");}
 smc(str_contains($src,'SN_Central_Plan_Hardening::resolve_smail_conversation')&&str_contains($src,'SN_Message_Integrity::send_message'),'Smail reuses retry-safe canonical conversation resolution and the atomic canonical message service.');
 smc(!str_contains($src,'SN_REST::send_message'),'Smail cannot bypass the canonical message-integrity route.');
