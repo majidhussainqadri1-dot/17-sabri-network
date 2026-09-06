@@ -120,52 +120,13 @@ final class Sabri_Network {
     }
 
     public function init(): void {
-        SN_DB::maybe_upgrade();
-        SN_High_Risk::maybe_upgrade();
-        SN_Spaces::maybe_upgrade();
-        SN_Presence_Devices::maybe_upgrade();
-        SN_Message_Operations::maybe_upgrade();
-        SN_Context_Adapters::maybe_upgrade();
-        SN_CF01_Clinical_Context::maybe_upgrade();
-        SN_Conference_Provider::maybe_upgrade();
-        SN_Messages::maybe_upgrade();
-        SN_File_Transfer::maybe_upgrade();
-        SN_Smail::maybe_upgrade();
-        SN_Message_Search::maybe_upgrade();
-        SN_Outbox::maybe_upgrade();
+        // The serialized migration governor runs at init priority -1000 and is the
+        // sole schema/version authority. Normal init must never invoke installers
+        // or publish schema/plugin versions independently.
         SN_Central_Plan_Hardening::maybe_upgrade();
-        SN_Two_Plan_Completion::maybe_upgrade();
-        SN_Future_Superset::maybe_upgrade();
         SN_Activator::ensure_cleanup_schedule();
         add_rewrite_tag('%sn_network_app%', '1');
         add_rewrite_rule('^network-safe/?$', 'index.php?sn_network_app=1', 'top');
-
-        if ((string) get_option('sn_plugin_version', '') !== SN_VERSION) {
-            SN_Activator::retire_legacy_secrets();
-            SN_DB::install();
-            SN_High_Risk::install();
-            SN_Spaces::install();
-            SN_Presence_Devices::install();
-            SN_Message_Operations::install();
-            SN_Context_Adapters::install();
-            SN_CF01_Clinical_Context::install();
-            SN_Conference_Provider::install();
-            SN_Messages::install();
-            SN_File_Transfer::install();
-            SN_Smail::install();
-            SN_Message_Search::install();
-            SN_Outbox::install();
-            SN_Two_Plan_Completion::install();
-            SN_Future_Superset::install();
-            SN_Private_Files::ensure_storage();
-            SN_Central_Plan_Hardening::maybe_upgrade();
-            SN_Activator::ensure_network_page(true);
-            SN_Messages::ensure_pages(true);
-            SN_File_Transfer::ensure_page(true);
-            SN_Smail::ensure_page(true);
-            update_option('sn_plugin_version', SN_VERSION, false);
-            flush_rewrite_rules(false);
-        }
 
         do_action('sn_network_relationship_contract_registered', [
             'owner' => 'file-17',

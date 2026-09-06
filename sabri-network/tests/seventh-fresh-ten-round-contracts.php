@@ -19,6 +19,8 @@ $callRuntime=$read('includes/class-sn-call-runtime-hardening.php');
 $privacyFinal=$read('includes/class-sn-sixth-fresh-privacy-hardening.php');
 $privacyFifth=$read('includes/class-sn-fifth-fresh-privacy-hardening.php');
 $migration=$read('includes/class-sn-fifth-fresh-migration-hardening.php');
+$bootstrap=$read('sabri-network.php');
+$centralPlan=$read('includes/class-sn-central-plan-hardening.php');
 $admin=$read('includes/class-sn-admin.php');
 $searchHardening=$read('includes/class-sn-fourth-fresh-search-hardening.php');
 $space7=$read('includes/class-sn-spaces-part-7.php');
@@ -104,4 +106,12 @@ foreach(['root README'=>$repoReadme,'STATUS'=>$status,'CODING-COMPLETENESS'=>$co
 $check(!file_exists($repo.'/CHECKSUMS.sha256'),'Later R2: obsolete committed root CHECKSUMS.sha256 must not masquerade as current package truth.');
 $check(str_contains($manifest,'generated from the exact staged release tree')&&str_contains($manifest,'MANIFEST.sha256'),'Later R2: repository manifest must describe the generated exact staged-source manifest.');
 $check(!str_contains($manifest,'CHECKSUMS.sha256 is the canonical integrity manifest'),'Later R2: manifest must not revive the obsolete static-checksum claim.');
+
+// Yet-another R1 migration governance regressions.
+$check(str_contains($migration,'legacy_otp_discovery_failed')&&str_contains($migration,'backup_otp_discovery_failed'),'Yet R1: legacy OTP preservation must fail closed when table-discovery truth is unavailable.');
+$check(str_contains($migration,'migration_version_publish_failed')&&str_contains($migration,'migration_state_publish_failed'),'Yet R1: migration completion requires durable version and state publication.');
+$check(!str_contains($bootstrap,'SN_DB::maybe_upgrade();')&&!str_contains($bootstrap,"if ((string) get_option('sn_plugin_version', '') !== SN_VERSION"),'Yet R1: normal init must not remain a second schema installer/version publisher.');
+$migStart=strpos($centralPlan,"if (\$wpdb->query('START TRANSACTION') === false)",strpos($centralPlan,'public static function migrate_message_bodies'));
+$migWrite=strpos($centralPlan,'SN_Message_Body::ensure_encrypted_row($row)',strpos($centralPlan,'public static function migrate_message_bodies'));
+$check($migStart!==false&&$migWrite!==false&&$migStart<$migWrite,'Yet R1: plaintext body migration must prove transaction start before the first mutation.');
 if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";

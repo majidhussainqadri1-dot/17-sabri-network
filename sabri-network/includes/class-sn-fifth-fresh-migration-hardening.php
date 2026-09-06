@@ -41,11 +41,16 @@ final class SN_Fifth_Fresh_Migration_Hardening {
                 // Another request may have completed the migration while this request
                 // waited for the global lock. Never leave operational migration truth
                 // stuck at "running" on this verified post-lock fast path.
-                update_option(self::STATE_OPTION, [
+                $complete_state = [
                     'status'=>'complete','from'=>$from,'to'=>SN_VERSION,'completed_at'=>gmdate('c'),
                     'verification'=>'all-governed-installer-tables-plus-critical-columns-pass',
                     'completion_path'=>'post-lock-fast-path',
-                ], false);
+                ];
+                update_option(self::STATE_OPTION, $complete_state, false);
+                $stored_state = get_option(self::STATE_OPTION, null);
+                if (!is_array($stored_state) || ($stored_state['status'] ?? '') !== 'complete' || ($stored_state['to'] ?? '') !== SN_VERSION) {
+                    throw new RuntimeException('migration_state_publish_failed');
+                }
                 return true;
             }
             self::preserve_legacy_otp_table();
@@ -56,10 +61,18 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             }
             if (!self::verify_schema()) throw new RuntimeException('schema_verification_failed');
             update_option('sn_plugin_version', SN_VERSION, false);
-            update_option(self::STATE_OPTION, [
+            if ((string)get_option('sn_plugin_version','') !== SN_VERSION) {
+                throw new RuntimeException('migration_version_publish_failed');
+            }
+            $complete_state = [
                 'status'=>'complete','from'=>$from,'to'=>SN_VERSION,'completed_at'=>gmdate('c'),
                 'verification'=>'all-governed-installer-tables-plus-critical-columns-pass',
-            ], false);
+            ];
+            update_option(self::STATE_OPTION, $complete_state, false);
+            $stored_state = get_option(self::STATE_OPTION, null);
+            if (!is_array($stored_state) || ($stored_state['status'] ?? '') !== 'complete' || ($stored_state['to'] ?? '') !== SN_VERSION) {
+                throw new RuntimeException('migration_state_publish_failed');
+            }
             return true;
         } catch (Throwable $e) {
             self::restore_version_snapshot($snapshot);
@@ -173,8 +186,18 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         global $wpdb;
         $legacy = $wpdb->prefix . 'sn_phone_otps';
         $backup = $wpdb->prefix . 'sn_phone_otps_f17_retired';
-        $legacy_exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($legacy))) === $legacy;
-        $backup_exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($backup))) === $backup;
+        $wpdb->last_error = '';
+        $legacy_raw = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($legacy)));
+        if ($wpdb->last_error !== '' || ($legacy_raw !== null && !is_string($legacy_raw))) {
+            throw new RuntimeException('legacy_otp_discovery_failed');
+        }
+        $legacy_exists = (string)$legacy_raw === $legacy;
+        $wpdb->last_error = '';
+        $backup_raw = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($backup)));
+        if ($wpdb->last_error !== '' || ($backup_raw !== null && !is_string($backup_raw))) {
+            throw new RuntimeException('backup_otp_discovery_failed');
+        }
+        $backup_exists = (string)$backup_raw === $backup;
         if ($legacy_exists && !$backup_exists) {
             $ok = $wpdb->query('RENAME TABLE `' . esc_sql($legacy) . '` TO `' . esc_sql($backup) . '`'); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             if ($ok === false) throw new RuntimeException('legacy_otp_preservation_failed');

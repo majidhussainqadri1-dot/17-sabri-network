@@ -165,7 +165,10 @@ final class SN_Central_Plan_Hardening {
             return;
         }
         foreach ($rows as $row) {
-            $wpdb->query('START TRANSACTION');
+            if ($wpdb->query('START TRANSACTION') === false) {
+                SN_DB::audit('message_body_encryption_migration_failed', 'message', (int) $row->id, 'failure', ['reason' => 'transaction_start_failed'], 0);
+                break;
+            }
             try {
                 $secured = SN_Message_Body::ensure_encrypted_row($row);
                 if (is_wp_error($secured)) {
