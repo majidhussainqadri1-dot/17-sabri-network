@@ -17,7 +17,9 @@ jobs:
           ref: review/file17-fresh-20-round-2026-09-06
           fetch-depth: 0
       - name: Apply only frozen R17 corrections
-        run: python3 sabri-network/tools/r17-apply-fix.py
+        run: |
+          python3 sabri-network/tools/r17-apply-fix.py
+          python3 sabri-network/tools/r17-fix-test.py
       - name: Verify focused correction before commit
         run: |
           set -euo pipefail
@@ -32,7 +34,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm -f sabri-network/tools/r17-apply-fix.py
+          git rm -f sabri-network/tools/r17-apply-fix.py sabri-network/tools/r17-fix-test.py
           git add sabri-network/includes/class-sn-policy.php sabri-network/includes/class-sn-high-risk.php sabri-network/includes/class-sn-fifth-fresh-migration-hardening.php sabri-network/tests/r17-canonical-auth-dual-approval-contracts.php sabri-network/tools/quality-check.sh
           git commit -m 'R17 fix: canonical File00 auth and dual stepped-up approvals'
           git push origin HEAD:review/file17-fresh-20-round-2026-09-06
