@@ -20,4 +20,13 @@ $check(str_contains($l,'SN_Fifth_Fresh_Migration_Hardening::register()'),'R18: m
 $check(str_contains($m,"'step_up_grants','high_risk_actions'")&&str_contains($m,"'step_up_grants'=>['grant_uuid','user_id','purpose','token_hash','status','expires_at','version']"),'Next R1: governed migration verification must require the step-up grant schema used by high-risk authentication.');
 $check(str_contains($m,"'community_responses','two_plan_idempotency'")&&str_contains($m,"'two_plan_idempotency'=>['scope_key','actor_id','method','route_hash','request_hash','state','response_code','response_cipher','updated_at']"),'Next R1: governed migration verification must require the two-plan idempotency replay ledger.');
 $check(str_contains($m,"[SN_Two_Plan_Contract_Firewall::class,'install']")&&str_contains($m,"'sn_two_plan_firewall_schema_version'"),'Next R1: the two-plan firewall installer and version truth must be governed and rollback-snapshotted.');
+
+// Fresh 20-round R2 migration-state truth regression.
+$pre=strpos($m,"'completion_path'=>'pre-lock-fast-path'");
+$post=strpos($m,"'completion_path'=>'post-lock-fast-path'");
+$check($pre!==false&&$post!==false,'Fresh20 R2: both verified migration fast paths must publish explicit completion state.');
+$check(str_contains($m,"'sn_migration_state_unavailable'")&&str_contains($m,"['status'=>503]"),'Fresh20 R2: pre-lock completion-state publication failure must fail closed and retryably.');
+$check(substr_count($m,'migration_state_publish_failed')>=2,'Fresh20 R2: post-lock and install completion publication must remain verified.');
+$check(!str_contains($m,"self::verify_schema()) return true;"),'Fresh20 R2: no verified migration fast path may bypass durable migration-state truth.');
+
 if($fail){fwrite(STDERR,"Fifth fresh migration contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fifth fresh migration contracts: PASS ($checks checks)\n";
