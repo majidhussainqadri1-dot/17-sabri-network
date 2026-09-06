@@ -43,7 +43,7 @@ required=(
   includes/class-sn-sixth-fresh-privacy-hardening.php
   includes/class-sn-next-message-operations-hardening.php includes/class-sn-r6-transaction-hardening.php
   includes/class-sn-r7-privacy-hardening.php includes/class-sn-r8-interop-finalization-hardening.php
-  includes/class-sn-r9-runtime-hardening.php
+  includes/class-sn-r9-runtime-hardening.php includes/class-sn-fresh20-r7-message-read-hardening.php
   assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js assets/js/round20-correction.js
   assets/css/two-plan-ui.css assets/css/future-superset.css assets/css/brand-green-overrides.css
   templates/smail-app.php templates/file-transfer-app.php
