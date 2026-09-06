@@ -31,10 +31,15 @@ for p in docs:
     s=s.replace('R5 was clean.','No round was clean.')
     p.write_text(s,encoding='utf-8')
 
+# Normalize the compact boundary to the same exact comma-delimited current-round truth.
+p=Path('sabri-network/CURRENT-CANDIDATE-BOUNDARY.txt'); s=p.read_text(encoding='utf-8')
+s=s.replace(all_rounds_and,all_rounds)
+s=s.replace('defect-bearing rounds were '+all_rounds_and,'defect-bearing rounds were '+all_rounds)
+p.write_text(s,encoding='utf-8')
+
 # Make the current status prose unambiguous after the final round.
 p=Path('STATUS.md'); s=p.read_text(encoding='utf-8')
 s=s.replace('The current 4–5 September', 'The current 5–6 September')
-s=s.replace('Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.\n- **Clean rounds:** none.', 'Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.\n- **Clean rounds:** none.')
 p.write_text(s,encoding='utf-8')
 
 # Existing release-truth contracts must follow current semantic truth rather than yesterday's branch/count.
@@ -44,7 +49,7 @@ for rel in [
     'sabri-network/tests/seventh-fresh-ten-round-contracts.php',
 ]:
     p=Path(rel); s=p.read_text(encoding='utf-8')
-    s=s.replace(old,current).replace(old_rounds,all_rounds).replace(old_rounds_and,all_rounds_and)
+    s=s.replace(old,current).replace(old_rounds,all_rounds).replace(old_rounds_and,all_rounds)
     s=s.replace('current 54-suite/10-JS','current 57-suite/10-JS')
     s=s.replace('current 54-suite gate','current 57-suite gate')
     s=s.replace("str_contains($text,'54')&&str_contains($text,'10')","str_contains($text,'57')&&str_contains($text,'10')")
