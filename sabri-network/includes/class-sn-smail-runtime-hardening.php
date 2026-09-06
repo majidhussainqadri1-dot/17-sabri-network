@@ -47,7 +47,9 @@ final class SN_Smail_Runtime_Hardening {
                 if(!self::same_send_request($existing,$sender,$recipients,$subject,$body))return self::idempotency_conflict();
                 return rest_ensure_response(['smail'=>self::format($existing),'duplicate'=>true]);
             }
-            foreach($recipients as $recipient){$allowed=SN_Policy::can_contact($sender,$recipient,count($recipients)===1?'message':'group');if(is_wp_error($allowed))return $allowed;}
+            SN_Membership_Assertions::clear_cache($sender);
+            $fresh_access=SN_Policy::access();if(is_wp_error($fresh_access))return $fresh_access;
+            foreach($recipients as $recipient){SN_Membership_Assertions::clear_cache($recipient);$allowed=SN_Policy::can_contact($sender,$recipient,count($recipients)===1?'message':'group');if(is_wp_error($allowed))return $allowed;}
             $conversation=SN_Central_Plan_Hardening::resolve_smail_conversation($sender,$recipients,$subject,$client_key);if(is_wp_error($conversation))return $conversation;$conversation=(int)$conversation;if($conversation<=0)return new WP_Error('smail_conversation_failed','The Smail conversation could not be resolved.',['status'=>500]);
             foreach($recipients as $recipient){$allowed=SN_Policy::can_contact($sender,$recipient,count($recipients)===1?'message':'group');if(is_wp_error($allowed))return $allowed;}
             $message_request=new WP_REST_Request('POST','/sabri-network/v2/conversations/'.$conversation.'/messages');$message_request->set_param('id',$conversation);$message_request->set_param('body',$body);$message_request->set_param('message_type','text');$message_request->set_param('client_id','smail:'.substr($client_key,0,40));

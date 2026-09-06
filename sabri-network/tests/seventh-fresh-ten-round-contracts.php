@@ -132,4 +132,14 @@ $editPos=strpos($reviewFinal,'public static function edit_message');
 $receiptPos=strpos($reviewFinal,'public static function record_receipt');
 $editSlice=substr($reviewFinal,$editPos,$receiptPos-$editPos);
 $check(str_contains($editSlice,'SN_Membership_Assertions::clear_cache($actor);')&&str_contains($editSlice,'$fresh_access = SN_Policy::access();'),'Fresh20 R03: final edit mutation must refresh File-00 access after serialization.');
+
+// Fresh20 R05 Smail reservation regressions.
+$smailSendPos=strpos($smailRuntime,'public static function send');
+$smailResolvePos=strpos($smailRuntime,'SN_Central_Plan_Hardening::resolve_smail_conversation',$smailSendPos);
+$smailFreshPos=strpos($smailRuntime,'SN_Membership_Assertions::clear_cache($sender);',$smailSendPos);
+$check($smailFreshPos!==false&&$smailResolvePos!==false&&$smailFreshPos<$smailResolvePos,'Fresh20 R05: Smail must refresh File-00 actor truth under recipient locks before conversation reservation.');
+$check(str_contains($smailRuntime,'SN_Membership_Assertions::clear_cache($recipient);')&&str_contains($smailRuntime,'$fresh_access=SN_Policy::access();'),'Fresh20 R05: Smail must refresh recipient assertions and canonical access before positive reservation.');
+$centralSmailPos=strpos($centralPlan,'public static function resolve_smail_conversation');
+$centralSmail=substr($centralPlan,$centralSmailPos,7000);
+$check(str_contains($centralSmail,"START TRANSACTION') === false")&&str_contains($centralSmail,'reservation transaction could not start'),'Fresh20 R05: Smail group reservation must prove transaction start before inserts.');
 if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";

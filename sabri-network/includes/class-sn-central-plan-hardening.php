@@ -228,7 +228,9 @@ final class SN_Central_Plan_Hardening {
         $now = current_time('mysql', true);
         $settings = (string) wp_json_encode(['purpose' => 'smail', 'recipient_hash' => $recipient_hash]);
         $conversation_id = 0;
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return new WP_Error('smail_conversation_failed', 'The Smail group reservation transaction could not start.', ['status' => 500]);
+        }
         try {
             $ok = $wpdb->insert($conversations, [
                 'type' => 'group',
