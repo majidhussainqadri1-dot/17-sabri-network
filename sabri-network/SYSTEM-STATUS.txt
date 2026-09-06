@@ -7,22 +7,19 @@ File 17 — Sabri Network and Messages 2.1.0
 2) Current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24.
 3) Earlier review ledgers are historical evidence only for their own exact commits.
 
+Active branch: review/file17-fresh-20-round-2026-09-06.
+Fresh-20 source review/fix cycle: R1–R20 completed.
+Defect-bearing rounds: R1, R2, R3, R5, R7, R8, R11, R12, R15, R16, R17, R18, R19, R20.
+Clean rounds: R4, R6, R9, R10, R13, R14.
+
 Specified: current governing-plan File-17 repository scope is traceable.
-Coded Candidate: 2.1.0 active fresh-20 corrective source.
-Packaged: deterministic 2.1.0 ZIP + source manifest only when produced by the exact-head workflow.
-Automated QA: the executable gate discovers every PHP review suite under tests/, invokes each exactly once through the warning-fatal canonical wrapper, and fails on inventory drift. At the Round-19 reviewed state this is 63 unique PHP suites. PHP 8.1/8.3 jobs, 10 governed JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates are also enforced.
+Coded Candidate: 2.1.0 fresh-20 R1–R20 corrective source.
+Packaged: deterministic 2.1.0 ZIP + source manifest only when produced by the exact-current-head workflow.
+Automated QA: the executable gate currently enumerates 64 PHP review suites, invokes every PHP suite exactly once through the warning-fatal canonical wrapper, and syntax-checks 10 governed JavaScript entry points. PHP 8.1 current-boundary and PHP 8.3 full-quality/package paths now share the canonical warning-fatal regression semantics.
 Historical prior-cycle inventory marker only: 47 explicit PHP review suites and 8 JavaScript syntax checks; this line is retained solely for regression attribution and is not current QA truth.
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
-
-Active fresh 20-round cycle — 6–7 September 2026:
-- Branch: review/file17-fresh-20-round-2026-09-06.
-- Review method: complete review round -> frozen defect ledger -> fix every proved defect -> regression/retest -> exact-head CI -> only then next round.
-- Rounds 1–18 are completed.
-- Round 19 is defect-bearing. Its frozen release/migration/package corrections must pass exact-current-head CI before Round 20 begins.
-- No Round-20 or final-cycle completion claim is made here.
-- Earlier sixth-fresh/seventh-fresh/fresh-10/another-fresh cycle SHAs, run IDs and hashes are historical evidence only.
 
 Current coded domains include one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
 
@@ -34,6 +31,6 @@ External acceptance still pending:
 - approved WSS/STUN/TURN/SFU, load/soak and penetration testing;
 - Founder staging sign-off, live deployment, deployed-artifact parity and operational monitoring/support/SLO evidence.
 
-This status does not claim E2EE certification, staging acceptance, live deployment, production readiness or operational completion.
+This status does not claim E2EE certification, staging acceptance, live deployment, production readiness or operational completion. Exact final Automated-QA/package status belongs only to the workflow attached to the exact current HEAD.
 
 Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
