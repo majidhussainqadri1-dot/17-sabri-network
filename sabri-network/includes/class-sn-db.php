@@ -638,17 +638,22 @@ final class SN_DB {
                 }
             }
             $placeholders = implode(',', array_fill(0, count($ids), '%d'));
-            $wpdb->query('START TRANSACTION');
+            if ($wpdb->query('START TRANSACTION') === false) {
+                self::audit('expired_update_cleanup_failed', 'update', 0, 'failure', ['batch' => $batch, 'reason' => 'transaction_start_failed']);
+                break;
+            }
             try {
                 $views_deleted = $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('update_views') . " WHERE update_id IN ($placeholders)", ...$ids));
                 $updates_deleted = $wpdb->query($wpdb->prepare('DELETE FROM ' . self::table('updates') . " WHERE id IN ($placeholders)", ...$ids));
                 if ($views_deleted === false || $updates_deleted === false) {
                     throw new RuntimeException('expired_update_delete_failed');
                 }
-                $wpdb->query('COMMIT');
+                if ($wpdb->query('COMMIT') === false) {
+                    throw new RuntimeException('expired_update_cleanup_commit_failed');
+                }
             } catch (Throwable $e) {
                 $wpdb->query('ROLLBACK');
-                self::audit('expired_update_cleanup_failed', 'update', 0, 'failure', ['batch' => $batch]);
+                self::audit('expired_update_cleanup_failed', 'update', 0, 'failure', ['batch' => $batch, 'reason' => $e->getMessage()]);
                 break;
             }
 

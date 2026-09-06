@@ -222,13 +222,15 @@ final class SN_High_Risk {
         return $changed === 1 ? true : self::error('sn_high_risk_completion_conflict', 'The action completion conflicted with another update.', 409);
     }
 
-    public static function list_actions(WP_REST_Request $request): WP_REST_Response {
+    public static function list_actions(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;
         $status = sanitize_key((string) $request->get_param('status'));
         $limit = max(1, min(100, absint($request->get_param('limit')) ?: 50));
         $where = $status !== '' ? $wpdb->prepare(' WHERE status=%s', $status) : '';
+        $wpdb->last_error = '';
         $rows = $wpdb->get_results("SELECT id,action_uuid,action_type,requester_id,approver_id,executor_id,payload_hash,status,reason,expires_at,approved_at,executing_at,executed_at,released_at,version,created_at,updated_at FROM " . self::actions_table() . $where . $wpdb->prepare(' ORDER BY id DESC LIMIT %d', $limit));
-        return rest_ensure_response(['items' => is_array($rows) ? $rows : []]);
+        if ($wpdb->last_error !== '' || !is_array($rows)) return self::error('sn_high_risk_queue_unavailable', 'The high-risk action queue could not be read safely.', 503);
+        return rest_ensure_response(['items' => $rows]);
     }
 
     public static function cleanup(): void {

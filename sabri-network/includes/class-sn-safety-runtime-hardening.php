@@ -13,7 +13,10 @@ final class SN_Safety_Runtime_Hardening {
 
     public static function erase_user_report_data(int $user_id): array {
         global $wpdb;$table=SN_DB::table('reports');$now=current_time('mysql',true);$empty=SN_Safety::evidence_hash([]);
-        $retained=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE legal_hold=1 AND (reporter_id=%d OR reported_user_id=%d)",$user_id,$user_id));
+        $wpdb->last_error='';
+        $retained_raw=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE legal_hold=1 AND (reporter_id=%d OR reported_user_id=%d)",$user_id,$user_id));
+        if($wpdb->last_error!==''||$retained_raw===null)return['redacted'=>0,'retained'=>0,'held_reporter_minimized'=>0,'failed'=>true,'read_failed'=>true];
+        $retained=(int)$retained_raw;
         $lock='sn:f17:report-user:'.$user_id;$got=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,self::LOCK_TIMEOUT));if($got!==1)return['redacted'=>0,'retained'=>$retained,'held_reporter_minimized'=>0,'failed'=>true];
         try{
             if($wpdb->query('START TRANSACTION')===false)throw new RuntimeException('report_privacy_transaction_failed');
