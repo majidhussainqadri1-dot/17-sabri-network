@@ -8,16 +8,23 @@ Final message route precedence; send/retry request binding; edit/delete optimist
 
 ## Frozen defects
 
-### R03-D01 — Final message edit lacks mutation-point File-00 refresh
-The final edit owner is `SN_Fourth_Fresh_Review_Hardening::edit_message()`. It serializes the message/conversation and locks membership, but it does not clear the request-scoped File-00 assertion cache and rerun canonical access after the lock is held. A suspension/eligibility change after REST permission evaluation can therefore be missed by an edit that is otherwise still inside the edit window.
+### R03-D01 — Final message edit lacked mutation-point File-00 refresh
+The final edit owner serialized the message/conversation and locked membership, but did not clear request-scoped File-00 assertion state and rerun canonical access after the serialization boundary.
 
-### R03-D02 — Final reaction route remains an un-serialized legacy single-row mutation
-`/messages/{id}/reaction` remains owned by `SN_REST::react_message()`. It reads message/membership, then performs direct `DELETE`/`REPLACE` without the conversation lock, without a mutation-point File-00 refresh, and without re-reading the message under the mutation serialization boundary. A concurrent delete/leave/suspension transition can race the reaction write.
+### R03-D02 — Final reaction route remained an un-serialized legacy single-row mutation
+The legacy route performed direct reaction DELETE/REPLACE without conversation serialization and mutation-point current-state revalidation.
 
-### R03-D03 — Unsupported reaction input is silently interpreted as reaction removal
-`SN_Policy::sanitize_reaction()` returns an empty string both for an intentionally empty reaction (remove) and for an unsupported non-empty emoji/string. The legacy reaction route consequently treats invalid input as a deletion of the caller's existing reaction instead of rejecting the malformed request.
+### R03-D03 — Unsupported reaction input was silently interpreted as reaction removal
+Unsupported non-empty input collapsed to the same empty value used to request removal.
+
+## Frozen fixes applied
+Production correction commit: `35fc636fab9b9682385e121214de566d09d6213f`.
+
+The final message hardening owner now refreshes File-00 access within the locked edit mutation, owns the reaction route, validates unsupported reaction input explicitly, serializes reaction writes with current message/membership truth, revalidates positive eligibility/contact state, checks transaction commit, and couples the state change to reliable outbox/audit evidence. Reaction removal remains a protective/cleanup path and is not turned into a new positive-eligibility dependency.
+
+Permanent regression assertions were added to `seventh-fresh-ten-round-contracts.php` and passed in the branch-scoped frozen-fix runner before the source commit was pushed.
 
 ## Ledger status
-`DEFECT-BEARING — 3 frozen defects.`
+`DEFECT-BEARING — 3 frozen defects; all corrected after ledger freeze.`
 
-No production correction was started until this ledger was frozen.
+This documentation-only commit is the exact Round-03 regression/CI head. Round 04 may begin only after both declared quality jobs pass on this exact head.
