@@ -1,0 +1,33 @@
+name: Fresh20 frozen-fix runner
+on:
+  push:
+    branches:
+      - review/file17-fresh-20-round-2026-09-06-v2
+    paths:
+      - .github/fresh20_patch.py
+permissions:
+  contents: write
+jobs:
+  apply-frozen-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-fresh-20-round-2026-09-06-v2
+          fetch-depth: 0
+      - name: Apply the already-frozen round correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/fresh20_patch.py
+          rm -f .github/fresh20_patch.py
+          mapfile -t phpfiles < <(git diff --name-only -- '*.php')
+          for file in "${phpfiles[@]}"; do php -l "$file"; done
+          php sabri-network/tests/seventh-fresh-ten-round-contracts.php
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Fresh20 frozen fix: ${GITHUB_SHA:0:12}"
+          git push origin HEAD:review/file17-fresh-20-round-2026-09-06-v2
