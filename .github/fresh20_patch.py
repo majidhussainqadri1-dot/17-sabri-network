@@ -76,7 +76,7 @@ if marker not in s:
     insert="""
 // Fresh20 R02 relationship point-of-action regressions.
 $check(substr_count($relationshipRuntime,'SN_Membership_Assertions::clear_cache($actor);')>=3,'Fresh20 R02: positive contact/direct-conversation mutations must refresh the actor File-00 assertion at the locked mutation point.');
-$check(str_contains($relationshipRuntime,'SN_Membership_Assertions::clear_cache($target);')&&str_contains($relationshipRuntime,'SN_Policy::can_contact($actor,$target,\'message\')'),'Fresh20 R02: direct-conversation creation must refresh both parties before the locked contact-policy check.');
+$check(substr_count($relationshipRuntime,'SN_Membership_Assertions::clear_cache($target);')>=2,'Fresh20 R02: positive contact/direct-conversation mutations must refresh the target File-00 assertion at the locked mutation point.');
 $check(substr_count($relationships,'SN_Membership_Assertions::clear_cache($follower_id);')>=1&&substr_count($relationships,'SN_Membership_Assertions::clear_cache($followed_id);')>=1,'Fresh20 R02: follow creation must refresh both File-00 subjects under the pair lock.');
 $check(str_contains($relationships,'SN_Membership_Assertions::clear_cache((int) $row->follower_id);')&&str_contains($relationships,'SN_Membership_Assertions::clear_cache($target_id);'),'Fresh20 R02: follow acceptance must refresh both subjects before positive activation.');
 """
