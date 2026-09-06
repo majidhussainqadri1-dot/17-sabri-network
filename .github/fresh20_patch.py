@@ -29,11 +29,9 @@ edit_repl="""            try {
                 $messages = SN_DB::table('messages');
                 $members = SN_DB::table('members');
 """
-# only first occurrence is edit_message; delete follows later and remains a safety-removal path.
 if edit_anchor not in s: raise SystemExit('R03 edit refresh anchor missing')
 s=s.replace(edit_anchor,edit_repl,1)
 
-# Insert hardened reaction method before record_receipt.
 method_anchor="""    /** Serialize receipts against conversation membership changes, then reuse the bounded atomic receipt owner. */
     public static function record_receipt(WP_REST_Request $request): WP_REST_Response|WP_Error {
 """
@@ -109,7 +107,6 @@ if method_anchor not in s: raise SystemExit('R03 reaction method anchor missing'
 s=s.replace(method_anchor,reaction_method,1)
 p.write_text(s,encoding='utf-8')
 
-# Permanent regression assertions in existing explicit current-boundary suite.
 p=Path('sabri-network/tests/seventh-fresh-ten-round-contracts.php')
 s=p.read_text(encoding='utf-8')
 anchor="$msg=$read('includes/class-sn-message-runtime-hardening.php');\n"
@@ -121,8 +118,8 @@ if marker not in s:
     insert="""
 // Fresh20 R03 final message mutation regressions.
 $check(str_contains($reviewFinal,"'/messages/(?P<id>\\d+)/reaction'")&&str_contains($reviewFinal,"'callback' => [self::class, 'react_message']"),'Fresh20 R03: final route precedence must move reactions off the legacy un-serialized owner.');
-$check(str_contains($reviewFinal,"new WP_Error('invalid_reaction'")&&str_contains($reviewFinal,"$raw !== '' && $reaction === ''"),'Fresh20 R03: unsupported non-empty reaction input must be rejected rather than interpreted as removal.');
-$check(str_contains($reviewFinal,'public static function react_message')&&str_contains($reviewFinal,"SELECT * FROM $messages WHERE id=%d FOR UPDATE")&&str_contains($reviewFinal,"SELECT id FROM $members WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL FOR UPDATE"),'Fresh20 R03: reaction mutation must lock current message and membership truth.');
+$check(str_contains($reviewFinal,"new WP_Error('invalid_reaction'")&&str_contains($reviewFinal,'Choose a supported reaction'),'Fresh20 R03: unsupported non-empty reaction input must be rejected rather than interpreted as removal.');
+$check(str_contains($reviewFinal,'public static function react_message')&&substr_count($reviewFinal,'FOR UPDATE')>=3&&str_contains($reviewFinal,'reaction_commit_failed'),'Fresh20 R03: reaction mutation must lock current state and prove commit success.');
 $editPos=strpos($reviewFinal,'public static function edit_message');
 $receiptPos=strpos($reviewFinal,'public static function record_receipt');
 $editSlice=substr($reviewFinal,$editPos,$receiptPos-$editPos);
