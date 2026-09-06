@@ -18,6 +18,7 @@ function apply_filters(string $hook, $value, ...$args) {
     if ($hook === 'sn_network_user_age_state' && is_string($GLOBALS['fr4_age_filter'])) return $GLOBALS['fr4_age_filter'];
     return $value;
 }
+function get_user_meta(int $user_id, string $key, bool $single = false) { return $key === 'sn_privacy' ? [] : ''; }
 function user_can(int $user_id, string $cap): bool { return false; }
 function wp_unslash($value) { return $value; }
 final class WP_Error { public function __construct(...$args) {} }
