@@ -2,6 +2,12 @@
 
 ## 2.1.0 — 2026-08-11 onward — Current governing-plan repository corrective candidate
 
+### Fresh 20-round cycle — Round 18 correction closure — 2026-09-06 to 2026-09-07
+- Round 18 was fully reviewed and its defect ledger frozen before correction work began.
+- The canonical PHP review gate is now warning-fatal: all explicit PHP suites execute through `tools/run-php-test.php`, with `E_ALL` diagnostics promoted to test failures.
+- Warning-fatal regression exposed and corrected latent test-harness defects in the Meet concurrency and R18 warning-contract suites before the canonical quality-gate change was committed.
+- Round 18 remains repository evidence only; staging, deployed package, DB/schema, migration and live verification remain separate gates.
+
 ### Another-fresh 10-round corrective cycle — 2026-09-05 to 2026-09-06
 - Completed all ten rounds on `review/file17-another-10-round-2026-09-05` under **Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round**.
 - Defect-bearing rounds: **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10**; clean rounds: **none**.
@@ -11,7 +17,8 @@
 - The previous `review/file17-fresh-10-round-2026-09-04` cycle and older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remain historical evidence only; a prior green SHA is never current-head proof.
 
 ### Current quality and release truth
-- Current explicit full quality inventory is **59 PHP review suites** and **10 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current explicit full quality inventory is **60 PHP review suites** and **10 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Every explicit PHP review suite runs through the warning-fatal canonical test wrapper.
 - Permanent regression coverage remains inside the governed existing suites rather than adding one-off tests outside the explicit inventory.
 - Deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
 - Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
