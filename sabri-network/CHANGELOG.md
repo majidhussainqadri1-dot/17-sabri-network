@@ -19,6 +19,7 @@
 ### Another-fresh 10-round corrective cycle — 2026-09-05 to 2026-09-06
 - Completed all ten rounds on `review/file17-another-10-round-2026-09-05` under **Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round**.
 - Defect-bearing rounds: **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10**; clean rounds: **none**.
+- Historical QA inventory for that exact prior cycle was **60 PHP review suites and 10 JavaScript syntax entry points**; this is retained for permanent regression attribution only and is not current-head QA truth.
 - Retained governed migration completion/rollback truth, administrative repair fail-closed behavior, lossless message-search rebuild ownership, Smail exact-request idempotency and canonical space/Meet authorization boundaries.
 - Retained privacy progress and bounded erasure, semantic purge confirmation, interoperability configuration/durable-sent truth, speaker/template transaction safety, Future device-key privacy erasure and checked bulk scheduler recovery.
 - Round 10 reconciled current release documentation and hardened standalone packaging so every active late runtime correction layer is an explicit required release surface.
