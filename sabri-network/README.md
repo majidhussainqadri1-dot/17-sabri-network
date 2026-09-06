@@ -11,15 +11,13 @@ File 17 is the Sabri Social Homeopathy Platform's single canonical communication
 
 2.1.0 is reconciled to the current consolidated central governing plan, the current File 17 Final Harmonized Master Plan and the Founder-approved Future Communication Superset 24. Earlier review ledgers remain historical evidence for their own exact commits.
 
-The current explicit full quality gate contains **53 PHP review suites**, PHP 8.1/8.3 checks and **9 JavaScript entry points**. The sixth fresh cycle's permanent regression gate is `tests/sixth-fresh-twenty-round-contracts.php`.
+The current executable full quality gate discovers and cross-checks every PHP review suite under `tests/`; at the Round-19 reviewed state this is **63 unique PHP review suites**. It also performs PHP 8.1/8.3 checks and syntax-checks all **10 governed JavaScript runtime entry points**. Every explicit PHP suite executes through the warning-fatal canonical wrapper.
 
-## Sixth fresh review boundary
+## Active fresh 20-round review boundary
 
-The 18 August 2026 cycle began from reviewed source `a3a435b162167c9078ded22b08d6c8fb39b6ca27`. Every review round was completed before its defect ledger was corrected; the next round began only after correction/regression/retest.
+The active branch is `review/file17-fresh-20-round-2026-09-06`. Every review round is completed before its defect ledger is frozen; only after that freeze are all proved defects corrected, regression-tested and required to pass exact-head CI before the next round starts.
 
-Defect rounds: **R2, R5, R6, R8, R9, R12, R18, R19, R20**. Clean rounds: **R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17**.
-
-Current sixth-cycle hardening protects canonical identity projection truth, caller-owned message/Smail idempotency, hidden-message search visibility, transfer semantic retry binding, failure-safe privacy progress, Meet migration rollback truth, standalone Messages UI governance and complete release-test/package inventory coverage.
+Rounds 1–18 are completed. Round 19 is defect-bearing and covers release/migration/package/runtime-closure truth; its corrections must pass exact-current-head CI before Round 20 begins. Older sixth-fresh, seventh-fresh, fresh-10 and another-fresh cycles remain historical evidence only and are not current-head proof.
 
 ## Canonical boundaries
 
@@ -46,13 +44,13 @@ bash tools/quality-check.sh
 bash tools/package.sh
 ```
 
-The gate verifies every PHP review suite by exact filename, all 9 JavaScript entry points, shell syntax, CSS/accessibility, repository hygiene, required current runtime surfaces, exact staged-source manifest and deterministic byte-for-byte package reproduction.
+The gate verifies every PHP review suite by exact filename, all 10 governed JavaScript runtime entry points, shell syntax, CSS/accessibility, repository hygiene, required current runtime surfaces, exact staged-source manifest and deterministic byte-for-byte package reproduction. The executable gate, not prose documentation, is authoritative for the current PHP-suite count.
 
 ## Completion truth
 
 **Specified:** current governing-plan File-17 scope represented.  
-**Coded:** 2.1.0 sixth-cycle repository candidate.  
-**Packaged / Automated-QA Green:** only after exact-head workflow success for the exact final commit.  
+**Coded:** 2.1.0 active fresh-20 repository candidate.  
+**Packaged / Automated-QA Green:** only after exact-head workflow success for the exact current commit.  
 **Staging-Accepted:** pending real environment/integration acceptance.  
 **Live-Deployed:** not claimed.  
 **Operational:** not claimed.
