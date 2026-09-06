@@ -1,41 +1,34 @@
-# Repository Status
+# File 17 Status — repository truth only
 
-**Target:** File 17 — Sabri Network and Messages 2.1.0  
-**Current repository state:** another-fresh 10-round corrective cycle completed on `review/file17-another-10-round-2026-09-05`; current fresh 20-round cycle remains under exact-head review/correction  
-**Previous reviewed cycles/candidates:** historical evidence only  
-**Configured explicit PHP review suites:** **60**  
-**JavaScript syntax entry points:** **10**  
-**PHP review execution:** warning-fatal canonical wrapper  
-**Staging/live/operational:** pending / unverified
+## Active fresh-20 cycle
 
-## Governing audit set
+**Branch:** `review/file17-fresh-20-round-2026-09-06`  
+**Runtime version:** 2.1.0  
+**Source-review state:** all 20 rounds completed with each defect-bearing round corrected only after its ledger freeze. Final Automated-QA/Package status is established only by the workflow attached to the exact current HEAD.
 
-- Current consolidated central governing plan.
-- Current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24.
-- Earlier review ledgers and green CI runs are historical evidence only for their own exact commits.
+**Defect-bearing rounds:** R1, R2, R3, R5, R7, R8, R11, R12, R15, R16, R17, R18, R19, R20.  
+**Clean rounds:** R4, R6, R9, R10, R13, R14.
 
-## Latest completed sequential cycle
+Current executable inventory: **64 PHP review suites** and **10 JavaScript syntax entry points**. The canonical full quality gate requires every PHP suite present under `sabri-network/tests/` to be listed exactly once and executes it through the warning-fatal test runner. The PHP 8.1 current-boundary job also uses that runner for its critical boundary suites. PHP 8.3 runs the single canonical full gate and deterministic package build rather than a weaker parallel direct-PHP test path.
 
-The 5–6 September another-fresh cycle used the required order in every round: complete review → freeze all findings → correct proved defects → permanent regression/retest → exact-head CI → only then begin the next round.
+## Current repository boundary
 
-- **Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.
-- **Clean rounds:** none.
-- Ledgers: `FILE17-ANOTHER-10-ROUND-2026-09-05-R1-LEDGER.md` through `FILE17-ANOTHER-10-ROUND-2026-09-05-R10-LEDGER.md`.
+File 17 is the one communication backend for Network relationships and Messages/conversation UI. Current code includes consent-based relationships, spaces, messages, Smail, private attachments and transfer, presence, calls/Meet, private search, outbox/inbox event delivery, moderation/legal-hold/privacy lifecycle and governed Future-24 capabilities. External/provider-dependent capabilities remain fail-closed pending their separate acceptance gates.
 
-The subsequent fresh 20-round branch follows the same discipline. Round 18 added warning-fatal PHP review execution and its closure remains subject to exact-head CI. Exact automated-QA and package status is determined only by the GitHub Actions run attached to the exact current branch HEAD. Documentation does not reuse a prior SHA as current proof.
+**Specified:** represented.  
+**Coded:** fresh-20 R1–R20 correction set completed at source level.  
+**Packaged:** exact-current-HEAD workflow evidence required.  
+**Automated-QA Green:** exact-current-HEAD workflow evidence required.  
+**Staging-Accepted:** unverified.  
+**Live-Deployed:** unverified.  
+**Operational:** unverified.
 
-## Evidence status
+## Historical attribution — not current truth
 
-1. **Specified:** current File-17 plan set represented in repository scope.
-2. **Coded:** current 2.1.0 repository corrective candidate.
-3. **Packaged:** only the deterministic artifact attached to an exact evaluated commit after successful workflow completion.
-4. **Automated-QA Green:** only successful PHP 8.1 and PHP 8.3/full-quality checks attached to that exact commit.
-5. **Staging-Accepted:** pending real WordPress/PHP/MySQL, companion/provider, migration, browser/device and rollback evidence.
-6. **Live-Deployed:** not claimed.
-7. **Operational:** not claimed.
+The previous `review/file17-another-10-round-2026-09-05` cycle recorded defect rounds **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10** and a historical inventory of **60 PHP review suites** plus **10 JavaScript syntax entry points**. That evidence is intentionally retained as historical attribution only; it is not proof for the active fresh-20 tree.
 
-## Remaining non-repository evidence
+## External evidence still required
 
-Real fresh-install/upgrade/migration/race testing, current companion contracts, approved scanner/media/translation/AI/interoperability providers, browser/device/RTL/accessibility/load, key backup/restore/rotation, backup/rollback rehearsal, Founder staging sign-off, live deployment, deployed-artifact parity and monitoring/support/SLO evidence remain separate gates.
+Real WordPress/PHP/MySQL fresh-install and upgrade/migration/rollback testing; File 00/02/08/18/19/20/21/24/25/26 integration; approved scanner/private-storage/provider configuration; browser/device/RTL/accessibility acceptance; backup/restore/key-rotation proof; load/soak and penetration testing; Founder staging acceptance; deployed-artifact parity; live smoke test and operational monitoring remain separate gates.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
