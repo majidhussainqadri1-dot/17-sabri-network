@@ -27,12 +27,11 @@ jobs:
           php -l sabri-network/sabri-network.php
           php -l sabri-network/tests/r15-event-delivery-schema-contracts.php
           php sabri-network/tests/r15-event-delivery-schema-contracts.php
-      - name: Commit correction and remove temporary helpers
+      - name: Commit product correction only
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm -f .github/workflows/r15-event-inventory.yml .github/workflows/r15-apply-fix.yml sabri-network/tools/r15-apply-fix.py sabri-network/tools/r15-fix-test.py
-          git add sabri-network/sabri-network.php sabri-network/includes/class-sn-outbox.php sabri-network/includes/class-sn-event-schema-registry.php sabri-network/tests/r15-event-delivery-schema-contracts.php .github/workflows/quality.yml
+          git add sabri-network/sabri-network.php sabri-network/includes/class-sn-outbox.php sabri-network/includes/class-sn-event-schema-registry.php sabri-network/tests/r15-event-delivery-schema-contracts.php
           git commit -m 'R15 fix: fail-closed versioned event delivery contracts'
           git push origin HEAD:review/file17-fresh-20-round-2026-09-06
