@@ -28,7 +28,7 @@ Install and test on staging. Connect current identity authority, private storage
 == Changelog ==
 = 2.1.0 =
 * Current repository corrective line for the governing central plan, File 17 plan and approved Future Communication Superset 24.
-* Completed the 4–5 September another-fresh 10-round corrective review on `review/file17-another-10-round-2026-09-05`; R1, R2, R3, R4, R5, R6, R7, R8, R9 and R10 found and corrected proved defects, with no clean round.
+* Completed the 5–6 September another-fresh 10-round corrective review on `review/file17-another-10-round-2026-09-05`; R1, R2, R3, R4, R5, R6, R7, R8, R9 and R10 found and corrected proved defects, with no clean round.
 * Current-cycle corrections include migration/repair truth, search/Smail/space/Meet integrity, privacy progress, semantic purge confirmation, interoperability idempotency/durable-sent truth, transaction safety, Future device-key erasure, scheduler recovery, package late-runtime integrity and current release-truth reconciliation.
 * Current explicit quality inventory: **59 PHP review suites plus 10 JavaScript syntax entry points**, deterministic source manifest and byte-for-byte package reproduction.
 
