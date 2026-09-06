@@ -182,11 +182,14 @@ final class SN_Message_Integrity {
         if ((int) $target->sender_id === $user_id) return new WP_Error('own_message_receipt', 'A sender cannot record their own recipient receipt.', ['status' => 409]);
         $table = SN_DB::table('message_receipts');
         $column = $state === 'read' ? 'read_at' : 'delivered_at';
-        $through = (int) $wpdb->get_var($wpdb->prepare("SELECT COALESCE(MAX(message_id),0) FROM $table WHERE conversation_id=%d AND user_id=%d AND device_key=%s AND $column IS NOT NULL", $conversation_id, $user_id, $device_key));
+        $wpdb->last_error = '';
+        $through_raw = $wpdb->get_var($wpdb->prepare("SELECT COALESCE(MAX(message_id),0) FROM $table WHERE conversation_id=%d AND user_id=%d AND device_key=%s AND $column IS NOT NULL", $conversation_id, $user_id, $device_key));
+        if ($wpdb->last_error !== '' || $through_raw === null) return new WP_Error('receipt_progress_unavailable', 'The receipt progress state could not be verified.', ['status' => 503]);
+        $through = (int) $through_raw;
         $rows = $wpdb->get_results($wpdb->prepare("SELECT id FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND sender_id<>%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $conversation_id, $through, $requested_id, $user_id, self::MAX_RECEIPT_RANGE));
         if (!is_array($rows)) return new WP_Error('database_error', 'The receipt range could not be read.', ['status' => 500]);
         $recorded = 0; $now = current_time('mysql', true);
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('database_error', 'The receipt transaction could not be started.', ['status' => 503]);
         try {
             foreach ($rows as $row) {
                 $row_id = (int) $row->id;
@@ -211,7 +214,13 @@ final class SN_Message_Integrity {
             SN_DB::audit('message_receipt_failed', 'conversation', $conversation_id, 'failure', ['requested_message_id' => $requested_id, 'through_message_id' => $through, 'state' => $state, 'reason' => $e->getMessage()], $user_id);
             return new WP_Error('database_error', 'The receipt could not be committed.', ['status' => 500]);
         }
-        $more = (bool) $wpdb->get_var($wpdb->prepare("SELECT id FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND sender_id<>%d AND deleted_at IS NULL ORDER BY id ASC LIMIT 1", $conversation_id, $through, $requested_id, $user_id));
+        $wpdb->last_error = '';
+        $more_raw = $wpdb->get_var($wpdb->prepare("SELECT id FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND sender_id<>%d AND deleted_at IS NULL ORDER BY id ASC LIMIT 1", $conversation_id, $through, $requested_id, $user_id));
+        if ($wpdb->last_error !== '') {
+            SN_DB::audit('message_receipt_progress_failed', 'conversation', $conversation_id, 'failure', ['requested_message_id' => $requested_id, 'through_message_id' => $through, 'state' => $state], $user_id);
+            return new WP_Error('receipt_progress_unavailable', 'The committed receipt range could not be checked for remaining work. Retry safely.', ['status' => 503]);
+        }
+        $more = $more_raw !== null && (int) $more_raw > 0;
         do_action('sn_network_message_receipt_recorded', $conversation_id, $through, $user_id, $state, $requested_id, $more);
         return rest_ensure_response(['state' => $state, 'recorded' => $recorded, 'requested_message_id' => $requested_id, 'through_message_id' => $through, 'more' => $more]);
     }
