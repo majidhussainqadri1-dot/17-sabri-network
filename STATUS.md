@@ -15,11 +15,11 @@
 
 ## Latest sequential cycle
 
-The current 5–6 September next-fresh cycle used the required order in every round: complete review → freeze all findings → correct proved defects → permanent regression/retest → exact-head CI → only then begin the next round.
+The current 5–6 September another-fresh cycle used the required order in every round: complete review → freeze all findings → correct proved defects → permanent regression/retest → exact-head CI → only then begin the next round.
 
 - **Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.
 - **Clean rounds:** none.
-- Ledgers: `FILE17-NEXT-10-ROUND-2026-09-04-R1-LEDGER.md` through `FILE17-NEXT-10-ROUND-2026-09-04-R10-LEDGER.md`.
+- Ledgers: `FILE17-ANOTHER-10-ROUND-2026-09-05-R1-LEDGER.md` through `FILE17-ANOTHER-10-ROUND-2026-09-05-R10-LEDGER.md`.
 
 Exact automated-QA and package status is determined only by the GitHub Actions run attached to the exact current branch HEAD. Documentation does not reuse a prior SHA as current proof.
 
