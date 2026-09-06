@@ -42,4 +42,11 @@ ra_check(str_contains($files,'deleted_at IS NOT NULL'),'Byte retry must only tar
 ra_check(str_contains($files,'$attempts < 5'),'Private-byte retry must be bounded.');
 ra_check(!str_contains($r,'OFFSET '),'Follow pagination must avoid unstable offset pagination.');
 ra_check(strpos($files,"['deleted_at' => current_time",strpos($files,'function delete')) < strpos($files,'@unlink',strpos($files,'function delete')),'Private access must be revoked before byte deletion.');
+
+// Yet-another R2 relationship reconciliation regressions.
+$rr=file_get_contents($root.'/includes/class-sn-relationship-runtime-hardening.php');
+$rels=file_get_contents($root.'/includes/class-sn-relationships.php');
+ra_check(str_contains($rr,'block_reconciliation_read_failed')&&str_contains($rr,'$own_raw = $wpdb->get_var'),'Yet R2: block/unblock commit reconciliation is DB-error aware.');
+ra_check(str_contains($rr,'direct_conversation_reconciled')&&str_contains($rr,'$ids === $expected'),'Yet R2: direct conversation reconciliation proves exact active membership.');
+ra_check(str_contains($rels,"'follow_database_error','The follow relationship could not be verified.")&&str_contains($rels,"$wpdb->last_error !== ''"),'Yet R2: unfollow cannot treat a failed follow-row read as duplicate inactive success.');
 if($failures){fwrite(STDERR,"Relationship adversarial failures (".count($failures)."/$checks):\n - ".implode("\n - ",$failures)."\n");exit(1);}echo "Relationship adversarial contracts: PASS ($checks checks)\n";

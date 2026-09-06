@@ -151,7 +151,10 @@ final class SN_Relationship_Runtime_Hardening {
                     if ($contact && (string)$contact->status === 'blocked' && $wpdb->query($wpdb->prepare("UPDATE $contacts SET status='declined',updated_at=%s WHERE id=%d AND status='blocked'",$now,(int)$contact->id)) === false) throw new RuntimeException('contact_unblock_failed');
                 }
                 if ($wpdb->query('COMMIT') === false) {
-                    $own = (bool)$wpdb->get_var($wpdb->prepare("SELECT id FROM $blocks WHERE user_id=%d AND blocked_user_id=%d",$actor,$target));
+                    $wpdb->last_error = '';
+                    $own_raw = $wpdb->get_var($wpdb->prepare("SELECT id FROM $blocks WHERE user_id=%d AND blocked_user_id=%d",$actor,$target));
+                    if ($wpdb->last_error !== '' || ($own_raw !== null && !is_numeric($own_raw))) throw new RuntimeException('block_reconciliation_read_failed');
+                    $own = $own_raw !== null;
                     if ($own !== $blocked) throw new RuntimeException('block_commit_failed');
                 }
             } catch (Throwable $e) {
@@ -228,13 +231,13 @@ final class SN_Relationship_Runtime_Hardening {
                     }
                 }
                 if ($wpdb->query('COMMIT') === false) {
-                    $fresh = $wpdb->get_row($wpdb->prepare("SELECT id,status FROM $conversations WHERE id=%d",$id));
-                    if (!$fresh || (string)$fresh->status !== 'active') throw new RuntimeException('conversation_commit_failed');
+                    if (!self::direct_conversation_reconciled($id,$directKey,$actor,$target)) throw new RuntimeException('conversation_commit_failed');
                 }
             } catch (Throwable $e) {
                 $wpdb->query('ROLLBACK');
+                $wpdb->last_error = '';
                 $race = $wpdb->get_row($wpdb->prepare("SELECT id,status FROM $conversations WHERE direct_key=%s",$directKey));
-                if ($race && (string)$race->status === 'active') return self::conversation_response((int)$race->id,true,true);
+                if ($wpdb->last_error === '' && $race && (string)$race->status === 'active' && self::direct_conversation_reconciled((int)$race->id,$directKey,$actor,$target)) return self::conversation_response((int)$race->id,true,true);
                 return self::database_error();
             }
             SN_DB::add_notification($target,'conversation_invite','New Network conversation','','conversation',$id);
@@ -313,6 +316,19 @@ final class SN_Relationship_Runtime_Hardening {
                 if ($wpdb->query($wpdb->prepare("UPDATE $cm SET status=CASE WHEN status='invited' THEN 'missed' ELSE 'left' END,left_at=%s WHERE call_id=%d AND status IN ('invited','joined')",$now,$call)) === false || $wpdb->delete($signals,['call_id'=>$call],['%d']) === false) throw new RuntimeException('call_cleanup_after_member_removal_failed');
             }
         }
+    }
+
+    private static function direct_conversation_reconciled(int $id,string $directKey,int $actor,int $target): bool {
+        global $wpdb;
+        $wpdb->last_error = '';
+        $row = $wpdb->get_row($wpdb->prepare("SELECT id,status,direct_key FROM ".SN_DB::table('conversations')." WHERE id=%d",$id));
+        if ($wpdb->last_error !== '' || !$row || (string)$row->status !== 'active' || !hash_equals((string)$row->direct_key,$directKey)) return false;
+        $wpdb->last_error = '';
+        $ids = $wpdb->get_col($wpdb->prepare("SELECT user_id FROM ".SN_DB::table('members')." WHERE conversation_id=%d AND left_at IS NULL ORDER BY user_id ASC",$id));
+        if ($wpdb->last_error !== '' || !is_array($ids)) return false;
+        $ids = array_values(array_unique(array_map('intval',$ids))); sort($ids,SORT_NUMERIC);
+        $expected = [$actor,$target]; sort($expected,SORT_NUMERIC);
+        return $ids === $expected;
     }
 
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:'.substr(hash('sha256',(string)$id),0,32); }

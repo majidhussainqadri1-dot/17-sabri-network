@@ -83,7 +83,9 @@ final class SN_Relationships {
     public static function unfollow(int $follower_id, int $followed_id, int $expected_version = 0): array|WP_Error {
         return self::with_pair_lock($follower_id, $followed_id, function () use ($follower_id, $followed_id, $expected_version) {
             global $wpdb;
-            $row = SN_DB::follow_record($follower_id, $followed_id);
+            $wpdb->last_error = '';
+            $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('follows').' WHERE follower_id=%d AND followed_id=%d LIMIT 1',$follower_id,$followed_id));
+            if ($wpdb->last_error !== '' || ($row !== null && !is_object($row))) return new WP_Error('follow_database_error','The follow relationship could not be verified.',['status'=>503]);
             if (!$row || !in_array((string) $row->status, ['active', 'pending'], true)) {
                 return ['id' => $row ? (int) $row->id : 0, 'status' => 'inactive', 'version' => $row ? (int) $row->version : 0, 'duplicate' => true];
             }
