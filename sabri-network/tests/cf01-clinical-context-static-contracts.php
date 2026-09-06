@@ -2,6 +2,7 @@
 $root = dirname(__DIR__);
 $main = file_get_contents($root . '/sabri-network.php');
 $source = file_get_contents($root . '/includes/class-sn-cf01-clinical-context.php');
+$migration = file_get_contents($root . '/includes/class-sn-fifth-fresh-migration-hardening.php');
 $readme = file_get_contents($root . '/readme.txt');
 
 $tests = 0;
@@ -20,7 +21,8 @@ sn_cf01_static_assert(str_contains($main, "define('SN_VERSION', '2.1.0')"), 'run
 sn_cf01_static_assert(str_contains($main, "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')"), 'CF-01 contract version is explicit');
 sn_cf01_static_assert(str_contains($main, 'class-sn-cf01-clinical-context.php'), 'provider loads from bootstrap');
 sn_cf01_static_assert(str_contains($main, 'SN_CF01_Clinical_Context::register()'), 'provider lifecycle is registered');
-sn_cf01_static_assert(str_contains($main, 'SN_CF01_Clinical_Context::install()'), 'provider schema is installed');
+sn_cf01_static_assert(str_contains($migration, "[SN_CF01_Clinical_Context::class,'install']"), 'provider schema is installed only through the serialized migration governor');
+sn_cf01_static_assert(!str_contains($main, 'SN_CF01_Clinical_Context::install()'), 'normal init is not a second CF-01 schema installer authority');
 sn_cf01_static_assert(str_contains($source, "public const CONTRACT_NAME = 'sn.cf01.communication-context'"), 'contract name is exact');
 sn_cf01_static_assert(str_contains($source, "public const CONTRACT_VERSION = '1.0.0'"), 'contract version is exact');
 
