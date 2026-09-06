@@ -26,6 +26,7 @@ package_check(str_contains($package, 'find sabri-network -type f -print | sort |
 package_check(str_contains($package, "find sabri-network -type f ! -name 'MANIFEST.sha256'"), 'The staged source manifest must cover every installable file except itself.');
 package_check(str_contains($package, 'sha256sum -c sabri-network/MANIFEST.sha256'), 'The staged source manifest must be verified before packaging.');
 package_check(str_contains($package, 'cp "$STAGE/sabri-network/MANIFEST.sha256" "$SOURCE_MANIFEST"'), 'A detached source manifest must match the embedded manifest.');
+package_check(str_contains($package, 'includes/class-sn-fresh20-r7-message-read-hardening.php'), 'Every active Fresh-20 message read-hardening runtime layer must be an explicit required release surface.');
 package_check(substr_count($quality, 'bash tools/package.sh') >= 2, 'The quality gate must build the package twice.');
 package_check(str_contains($quality, 'cmp -s /tmp/file17-package-first.zip'), 'The quality gate must compare release bytes, not only filenames.');
 package_check(str_contains($quality, 'cmp -s /tmp/file17-package-first.manifest.sha256'), 'The quality gate must compare detached source manifests across builds.');
