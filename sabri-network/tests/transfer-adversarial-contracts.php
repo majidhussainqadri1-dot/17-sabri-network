@@ -27,6 +27,8 @@ fta((str_contains($crypto,'@chmod($path,0600)')||str_contains($crypto,'@chmod($p
 fta(str_contains($src,"Require all denied")&&str_contains($src,"http_response_code(404)"),'Fallback private storage has web-server denial guards.');
 fta(str_contains($src,'is_safe_storage_root')&&str_contains($src,'str_starts_with($normalized,$web)'),'A configured transfer root inside the public WordPress tree is rejected.');
 fta(str_contains($src,'file_transfer_download_failed')&&str_contains($src,'$sent!==$expected'),'Interrupted decryption/streaming is never recorded as a successful download.');
+fta(str_contains($src,'transfer_retention_hold')&&str_contains($src,'sn_network_retention_prevents_erasure')&&str_contains($src,'file_transfer_hold_discovery_failed'),'Transfer byte cleanup uses the authoritative legal/safety hold decision and records unavailable hold truth.');
+$deletePos=strpos($src,'private static function delete_chunks');$holdPos=$deletePos===false?false:strpos($src,'self::transfer_retention_hold($transfer_id)',$deletePos);$unlinkPos=$deletePos===false?false:strpos($src,'@unlink($path)',$deletePos);fta($deletePos!==false&&$holdPos!==false&&$unlinkPos!==false&&$holdPos<$unlinkPos,'Legal/safety hold is checked before the destructive transfer unlink path.');
 fta(!preg_match('/(?:api[_-]?key|secret|password)\s*=\s*[\'\"][^\'\"]{8,}/i',$src.$crypto),'No provider secret is hard-coded.');
 $debug_pattern='/'.'console'.'\\.log|'.'debugger;'.'/';
 fta(!preg_match($debug_pattern, $js),'Production transfer JavaScript has no debug statements.');
