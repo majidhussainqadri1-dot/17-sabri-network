@@ -15,23 +15,28 @@ jobs:
         with:
           ref: review/file17-fresh-20-round-2026-09-06
           fetch-depth: 0
-      - name: Apply frozen R15 fixes
-        run: |
-          python3 sabri-network/tools/r15-apply-fix.py
-          python3 sabri-network/tools/r15-fix-test.py
-      - name: Verify correction locally
+      - name: Patch canonical suite inventory after frozen R15 fix
         run: |
           set -euo pipefail
-          php -l sabri-network/includes/class-sn-event-schema-registry.php
-          php -l sabri-network/includes/class-sn-outbox.php
-          php -l sabri-network/sabri-network.php
-          php -l sabri-network/tests/r15-event-delivery-schema-contracts.php
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sabri-network/tools/quality-check.sh')
+          s=p.read_text(encoding='utf-8')
+          needle=' sixth-fresh-twenty-round-contracts.php seventh-fresh-ten-round-contracts.php\n)'
+          repl=' sixth-fresh-twenty-round-contracts.php seventh-fresh-ten-round-contracts.php r15-event-delivery-schema-contracts.php\n)'
+          if 'r15-event-delivery-schema-contracts.php' not in s:
+              if needle not in s:
+                  raise SystemExit('quality suite inventory anchor missing')
+              s=s.replace(needle,repl,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          bash -n sabri-network/tools/quality-check.sh
           php sabri-network/tests/r15-event-delivery-schema-contracts.php
-      - name: Commit product correction only
+      - name: Commit quality inventory correction
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add sabri-network/sabri-network.php sabri-network/includes/class-sn-outbox.php sabri-network/includes/class-sn-event-schema-registry.php sabri-network/tests/r15-event-delivery-schema-contracts.php
-          git commit -m 'R15 fix: fail-closed versioned event delivery contracts'
+          git add sabri-network/tools/quality-check.sh
+          git commit -m 'R15 fix: register event schema suite in quality inventory'
           git push origin HEAD:review/file17-fresh-20-round-2026-09-06
