@@ -16,7 +16,7 @@ jobs:
         with:
           ref: review/file17-fresh-20-round-2026-09-06
           fetch-depth: 0
-      - name: Apply frozen R20 quality and historical-truth corrections
+      - name: Apply frozen R20 source-gate and historical-truth corrections
         shell: bash
         run: |
           set -euo pipefail
@@ -32,7 +32,6 @@ jobs:
               if new not in s:
                   raise SystemExit(f'anchor missing in {path}: {old!r}')
 
-          # Canonical source required surfaces + final R20 suite.
           q='sabri-network/tools/quality-check.sh'
           replace_once(q,
               "  includes/class-sn-sixth-fresh-privacy-hardening.php\n  templates/network-standalone.php",
@@ -41,22 +40,6 @@ jobs:
               " sixth-fresh-twenty-round-contracts.php seventh-fresh-ten-round-contracts.php r15-event-delivery-schema-contracts.php r16-migration-rollback-contracts.php r17-canonical-auth-dual-approval-contracts.php r18-quality-warning-contracts.php\n)",
               " sixth-fresh-twenty-round-contracts.php seventh-fresh-ten-round-contracts.php r15-event-delivery-schema-contracts.php r16-migration-rollback-contracts.php r17-canonical-auth-dual-approval-contracts.php r18-quality-warning-contracts.php r20-final-cycle-contracts.php\n)")
 
-          # GitHub workflow: one warning-fatal test path; current boundary includes latest suites.
-          w='.github/workflows/quality.yml'
-          replace_once(w,
-              'if ! output="$(php "sabri-network/tests/$file" 2>&1)"; then',
-              'if ! output="$(php "sabri-network/tools/run-php-test.php" "sabri-network/tests/$file" 2>&1)"; then')
-          replace_once(w,
-              '          run_test r16-migration-rollback-contracts.php\n',
-              '          run_test r16-migration-rollback-contracts.php\n          run_test r17-canonical-auth-dual-approval-contracts.php\n          run_test r18-quality-warning-contracts.php\n          run_test r20-final-cycle-contracts.php\n')
-          p=Path(w); s=p.read_text(encoding='utf-8')
-          direct='''          php sabri-network/tests/future24-forty-round-corrective-static-contracts.php\n          php sabri-network/tests/fourth-fresh-twenty-round-contracts.php\n          php sabri-network/tests/fifth-fresh-twenty-round-contracts.php\n          php sabri-network/tests/fifth-fresh-migration-contracts.php\n          php sabri-network/tests/fifth-fresh-closure-contracts.php\n          php sabri-network/tests/fifth-fresh-release-truth-contracts.php\n          php sabri-network/tests/sixth-fresh-twenty-round-contracts.php\n          php sabri-network/tests/seventh-fresh-ten-round-contracts.php\n          php sabri-network/tests/r15-event-delivery-schema-contracts.php\n          php sabri-network/tests/r16-migration-rollback-contracts.php\n'''
-          if direct in s:
-              s=s.replace(direct,'',1); p.write_text(s,encoding='utf-8')
-          elif 'php sabri-network/tests/' in s:
-              raise SystemExit('unexpected direct PHP regression block remains')
-
-          # Historical tests must preserve old evidence as historical, never moving current truth.
           p=Path('sabri-network/tests/fifth-fresh-release-truth-contracts.php'); s=p.read_text(encoding='utf-8')
           reps={
               "$currentBranch='review/file17-another-10-round-2026-09-05';":"$historicalBranch='review/file17-another-10-round-2026-09-05';",
@@ -80,8 +63,7 @@ jobs:
               '$currentDefectRounds': '$historicalDefectRounds',
               'Current R10: ':'Historical another R10: ',
               'must identify the current another-fresh branch.':'must retain the historical another-fresh branch attribution.',
-              'must retain the current cycle all-ten defect-round truth.':'must retain that historical cycle all-ten defect-round attribution.',
-              'must not present the prior fresh branch as current repository truth.':'must not present the prior fresh branch as current repository truth.',
+              'must retain the current cycle all-ten defect-round truth.':'must retain that historical cycle all-ten defect-round attribution.'
           }
           for a,b in reps.items(): s=s.replace(a,b)
           p.write_text(s,encoding='utf-8')
@@ -111,7 +93,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/quality.yml sabri-network/tools/quality-check.sh sabri-network/tests/fifth-fresh-release-truth-contracts.php sabri-network/tests/fifth-fresh-closure-contracts.php sabri-network/tests/seventh-fresh-ten-round-contracts.php
+          git add sabri-network/tools/quality-check.sh sabri-network/tests/fifth-fresh-release-truth-contracts.php sabri-network/tests/fifth-fresh-closure-contracts.php sabri-network/tests/seventh-fresh-ten-round-contracts.php
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'R20 fix: unify quality execution and historical release semantics'
+          git commit -m 'R20 fix: close source gate and historical release semantics'
           git push origin HEAD:review/file17-fresh-20-round-2026-09-06
