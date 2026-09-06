@@ -123,7 +123,10 @@ final class SN_Message_Search {
             $snapshot = (int) $state['snapshot'];
             $before = (int) $state['before'];
         } else {
-            $snapshot = (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM ' . SN_DB::table('messages') . ' WHERE conversation_id=%d', $conversation_id));
+            $wpdb->last_error = '';
+            $snapshot_raw = $wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM ' . SN_DB::table('messages') . ' WHERE conversation_id=%d', $conversation_id));
+            if ($wpdb->last_error !== '' || $snapshot_raw === null) return new WP_Error('search_unavailable', 'Message search is temporarily unavailable.', ['status' => 503]);
+            $snapshot = (int) $snapshot_raw;
         }
         if ($snapshot <= 0) return rest_ensure_response(['results' => [], 'next_cursor' => null, 'snapshot' => 0]);
 
@@ -174,8 +177,13 @@ final class SN_Message_Search {
         $messages = SN_DB::table('messages');
         $target = $wpdb->get_row($wpdb->prepare("SELECT * FROM $messages WHERE id=%d AND conversation_id=%d AND id<=%d AND deleted_at IS NULL", $target_id, $conversation_id, $snapshot));
         if (!$target || !self::indexable($target) || SN_Message_Operations::is_hidden($viewer_id, $target_id)) return self::not_found();
-        $before = array_reverse($wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id<%d AND id<=%d AND deleted_at IS NULL ORDER BY id DESC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT)) ?: []);
-        $after = $wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT)) ?: [];
+        $wpdb->last_error = '';
+        $before_raw = $wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id<%d AND id<=%d AND deleted_at IS NULL ORDER BY id DESC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT));
+        if ($wpdb->last_error !== '' || !is_array($before_raw)) return new WP_Error('search_context_unavailable', 'Message context is temporarily unavailable.', ['status' => 503]);
+        $wpdb->last_error = '';
+        $after = $wpdb->get_results($wpdb->prepare("SELECT * FROM $messages WHERE conversation_id=%d AND id>%d AND id<=%d AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $conversation_id, $target_id, $snapshot, self::MAX_CONTEXT));
+        if ($wpdb->last_error !== '' || !is_array($after)) return new WP_Error('search_context_unavailable', 'Message context is temporarily unavailable.', ['status' => 503]);
+        $before = array_reverse($before_raw);
         $rows = array_values(array_filter(array_merge($before, [$target], $after), static fn(object $row): bool => self::indexable($row) && !SN_Message_Operations::is_hidden($viewer_id, (int) $row->id)));
         return rest_ensure_response(['target_id' => $target_id, 'snapshot' => $snapshot, 'messages' => array_map(fn(object $row): array => self::format_message($row, $viewer_id, $snapshot), $rows)]);
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 $root=dirname(__DIR__);$fail=[];$checks=0;
 $read=static fn(string $p):string=>(string)file_get_contents($root.'/'.$p);
 $check=static function(bool $ok,string $m)use(&$fail,&$checks):void{$checks++;if(!$ok)$fail[]=$m;};
-$integrity=$read('includes/class-sn-message-integrity.php');$activator=$read('includes/class-sn-activator.php');$admin=$read('includes/class-sn-admin.php');$messages=$read('includes/class-sn-messages.php');$transfer=$read('includes/class-sn-file-transfer-part-7.php');$smail=$read('includes/class-sn-smail-part-3.php');$migration=$read('includes/class-sn-fifth-fresh-migration-hardening.php');
+$search=$read('includes/class-sn-message-search.php');$ops=$read('includes/class-sn-message-operations.php');$integrity=$read('includes/class-sn-message-integrity.php');$activator=$read('includes/class-sn-activator.php');$admin=$read('includes/class-sn-admin.php');$messages=$read('includes/class-sn-messages.php');$transfer=$read('includes/class-sn-file-transfer-part-7.php');$smail=$read('includes/class-sn-smail-part-3.php');$migration=$read('includes/class-sn-fifth-fresh-migration-hardening.php');
 $check(str_contains($activator,'wp_update_post([')&&str_contains($activator,'], true);'),'R1 network repair requests WP_Error-aware post update');
 $check(str_contains($activator,'File 17 Messages pages could not be created safely.'),'R1 activation verifies both Messages pages');
 $check(str_contains($messages,'if (is_wp_error($updated) || (int) $updated !== $page_id) return 0;'),'R1 Messages repair fails closed on wp_update_post error');
@@ -16,4 +16,9 @@ $check(str_contains($migration,'legacy_otp_presence_check_failed')&&str_contains
 $check(str_contains($integrity,'START TRANSACTION')&&str_contains($integrity,'receipt transaction could not be started'),'R3 receipt owner fails closed on transaction-start failure');
 $check(str_contains($integrity,'receipt_progress_unavailable')&&str_contains($integrity,'$through_raw')&&str_contains($integrity,'$more_raw'),'R3 receipt progress reads are error-aware and retryable');
 $check(str_contains($integrity,'message_receipt_progress_failed'),'R3 committed receipt completion-probe failure is audited');
+$check(str_contains($ops,'$wpdb->last_error')&&str_contains($ops,'return true;return(bool)$hidden'),'R4 hidden ledger fails closed on database error');
+$check(str_contains($search,'$snapshot_raw')&&str_contains($search,'search_unavailable'),'R4 search snapshot read is error-aware');
+$check(str_contains($search,'$before_raw')&&str_contains($search,'search_context_unavailable'),'R4 context neighbor reads fail closed');
+$check(str_contains($ops,'sn_folder_list_unavailable')&&str_contains($ops,'sn_folder_count_unavailable'),'R4 folder list and limit reads fail closed');
+$check(str_contains($ops,'sn_unpin_failed')&&str_contains($ops,'sn_unstar_failed')&&str_contains($ops,'The conversation could not be removed from the folder.'),'R4 destructive organization removals check database results');
 if($fail){fwrite(STDERR,"Next20 contracts failed (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Next20 contracts: PASS ($checks checks)\n";
