@@ -55,7 +55,7 @@ jobs:
           PY
           run_test() {
             local file="$1" output
-            if ! output="$(php "sabri-network/tests/$file" 2>&1)"; then
+            if ! output="$(php "sabri-network/tools/run-php-test.php" "sabri-network/tests/$file" 2>&1)"; then
               printf '::error file=sabri-network/tests/%s::%s\n' "$file" "${output//$'\n'/'%0A'}"
               exit 1
             fi
@@ -86,6 +86,9 @@ jobs:
           run_test seventh-fresh-ten-round-contracts.php
           run_test r15-event-delivery-schema-contracts.php
           run_test r16-migration-rollback-contracts.php
+          run_test r17-canonical-auth-dual-approval-contracts.php
+          run_test r18-quality-warning-contracts.php
+          run_test r20-final-cycle-contracts.php
 
   quality-and-package:
     name: PHP 8.3 full quality and deterministic package
@@ -122,16 +125,6 @@ jobs:
             tail -n 80 /tmp/file17-quality.log | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::error file=sabri-network\/tools\/quality-check.sh::/'
             exit 1
           fi
-          php sabri-network/tests/future24-forty-round-corrective-static-contracts.php
-          php sabri-network/tests/fourth-fresh-twenty-round-contracts.php
-          php sabri-network/tests/fifth-fresh-twenty-round-contracts.php
-          php sabri-network/tests/fifth-fresh-migration-contracts.php
-          php sabri-network/tests/fifth-fresh-closure-contracts.php
-          php sabri-network/tests/fifth-fresh-release-truth-contracts.php
-          php sabri-network/tests/sixth-fresh-twenty-round-contracts.php
-          php sabri-network/tests/seventh-fresh-ten-round-contracts.php
-          php sabri-network/tests/r15-event-delivery-schema-contracts.php
-          php sabri-network/tests/r16-migration-rollback-contracts.php
       - name: Upload governed 2.1.0 candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
