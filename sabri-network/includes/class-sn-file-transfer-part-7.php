@@ -40,8 +40,38 @@ trait SN_File_Transfer_Part_7 {
     private static function is_safe_storage_root(string $root): bool{$normalized=trailingslashit(wp_normalize_path($root));$web=trailingslashit(wp_normalize_path(ABSPATH));if($normalized==='/'||str_starts_with($normalized,$web))return false;$resolved=realpath($root);$resolved_web=realpath(ABSPATH);if($resolved!==false&&$resolved_web!==false&&str_starts_with(trailingslashit(wp_normalize_path($resolved)),trailingslashit(wp_normalize_path($resolved_web))))return false;return true;}
     private static function existing_storage_path(string $storage_key): string|WP_Error{$storage_key=str_replace('\\','/',trim($storage_key));if($storage_key===''||str_contains($storage_key,"\0")||str_starts_with($storage_key,'/')||preg_match('~(^|/)\.\.(/|$)~',$storage_key))return new WP_Error('transfer_storage_key_invalid','The private transfer storage reference is invalid.',['status'=>500]);$root=realpath(self::storage_root());$candidate=realpath(self::storage_root().'/'.$storage_key);if($root===false||$candidate===false)return new WP_Error('private_chunk_unavailable','The private encrypted object is unavailable.',['status'=>404]);$root=trailingslashit(wp_normalize_path($root));$candidate_normalized=wp_normalize_path($candidate);if(!str_starts_with($candidate_normalized,$root))return new WP_Error('transfer_storage_path_escape','The private transfer storage reference failed containment validation.',['status'=>500]);return $candidate;}
 
+    /** Resolve sender/recipient hold truth before any destructive transfer cleanup. */
+    private static function transfer_retention_hold(int $transfer_id): bool {
+        global $wpdb;
+        $wpdb->last_error='';
+        $session=$wpdb->get_row($wpdb->prepare('SELECT sender_id FROM '.self::sessions_table().' WHERE id=%d',$transfer_id));
+        if($wpdb->last_error!==''||!$session){
+            SN_DB::audit('file_transfer_hold_discovery_failed','file_transfer',$transfer_id,'failure',['stage'=>'sender_ledger'],0);
+            return true;
+        }
+        $wpdb->last_error='';
+        $recipient_raw=$wpdb->get_col($wpdb->prepare('SELECT user_id FROM '.self::recipients_table().' WHERE transfer_id=%d ORDER BY user_id ASC',$transfer_id));
+        if($wpdb->last_error!==''||!is_array($recipient_raw)){
+            SN_DB::audit('file_transfer_hold_discovery_failed','file_transfer',$transfer_id,'failure',['stage'=>'recipient_ledger'],0);
+            return true;
+        }
+        $subjects=array_values(array_unique(array_merge([(int)$session->sender_id],array_map('intval',$recipient_raw))));
+        foreach($subjects as $subject_id){
+            if($subject_id<=0){
+                SN_DB::audit('file_transfer_hold_discovery_failed','file_transfer',$transfer_id,'failure',['stage'=>'invalid_subject'],0);
+                return true;
+            }
+            if((bool)apply_filters('sn_network_retention_prevents_erasure',false,$subject_id)){
+                SN_DB::audit('file_transfer_cleanup_retained','file_transfer',$transfer_id,'success',['reason'=>'legal_or_safety_hold','subject_count'=>count($subjects)],0);
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Keep ledger rows until their encrypted bytes are actually gone, so cleanup is retryable. */
     private static function delete_chunks(int $transfer_id): bool {
+        if(self::transfer_retention_hold($transfer_id))return false;
         global $wpdb;$wpdb->last_error='';$rows=$wpdb->get_results($wpdb->prepare('SELECT id,storage_key FROM '.self::chunks_table().' WHERE transfer_id=%d ORDER BY id ASC',$transfer_id));if($wpdb->last_error!==''||!is_array($rows)){SN_DB::audit('file_transfer_chunk_ledger_read_failed','file_transfer',$transfer_id,'failure',[]);return false;}$all=true;
         foreach(is_array($rows)?$rows:[] as $row){
             $path=self::existing_storage_path((string)$row->storage_key);
