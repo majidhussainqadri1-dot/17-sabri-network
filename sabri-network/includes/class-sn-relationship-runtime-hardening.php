@@ -46,6 +46,8 @@ final class SN_Relationship_Runtime_Hardening {
         if ($target <= 0 || $target === $actor || !get_user_by('id', $target)) return new WP_Error('invalid_contact', 'Select a valid Network member.', ['status' => 400]);
         if (!SN_Policy::consume_rate_limit('contact_request', (string) $actor, 20, DAY_IN_SECONDS)) return self::rate_limited();
         return self::with_locks([SN_Relationships::pair_lock_name($actor, $target)], function () use ($actor, $target, $wpdb) {
+            SN_Membership_Assertions::clear_cache($actor);
+            SN_Membership_Assertions::clear_cache($target);
             $policy = SN_Policy::can_contact($actor, $target, 'request');
             if (is_wp_error($policy)) return $policy;
             $table = SN_DB::table('contacts');
@@ -102,6 +104,8 @@ final class SN_Relationship_Runtime_Hardening {
                 if (!$row || (string)$row->status !== 'pending' || (int)$row->requested_by === $actor || !in_array($actor, [(int)$row->user_id,(int)$row->contact_user_id], true)) throw new DomainException('not_found');
                 $requester = (int)$row->requested_by;
                 if ($decision === 'accept') {
+                    SN_Membership_Assertions::clear_cache($requester);
+                    SN_Membership_Assertions::clear_cache($actor);
                     $policy = SN_Policy::can_contact($requester, $actor, 'request');
                     if (is_wp_error($policy)) { $wpdb->query('ROLLBACK'); return $policy; }
                 }
@@ -203,6 +207,8 @@ final class SN_Relationship_Runtime_Hardening {
         $locks = [SN_Relationships::pair_lock_name($actor,$target),'sn:f17:conversation-create:'.substr(hash('sha256',(string)$actor),0,32)];
         return self::with_locks($locks, function () use ($actor,$members,$wpdb) {
             $target = $members[0];
+            SN_Membership_Assertions::clear_cache($actor);
+            SN_Membership_Assertions::clear_cache($target);
             $policy = SN_Policy::can_contact($actor,$target,'message');
             if (is_wp_error($policy)) return $policy;
             $now = current_time('mysql',true);

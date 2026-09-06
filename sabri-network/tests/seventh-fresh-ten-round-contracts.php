@@ -10,6 +10,8 @@ $p=$read('tools/package.sh');
 $workflow=(string)file_get_contents($repo.'/.github/workflows/quality.yml');
 $r=$read('includes/class-sn-round20-correction.php');
 $m=$read('includes/class-sn-membership-assertions.php');
+$relationships=$read('includes/class-sn-relationships.php');
+$relationshipRuntime=$read('includes/class-sn-relationship-runtime-hardening.php');
 $msg=$read('includes/class-sn-message-runtime-hardening.php');
 $attach=$read('includes/class-sn-attachment-runtime-hardening.php');
 $smailFinal=$read('includes/class-sn-fourth-fresh-smail-hardening.php');
@@ -114,4 +116,10 @@ $check(!str_contains($bootstrap,'SN_DB::maybe_upgrade();')&&!str_contains($boots
 $migStart=strpos($centralPlan,"if (\$wpdb->query('START TRANSACTION') === false)",strpos($centralPlan,'public static function migrate_message_bodies'));
 $migWrite=strpos($centralPlan,'SN_Message_Body::ensure_encrypted_row($row)',strpos($centralPlan,'public static function migrate_message_bodies'));
 $check($migStart!==false&&$migWrite!==false&&$migStart<$migWrite,'Yet R1: plaintext body migration must prove transaction start before the first mutation.');
+
+// Fresh20 R02 relationship point-of-action regressions.
+$check(substr_count($relationshipRuntime,'SN_Membership_Assertions::clear_cache($actor);')>=3,'Fresh20 R02: positive contact/direct-conversation mutations must refresh the actor File-00 assertion at the locked mutation point.');
+$check(substr_count($relationshipRuntime,'SN_Membership_Assertions::clear_cache($target);')>=2,'Fresh20 R02: positive contact/direct-conversation mutations must refresh the target File-00 assertion at the locked mutation point.');
+$check(substr_count($relationships,'SN_Membership_Assertions::clear_cache($follower_id);')>=1&&substr_count($relationships,'SN_Membership_Assertions::clear_cache($followed_id);')>=1,'Fresh20 R02: follow creation must refresh both File-00 subjects under the pair lock.');
+$check(str_contains($relationships,'SN_Membership_Assertions::clear_cache((int) $row->follower_id);')&&str_contains($relationships,'SN_Membership_Assertions::clear_cache($target_id);'),'Fresh20 R02: follow acceptance must refresh both subjects before positive activation.');
 if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";

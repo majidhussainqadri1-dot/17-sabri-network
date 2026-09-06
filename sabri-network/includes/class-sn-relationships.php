@@ -50,6 +50,8 @@ final class SN_Relationships {
     public static function follow(int $follower_id, int $followed_id): array|WP_Error {
         return self::with_pair_lock($follower_id, $followed_id, function () use ($follower_id, $followed_id) {
             global $wpdb;
+            SN_Membership_Assertions::clear_cache($follower_id);
+            SN_Membership_Assertions::clear_cache($followed_id);
             $policy = SN_Policy::can_follow($follower_id, $followed_id);
             if (is_wp_error($policy)) return $policy;
             $status = SN_Policy::follow_initial_status($follower_id, $followed_id);
@@ -113,6 +115,8 @@ final class SN_Relationships {
             if (!$row || (int) $row->followed_id !== $target_id || (string) $row->status !== 'pending') return new WP_Error('follow_request_not_found', 'This follow request is unavailable.', ['status' => 404]);
             if ((int) $row->version !== $expected_version) return new WP_Error('follow_version_conflict', 'The follow request changed before this decision was saved.', ['status' => 409]);
             if ($decision === 'accept') {
+                SN_Membership_Assertions::clear_cache((int) $row->follower_id);
+                SN_Membership_Assertions::clear_cache($target_id);
                 $policy = SN_Policy::can_follow((int) $row->follower_id, $target_id);
                 if (is_wp_error($policy)) return $policy;
             }
