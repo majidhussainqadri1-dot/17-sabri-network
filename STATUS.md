@@ -1,9 +1,9 @@
 # Repository Status
 
 **Target:** File 17 — Sabri Network and Messages 2.1.0  
-**Current repository state:** next-fresh 10-round corrective cycle completed on `review/file17-next-10-round-2026-09-04`  
+**Current repository state:** another-fresh 10-round corrective cycle completed on `review/file17-another-10-round-2026-09-05`  
 **Previous reviewed cycles/candidates:** historical evidence only  
-**Configured explicit PHP review suites:** **54**  
+**Configured explicit PHP review suites:** **57**  
 **JavaScript syntax entry points:** **10**  
 **Staging/live/operational:** pending / unverified
 
@@ -15,10 +15,10 @@
 
 ## Latest sequential cycle
 
-The current 4–5 September next-fresh cycle used the required order in every round: complete review → freeze all findings → correct proved defects → permanent regression/retest → exact-head CI → only then begin the next round.
+The current 5–6 September next-fresh cycle used the required order in every round: complete review → freeze all findings → correct proved defects → permanent regression/retest → exact-head CI → only then begin the next round.
 
-- **Defect-bearing rounds:** R1, R2, R3, R4, R6, R7, R8, R9, R10.
-- **Clean rounds:** R5.
+- **Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.
+- **Clean rounds:** none.
 - Ledgers: `FILE17-NEXT-10-ROUND-2026-09-04-R1-LEDGER.md` through `FILE17-NEXT-10-ROUND-2026-09-04-R10-LEDGER.md`.
 
 Exact automated-QA and package status is determined only by the GitHub Actions run attached to the exact current branch HEAD. Documentation does not reuse a prior SHA as current proof.
@@ -26,7 +26,7 @@ Exact automated-QA and package status is determined only by the GitHub Actions r
 ## Evidence status
 
 1. **Specified:** current File-17 plan set represented in repository scope.
-2. **Coded:** current 2.1.0 candidate completed this next-fresh 10-round source review/fix cycle.
+2. **Coded:** current 2.1.0 candidate completed this another-fresh 10-round source review/fix cycle.
 3. **Packaged:** only the deterministic artifact attached to an exact evaluated commit after successful workflow completion.
 4. **Automated-QA Green:** only successful PHP 8.1 and PHP 8.3/full-quality checks attached to that exact commit.
 5. **Staging-Accepted:** pending real WordPress/PHP/MySQL, companion/provider, migration, browser/device and rollback evidence.

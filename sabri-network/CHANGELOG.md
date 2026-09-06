@@ -2,16 +2,16 @@
 
 ## 2.1.0 — 2026-08-11 onward — Current governing-plan repository corrective candidate
 
-### Next-fresh 10-round corrective cycle — 2026-09-04 to 2026-09-05
-- Completed all ten rounds on `review/file17-next-10-round-2026-09-04` under **Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round**.
-- Defect-bearing rounds: **R1, R2, R3, R4, R6, R7, R8, R9, R10**; clean round: **R5**.
+### Another-fresh 10-round corrective cycle — 2026-09-05 to 2026-09-06
+- Completed all ten rounds on `review/file17-another-10-round-2026-09-05` under **Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round**.
+- Defect-bearing rounds: **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10**; clean round: **R5**.
 - Retained governed migration completion/rollback truth, administrative repair fail-closed behavior, lossless message-search rebuild ownership, Smail exact-request idempotency and canonical space/Meet authorization boundaries.
 - Retained privacy progress and bounded erasure, semantic purge confirmation, interoperability configuration/durable-sent truth, speaker/template transaction safety, Future device-key privacy erasure and checked bulk scheduler recovery.
 - Round 10 reconciled current release documentation and hardened standalone packaging so every active late runtime correction layer is an explicit required release surface.
 - The previous `review/file17-fresh-10-round-2026-09-04` cycle and older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remain historical evidence only; a prior green SHA is never current-head proof.
 
 ### Current quality and release truth
-- Current explicit full quality inventory is **54 PHP review suites** and **10 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current explicit full quality inventory is **57 PHP review suites** and **10 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
 - Permanent regression coverage remains inside the governed existing suites rather than adding one-off tests outside the explicit inventory.
 - Deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
 - Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.

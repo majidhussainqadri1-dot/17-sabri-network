@@ -20,8 +20,8 @@ $repoReadme=$readRepo('README.md');
 $status=$readRepo('STATUS.md');
 $coding=$readRepo('CODING-COMPLETENESS.md');
 $boundary=$read('CURRENT-CANDIDATE-BOUNDARY.txt');
-$currentBranch='review/file17-next-10-round-2026-09-04';
-$currentDefects='R1, R2, R3, R4, R6, R7, R8, R9, R10';
+$currentBranch='review/file17-another-10-round-2026-09-05';
+$currentDefects='R1, R2, R3, R4, R5, R6, R7, R8, R9, R10';
 
 $check(!str_contains($uiOwner,"\$_GET['sn-network-safe']"),'Fresh R10: final UI asset ownership must not trust a raw query-string sentinel.');
 $check(str_contains($uiOwner,"get_query_var('sn_network_app')")&&str_contains($uiOwner,"get_query_var('sn_messages_app')")&&str_contains($uiOwner,"get_query_var('sn_meet_app')"),'Fresh R10: final UI assets must use canonical registered File-17 query truth.');
@@ -31,7 +31,7 @@ $check(str_contains($uiJs,'restoreModalFocus')&&str_contains($uiJs,'removedNodes
 
 foreach(['root README'=>$repoReadme,'STATUS'=>$status,'CODING-COMPLETENESS'=>$coding,'plugin readme'=>$pluginReadme,'plugin changelog'=>$pluginChangelog,'candidate boundary'=>$boundary] as $name=>$text){
     $check(str_contains($text,$currentBranch),"Fresh R10: $name must identify the current next-fresh review branch.");
-    $check(str_contains($text,'54')&&str_contains($text,'10'),"Fresh R10: $name must retain current 54-suite/10-JS release truth.");
+    $check(str_contains($text,'57')&&str_contains($text,'10'),"Fresh R10: $name must retain current 57-suite/10-JS release truth.");
     $check(!str_contains($text,'review/file17-next-fresh-10-round-2026-09-03'),"Fresh R10: $name must not present the obsolete next-fresh branch as current truth.");
 }
 $check(str_contains($repoReadme,$currentDefects)&&str_contains($status,$currentDefects)&&str_contains($pluginReadme,$currentDefects),'Fresh R10: current release/status surfaces must record the current defect-bearing rounds.');
