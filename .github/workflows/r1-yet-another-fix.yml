@@ -18,6 +18,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/r1_yet_another_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sabri-network/tests/seventh-fresh-ten-round-contracts.php')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('"if ($wpdb->query(\'START TRANSACTION\') === false)"','"if (\\$wpdb->query(\'START TRANSACTION\') === false)"')
+          p.write_text(s,encoding='utf-8')
+          PY
           php -l sabri-network/includes/class-sn-fifth-fresh-migration-hardening.php
           php -l sabri-network/sabri-network.php
           php -l sabri-network/includes/class-sn-central-plan-hardening.php
