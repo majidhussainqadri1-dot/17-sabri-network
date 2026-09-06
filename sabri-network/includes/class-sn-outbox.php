@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 /** File-17 transactional event outbox/inbox with bounded retry and dead-letter operations. */
 final class SN_Outbox {
-    private const SCHEMA_VERSION = '1.0.0';
+    private const SCHEMA_VERSION = '1.1.0';
     private const BATCH_SIZE = 50;
     private const LOCK_SECONDS = 120;
     private const MAX_PAYLOAD_BYTES = 65535;
@@ -27,6 +27,8 @@ final class SN_Outbox {
             event_uuid CHAR(36) NOT NULL,
             event_key CHAR(64) NOT NULL,
             event_type VARCHAR(80) NOT NULL,
+            event_contract VARCHAR(160) NOT NULL DEFAULT '',
+            event_schema_version VARCHAR(20) NOT NULL DEFAULT '',
             aggregate_type VARCHAR(40) NOT NULL DEFAULT '',
             aggregate_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             payload LONGTEXT NOT NULL,
@@ -93,13 +95,15 @@ final class SN_Outbox {
         global $wpdb;
         $type = strtolower(trim($type)); $aggregate_type = sanitize_key($aggregate_type);
         if (!preg_match('/^[a-z0-9][a-z0-9._-]{2,79}$/', $type) || $idempotency_key === '' || strlen($idempotency_key) > 255) return new WP_Error('invalid_event_identity', 'A valid bounded event identity is required.');
+        $schema = SN_Event_Schema_Registry::validate_payload($type, $payload);
+        if (is_wp_error($schema)) return $schema;
         $clean = self::sanitize_payload($payload); $json = (string) wp_json_encode($clean);
         if ($json === '' || strlen($json) > self::MAX_PAYLOAD_BYTES) return new WP_Error('event_payload_invalid', 'The event metadata is invalid or too large.');
         $payload_hash = hash('sha256', $json); $event_key = hash('sha256', $type . '|' . $idempotency_key); $table = self::outbox_table();
         $existing = $wpdb->get_row($wpdb->prepare("SELECT id,event_type,payload_hash FROM $table WHERE event_key=%s LIMIT 1", $event_key));
         if ($existing) return (string)$existing->event_type === $type && hash_equals((string)$existing->payload_hash, $payload_hash) ? (int)$existing->id : new WP_Error('event_idempotency_conflict', 'The event identity was reused with different metadata.');
         $now = current_time('mysql', true);
-        $ok = $wpdb->insert($table, ['event_uuid'=>wp_generate_uuid4(),'event_key'=>$event_key,'event_type'=>$type,'aggregate_type'=>$aggregate_type,'aggregate_id'=>max(0,$aggregate_id),'payload'=>$json,'payload_hash'=>$payload_hash,'status'=>'pending','attempts'=>0,'available_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
+        $ok = $wpdb->insert($table, ['event_uuid'=>wp_generate_uuid4(),'event_key'=>$event_key,'event_type'=>$type,'event_contract'=>(string)$schema['contract'],'event_schema_version'=>(string)$schema['version'],'aggregate_type'=>$aggregate_type,'aggregate_id'=>max(0,$aggregate_id),'payload'=>$json,'payload_hash'=>$payload_hash,'status'=>'pending','attempts'=>0,'available_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);
         if ($ok === false) {
             $race = $wpdb->get_row($wpdb->prepare("SELECT id,event_type,payload_hash FROM $table WHERE event_key=%s LIMIT 1", $event_key));
             return $race && (string)$race->event_type === $type && hash_equals((string)$race->payload_hash, $payload_hash) ? (int)$race->id : new WP_Error('event_enqueue_failed', 'The event could not be queued.');
@@ -122,8 +126,16 @@ final class SN_Outbox {
         $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d AND lock_token=%s",$id,$token));if(!$row)return new WP_Error('event_claim_lost','The event claim could not be confirmed.');
         try{
             $payload=json_decode((string)$row->payload,true);if(!is_array($payload)||!hash_equals((string)$row->payload_hash,hash('sha256',(string)$row->payload)))throw new RuntimeException('event_payload_integrity_failed');
-            $event=['id'=>(int)$row->id,'uuid'=>(string)$row->event_uuid,'type'=>(string)$row->event_type,'aggregate_type'=>(string)$row->aggregate_type,'aggregate_id'=>(int)$row->aggregate_id,'payload'=>$payload,'attempt'=>(int)$row->attempts,'created_at'=>(string)$row->created_at];
-            do_action('sn_network_event_dispatched',$event);$ack=apply_filters('sn_network_outbox_delivery_result',true,$event);if(is_wp_error($ack)||$ack!==true)throw new RuntimeException(is_wp_error($ack)?$ack->get_error_code():'event_not_acknowledged');
+            $schema=SN_Event_Schema_Registry::validate_payload((string)$row->event_type,$payload);if(is_wp_error($schema))throw new RuntimeException($schema->get_error_code());
+            $contract=(string)($row->event_contract??'');$schema_version=(string)($row->event_schema_version??'');
+            if($contract===''||$schema_version===''){
+                $contract=(string)$schema['contract'];$schema_version=(string)$schema['version'];
+                if($wpdb->query($wpdb->prepare("UPDATE $table SET event_contract=%s,event_schema_version=%s,updated_at=%s,version=version+1 WHERE id=%d AND lock_token=%s AND (event_contract='' OR event_schema_version='')",$contract,$schema_version,current_time('mysql',true),$id,$token))!==1)throw new RuntimeException('event_schema_backfill_failed');
+            }elseif(!hash_equals((string)$schema['contract'],$contract)||!hash_equals((string)$schema['version'],$schema_version)){
+                throw new RuntimeException('event_schema_contract_mismatch');
+            }
+            $event=['id'=>(int)$row->id,'uuid'=>(string)$row->event_uuid,'trace_id'=>(string)$row->event_uuid,'type'=>(string)$row->event_type,'contract'=>$contract,'schema_version'=>$schema_version,'owner'=>(string)$schema['owner'],'privacy_class'=>(string)$schema['privacy_class'],'aggregate_type'=>(string)$row->aggregate_type,'aggregate_id'=>(int)$row->aggregate_id,'payload'=>$payload,'attempt'=>(int)$row->attempts,'created_at'=>(string)$row->created_at];
+            do_action('sn_network_event_dispatched',$event);$ack=apply_filters('sn_network_outbox_delivery_result',false,$event);if(is_wp_error($ack)||$ack!==true)throw new RuntimeException(is_wp_error($ack)?$ack->get_error_code():'event_not_acknowledged');
             $done=current_time('mysql',true);if($wpdb->query($wpdb->prepare("UPDATE $table SET status='delivered',lock_token=NULL,locked_at=NULL,last_error='',delivered_at=%s,dead_at=NULL,updated_at=%s,version=version+1 WHERE id=%d AND lock_token=%s",$done,$done,$id,$token))!==1)throw new RuntimeException('event_delivery_state_failed');
             return true;
         }catch(Throwable $e){
@@ -160,9 +172,9 @@ final class SN_Outbox {
     public static function admin_events(WP_REST_Request $request): WP_REST_Response|WP_Error {
         global $wpdb;$status=sanitize_key((string)$request->get_param('status'));if(!in_array($status,['pending','processing','retry','delivered','dead'],true))$status='dead';$after=absint($request->get_param('after'));$limit=min(100,max(1,absint($request->get_param('limit'))?:50));
         $wpdb->last_error='';
-        $rows=$wpdb->get_results($wpdb->prepare('SELECT id,event_uuid,event_type,aggregate_type,aggregate_id,payload_hash,status,attempts,available_at,last_error,version,created_at,updated_at,delivered_at,dead_at FROM '.self::outbox_table().' WHERE status=%s AND id>%d ORDER BY id ASC LIMIT %d',$status,$after,$limit));
+        $rows=$wpdb->get_results($wpdb->prepare('SELECT id,event_uuid,event_type,event_contract,event_schema_version,aggregate_type,aggregate_id,payload_hash,status,attempts,available_at,last_error,version,created_at,updated_at,delivered_at,dead_at FROM '.self::outbox_table().' WHERE status=%s AND id>%d ORDER BY id ASC LIMIT %d',$status,$after,$limit));
         if($wpdb->last_error!==''||!is_array($rows))return new WP_Error('outbox_queue_unavailable','The event delivery queue could not be read safely.',['status'=>503]);
-        return rest_ensure_response(['status'=>$status,'events'=>array_map(static fn(object $r):array=>['id'=>(int)$r->id,'event_uuid'=>(string)$r->event_uuid,'event_type'=>(string)$r->event_type,'aggregate_type'=>(string)$r->aggregate_type,'aggregate_id'=>(int)$r->aggregate_id,'payload_hash'=>(string)$r->payload_hash,'status'=>(string)$r->status,'attempts'=>(int)$r->attempts,'available_at'=>(string)$r->available_at,'last_error'=>(string)$r->last_error,'version'=>(int)$r->version,'created_at'=>(string)$r->created_at,'updated_at'=>(string)$r->updated_at,'delivered_at'=>(string)$r->delivered_at,'dead_at'=>(string)$r->dead_at],$rows)]);
+        return rest_ensure_response(['status'=>$status,'events'=>array_map(static fn(object $r):array=>['id'=>(int)$r->id,'event_uuid'=>(string)$r->event_uuid,'event_type'=>(string)$r->event_type,'event_contract'=>(string)$r->event_contract,'event_schema_version'=>(string)$r->event_schema_version,'aggregate_type'=>(string)$r->aggregate_type,'aggregate_id'=>(int)$r->aggregate_id,'payload_hash'=>(string)$r->payload_hash,'status'=>(string)$r->status,'attempts'=>(int)$r->attempts,'available_at'=>(string)$r->available_at,'last_error'=>(string)$r->last_error,'version'=>(int)$r->version,'created_at'=>(string)$r->created_at,'updated_at'=>(string)$r->updated_at,'delivered_at'=>(string)$r->delivered_at,'dead_at'=>(string)$r->dead_at],$rows)]);
     }
 
     public static function admin_retry(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -174,7 +186,7 @@ final class SN_Outbox {
     public static function health(): WP_REST_Response {
         global $wpdb;$outbox=self::outbox_table();$inbox=self::inbox_table();$outbox_exists=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($outbox)))===$outbox;$inbox_exists=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($inbox)))===$inbox;$counts=[];$read_error=false;
         if($outbox_exists)foreach(['pending','processing','retry','delivered','dead'] as $status){$wpdb->last_error='';$raw=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $outbox WHERE status=%s",$status));if($wpdb->last_error!==''||$raw===null){$read_error=true;break;}$counts[$status]=(int)$raw;}
-        return rest_ensure_response(['ok'=>$outbox_exists&&$inbox_exists&&!$read_error,'outbox_table'=>$outbox_exists,'inbox_table'=>$inbox_exists,'database_read_error'=>$read_error,'schema_version'=>(string)get_option('sn_event_delivery_schema_version',''),'counts'=>$counts,'next_run'=>(int)wp_next_scheduled('sn_network_outbox_tick'),'max_attempts'=>self::max_attempts(),'time'=>gmdate('c')]);
+        return rest_ensure_response(['ok'=>$outbox_exists&&$inbox_exists&&!$read_error,'outbox_table'=>$outbox_exists,'inbox_table'=>$inbox_exists,'database_read_error'=>$read_error,'schema_version'=>(string)get_option('sn_event_delivery_schema_version',''),'counts'=>$counts,'next_run'=>(int)wp_next_scheduled('sn_network_outbox_tick'),'max_attempts'=>self::max_attempts(),'delivery_acknowledger_connected'=>has_filter('sn_network_outbox_delivery_result'),'event_schema_registry_count'=>count(SN_Event_Schema_Registry::all()),'time'=>gmdate('c')]);
     }
 
     public static function cleanup(): void {

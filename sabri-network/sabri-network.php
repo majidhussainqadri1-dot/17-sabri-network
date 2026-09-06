@@ -38,6 +38,7 @@ require_once SN_DIR . 'includes/class-sn-message-visibility.php';
 require_once SN_DIR . 'includes/class-sn-context-adapters.php';
 require_once SN_DIR . 'includes/class-sn-cf01-clinical-context.php';
 require_once SN_DIR . 'includes/class-sn-conference-provider.php';
+require_once SN_DIR . 'includes/class-sn-event-schema-registry.php';
 require_once SN_DIR . 'includes/class-sn-outbox.php';
 require_once SN_DIR . 'includes/class-sn-message-search.php';
 require_once SN_DIR . 'includes/class-sn-safety.php';
