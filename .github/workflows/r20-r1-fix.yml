@@ -1,0 +1,27 @@
+name: Fresh20 R1 relationship fix
+on:
+  push:
+    branches: [review/file17-fresh-20-round-2026-09-06]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-fresh-20-round-2026-09-06
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/r20_r1_patch.py
+          php -l sabri-network/includes/class-sn-relationship-runtime-hardening.php
+          php sabri-network/tests/another-fresh-r7-relationship-contracts.php
+          php sabri-network/tests/relationships-adversarial-contracts.php
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/includes/class-sn-relationship-runtime-hardening.php sabri-network/tests/another-fresh-r7-relationship-contracts.php
+          git commit -m 'R1 fix: fail closed on authoritative relationship lock-read errors'
+          git push origin HEAD:review/file17-fresh-20-round-2026-09-06
