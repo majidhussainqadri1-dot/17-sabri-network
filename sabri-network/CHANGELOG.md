@@ -4,7 +4,7 @@
 
 ### Another-fresh 10-round corrective cycle — 2026-09-05 to 2026-09-06
 - Completed all ten rounds on `review/file17-another-10-round-2026-09-05` under **Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round**.
-- Defect-bearing rounds: **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10**; clean round: **R5**.
+- Defect-bearing rounds: **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10**; clean rounds: **none**.
 - Retained governed migration completion/rollback truth, administrative repair fail-closed behavior, lossless message-search rebuild ownership, Smail exact-request idempotency and canonical space/Meet authorization boundaries.
 - Retained privacy progress and bounded erasure, semantic purge confirmation, interoperability configuration/durable-sent truth, speaker/template transaction safety, Future device-key privacy erasure and checked bulk scheduler recovery.
 - Round 10 reconciled current release documentation and hardened standalone packaging so every active late runtime correction layer is an explicit required release surface.
@@ -35,7 +35,7 @@
 - Hardened File 19 notification ownership, transfer concurrency, canonical message encryption, Smail retry safety and forwarding audience minimization.
 
 ## 2.0.1 — 2026-08-07 — Smail, verified transfer and recovered-directive completion
-- Added CF-01 communication context, internal Smail, verified private transfer and File-17 visual identity plus explicit review gates.
+- Added CF-01 communication context, internal Smail, verified transfer and File-17 visual identity plus explicit review gates.
 
 ## 2.0.0 — 2026-08-01 — Canonical communication architecture
 - Unified Network relationships and Messages under one File-17 backend with policy, privacy, presence, calls, search, outbox, communities and high-risk governance.
