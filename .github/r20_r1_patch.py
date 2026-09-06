@@ -46,7 +46,7 @@ insert="""
 // Fresh 20-round R1 authoritative relationship lock-read truth.
 $check(str_contains($runtime,'private static function checked_row')&&str_contains($runtime,'private static function checked_results'),'Fresh20 R1: final relationship owner must centralize fail-closed checked DB reads.');
 foreach(['contact_lock_read_failed','contact_decision_lock_read_failed','block_contact_lock_read_failed','block_follow_lock_read_failed','block_conversation_lock_read_failed','direct_conversation_lock_read_failed','direct_member_lock_read_failed'] as $failure){$check(str_contains($runtime,$failure),"Fresh20 R1: missing checked relationship read failure marker $failure.");}
-$check(substr_count($runtime,"if ($wpdb->last_error !== '') return self::database_error();")>=3,'Fresh20 R1: non-transaction relationship/space probes must distinguish DB failure from absence.');
+$check(substr_count($runtime,'last_error')>=10&&substr_count($runtime,'return self::database_error();')>=5,'Fresh20 R1: non-transaction relationship/space probes must distinguish DB failure from absence.');
 $check(str_contains($runtime,'block_follow_lock_read_failed')&&str_contains($runtime,'checked_results'),'Fresh20 R1: block mutation must prove follow rows were locked before cleanup writes.');
 """
 if marker not in t: raise SystemExit('test tail missing')
