@@ -1,75 +1,38 @@
-# File 17 — Coding Completeness Assessment
+# File 17 Coding Completeness — fresh-20 repository closure
 
-**Assessment target:** Sabri Network and Messages 2.1.0  
-**Governing audit set:** current consolidated central governing plan + current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24  
-**Current assessment date:** 7 September 2026  
-**Coding classification:** **repository-owned current corrective review candidate; prior another-fresh 10-round source review/fix cycle completed; current fresh 20-round cycle under sequential review/correction; staging/live/operational completion is not claimed**
+## Governing implementation state
 
-This document records repository implementation evidence only. It does not establish real provider acceptance, staging acceptance, live deployment, database/migration parity or operational readiness. Exact-commit GitHub Actions is evidence only for the exact commit on which it runs.
+**Active branch:** `review/file17-fresh-20-round-2026-09-06`  
+**Plugin/runtime:** 2.1.0  
+**Fresh-20 review/fix cycle:** R1–R20 source review completed under Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round discipline.
 
-## Latest completed sequential method
+**Defect-bearing rounds:** R1, R2, R3, R5, R7, R8, R11, R12, R15, R16, R17, R18, R19, R20.  
+**Clean rounds:** R4, R6, R9, R10, R13, R14.
 
-The previous cycle on `review/file17-another-10-round-2026-09-05` completed all ten rounds under the Founder-mandated order: complete the whole review, freeze all findings, correct every proved defect, protect the correction with permanent regression evidence, run exact-head CI, then begin the next review.
+The current executable gate enumerates **64 PHP review suites** and **10 JavaScript syntax entry points**. Every PHP suite in `sabri-network/tests/` must appear exactly once in the canonical gate and runs through the warning-fatal wrapper; runtime/package/source inventories are separately fail-closed.
 
-- **Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.
-- **Clean rounds:** none.
-- Frozen ledgers: `FILE17-ANOTHER-10-ROUND-2026-09-05-R1-LEDGER.md` through `FILE17-ANOTHER-10-ROUND-2026-09-05-R10-LEDGER.md`.
-- The prior 4-September fresh cycle and older reviewed candidates remain historical evidence only.
+## Coding coverage
 
-The current fresh 20-round branch follows the same review → ledger freeze → fix → regression → exact-head CI sequence. Its current explicit PHP quality inventory is 60 suites after adding permanent warning-fatal regression coverage in Round 18.
+Current source implements the canonical File-17 communication domains required by the governing plans: one relationships/contact/follow graph; spaces for groups/communities/channels; one conversation/message backend; message requests, receipts, scheduled/disappearing/structured messages; Smail; private attachments and verified-user encrypted resumable transfer; presence/typing; calls/signaling/Sabri Meet; reports/appeals/legal holds; privacy export/erasure; private message search; reliable outbox/inbox events; context/provider contracts; and governed Future-24 communication capabilities.
 
-## Current candidate measures
+Cross-file ownership remains explicit: File 00/02 identity, File 19 notification transport, File 20 shell, File 26 global Search/Discovery/Ranking, and clinical-domain owners remain authoritative for their own domains. File 17 does not establish a duplicate authentication system, notification center, global search backend or clinical authority.
 
-| Measure | Current repository result |
-|---|---:|
-| Runtime candidate | **2.1.0** |
-| Explicit PHP review suites in full quality gate | **60** |
-| JavaScript entry points syntax-checked | **10** |
-| PHP review execution | **warning-fatal canonical wrapper** |
-| Founder-approved Future Communication Superset | **24/24 repository capability paths represented; provider-dependent paths fail closed** |
-| Exact Sabri Green primary | **`#087A4E` enforced on File-17 surfaces** |
-| Package/QA proof | **true only for the exact commit whose own workflow passes** |
-| Staging/live/operational acceptance | **pending / unverified** |
+## Quality/release closure
 
-## Principal corrections retained in the current cycle
+The R20 correction set closes the final source-level gaps found in the fresh-20 review: warning-fatal workflow parity, latest runtime required-surface closure, removal of obsolete write-capable corrective automation, and separation of historical release evidence from current truth. The final Automated-QA and deterministic package status still belongs only to the exact-current-HEAD workflow result; this document does not predeclare it green.
 
-- Migration completion/version truth and administrative repair remain fail-closed and schema-verified.
-- Message/search/Smail/space/Meet and target-eligibility/idempotency boundaries retain the hardened owners selected by route precedence.
-- Privacy erasure, semantic purge, interoperability durable-sent truth, speaker/template transaction guards and Future device-key erasure remain retry-safe and fail closed.
-- Bulk Future scheduler recovery detects and audits database failures.
-- Standalone packaging explicitly requires all active late runtime hardening surfaces instead of depending on incidental rsync presence.
-- PHP review execution now promotes runtime Warning/Notice/Deprecation diagnostics to test failures through the canonical wrapper.
-- Deterministic packaging, exact staged-source manifests, PHP 8.1/8.3 gates and the **60-suite/10-JS** inventory remain executable quality truth.
+## Historical attribution
 
-## Current coded domains retained and reverified
+For permanent regression attribution, the prior `review/file17-another-10-round-2026-09-05` cycle had defect rounds **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10** and a then-current **60 PHP review suites / 10 JavaScript syntax entry points** inventory. It is historical evidence only.
 
-- **Communities, groups, channels and private teams** share the canonical File-17 relationship/space/conversation model and do not create a second communication backend.
-- Direct, group and channel conversations retain canonical encrypted messages, reactions, replies, edits/deletes and **native recipient/device message receipts**.
-- Authorized File-17 private message discovery uses **secure indexed search** and excludes viewer-hidden/private-ineligible content from results and context.
-- **General per-device presence** remains bounded, revocable and relationship/membership governed, with typing and realtime lifecycle controls.
-- **Governed mentions and audience-minimized forwarding** remain inside the canonical message authorization path and do not reuse private attachments across audiences.
-- Direct calls and Sabri Meet retain **Secret-free STUN/TURN/SFU provider governance**: credentials are provider-gated/scoped/short-lived and group media requires an approved SFU path.
-- Internal Smail remains a mailbox projection over canonical encrypted File-17 messages with caller-owned retry identity.
-- Verified-user private transfer remains capped at 1 GiB/file with resumability, exact chunk state, SHA-256 integrity, scanning/quarantine, private storage, signed grants, revocation and retention.
-- Reports, appeals, legal/safety holds, privacy export/erasure and retention remain native File-17 responsibilities with retry-safe progress.
-- **Transactional outbox/inbox** event delivery remains the reliable communication-event path with idempotency, retry and dead-letter semantics.
-- File 19 notification transport, File 20 shell, File 24 assurance, File 25 presentation and File 26 global search/ranking remain external owners; private messages and contacts are not exported into File 26.
-- Founder-approved Future Communication Superset 24 remains represented in repository capability paths; provider-dependent/high-risk features remain fail-closed until their separate acceptance gates pass.
+## Status boundary
 
-## Seven separate statuses
-
-1. **Specified:** current File-17 repository scope is represented against the governing plan set.
-2. **Coded:** current 2.1.0 repository corrective review candidate.
-3. **Packaged:** true only for an exact commit whose deterministic package job succeeds.
-4. **Automated-QA Green:** true only for the exact commit carrying successful PHP 8.1 and PHP 8.3/full-quality jobs.
-5. **Staging-Accepted:** pending real WordPress/MySQL/roles/companions/providers/migration/rollback acceptance.
-6. **Live-Deployed:** not claimed.
-7. **Operational:** not claimed.
-
-## Still outside repository proof
-
-Real fresh install/upgrade/migration/race/rollback tests; current companion contracts; approved malware/media/translation/AI/interoperability providers; real WSS/STUN/TURN/SFU; browser/device/RTL/accessibility/load/security testing; communication-key backup/restore/rotation rehearsal; Founder staging sign-off; live deployed-artifact parity; DB/schema/migration state; and monitoring/support/SLO evidence remain separate gates.
-
-A green repository run or deterministic ZIP is not production completion.
+- Specified: represented.
+- Coded: fresh-20 R1–R20 source correction set completed.
+- Packaged: exact-current-head workflow proof required.
+- Automated-QA Green: exact-current-head workflow proof required.
+- Staging-Accepted: unverified.
+- Live-Deployed: unverified.
+- Operational: unverified.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
