@@ -53,7 +53,7 @@ final class SN_Relationship_Runtime_Hardening {
             $now = current_time('mysql', true);
             if ($wpdb->query('START TRANSACTION') === false) return self::database_error();
             try {
-                $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE pair_key=%s FOR UPDATE", $pair));
+                $row = self::checked_row($wpdb->prepare("SELECT * FROM $table WHERE pair_key=%s FOR UPDATE", $pair), 'contact_lock_read_failed');
                 if ($row && in_array((string) $row->status, ['accepted','pending','blocked'], true)) {
                     if ($wpdb->query('COMMIT') === false) throw new RuntimeException('contact_read_commit_failed');
                     return rest_ensure_response(['request_id'=>(int)$row->id,'status'=>(string)$row->status,'duplicate'=>true]);
@@ -89,7 +89,9 @@ final class SN_Relationship_Runtime_Hardening {
         $id = absint($request['id']);
         $actor = get_current_user_id();
         $table = SN_DB::table('contacts');
+        $wpdb->last_error = '';
         $probe = $wpdb->get_row($wpdb->prepare("SELECT user_id,contact_user_id FROM $table WHERE id=%d", $id));
+        if ($wpdb->last_error !== '') return self::database_error();
         if (!$probe) return self::not_found();
         $other = (int)$probe->user_id === $actor ? (int)$probe->contact_user_id : (int)$probe->user_id;
         if ($other <= 0) return self::not_found();
@@ -98,7 +100,7 @@ final class SN_Relationship_Runtime_Hardening {
             if (!in_array($decision, ['accept','decline'], true)) return new WP_Error('invalid_decision','Choose accept or decline.',['status'=>400]);
             if ($wpdb->query('START TRANSACTION') === false) return self::database_error();
             try {
-                $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d FOR UPDATE", $id));
+                $row = self::checked_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d FOR UPDATE", $id), 'contact_decision_lock_read_failed');
                 if (!$row || (string)$row->status !== 'pending' || (int)$row->requested_by === $actor || !in_array($actor, [(int)$row->user_id,(int)$row->contact_user_id], true)) throw new DomainException('not_found');
                 $requester = (int)$row->requested_by;
                 if ($decision === 'accept') {
@@ -138,13 +140,13 @@ final class SN_Relationship_Runtime_Hardening {
             $follows = SN_DB::table('follows');
             if ($wpdb->query('START TRANSACTION') === false) return self::database_error();
             try {
-                $contact = $wpdb->get_row($wpdb->prepare("SELECT * FROM $contacts WHERE pair_key=%s FOR UPDATE", SN_DB::contact_pair_key($actor,$target)));
-                $wpdb->get_results($wpdb->prepare("SELECT id FROM $follows WHERE (follower_id=%d AND followed_id=%d) OR (follower_id=%d AND followed_id=%d) FOR UPDATE", $actor,$target,$target,$actor));
+                $contact = self::checked_row($wpdb->prepare("SELECT * FROM $contacts WHERE pair_key=%s FOR UPDATE", SN_DB::contact_pair_key($actor,$target)), 'block_contact_lock_read_failed');
+                self::checked_results($wpdb->prepare("SELECT id FROM $follows WHERE (follower_id=%d AND followed_id=%d) OR (follower_id=%d AND followed_id=%d) FOR UPDATE", $actor,$target,$target,$actor), 'block_follow_lock_read_failed');
                 if ($blocked) {
                     if ($wpdb->query($wpdb->prepare("INSERT INTO $blocks (user_id,blocked_user_id,created_at) VALUES (%d,%d,%s) ON DUPLICATE KEY UPDATE created_at=VALUES(created_at)", $actor,$target,$now)) === false) throw new RuntimeException('block_write_failed');
                     if ($contact && $wpdb->query($wpdb->prepare("UPDATE $contacts SET status='blocked',updated_at=%s WHERE id=%d", $now,(int)$contact->id)) === false) throw new RuntimeException('contact_block_failed');
                     if ($wpdb->query($wpdb->prepare("UPDATE $follows SET status='inactive',updated_at=%s,decided_at=%s,version=version+1 WHERE ((follower_id=%d AND followed_id=%d) OR (follower_id=%d AND followed_id=%d)) AND status IN ('active','pending')", $now,$now,$actor,$target,$target,$actor)) === false) throw new RuntimeException('follow_block_cleanup_failed');
-                    $direct = $wpdb->get_row($wpdb->prepare("SELECT * FROM ".SN_DB::table('conversations')." WHERE type='direct' AND direct_key=%s FOR UPDATE", SN_DB::direct_key($actor,$target)));
+                    $direct = self::checked_row($wpdb->prepare("SELECT * FROM ".SN_DB::table('conversations')." WHERE type='direct' AND direct_key=%s FOR UPDATE", SN_DB::direct_key($actor,$target)), 'block_conversation_lock_read_failed');
                     if ($direct) self::end_active_calls_locked((int)$direct->id,$now);
                 } else {
                     if ($wpdb->delete($blocks,['user_id'=>$actor,'blocked_user_id'=>$target],['%d','%d']) === false) throw new RuntimeException('unblock_write_failed');
@@ -181,9 +183,13 @@ final class SN_Relationship_Runtime_Hardening {
             $space_id = absint($request->get_param('space_id'));
             if ($space_id <= 0) return new WP_Error('space_required','Group and channel conversations are owned by a File-17 space. Supply its canonical space_id.',['status'=>409]);
             return self::with_locks([self::space_lock($space_id)], function () use ($wpdb,$actor,$space_id,$type) {
+                $wpdb->last_error = '';
                 $space = $wpdb->get_row($wpdb->prepare('SELECT * FROM '.SN_DB::table('spaces').' WHERE id=%d', $space_id));
+                if ($wpdb->last_error !== '') return self::database_error();
                 if (!$space || !in_array((string)$space->state,['active','restricted','locked'],true) || (int)$space->conversation_id <= 0) return self::not_found();
+                $wpdb->last_error = '';
                 $member = $wpdb->get_row($wpdb->prepare("SELECT role FROM ".SN_DB::table('space_members')." WHERE space_id=%d AND user_id=%d AND status='active' LIMIT 1",$space_id,$actor));
+                if ($wpdb->last_error !== '') return self::database_error();
                 if (!$member) return self::not_found();
                 $expected = (string)$space->type === 'channel' ? 'channel' : 'group';
                 if ($type !== $expected && !($type === 'group' && in_array((string)$space->type,['group','private_team'],true))) {
@@ -213,12 +219,12 @@ final class SN_Relationship_Runtime_Hardening {
             $existing = null;
             if ($wpdb->query('START TRANSACTION') === false) return self::database_error();
             try {
-                $existing = $wpdb->get_row($wpdb->prepare("SELECT * FROM $conversations WHERE direct_key=%s FOR UPDATE",$directKey));
+                $existing = self::checked_row($wpdb->prepare("SELECT * FROM $conversations WHERE direct_key=%s FOR UPDATE",$directKey), 'direct_conversation_lock_read_failed');
                 if ($existing) {
                     $id = (int)$existing->id;
                     if ($wpdb->query($wpdb->prepare("UPDATE $conversations SET status='active',updated_at=%s WHERE id=%d",$now,$id)) === false) throw new RuntimeException('conversation_restore_failed');
                     foreach ([$actor,$target] as $memberId) {
-                        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $memberTable WHERE conversation_id=%d AND user_id=%d FOR UPDATE",$id,$memberId));
+                        $row = self::checked_row($wpdb->prepare("SELECT * FROM $memberTable WHERE conversation_id=%d AND user_id=%d FOR UPDATE",$id,$memberId), 'direct_member_lock_read_failed');
                         $role = (int)$existing->owner_id === $memberId ? 'owner' : 'member';
                         $ok = $row ? $wpdb->query($wpdb->prepare("UPDATE $memberTable SET role=%s,left_at=NULL,joined_at=%s WHERE id=%d",$role,$now,(int)$row->id)) : $wpdb->insert($memberTable,['conversation_id'=>$id,'user_id'=>$memberId,'role'=>$role,'joined_at'=>$now]);
                         if ($ok === false) throw new RuntimeException('member_restore_failed');
@@ -329,6 +335,22 @@ final class SN_Relationship_Runtime_Hardening {
         $ids = array_values(array_unique(array_map('intval',$ids))); sort($ids,SORT_NUMERIC);
         $expected = [$actor,$target]; sort($expected,SORT_NUMERIC);
         return $ids === $expected;
+    }
+
+    private static function checked_row(string $sql, string $failure): ?object {
+        global $wpdb;
+        $wpdb->last_error = '';
+        $row = $wpdb->get_row($sql);
+        if ($wpdb->last_error !== '') throw new RuntimeException($failure);
+        return is_object($row) ? $row : null;
+    }
+
+    private static function checked_results(string $sql, string $failure): array {
+        global $wpdb;
+        $wpdb->last_error = '';
+        $rows = $wpdb->get_results($sql);
+        if ($wpdb->last_error !== '' || !is_array($rows)) throw new RuntimeException($failure);
+        return $rows;
     }
 
     private static function conversation_lock(int $id): string { return 'sn:f17:conversation:'.substr(hash('sha256',(string)$id),0,32); }

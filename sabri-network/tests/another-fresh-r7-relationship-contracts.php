@@ -18,4 +18,11 @@ $check(str_contains($runtime,'active_call_block_ledger_read_failed')&&str_contai
 $check(str_contains($presence,'sn_presence_device_count_unavailable')&&str_contains($presence,'$wpdb->last_error!==\'\'||$count_raw===null||!is_numeric($count_raw)'),'R7: new device admission must fail closed when active-device COUNT is unavailable.');
 $check(str_contains($presence,"if(\$deleted===false)return['items_removed'=>false,'items_retained'=>true")&&str_contains($presence,"'done'=>false"),'R7: presence-device erasure must remain retryable on delete failure.');
 
+
+// Fresh 20-round R1 authoritative relationship lock-read truth.
+$check(str_contains($runtime,'private static function checked_row')&&str_contains($runtime,'private static function checked_results'),'Fresh20 R1: final relationship owner must centralize fail-closed checked DB reads.');
+foreach(['contact_lock_read_failed','contact_decision_lock_read_failed','block_contact_lock_read_failed','block_follow_lock_read_failed','block_conversation_lock_read_failed','direct_conversation_lock_read_failed','direct_member_lock_read_failed'] as $failure){$check(str_contains($runtime,$failure),"Fresh20 R1: missing checked relationship read failure marker $failure.");}
+$check(substr_count($runtime,'last_error')>=10&&substr_count($runtime,'return self::database_error();')>=5,'Fresh20 R1: non-transaction relationship/space probes must distinguish DB failure from absence.');
+$check(str_contains($runtime,'block_follow_lock_read_failed')&&str_contains($runtime,'checked_results'),'Fresh20 R1: block mutation must prove follow rows were locked before cleanup writes.');
+
 if($fail){fwrite(STDERR,"Another fresh R7 relationship failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Another fresh R7 relationship contracts: PASS ($checks checks)\n";
