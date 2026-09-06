@@ -114,4 +114,8 @@ $check(!str_contains($bootstrap,'SN_DB::maybe_upgrade();')&&!str_contains($boots
 $migStart=strpos($centralPlan,"if (\$wpdb->query('START TRANSACTION') === false)",strpos($centralPlan,'public static function migrate_message_bodies'));
 $migWrite=strpos($centralPlan,'SN_Message_Body::ensure_encrypted_row($row)',strpos($centralPlan,'public static function migrate_message_bodies'));
 $check($migStart!==false&&$migWrite!==false&&$migStart<$migWrite,'Yet R1: plaintext body migration must prove transaction start before the first mutation.');
+
+$check(str_contains($searchHardening,'private static function prepare_rebuild_state')&&substr_count($searchHardening,'self::prepare_rebuild_state()')>=2,'Fresh20 R3: both destructive search reset paths must prepare durable rebuild state before truncation.');
+$check(str_contains($searchHardening,"get_option('sn_message_search_backfill_after', -1)")&&str_contains($searchHardening,'get_option(self::REBUILD_OPTION, false)'),'Fresh20 R3: search reset must verify cursor-zero and rebuild-pending state after publication.');
+$check(str_contains($searchHardening,"'search_rebuild_state_failed'")&&str_contains($searchHardening,"'epoch_publish_failed'"),'Fresh20 R3: manual/epoch state publication failures must fail closed explicitly.');
 if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";

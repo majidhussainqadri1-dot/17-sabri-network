@@ -47,14 +47,20 @@ final class SN_Fourth_Fresh_Search_Hardening {
             return new WP_Error('rate_limited', 'Too many rebuild requests.', ['status'=>429]);
         }
         $tokens = SN_DB::table('message_search_tokens');
+        if (!self::prepare_rebuild_state()) {
+            update_option(self::ERROR_OPTION, 'rebuild_state_publish_failed', false);
+            return new WP_Error('search_rebuild_state_failed', 'The search rebuild state could not be published durably.', ['status'=>503]);
+        }
         if ($wpdb->query('TRUNCATE TABLE ' . $tokens) === false) {
             update_option(self::ERROR_OPTION, 'truncate_failed', false);
-            update_option(self::REBUILD_OPTION, true, false);
             return new WP_Error('search_rebuild_failed', 'The search index could not be reset.', ['status'=>500]);
         }
-        update_option('sn_message_search_backfill_after', 0, false);
-        update_option(self::EPOCH_OPTION, self::epoch(), false);
-        update_option(self::REBUILD_OPTION, true, false);
+        $epoch = self::epoch();
+        update_option(self::EPOCH_OPTION, $epoch, false);
+        if ((string)get_option(self::EPOCH_OPTION, '') !== $epoch) {
+            update_option(self::ERROR_OPTION, 'epoch_publish_failed', false);
+            return new WP_Error('search_rebuild_state_failed', 'The search rebuild epoch could not be published durably.', ['status'=>503]);
+        }
         delete_option(self::ERROR_OPTION);
         SN_DB::audit('message_search_rebuild_started', 'message_search', 0, 'success', ['mode'=>'manual-lossless'], $actor);
 
@@ -83,14 +89,19 @@ final class SN_Fourth_Fresh_Search_Hardening {
         $current = self::epoch();
         $stored = (string) get_option(self::EPOCH_OPTION, '');
         if ($stored !== $current) {
-            if ($wpdb->query('TRUNCATE TABLE ' . $tokens) === false) {
-                update_option(self::ERROR_OPTION, 'truncate_failed', false);
-                update_option(self::REBUILD_OPTION, true, false);
+            if (!self::prepare_rebuild_state()) {
+                self::record_error('rebuild_state_publish_failed', 0, 0);
                 return;
             }
-            update_option('sn_message_search_backfill_after', 0, false);
+            if ($wpdb->query('TRUNCATE TABLE ' . $tokens) === false) {
+                self::record_error('truncate_failed', 0, 0);
+                return;
+            }
             update_option(self::EPOCH_OPTION, $current, false);
-            update_option(self::REBUILD_OPTION, true, false);
+            if ((string)get_option(self::EPOCH_OPTION, '') !== $current) {
+                self::record_error('epoch_publish_failed', 0, 0);
+                return;
+            }
             delete_option(self::ERROR_OPTION);
             SN_DB::audit('message_search_key_epoch_rebuild_started', 'message_search', 0, 'success', ['epoch'=>substr($current,0,12)], 0);
             self::backfill();
@@ -157,6 +168,13 @@ final class SN_Fourth_Fresh_Search_Hardening {
         if (!wp_next_scheduled(self::CONTINUE_HOOK)) {
             wp_schedule_single_event(time() + 5 * MINUTE_IN_SECONDS, self::CONTINUE_HOOK);
         }
+    }
+
+    private static function prepare_rebuild_state(): bool {
+        update_option('sn_message_search_backfill_after', 0, false);
+        update_option(self::REBUILD_OPTION, true, false);
+        return (int)get_option('sn_message_search_backfill_after', -1) === 0
+            && (bool)get_option(self::REBUILD_OPTION, false) === true;
     }
 
     private static function record_error(string $code, int $after, int $message_id): void {
