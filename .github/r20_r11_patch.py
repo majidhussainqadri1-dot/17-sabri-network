@@ -51,8 +51,8 @@ if "$privacyFourth = $read('includes/class-sn-fourth-fresh-privacy-hardening.php
 marker='if ($fail) {'
 insert="""
 // Fresh20 Round 11 — legal/safety hold discovery must fail closed on DB truth loss.
-$check(str_contains($privacyFourth, '$wpdb->last_error = \'\'') && str_contains($privacyFourth, 'legal_hold_discovery_failed'), 'Fresh20 R11: native legal-hold discovery must clear/check database error state and emit audit evidence.');
-$holdErrorPos = strpos($privacyFourth, 'if ($wpdb->last_error !== \'\')');
+$check(str_contains($privacyFourth, "\\$wpdb->last_error = ''") && str_contains($privacyFourth, 'legal_hold_discovery_failed'), 'Fresh20 R11: native legal-hold discovery must clear/check database error state and emit audit evidence.');
+$holdErrorPos = strpos($privacyFourth, "if (\\$wpdb->last_error !== '')");
 $holdReturnPos = strpos($privacyFourth, 'return true;', $holdErrorPos === false ? 0 : $holdErrorPos);
 $check($holdErrorPos !== false && $holdReturnPos !== false && $holdErrorPos < $holdReturnPos, 'Fresh20 R11: unavailable legal-hold database truth must retain data fail-closed.');
 """
