@@ -15,28 +15,29 @@ Identity/authentication/verification remain File 00/File 02 authority. File 19 o
 
 Private message bodies use authenticated server-side encryption at rest, not an audited E2EE claim. Durable File-17 ciphertext uses a dedicated communication master secret. Provider-dependent translation, AI, interoperability and real STUN/TURN/SFU remain fail-closed until approved adapters and separate staging acceptance exist.
 
-== Active fresh 20-round review cycle ==
-The active branch is `review/file17-fresh-20-round-2026-09-06` and uses Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round discipline. Rounds 1–18 are completed. Round 19 is defect-bearing and its release/migration/package corrections require exact-current-head CI before Round 20 may start.
+== Fresh 20-round repository review ==
+Active branch: `review/file17-fresh-20-round-2026-09-06`.
+All 20 source-review rounds were completed using Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round discipline.
+Defect-bearing rounds: R1, R2, R3, R5, R7, R8, R11, R12, R15, R16, R17, R18, R19, R20.
+Clean rounds: R4, R6, R9, R10, R13, R14.
 
-Historical prior-cycle attribution only: `review/file17-another-10-round-2026-09-05` completed with defect-bearing rounds R1, R2, R3, R4, R5, R6, R7, R8, R9, R10 and had a then-current explicit QA inventory of 60 PHP review suites and 10 JavaScript entry points. The older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remains historical evidence only. None of those prior-cycle facts are current-head proof.
+The executable full QA gate now enumerates **64 PHP review suites** and **10 JavaScript syntax entry points**. Every explicit PHP suite runs through the warning-fatal canonical wrapper; exact test inventory is cross-checked against the filesystem. The final Automated-QA and package state is established only by the workflow attached to the exact current HEAD.
 
-The executable full QA gate discovers every PHP review suite present under `tests/`, requires each to be invoked exactly once, and is authoritative for the current count. At the Round-19 reviewed state this is **63 unique PHP review suites** plus **10 governed JavaScript syntax entry points**. Every explicit PHP suite executes through the warning-fatal canonical wrapper. The gate also enforces PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest verification and deterministic double-build packaging.
+Historical prior-cycle attribution only: `review/file17-another-10-round-2026-09-05` completed with defect-bearing rounds R1, R2, R3, R4, R5, R6, R7, R8, R9, R10 and had a then-current explicit QA inventory of **60 PHP review suites** and **10 JavaScript syntax entry points**. The older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remains historical evidence only. None of those prior-cycle facts are current-head proof.
 
 == Installation ==
 Install and test on staging. Connect current identity authority, private storage, approved malware/media scanner, File 19 notification fabric, File 20 shell, File 26 federated-search consumer where applicable, approved translation/call/AI/interoperability providers and accepted companion contracts. Complete fresh-install/upgrade/migration, restore/decrypt/key-rotation, rollback, security/privacy, accessibility, real-role, browser/device, load and backup/restore acceptance before live deployment.
 
 == Changelog ==
 = 2.1.0 =
-* Current repository corrective line for the governing central plan, File 17 plan and approved Future Communication Superset 24.
-* Active fresh-20 review uses complete-round review → frozen ledger → correction → regression → exact-head CI discipline; Round 19 is defect-bearing and Round 20 is not yet claimed complete here.
-* Current-cycle corrections include migration/repair truth, search/Smail/space/Meet integrity, privacy progress, semantic purge confirmation, interoperability idempotency/durable-sent truth, transaction safety, Future device-key erasure, scheduler recovery, package late-runtime integrity and warning-fatal PHP regression execution.
-* Current executable quality inventory at the Round-19 reviewed state: **63 unique PHP review suites plus 10 JavaScript syntax entry points**, deterministic source manifest and byte-for-byte package reproduction.
+* Current governing-plan repository corrective line.
+* Fresh-20 R1–R20 source review/fix cycle completed.
+* Defect-bearing rounds: R1, R2, R3, R5, R7, R8, R11, R12, R15, R16, R17, R18, R19, R20; clean rounds: R4, R6, R9, R10, R13, R14.
+* Current executable inventory: 64 PHP review suites and 10 JavaScript syntax entry points, warning-fatal PHP execution, exact source manifest and deterministic package reproduction.
+* Current corrections include migration/repair truth, search/Smail/space/Meet integrity, privacy/retention, interoperability, transaction safety, package/runtime closure, quality-workflow parity and historical/current release-truth separation.
 
 = 2.0.3 =
-* Historical forty-round corrective line; see repository audit ledger for its exact evidence.
-
-= 2.0.0 =
-* Major reviewed architecture, security, privacy, reliability and interface correction.
+* Historical forty-round corrective line; see repository audit ledger for exact evidence.
 
 Repository review and CI establish repository/package evidence only. Staging, live deployment and operational acceptance remain separate gates.
 
