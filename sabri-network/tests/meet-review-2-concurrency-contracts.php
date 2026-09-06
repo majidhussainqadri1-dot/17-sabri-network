@@ -3,6 +3,7 @@
 $root = dirname(__DIR__);
 $meet = file_get_contents($root . '/includes/class-sn-meet.php');
 $r6 = file_get_contents($root . '/includes/class-sn-r6-transaction-hardening.php');
+$callRuntime = file_get_contents($root . '/includes/class-sn-call-runtime-hardening.php');
 $loader = file_get_contents($root . '/includes/class-sn-future24-review-hardening.php');
 $checks = 0;
 $failures = [];
@@ -46,6 +47,10 @@ $check(str_contains($r6, '$wpdb = new SN_R6_WPDB_Guard($original);') && str_cont
 $check(str_contains($r6, '$result === false') && str_contains($r6, "!preg_match('/^ROLLBACK") && str_contains($r6, "throw new RuntimeException('sn_r6_direct_query_failed:"), 'Any failed direct transactional/moderation query except rollback must be promoted to an exception.');
 $check(str_contains($r6, "'sn_meet_transaction_failed'") && str_contains($r6, "'sn_provider_transaction_failed'"), 'Escaped transaction-start failures must fail closed with stable Meet/provider errors.');
 
+
+$check(str_contains($callRuntime, 'private static bool $lock_truth_error = false') && str_contains($callRuntime, 'sn_call_lock_truth_unavailable'), 'Fresh20 R8: call/Meet lock-discovery SQL failure must have a stable fail-closed error state.');
+$check(substr_count($callRuntime, "$wpdb->last_error = ''") >= 5 && str_contains($callRuntime, 'if (self::$lock_truth_error) return self::lock_truth_error();'), 'Fresh20 R8: authoritative lock-discovery reads must clear/check DB error state before acquiring an incomplete lock set.');
+$check(str_contains($callRuntime, "'sn:f17:space:'") && str_contains($callRuntime, 'SN_Relationships::pair_lock_name($actor, $peer)'), 'Fresh20 R8: fail-closed discovery must preserve canonical space and relationship lock namespaces.');
 if ($failures) {
     fwrite(STDERR, "Sabri Meet review 2 failures (" . count($failures) . "/$checks):\n - " . implode("\n - ", $failures) . "\n");
     exit(1);

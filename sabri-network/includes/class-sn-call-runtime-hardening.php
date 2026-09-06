@@ -5,6 +5,7 @@ defined('ABSPATH') || exit;
 /** Corrective call/Meet boundary: stable relationship state, fail-closed provider issuance and post-commit confirmation. */
 final class SN_Call_Runtime_Hardening {
     private const LOCK_TIMEOUT = 5;
+    private static bool $lock_truth_error = false;
 
     public static function register(): void {
         add_filter('rest_pre_dispatch', [self::class, 'lock_mutation'], 4, 3);
@@ -74,6 +75,7 @@ final class SN_Call_Runtime_Hardening {
         $route = $request->get_route();
         if (!str_starts_with($route, '/sabri-network/v2/')) return $result;
         $locks = []; global $wpdb; $actor = get_current_user_id();
+        self::$lock_truth_error = false;
 
         if ($route === '/sabri-network/v2/meetings') {
             $locks[] = 'sn:f17:meet-host:' . substr(hash('sha256', (string)$actor), 0, 32);
@@ -86,7 +88,9 @@ final class SN_Call_Runtime_Hardening {
         } elseif (preg_match('#^/sabri-network/v2/meetings/([A-Za-z0-9_-]{22,64})(?:/|$)#', $route, $m)) {
             $public = (string)$m[1];
             $locks[] = 'sn:f17:meet:' . substr(hash('sha256', $public), 0, 32);
+            $wpdb->last_error = '';
             $meeting = $wpdb->get_row($wpdb->prepare("SELECT id,host_id,conversation_id FROM {$wpdb->prefix}sn_meet_meetings WHERE public_id=%s", $public));
+            if ($wpdb->last_error !== '') return self::lock_truth_error();
             if ($meeting) {
                 if ((int)$meeting->conversation_id > 0) {
                     $locks[] = self::conversation_lock((int)$meeting->conversation_id);
@@ -114,7 +118,10 @@ final class SN_Call_Runtime_Hardening {
         } elseif (preg_match('#^/sabri-network/v2/calls/(\d+)(?:/|$)#', $route, $m)) {
             $call = (int)$m[1];
             $locks[] = 'sn:f17:call:' . $call;
-            $conversation = (int)$wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM ' . SN_DB::table('calls') . ' WHERE id=%d', $call));
+            $wpdb->last_error = '';
+            $conversation_raw = $wpdb->get_var($wpdb->prepare('SELECT conversation_id FROM ' . SN_DB::table('calls') . ' WHERE id=%d', $call));
+            if ($wpdb->last_error !== '') return self::lock_truth_error();
+            $conversation = (int)$conversation_raw;
             if ($conversation > 0) {
                 $locks[] = self::conversation_lock($conversation);
                 self::append_space_owner_lock($locks, $conversation);
@@ -122,6 +129,7 @@ final class SN_Call_Runtime_Hardening {
             }
         }
 
+        if (self::$lock_truth_error) return self::lock_truth_error();
         if (!$locks) return $result;
         $locks = array_values(array_unique($locks)); sort($locks, SORT_STRING); $held=[];
         foreach ($locks as $lock) {
@@ -177,24 +185,37 @@ final class SN_Call_Runtime_Hardening {
     private static function append_space_owner_lock(array &$locks, int $conversation): void {
         global $wpdb;
         if ($conversation <= 0) return;
-        $space = (int)$wpdb->get_var($wpdb->prepare(
+        $wpdb->last_error = '';
+        $space_raw = $wpdb->get_var($wpdb->prepare(
             'SELECT id FROM ' . SN_DB::table('spaces') . ' WHERE conversation_id=%d LIMIT 1',
             $conversation
         ));
+        if ($wpdb->last_error !== '') { self::$lock_truth_error = true; return; }
+        $space = (int)$space_raw;
         if ($space > 0) $locks[] = 'sn:f17:space:' . substr(hash('sha256', (string)$space), 0, 32);
     }
 
     private static function append_direct_pair_lock(array &$locks, int $conversation, int $actor): void {
         global $wpdb;
         if ($conversation <= 0 || $actor <= 0) return;
-        $type = (string)$wpdb->get_var($wpdb->prepare('SELECT type FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', $conversation));
+        $wpdb->last_error = '';
+        $type_raw = $wpdb->get_var($wpdb->prepare('SELECT type FROM ' . SN_DB::table('conversations') . ' WHERE id=%d', $conversation));
+        if ($wpdb->last_error !== '') { self::$lock_truth_error = true; return; }
+        $type = (string)$type_raw;
         if ($type !== 'direct') return;
-        $peer = (int)$wpdb->get_var($wpdb->prepare(
+        $wpdb->last_error = '';
+        $peer_raw = $wpdb->get_var($wpdb->prepare(
             'SELECT user_id FROM ' . SN_DB::table('members') . ' WHERE conversation_id=%d AND user_id<>%d AND left_at IS NULL ORDER BY user_id ASC LIMIT 1',
             $conversation,
             $actor
         ));
+        if ($wpdb->last_error !== '') { self::$lock_truth_error = true; return; }
+        $peer = (int)$peer_raw;
         if ($peer > 0) $locks[] = SN_Relationships::pair_lock_name($actor, $peer);
+    }
+
+    private static function lock_truth_error(): WP_Error {
+        return new WP_Error('sn_call_lock_truth_unavailable', 'Call or meeting lock-discovery state could not be verified safely. Retry the request.', ['status'=>503]);
     }
 
     private static function requires_fresh_call_eligibility(string $route, WP_REST_Request $request): bool {
