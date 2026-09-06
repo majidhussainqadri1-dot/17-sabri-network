@@ -6,7 +6,6 @@ def once(path, old, new, label):
     if old not in s: raise SystemExit(label+' target mismatch')
     p.write_text(s.replace(old,new,1),encoding='utf-8')
 
-# Search snapshot and context reads.
 once('sabri-network/includes/class-sn-message-search.php',
 """        } else {
             $snapshot = (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(MAX(id),0) FROM ' . SN_DB::table('messages') . ' WHERE conversation_id=%d', $conversation_id));
@@ -31,8 +30,6 @@ once('sabri-network/includes/class-sn-message-search.php',
         if ($wpdb->last_error !== '' || !is_array($after)) return new WP_Error('search_context_unavailable', 'Message context is temporarily unavailable.', ['status' => 503]);
         $before = array_reverse($before_raw);
 """,'search context reads')
-
-# Organization fail-closed reads/deletes.
 once('sabri-network/includes/class-sn-message-operations.php',
 "    public static function list_folders(): WP_REST_Response {global $wpdb;$user=get_current_user_id();$rows=$wpdb->get_results($wpdb->prepare('SELECT f.id,f.name,f.slug,f.version,f.created_at,f.updated_at,COUNT(i.id) item_count FROM '.self::folders_table().' f LEFT JOIN '.self::folder_items_table().' i ON i.folder_id=f.id WHERE f.user_id=%d GROUP BY f.id ORDER BY f.name ASC LIMIT %d',$user,self::MAX_FOLDERS));return rest_ensure_response(['items'=>is_array($rows)?$rows:[]]);}\n",
 "    public static function list_folders(): WP_REST_Response|WP_Error {global $wpdb;$user=get_current_user_id();$wpdb->last_error='';$rows=$wpdb->get_results($wpdb->prepare('SELECT f.id,f.name,f.slug,f.version,f.created_at,f.updated_at,COUNT(i.id) item_count FROM '.self::folders_table().' f LEFT JOIN '.self::folder_items_table().' i ON i.folder_id=f.id WHERE f.user_id=%d GROUP BY f.id ORDER BY f.name ASC LIMIT %d',$user,self::MAX_FOLDERS));if($wpdb->last_error!==''||!is_array($rows))return self::error('sn_folder_list_unavailable','Message folders are temporarily unavailable.',503);return rest_ensure_response(['items'=>$rows]);}\n",'folder list')
@@ -52,13 +49,12 @@ once('sabri-network/includes/class-sn-message-operations.php',
 "    public static function change_folder_item(WP_REST_Request $request): WP_REST_Response|WP_Error {global $wpdb;$folder_id=absint($request['id']);$user=get_current_user_id();$folder=self::folder($folder_id,$user);if(!$folder)return self::error('sn_folder_missing','The folder is unavailable.',404);$conversation=absint($request->get_param('conversation_id'));if(!SN_DB::is_member($conversation,$user))return self::error('sn_folder_conversation_missing','The conversation is unavailable.',404);$action=sanitize_key((string)$request->get_param('action'))?:'add';if($action==='remove'){$wpdb->delete(self::folder_items_table(),['folder_id'=>$folder_id,'user_id'=>$user,'conversation_id'=>$conversation]);return rest_ensure_response(['included'=>false]);}$sql=$wpdb->prepare('INSERT IGNORE INTO '.self::folder_items_table().' (folder_id,user_id,conversation_id,created_at) VALUES (%d,%d,%d,%s)',$folder_id,$user,$conversation,self::now());if($wpdb->query($sql)===false)return self::error('sn_folder_item_failed','The conversation could not be added to the folder.',500);return rest_ensure_response(['included'=>true]);}\n",
 "    public static function change_folder_item(WP_REST_Request $request): WP_REST_Response|WP_Error {global $wpdb;$folder_id=absint($request['id']);$user=get_current_user_id();$folder=self::folder($folder_id,$user);if(!$folder)return self::error('sn_folder_missing','The folder is unavailable.',404);$conversation=absint($request->get_param('conversation_id'));if(!SN_DB::is_member($conversation,$user))return self::error('sn_folder_conversation_missing','The conversation is unavailable.',404);$action=sanitize_key((string)$request->get_param('action'))?:'add';if($action==='remove'){if($wpdb->delete(self::folder_items_table(),['folder_id'=>$folder_id,'user_id'=>$user,'conversation_id'=>$conversation])===false)return self::error('sn_folder_item_failed','The conversation could not be removed from the folder.',500);return rest_ensure_response(['included'=>false]);}$sql=$wpdb->prepare('INSERT IGNORE INTO '.self::folder_items_table().' (folder_id,user_id,conversation_id,created_at) VALUES (%d,%d,%d,%s)',$folder_id,$user,$conversation,self::now());if($wpdb->query($sql)===false)return self::error('sn_folder_item_failed','The conversation could not be added to the folder.',500);return rest_ensure_response(['included'=>true]);}\n",'folder item remove')
 
-# Extend cumulative regression.
 t=Path('sabri-network/tests/next20-contracts.php'); s=t.read_text(encoding='utf-8')
 if "$search=$read('includes/class-sn-message-search.php');" not in s:
     s=s.replace("$integrity=$read('includes/class-sn-message-integrity.php');", "$search=$read('includes/class-sn-message-search.php');$ops=$read('includes/class-sn-message-operations.php');$integrity=$read('includes/class-sn-message-integrity.php');",1)
 marker='if($fail){fwrite(STDERR,'
-checks="""$check(str_contains($ops,'if($wpdb->last_error!==\'\')return true'),'R4 hidden ledger fails closed on database error');
-$check(str_contains($search,'$snapshot_raw')&&str_contains($search,"status' => 503"),'R4 search snapshot read is error-aware');
+checks="""$check(str_contains($ops,'$wpdb->last_error')&&str_contains($ops,'return true;return(bool)$hidden'),'R4 hidden ledger fails closed on database error');
+$check(str_contains($search,'$snapshot_raw')&&str_contains($search,'search_unavailable'),'R4 search snapshot read is error-aware');
 $check(str_contains($search,'$before_raw')&&str_contains($search,'search_context_unavailable'),'R4 context neighbor reads fail closed');
 $check(str_contains($ops,'sn_folder_list_unavailable')&&str_contains($ops,'sn_folder_count_unavailable'),'R4 folder list and limit reads fail closed');
 $check(str_contains($ops,'sn_unpin_failed')&&str_contains($ops,'sn_unstar_failed')&&str_contains($ops,'The conversation could not be removed from the folder.'),'R4 destructive organization removals check database results');
