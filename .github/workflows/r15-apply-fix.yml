@@ -1,0 +1,119 @@
+name: R15 Apply Frozen Event Fixes
+on:
+  push:
+    branches:
+      - review/file17-fresh-20-round-2026-09-06
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact review head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-fresh-20-round-2026-09-06
+          fetch-depth: 0
+      - name: Apply only R15 frozen corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          loader=Path('sabri-network/sabri-network.php')
+          s=loader.read_text(encoding='utf-8')
+          needle="require_once SN_DIR . 'includes/class-sn-conference-provider.php';\nrequire_once SN_DIR . 'includes/class-sn-outbox.php';"
+          repl="require_once SN_DIR . 'includes/class-sn-conference-provider.php';\nrequire_once SN_DIR . 'includes/class-sn-event-schema-registry.php';\nrequire_once SN_DIR . 'includes/class-sn-outbox.php';"
+          if needle not in s and "class-sn-event-schema-registry.php" not in s:
+              raise SystemExit('loader insertion anchor missing')
+          s=s.replace(needle,repl)
+          loader.write_text(s,encoding='utf-8')
+
+          p=Path('sabri-network/includes/class-sn-outbox.php')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("private const SCHEMA_VERSION = '1.0.0';","private const SCHEMA_VERSION = '1.1.0';")
+          s=s.replace(
+              "            event_type VARCHAR(80) NOT NULL,\n            aggregate_type VARCHAR(40) NOT NULL DEFAULT '',",
+              "            event_type VARCHAR(80) NOT NULL,\n            event_contract VARCHAR(160) NOT NULL DEFAULT '',\n            event_schema_version VARCHAR(20) NOT NULL DEFAULT '',\n            aggregate_type VARCHAR(40) NOT NULL DEFAULT '',"
+          )
+          anchor="        if (!preg_match('/^[a-z0-9][a-z0-9._-]{2,79}$/', $type) || $idempotency_key === '' || strlen($idempotency_key) > 255) return new WP_Error('invalid_event_identity', 'A valid bounded event identity is required.');\n        $clean = self::sanitize_payload($payload); $json = (string) wp_json_encode($clean);"
+          replace="        if (!preg_match('/^[a-z0-9][a-z0-9._-]{2,79}$/', $type) || $idempotency_key === '' || strlen($idempotency_key) > 255) return new WP_Error('invalid_event_identity', 'A valid bounded event identity is required.');\n        $schema = SN_Event_Schema_Registry::validate_payload($type, $payload);\n        if (is_wp_error($schema)) return $schema;\n        $clean = self::sanitize_payload($payload); $json = (string) wp_json_encode($clean);"
+          if anchor not in s:
+              raise SystemExit('enqueue validation anchor missing')
+          s=s.replace(anchor,replace)
+          old="$ok = $wpdb->insert($table, ['event_uuid'=>wp_generate_uuid4(),'event_key'=>$event_key,'event_type'=>$type,'aggregate_type'=>$aggregate_type,'aggregate_id'=>max(0,$aggregate_id),'payload'=>$json,'payload_hash'=>$payload_hash,'status'=>'pending','attempts'=>0,'available_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);"
+          new="$ok = $wpdb->insert($table, ['event_uuid'=>wp_generate_uuid4(),'event_key'=>$event_key,'event_type'=>$type,'event_contract'=>(string)$schema['contract'],'event_schema_version'=>(string)$schema['version'],'aggregate_type'=>$aggregate_type,'aggregate_id'=>max(0,$aggregate_id),'payload'=>$json,'payload_hash'=>$payload_hash,'status'=>'pending','attempts'=>0,'available_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);"
+          if old not in s:
+              raise SystemExit('outbox insert anchor missing')
+          s=s.replace(old,new)
+
+          old="            $payload=json_decode((string)$row->payload,true);if(!is_array($payload)||!hash_equals((string)$row->payload_hash,hash('sha256',(string)$row->payload)))throw new RuntimeException('event_payload_integrity_failed');\n            $event=['id'=>(int)$row->id,'uuid'=>(string)$row->event_uuid,'type'=>(string)$row->event_type,'aggregate_type'=>(string)$row->aggregate_type,'aggregate_id'=>(int)$row->aggregate_id,'payload'=>$payload,'attempt'=>(int)$row->attempts,'created_at'=>(string)$row->created_at];\n            do_action('sn_network_event_dispatched',$event);$ack=apply_filters('sn_network_outbox_delivery_result',true,$event);if(is_wp_error($ack)||$ack!==true)throw new RuntimeException(is_wp_error($ack)?$ack->get_error_code():'event_not_acknowledged');"
+          new="            $payload=json_decode((string)$row->payload,true);if(!is_array($payload)||!hash_equals((string)$row->payload_hash,hash('sha256',(string)$row->payload)))throw new RuntimeException('event_payload_integrity_failed');\n            $schema=SN_Event_Schema_Registry::validate_payload((string)$row->event_type,$payload);if(is_wp_error($schema))throw new RuntimeException($schema->get_error_code());\n            $contract=(string)($row->event_contract??'');$schema_version=(string)($row->event_schema_version??'');\n            if($contract===''||$schema_version===''){\n                $contract=(string)$schema['contract'];$schema_version=(string)$schema['version'];\n                if($wpdb->query($wpdb->prepare(\"UPDATE $table SET event_contract=%s,event_schema_version=%s,updated_at=%s,version=version+1 WHERE id=%d AND lock_token=%s AND (event_contract='' OR event_schema_version='')\",$contract,$schema_version,current_time('mysql',true),$id,$token))!==1)throw new RuntimeException('event_schema_backfill_failed');\n            }elseif(!hash_equals((string)$schema['contract'],$contract)||!hash_equals((string)$schema['version'],$schema_version)){\n                throw new RuntimeException('event_schema_contract_mismatch');\n            }\n            $event=['id'=>(int)$row->id,'uuid'=>(string)$row->event_uuid,'trace_id'=>(string)$row->event_uuid,'type'=>(string)$row->event_type,'contract'=>$contract,'schema_version'=>$schema_version,'owner'=>(string)$schema['owner'],'privacy_class'=>(string)$schema['privacy_class'],'aggregate_type'=>(string)$row->aggregate_type,'aggregate_id'=>(int)$row->aggregate_id,'payload'=>$payload,'attempt'=>(int)$row->attempts,'created_at'=>(string)$row->created_at];\n            do_action('sn_network_event_dispatched',$event);$ack=apply_filters('sn_network_outbox_delivery_result',false,$event);if(is_wp_error($ack)||$ack!==true)throw new RuntimeException(is_wp_error($ack)?$ack->get_error_code():'event_not_acknowledged');"
+          if old not in s:
+              raise SystemExit('dispatch envelope anchor missing')
+          s=s.replace(old,new)
+
+          s=s.replace(
+              "SELECT id,event_uuid,event_type,aggregate_type,aggregate_id,payload_hash,status,attempts,available_at,last_error,version,created_at,updated_at,delivered_at,dead_at FROM ",
+              "SELECT id,event_uuid,event_type,event_contract,event_schema_version,aggregate_type,aggregate_id,payload_hash,status,attempts,available_at,last_error,version,created_at,updated_at,delivered_at,dead_at FROM "
+          )
+          s=s.replace(
+              "'event_type'=>(string)$r->event_type,'aggregate_type'=>(string)$r->aggregate_type",
+              "'event_type'=>(string)$r->event_type,'event_contract'=>(string)$r->event_contract,'event_schema_version'=>(string)$r->event_schema_version,'aggregate_type'=>(string)$r->aggregate_type"
+          )
+          health_old="'max_attempts'=>self::max_attempts(),'time'=>gmdate('c')"
+          health_new="'max_attempts'=>self::max_attempts(),'delivery_acknowledger_connected'=>has_filter('sn_network_outbox_delivery_result'),'event_schema_registry_count'=>count(SN_Event_Schema_Registry::all()),'time'=>gmdate('c')"
+          if health_old not in s:
+              raise SystemExit('health anchor missing')
+          s=s.replace(health_old,health_new)
+          p.write_text(s,encoding='utf-8')
+
+          test=Path('sabri-network/tests/r15-event-delivery-schema-contracts.php')
+          test.write_text(r'''<?php
+declare(strict_types=1);
+$root=dirname(__DIR__);
+$out=file_get_contents($root.'/includes/class-sn-outbox.php');
+$reg=file_get_contents($root.'/includes/class-sn-event-schema-registry.php');
+$loader=file_get_contents($root.'/sabri-network.php');
+$fails=[];$checks=0;
+function r15(bool $ok,string $msg):void{global $fails,$checks;$checks++;if(!$ok)$fails[]=$msg;}
+r15(str_contains($loader,"class-sn-event-schema-registry.php")&&strpos($loader,"class-sn-event-schema-registry.php")<strpos($loader,"class-sn-outbox.php"),'Event schema registry must load before outbox.');
+r15(str_contains($out,"SCHEMA_VERSION = '1.1.0'")&&str_contains($out,'event_contract VARCHAR(160)')&&str_contains($out,'event_schema_version VARCHAR(20)'),'Outbox schema persists event contract identity/version.');
+r15(str_contains($out,'SN_Event_Schema_Registry::validate_payload($type, $payload)'),'Enqueue must reject unregistered/invalid event schemas before persistence.');
+r15(str_contains($out,"'event_contract'=>(string)$schema['contract']")&&str_contains($out,"'event_schema_version'=>(string)$schema['version']"),'Enqueue must persist approved contract/version.');
+r15(str_contains($out,"'contract'=>$contract")&&str_contains($out,"'schema_version'=>$schema_version")&&str_contains($out,"'owner'=>(string)$schema['owner']")&&str_contains($out,"'privacy_class'=>(string)$schema['privacy_class']"),'Dispatch envelope must carry governed schema metadata.');
+r15(str_contains($out,"apply_filters('sn_network_outbox_delivery_result',false,$event)")&&!str_contains($out,"apply_filters('sn_network_outbox_delivery_result',true,$event)"),'Outbox acknowledgement must fail closed when no consumer explicitly acknowledges.');
+r15(str_contains($out,'event_schema_backfill_failed')&&str_contains($out,'event_schema_contract_mismatch'),'Legacy queued rows must be safely backfilled and contract drift rejected.');
+r15(str_contains($out,"has_filter('sn_network_outbox_delivery_result')")&&str_contains($out,'event_schema_registry_count'),'Health must expose acknowledgement adapter and registry readiness.');
+r15(str_contains($reg,"apply_filters('sn_network_event_schema_registry'")&&str_contains($reg,"event_schema_unregistered")&&str_contains($reg,"event_schema_invalid"),'Registry must support approved extensions while unknown/invalid schemas fail closed.');
+foreach(['owner','version','required_fields','optional_fields','privacy_class','retention','consumers','deprecation_date'] as $field)r15(str_contains($reg,"'$field'"),"Registry metadata missing $field.");
+$events=['message.sent','message.edited','message.deleted','message.delivered','message.read','message.expired','message.expiry_changed','message.forwarded','message.mentions_updated','message_request.created','message_request.accepted','message_request.declined','message_request.reported','message_request.cancelled','checklist.item_changed','community_artifact.created','smail.sent','space.created','space.join_request_accepted','space.join_request_rejected','space.invitation_created','space.invitation_accepted','space.invitation_rejected','space.invitation_cancelled','space.member_joined','space.member_left','space.member_removed','space.member_role_changed','space.member_banned','space.lifecycle_changed','space.ownership_transferred','conversation.ownership_transferred','conversation.context_attached','conversation.context_detached','conversation.clinical_context_reference_issued','file-transfer.initiated','file-transfer.ready','file-transfer.revoked','conference.provider_configured'];
+foreach($events as $event)r15(str_contains($reg,"'$event' => self::spec("),"Missing governed event schema: $event");
+if($fails){fwrite(STDERR,"R15 event-delivery/schema failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "R15 event-delivery/schema contracts: PASS ($checks checks)\n";
+''',encoding='utf-8')
+
+          q=Path('.github/workflows/quality.yml')
+          s=q.read_text(encoding='utf-8')
+          marker='          run_test seventh-fresh-ten-round-contracts.php\n'
+          if marker in s and 'run_test r15-event-delivery-schema-contracts.php' not in s:
+              s=s.replace(marker,marker+'          run_test r15-event-delivery-schema-contracts.php\n',1)
+          marker2='          php sabri-network/tests/seventh-fresh-ten-round-contracts.php\n'
+          if marker2 in s and 'php sabri-network/tests/r15-event-delivery-schema-contracts.php' not in s:
+              s=s.replace(marker2,marker2+'          php sabri-network/tests/r15-event-delivery-schema-contracts.php\n',1)
+          q.write_text(s,encoding='utf-8')
+          PY
+
+          php -l sabri-network/includes/class-sn-event-schema-registry.php
+          php -l sabri-network/includes/class-sn-outbox.php
+          php -l sabri-network/sabri-network.php
+          php sabri-network/tests/r15-event-delivery-schema-contracts.php
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -f .github/workflows/r15-event-inventory.yml .github/workflows/r15-apply-fix.yml
+          git add sabri-network/sabri-network.php sabri-network/includes/class-sn-outbox.php sabri-network/includes/class-sn-event-schema-registry.php sabri-network/tests/r15-event-delivery-schema-contracts.php .github/workflows/quality.yml
+          git commit -m 'R15 fix: fail-closed versioned event delivery contracts'
+          git push origin HEAD:review/file17-fresh-20-round-2026-09-06
