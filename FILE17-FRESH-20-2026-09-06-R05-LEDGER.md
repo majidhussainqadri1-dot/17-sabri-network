@@ -8,13 +8,18 @@ Final Smail route precedence, caller-owned idempotency and exact request reconst
 
 ## Frozen defects
 
-### R05-D01 — Smail can create/reuse its canonical conversation using request-scoped stale File-00 assertions
-`SN_Smail_Runtime_Hardening::send()` acquires recipient pair locks, but its pre-reservation `SN_Policy::can_contact()` loop does not clear `SN_Membership_Assertions`. `resolve_smail_conversation()` may therefore create a direct/group conversation membership graph after a File-00 eligibility/suspension change that occurred after REST permission evaluation. The later canonical message send is stronger, but at that point the empty conversation side effect can already exist.
+### R05-D01 — Smail could create/reuse its canonical conversation using request-scoped stale File-00 assertions
+The pre-reservation contact checks did not refresh canonical File-00 state after the recipient pair locks were held.
 
-### R05-D02 — Smail group conversation reservation does not prove transaction start
-`SN_Central_Plan_Hardening::resolve_smail_conversation()` invokes raw `START TRANSACTION` for a new Smail group reservation without checking for `false` before inserting the conversation and member rows.
+### R05-D02 — Smail group conversation reservation did not prove transaction start
+The group reservation path entered inserts after an unchecked `START TRANSACTION`.
+
+## Frozen fixes applied
+Production correction commit: `a5205327f839799c892c63bceafba9d0a0efe5aa`.
+
+The Smail runtime now refreshes sender access and every recipient File-00 assertion under the existing recipient-pair serialization before any direct/group conversation reservation side effect. The group reservation path now fails closed unless the database transaction is confirmed started. Permanent current-boundary regression checks cover both corrections.
 
 ## Ledger status
-`DEFECT-BEARING — 2 frozen defects.`
+`DEFECT-BEARING — 2 frozen defects; both corrected after ledger freeze.`
 
-No production correction was started until this ledger was frozen.
+This documentation-only commit is the Round-05 exact regression/CI head. Round 06 may begin only after both declared quality jobs pass on this exact head.
