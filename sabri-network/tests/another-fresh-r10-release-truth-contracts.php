@@ -11,7 +11,7 @@ $branch='review/file17-another-10-round-2026-09-05';$rounds='R1, R2, R3, R4, R5,
 foreach($docs as $name=>$text){
   $check(str_contains($text,$branch),"R10: $name identifies current review branch");
   $check(str_contains($text,$rounds),"R10: $name records all ten defect-bearing rounds");
-  $check(str_contains($text,'59')&&str_contains($text,'10'),"R10: $name publishes 59-suite/10-JS current inventory");
+  $check(str_contains($text,'60')&&str_contains($text,'10'),"R10: $name publishes 60-suite/10-JS current inventory");
   $check(!str_contains($text,'Clean rounds: **R5**')&&!str_contains($text,'clean round: **R5**')&&!str_contains($text,'R5 was clean'),"R10: $name does not publish the prior cycle R5-clean outcome as current truth");
   $check(!str_contains($text,'4–5 September another-fresh')&&!str_contains($text,'4-5 September another-fresh'),"R10: $name does not publish the wrong current-cycle date range");
 }
@@ -19,7 +19,7 @@ foreach(['README'=>$docs['README'],'STATUS'=>$docs['STATUS'],'CODING'=>$docs['CO
   $check(str_contains($text,'FILE17-ANOTHER-10-ROUND-2026-09-05-R1-LEDGER.md')&&str_contains($text,'FILE17-ANOTHER-10-ROUND-2026-09-05-R10-LEDGER.md'),"R10: $name points to the current-cycle frozen ledgers");
   $check(!str_contains($text,'FILE17-NEXT-10-ROUND-2026-09-04-R1-LEDGER.md'),"R10: $name does not mislabel prior-cycle ledgers as current");
 }
-$check(str_contains($qa,'59')&&str_contains($qa,'10'),'R10: QA inventory matches executable 59-suite/10-JS gate');
+$check(str_contains($qa,'60')&&str_contains($qa,'10'),'R10: QA inventory matches executable 60-suite/10-JS gate');
 $check(str_contains($q,'another-fresh-r10-release-truth-contracts.php'),'R10: full quality gate invokes this permanent regression');
 $check(str_contains($readRepo('MANIFEST.md'),'exact staged release tree'),'R10: manifest truth remains executable/exact-commit based');
 if($fail){fwrite(STDERR,"Another fresh R10 release-truth failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Another fresh R10 release-truth contracts: PASS ($checks checks)\n";
