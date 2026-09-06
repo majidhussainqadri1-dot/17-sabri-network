@@ -26,7 +26,7 @@ required=(
   templates/network-standalone.php templates/messages-standalone.php templates/meet-app.php templates/smail-app.php templates/file-transfer-app.php
   assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js assets/js/round20-correction.js
   assets/css/network.css assets/css/messages.css assets/css/meet.css assets/css/message-search.css assets/css/smail.css assets/css/file-transfer.css assets/css/brand-green-overrides.css assets/css/two-plan-ui.css assets/css/future-superset.css
-  tools/quality-check.sh tools/package.sh
+  tools/quality-check.sh tools/run-php-test.php tools/package.sh
 )
 for file in "${required[@]}"; do test -f "$file" || { echo "Missing required file: $file" >&2; exit 1; }; done
 echo 'Required canonical surfaces: PASS'
@@ -67,9 +67,9 @@ tests=(
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
  two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php fourth-fresh-twenty-round-contracts.php
  fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php fifth-fresh-closure-contracts.php fifth-fresh-release-truth-contracts.php
- sixth-fresh-twenty-round-contracts.php seventh-fresh-ten-round-contracts.php r15-event-delivery-schema-contracts.php r16-migration-rollback-contracts.php r17-canonical-auth-dual-approval-contracts.php
+ sixth-fresh-twenty-round-contracts.php seventh-fresh-ten-round-contracts.php r15-event-delivery-schema-contracts.php r16-migration-rollback-contracts.php r17-canonical-auth-dual-approval-contracts.php r18-quality-warning-contracts.php
 )
-for test_file in "${tests[@]}"; do php "tests/$test_file"; done
+for test_file in "${tests[@]}"; do php "tools/run-php-test.php" "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)
 mapfile -t invoked_tests < <(printf '%s\n' "${tests[@]}" | LC_ALL=C sort -u)
 if [[ "$(printf '%s\n' "${expected_tests[@]}")" != "$(printf '%s\n' "${invoked_tests[@]}")" ]]; then
