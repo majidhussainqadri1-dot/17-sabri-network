@@ -10,5 +10,5 @@ r18(str_contains($runner,'error_reporting(E_ALL)'),'Warning-fatal test runner mu
 r18(str_contains($runner,'set_error_handler')&&str_contains($runner,'throw new ErrorException'),'Warning-fatal test runner must convert PHP runtime diagnostics into failures.');
 r18(str_contains($quality,'php "tools/run-php-test.php" "tests/$test_file"'),'Canonical quality runner must execute every PHP regression through the warning-fatal wrapper.');
 r18(!str_contains($quality,'do php "tests/$test_file"; done'),'Canonical quality runner must not retain the warning-tolerant direct test loop.');
-r18(str_contains($relationship,"str_contains($rels,'\$wpdb->last_error !== \\\'\\\''"),'Relationship regression must compare a literal $wpdb source needle without PHP interpolation.');
+r18(str_contains($relationship,"str_contains(\$rels,'\$wpdb->last_error !== \\\'\\\''"),'Relationship regression must compare a literal $wpdb source needle without PHP interpolation.');
 if($fails){fwrite(STDERR,"R18 quality-warning failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "R18 quality-warning contracts: PASS ($checks checks)\n";
