@@ -18,35 +18,34 @@ $check(substr_count($meet, "START TRANSACTION") >= 6, 'High-risk meeting mutatio
 $check(str_contains($meet, "WHERE public_id=%s FOR UPDATE"), 'Join and heartbeat paths must lock the meeting row.');
 $check(str_contains($meet, "WHERE meeting_id=%d AND user_id=%d FOR UPDATE"), 'Participant authority must be revalidated under row lock.');
 $check(str_contains($meet, "session_hash=%s FOR UPDATE"), 'Device session state must be locked before mutation.');
-$check(str_contains($meet, "'version' => (int) $meeting->version + 1"), 'Meeting mutations must advance a version counter.');
-$check(str_contains($meet, "['id' => (int) $meeting->id, 'version' => (int) $meeting->version]) !== 1"), 'Meeting CAS failure must not silently succeed.');
-$check(str_contains($meet, "['id' => (int) $participant->id, 'version' => (int) $participant->version]) !== 1"), 'Participant CAS failure must not silently succeed.');
+$check(str_contains($meet, "'version' => (int) \$meeting->version + 1"), 'Meeting mutations must advance a version counter.');
+$check(str_contains($meet, "['id' => (int) \$meeting->id, 'version' => (int) \$meeting->version]) !== 1"), 'Meeting CAS failure must not silently succeed.');
+$check(str_contains($meet, "['id' => (int) \$participant->id, 'version' => (int) \$participant->version]) !== 1"), 'Participant CAS failure must not silently succeed.');
 $check(str_contains($meet, '$user_sessions >= 3'), 'Per-user device sessions must be bounded.');
 $check(str_contains($meet, '$all_sessions >= ((int) $meeting->participant_limit * 3)'), 'Total device sessions must be bounded relative to participant capacity.');
 $check(str_contains($meet, 'SESSION_TTL'), 'Stale meeting sessions must expire independently of cron.');
 $check(str_contains($meet, "'meeting_session_expired'"), 'Stale clients must rejoin instead of reviving silently.');
-$check(str_contains($meet, "hash_hmac('sha256', $user_id . ':' . $session_id"), 'Raw client session identifiers must not be stored.');
+$check(str_contains($meet, "hash_hmac('sha256', \$user_id . ':' . \$session_id"), 'Raw client session identifiers must not be stored.');
 $check(str_contains($meet, "consumed_at IS NULL") && str_contains($meet, 'to_user_id=%d'), 'Signal reads and acknowledgements must be recipient-scoped.');
 $check(str_contains($meet, "expires_at>%s") && str_contains($meet, 'SIGNAL_TTL'), 'Signaling records must be bounded by expiry.');
 $check(!str_contains($meet, 'JSON_SET('), 'Meeting persistence must not depend on vendor-specific JSON mutation.');
 $check(str_contains($meet, "WHERE meeting_id=%d AND user_id=%d AND session_hash=%s FOR UPDATE"), 'Leave and heartbeat must lock the exact user device session.');
-$check(str_contains($meet, "['id' => (int) $session->id, 'state' => (string) $session->state]) !== 1"), 'Leave must compare the observed session state before mutation.');
+$check(str_contains($meet, "['id' => (int) \$session->id, 'state' => (string) \$session->state]) !== 1"), 'Leave must compare the observed session state before mutation.');
 $check(str_contains($meet, "'duplicate' => true"), 'Repeated leave requests must be idempotent.');
-$check(str_contains($meet, "if ($updated === false)"), 'Signal acknowledgement database failures must not be reported as zero acknowledgements.');
+$check(str_contains($meet, "if (\$updated === false)"), 'Signal acknowledgement database failures must not be reported as zero acknowledgements.');
 
 // Next fresh Round 6: final-route DB failure promotion without replacing the canonical Meet owner.
 $check(str_contains($loader, "require_once SN_DIR . 'includes/class-sn-r6-transaction-hardening.php'") && str_contains($loader, 'SN_R6_Transaction_Hardening::register();'), 'R6 transaction hardening must be loaded and registered by the canonical hardening loader.');
 $check(str_contains($r6, "add_action('rest_api_init', [self::class, 'override_routes'], 3200)"), 'R6 transaction hardening must register after the existing Meet/call route owners.');
-$check(str_contains($r6, "['methods'=>'POST','callback'=>[self::class,'create_meeting']") && str_contains($r6, "SN_Call_Runtime_Hardening::create_meeting($request)"), 'Final Meet creation must preserve exact-request idempotency while running under the R6 DB guard.');
+$check(str_contains($r6, "['methods'=>'POST','callback'=>[self::class,'create_meeting']") && str_contains($r6, "SN_Call_Runtime_Hardening::create_meeting(\$request)"), 'Final Meet creation must preserve exact-request idempotency while running under the R6 DB guard.');
 foreach (['invite','join','heartbeat','leave','moderate'] as $method) {
     $pattern = "/'" . preg_quote($method, '/') . "'\\s*=>\\s*'" . preg_quote($method, '/') . "'/";
     $check((bool) preg_match($pattern, $r6), "R6 final route map must guard Meet {$method}.");
 }
-$check(str_contains($r6, "'/admin/conference-providers'") && str_contains($r6, "SN_Conference_Provider::configure_provider($request)"), 'Final provider configuration must execute under the same fail-closed direct-query guard.');
+$check(str_contains($r6, "'/admin/conference-providers'") && str_contains($r6, "SN_Conference_Provider::configure_provider(\$request)"), 'Final provider configuration must execute under the same fail-closed direct-query guard.');
 $check(str_contains($r6, '$wpdb = new SN_R6_WPDB_Guard($original);') && str_contains($r6, 'finally') && str_contains($r6, '$wpdb = $original;'), 'R6 DB guarding must be request-scoped and must always restore the canonical wpdb object.');
 $check(str_contains($r6, '$result === false') && str_contains($r6, "!preg_match('/^ROLLBACK") && str_contains($r6, "throw new RuntimeException('sn_r6_direct_query_failed:"), 'Any failed direct transactional/moderation query except rollback must be promoted to an exception.');
 $check(str_contains($r6, "'sn_meet_transaction_failed'") && str_contains($r6, "'sn_provider_transaction_failed'"), 'Escaped transaction-start failures must fail closed with stable Meet/provider errors.');
-
 
 $check(str_contains($callRuntime, 'private static bool $lock_truth_error = false') && str_contains($callRuntime, 'sn_call_lock_truth_unavailable'), 'Fresh20 R8: call/Meet lock-discovery SQL failure must have a stable fail-closed error state.');
 $check(substr_count($callRuntime, '$wpdb->last_error = \'\'') >= 5 && str_contains($callRuntime, 'if (self::$lock_truth_error) return self::lock_truth_error();'), 'Fresh20 R8: authoritative lock-discovery reads must clear/check DB error state before acquiring an incomplete lock set.');
