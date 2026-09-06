@@ -13,6 +13,7 @@ $m=$read('includes/class-sn-membership-assertions.php');
 $relationships=$read('includes/class-sn-relationships.php');
 $relationshipRuntime=$read('includes/class-sn-relationship-runtime-hardening.php');
 $msg=$read('includes/class-sn-message-runtime-hardening.php');
+$reviewFinal=$read('includes/class-sn-fourth-fresh-review-hardening.php');
 $attach=$read('includes/class-sn-attachment-runtime-hardening.php');
 $smailFinal=$read('includes/class-sn-fourth-fresh-smail-hardening.php');
 $smailRuntime=$read('includes/class-sn-smail-runtime-hardening.php');
@@ -122,4 +123,13 @@ $check(substr_count($relationshipRuntime,'SN_Membership_Assertions::clear_cache(
 $check(substr_count($relationshipRuntime,'SN_Membership_Assertions::clear_cache($target);')>=2,'Fresh20 R02: positive contact/direct-conversation mutations must refresh the target File-00 assertion at the locked mutation point.');
 $check(substr_count($relationships,'SN_Membership_Assertions::clear_cache($follower_id);')>=1&&substr_count($relationships,'SN_Membership_Assertions::clear_cache($followed_id);')>=1,'Fresh20 R02: follow creation must refresh both File-00 subjects under the pair lock.');
 $check(str_contains($relationships,'SN_Membership_Assertions::clear_cache((int) $row->follower_id);')&&str_contains($relationships,'SN_Membership_Assertions::clear_cache($target_id);'),'Fresh20 R02: follow acceptance must refresh both subjects before positive activation.');
+
+// Fresh20 R03 final message mutation regressions.
+$check(str_contains($reviewFinal,"'/messages/(?P<id>\d+)/reaction'")&&str_contains($reviewFinal,"'callback' => [self::class, 'react_message']"),'Fresh20 R03: final route precedence must move reactions off the legacy un-serialized owner.');
+$check(str_contains($reviewFinal,"new WP_Error('invalid_reaction'")&&str_contains($reviewFinal,'Choose a supported reaction'),'Fresh20 R03: unsupported non-empty reaction input must be rejected rather than interpreted as removal.');
+$check(str_contains($reviewFinal,'public static function react_message')&&substr_count($reviewFinal,'FOR UPDATE')>=3&&str_contains($reviewFinal,'reaction_commit_failed'),'Fresh20 R03: reaction mutation must lock current state and prove commit success.');
+$editPos=strpos($reviewFinal,'public static function edit_message');
+$receiptPos=strpos($reviewFinal,'public static function record_receipt');
+$editSlice=substr($reviewFinal,$editPos,$receiptPos-$editPos);
+$check(str_contains($editSlice,'SN_Membership_Assertions::clear_cache($actor);')&&str_contains($editSlice,'$fresh_access = SN_Policy::access();'),'Fresh20 R03: final edit mutation must refresh File-00 access after serialization.');
 if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";
