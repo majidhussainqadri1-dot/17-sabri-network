@@ -1,0 +1,32 @@
+name: R1 test reconcile
+on:
+  push:
+    branches: [review/file17-yet-another-10-round-2026-09-06]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: review/file17-yet-another-10-round-2026-09-06
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sabri-network/tests/future24-forty-round-corrective-static-contracts.php')
+          s=p.read_text()
+          old="$assert(str_contains($activator,'SN_Fifth_Fresh_Migration_Hardening::upgrade(true)')&&!str_contains($activator,'SN_Future_Superset::install();')&&!str_contains($activator,\"update_option('sn_plugin_version', SN_VERSION, false);\"),'Activation must delegate all schema/version publication to the serialized migration governor.');"
+          new="$assert(str_contains($activator,'SN_Fifth_Fresh_Migration_Hardening::upgrade(true)')&&!preg_match('/^[ \\t]*(?!\\/\\/)SN_Future_Superset::install\\(\\);/m',$activator)&&!preg_match('/^[ \\t]*(?!\\/\\/)update_option\\(\\'sn_plugin_version\\', SN_VERSION, false\\);/m',$activator),'Activation must delegate all executable schema/version publication to the serialized migration governor.');"
+          if old not in s: raise SystemExit('target missing')
+          p.write_text(s.replace(old,new,1))
+          PY
+          php sabri-network/tests/future24-forty-round-corrective-static-contracts.php
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sabri-network/tests/future24-forty-round-corrective-static-contracts.php
+          git commit -m 'R1 regression repair: distinguish commented activation history from executable schema calls'
+          git push origin HEAD:review/file17-yet-another-10-round-2026-09-06
