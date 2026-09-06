@@ -11,63 +11,45 @@ final class SN_Policy {
         if (!$user_id || !get_user_by('id', $user_id)) {
             return new WP_Error('identity_unavailable', 'The authenticated identity is unavailable.', ['status' => 401]);
         }
-        if (!self::identity_authority_available()) {
-            return new WP_Error('identity_authority_unavailable', 'The platform identity authority is unavailable. Network actions are temporarily disabled.', ['status' => 503]);
-        }
-        if (self::is_suspended($user_id)) {
+        $assertion = self::canonical_assertion($user_id);
+        if (is_wp_error($assertion)) return $assertion;
+        if ($assertion['suspended'] === true) {
             return new WP_Error('account_restricted', 'Network access is unavailable for this account.', ['status' => 403]);
         }
+        if ($assertion['eligible'] !== true || $assertion['can_message'] !== true) {
+            return new WP_Error('network_access_denied', 'The current File 00 communication assertion does not permit Network messaging.', ['status' => 403]);
+        }
+        // Compatibility filters are a restriction overlay only. Canonical File-00
+        // denial is decided above and is therefore impossible for a later filter to grant.
         $allowed = apply_filters('sn_network_user_can_access', true, $user_id);
         return $allowed === true ? true : (is_wp_error($allowed) ? $allowed : new WP_Error('network_access_denied', 'Network access is not permitted for this account.', ['status' => 403]));
     }
 
-
     public static function identity_authority_available(): bool {
-        $known = class_exists('Sabri_Membership_Core')
-            || class_exists('Sabri\Membership\Core')
-            || function_exists('sabri_membership_core');
-        return (bool) apply_filters('sn_network_identity_authority_available', $known);
+        if (!class_exists('SN_Membership_Assertions') || !SN_Membership_Assertions::available()) return false;
+        // Extensions may disable a currently available authority, never manufacture one.
+        return apply_filters('sn_network_identity_authority_available', true) === true;
     }
 
     public static function is_suspended(int $user_id): bool {
-        $filtered = apply_filters('sn_network_user_is_suspended', null, $user_id);
-        if (is_bool($filtered)) {
-            return $filtered;
-        }
-        return (bool) get_user_meta($user_id, 'sn_account_suspended', true)
-            || in_array((string) get_user_meta($user_id, 'sn_account_status', true), ['suspended', 'blocked', 'deleted'], true);
+        $assertion = self::canonical_assertion($user_id);
+        if (is_wp_error($assertion)) return true;
+        if ($assertion['suspended'] === true) return true;
+        // A true extension result may tighten an allowed canonical assertion.
+        return apply_filters('sn_network_user_is_suspended', false, $user_id) === true;
     }
 
     public static function age_state(int $user_id): string {
-        $state = apply_filters('sn_network_user_age_state', null, $user_id);
-        if (is_string($state) && in_array($state, ['adult', 'minor', 'unknown'], true)) {
-            return $state;
-        }
-
-        $filtered = apply_filters('sn_network_user_is_minor', null, $user_id);
-        if (is_bool($filtered)) {
-            return $filtered ? 'minor' : 'adult';
-        }
-
-        $dob = trim((string) get_user_meta($user_id, 'sn_date_of_birth', true));
-        if ($dob === '') {
-            $dob = trim((string) get_user_meta($user_id, 'date_of_birth', true));
-        }
-        if ($dob === '') {
-            return 'unknown';
-        }
-
-        $date = substr($dob, 0, 10);
-        $birth = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
-        $errors = DateTimeImmutable::getLastErrors();
-        if (!$birth || ($errors !== false && ((int) $errors['warning_count'] > 0 || (int) $errors['error_count'] > 0)) || $birth->format('Y-m-d') !== $date) {
-            return 'unknown';
-        }
-        $today = new DateTimeImmutable('today');
-        if ($birth > $today) {
-            return 'unknown';
-        }
-        return $birth->diff($today)->y < 18 ? 'minor' : 'adult';
+        $assertion = self::canonical_assertion($user_id);
+        if (is_wp_error($assertion)) return 'unknown';
+        $canonical = (string) $assertion['age_state'];
+        if (!in_array($canonical, ['adult', 'minor', 'unknown'], true)) return 'unknown';
+        // A canonical minor/unknown state is terminal and cannot be promoted to adult.
+        if ($canonical !== 'adult') return $canonical;
+        $state = apply_filters('sn_network_user_age_state', 'adult', $user_id);
+        if (is_string($state) && in_array($state, ['minor', 'unknown'], true)) return $state;
+        $minor = apply_filters('sn_network_user_is_minor', false, $user_id);
+        return $minor === true ? 'minor' : 'adult';
     }
 
     public static function is_minor(int $user_id): bool {
@@ -85,11 +67,24 @@ final class SN_Policy {
     }
 
     public static function has_guardian_consent(int $user_id): bool {
-        $filtered = apply_filters('sn_network_guardian_consent_valid', null, $user_id);
-        if (is_bool($filtered)) {
-            return $filtered;
+        $assertion = self::canonical_assertion($user_id);
+        if (is_wp_error($assertion) || $assertion['guardian_verified'] !== true) return false;
+        // Extensions may revoke/tighten a verified grant, never create one.
+        return apply_filters('sn_network_guardian_consent_valid', true, $user_id) === true;
+    }
+
+    private static function canonical_assertion(int $user_id): array|WP_Error {
+        if (!class_exists('SN_Membership_Assertions')) {
+            return new WP_Error('identity_authority_unavailable', 'The File 00 communication-assertion authority is unavailable.', ['status' => 503]);
         }
-        return (bool) get_user_meta($user_id, 'sn_guardian_consent_verified', true);
+        $assertion = SN_Membership_Assertions::communication($user_id);
+        if (is_wp_error($assertion)) return $assertion;
+        foreach (['eligible','can_message','suspended','guardian_verified','age_state'] as $field) {
+            if (!array_key_exists($field, $assertion)) {
+                return new WP_Error('identity_assertion_incomplete', 'The File 00 communication assertion is incomplete.', ['status' => 503]);
+            }
+        }
+        return $assertion;
     }
 
     public static function can_contact(int $actor_id, int $target_id, string $context): bool|WP_Error {

@@ -165,7 +165,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'space_join_requests'=>['space_id','requester_id','status','version'],
             'presence_devices'=>['user_id','device_key','state','expires_at','revoked_at','version'],
             'step_up_grants'=>['grant_uuid','user_id','purpose','token_hash','status','expires_at','version'],
-            'high_risk_actions'=>['action_type','requester_id','approver_id','executor_id','status','version'],
+            'high_risk_actions'=>['action_type','requester_id','approver_id','second_approver_id','approver_step_up_grant_id','second_approver_step_up_grant_id','executor_id','status','first_approved_at','approved_at','version'],
             'conference_providers'=>['provider_key','provider_type','status','version'],
             'transfer_sessions'=>['public_id','sender_id','total_bytes','status','scan_status','version'],
             'transfer_chunks'=>['transfer_id','chunk_index','storage_key','sha256'],

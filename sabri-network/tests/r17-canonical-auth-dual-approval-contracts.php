@@ -1,6 +1,4 @@
-from pathlib import Path
-p=Path('sabri-network/tests/r17-canonical-auth-dual-approval-contracts.php')
-p.write_text(r'''<?php
+<?php
 declare(strict_types=1);
 $root=dirname(__DIR__);
 $policy=file_get_contents($root.'/includes/class-sn-policy.php');
@@ -31,4 +29,3 @@ r17(str_contains($high,"status IN ('requested','approval_pending','approved')"),
 foreach(['second_approver_id','approver_step_up_grant_id','second_approver_step_up_grant_id','first_approved_at','approved_at'] as $column)r17(str_contains($migration,"'$column'"),"Migration verification missing high-risk column: $column");
 
 if($fails){fwrite(STDERR,"R17 canonical-auth/dual-approval failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "R17 canonical-auth/dual-approval contracts: PASS ($checks checks)\n";
-''',encoding='utf-8')
