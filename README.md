@@ -1,38 +1,41 @@
-# File 17 — Sabri Network and Messages 2.1.0
+# File 17 — Sabri Network and Messages
 
-This repository is the File-17 coding/review candidate for the Sabri Social Homeopathy Platform under the current consolidated central governing plan, the current File 17 Final Harmonized Master Plan and the Founder-approved Future Communication Superset 24. Historical review ledgers and CI runs prove only their own exact commits.
+## Current repository review truth
 
-## Canonical scope
+**Active branch:** `review/file17-fresh-20-round-2026-09-06`  
+**Plugin/runtime line:** 2.1.0  
+**Fresh-20 source review:** all 20 rounds completed under **Review → Ledger Freeze → Fix → Regression → Exact-head CI → Next Round**. Round 20 corrections are coded; final Automated-QA status belongs only to the workflow attached to the exact current HEAD.
 
-File 17 is the single communication/realtime owner for relationships, contacts/follows, message requests, communities/groups/channels, conversations/messages, private attachments, internal Smail, verified-user private transfer up to 1 GiB/file, temporary updates, presence/typing, calls/signaling/Sabri Meet, blocks/reports, native retention/privacy and communication events. Network and Messages are distinct experiences over one backend.
+**Defect-bearing rounds:** R1, R2, R3, R5, R7, R8, R11, R12, R15, R16, R17, R18, R19, R20.  
+**Clean rounds:** R4, R6, R9, R10, R13, R14.
 
-It does not duplicate File 00/02 identity/verification, File 19 notification transport, File 20 shell/navigation, File 24 assurance governance, File 25 presentation, File 26 global search/ranking or clinical-domain truth. Private messages and contacts remain inside File 17.
+The executable full gate now contains **64 PHP review suites** and **10 JavaScript syntax entry points**. PHP review suites run through the warning-fatal canonical runner; the gate also checks PHP syntax, shell/CSS/accessibility/repository hygiene, active runtime/source/package closure, exact staged-source manifests and deterministic byte-for-byte packaging.
 
-## Current another-fresh 10-round corrective cycle — 5–6 September 2026
+## Canonical scope and ownership
 
-The current cycle on `review/file17-another-10-round-2026-09-05` completed all ten rounds under the mandatory sequence: **complete review → Ledger Freeze → fix all proved defects → regression/retest → exact-head CI → only then next round**.
+File 17 remains the platform's single Communication Network owner: relationships, contacts/follows, message requests, communities/groups/channels, conversations/messages, private attachments, internal Smail, verified-user private transfer, temporary updates, multi-device presence, calls/signaling/Sabri Meet, blocks/reports/appeals/legal holds, private-message search, reliable communication events and native privacy/audit lifecycle. Network and Messages are distinct experiences over one backend.
 
-- Defect-bearing rounds: **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10**.
-- Clean rounds: **none**.
-- Frozen ledgers: `FILE17-ANOTHER-10-ROUND-2026-09-05-R1-LEDGER.md` through `FILE17-ANOTHER-10-ROUND-2026-09-05-R10-LEDGER.md`.
-- The prior `review/file17-fresh-10-round-2026-09-04` cycle and the older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remain historical evidence only and are not current-head proof.
+- File 00/File 02 remain identity/authentication/current verification authority.
+- File 19 owns notification preferences/delivery transport; File 17 emits governed metadata events.
+- File 20 owns the global shell/navigation.
+- File 26 owns global Search/Discovery/Ranking; private messages/contacts are not exported to it.
+- Clinical truth remains with its clinical owners.
 
-The executable repository quality inventory is now **60 PHP review suites** and **10 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. Every explicit PHP review suite is executed through the warning-fatal canonical test wrapper. Exact automated-QA status belongs only to the workflow attached to the exact current branch HEAD; tracked documentation deliberately does not hard-code a self-referential final SHA.
+Private message bodies use authenticated server-side encryption at rest; this repository does **not** claim audited E2EE. Provider-dependent translation, AI, interoperability and real STUN/TURN/SFU remain fail-closed until approved adapters and separate staging acceptance exist.
 
-## Security and provider truth
+## Historical attribution — not current-head proof
 
-Canonical private message bodies use authenticated server-side encryption at rest, not an audited E2EE claim. Provider-dependent translation, AI, interoperability and real STUN/TURN/SFU media remain fail-closed unless approved adapters and separate staging acceptance exist.
+The prior `review/file17-another-10-round-2026-09-05` cycle had defect-bearing rounds **R1, R2, R3, R4, R5, R6, R7, R8, R9, R10** and a then-current inventory of **60 PHP review suites** and **10 JavaScript syntax entry points**. Those facts are retained as historical evidence only and do not override the fresh-20 current tree.
 
 ## Status law
 
-- **Specified:** current governing File-17 requirements represented in repository scope.
-- **Coded:** current 2.1.0 repository candidate has completed this another-fresh 10-round source review/fix cycle.
-- **Packaged:** true only for an exact commit whose deterministic package job succeeds.
-- **Automated-QA Green:** true only for the exact commit whose attached PHP 8.1 and PHP 8.3/full-quality checks succeed.
-- **Staging-Accepted:** pending real WordPress/MySQL/roles/providers/migration/rollback evidence.
-- **Live-Deployed:** not claimed.
-- **Operational:** not claimed.
+**Specified:** current governing File-17 scope represented.  
+**Coded:** fresh-20 repository correction set completed through R20.  
+**Packaged / Automated-QA Green:** only an exact-current-HEAD successful workflow may establish these states.  
+**Staging-Accepted:** unverified.  
+**Live-Deployed:** unverified.  
+**Operational:** unverified.
 
-A green CI or ZIP is not production completion.
+A green CI run or deterministic ZIP is not equivalent to staging acceptance, live deployment or operational completion.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
