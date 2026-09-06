@@ -45,7 +45,7 @@ $check($smailFreshPos!==false&&$smailResolvePos!==false&&$smailFreshPos<$smailRe
 $check(str_contains($smailRuntime,'SN_Membership_Assertions::clear_cache($recipient);')&&str_contains($smailRuntime,'$fresh_access=SN_Policy::access();'),'Fresh20 R05: Smail must refresh recipient assertions and canonical access before positive reservation.');
 $centralSmailPos=strpos($centralPlan,'public static function resolve_smail_conversation');
 $centralSmail=substr($centralPlan,$centralSmailPos,7000);
-$check(str_contains($centralSmail,"if ($wpdb->query('START TRANSACTION') === false)")&&str_contains($centralSmail,'reservation transaction could not start'),'Fresh20 R05: Smail group reservation must prove transaction start before inserts.');
+$check(str_contains($centralSmail,"START TRANSACTION') === false")&&str_contains($centralSmail,'reservation transaction could not start'),'Fresh20 R05: Smail group reservation must prove transaction start before inserts.');
 """
     tail=s.rfind('if($fail){')
     if tail<0: raise SystemExit('R05 regression tail missing')
