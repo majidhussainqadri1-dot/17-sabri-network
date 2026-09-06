@@ -16,20 +16,23 @@ jobs:
           ref: review/file17-fresh-20-round-2026-09-06
           fetch-depth: 0
       - name: Apply frozen R15 fixes
-        run: python3 sabri-network/tools/r15-apply-fix.py
+        run: |
+          python3 sabri-network/tools/r15-apply-fix.py
+          python3 sabri-network/tools/r15-fix-test.py
       - name: Verify correction locally
         run: |
           set -euo pipefail
           php -l sabri-network/includes/class-sn-event-schema-registry.php
           php -l sabri-network/includes/class-sn-outbox.php
           php -l sabri-network/sabri-network.php
+          php -l sabri-network/tests/r15-event-delivery-schema-contracts.php
           php sabri-network/tests/r15-event-delivery-schema-contracts.php
       - name: Commit correction and remove temporary helpers
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm -f .github/workflows/r15-event-inventory.yml .github/workflows/r15-apply-fix.yml sabri-network/tools/r15-apply-fix.py
+          git rm -f .github/workflows/r15-event-inventory.yml .github/workflows/r15-apply-fix.yml sabri-network/tools/r15-apply-fix.py sabri-network/tools/r15-fix-test.py
           git add sabri-network/sabri-network.php sabri-network/includes/class-sn-outbox.php sabri-network/includes/class-sn-event-schema-registry.php sabri-network/tests/r15-event-delivery-schema-contracts.php .github/workflows/quality.yml
           git commit -m 'R15 fix: fail-closed versioned event delivery contracts'
           git push origin HEAD:review/file17-fresh-20-round-2026-09-06
