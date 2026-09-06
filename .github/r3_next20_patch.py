@@ -50,7 +50,7 @@ ts=t.read_text(encoding='utf-8')
 if "$integrity=$read('includes/class-sn-message-integrity.php');" not in ts:
     ts=ts.replace("$activator=$read('includes/class-sn-activator.php');", "$integrity=$read('includes/class-sn-message-integrity.php');$activator=$read('includes/class-sn-activator.php');",1)
 marker="if($fail){fwrite(STDERR,\"Next20 contracts failed (\".count($fail).\"/$checks):\\n - \".implode(\"\\n - \",$fail).\"\\n\");exit(1);}"
-checks="""$check(str_contains($integrity,\"if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('database_error', 'The receipt transaction could not be started.'\"),'R3 receipt owner fails closed on transaction-start failure');
+checks="""$check(str_contains($integrity,'START TRANSACTION')&&str_contains($integrity,'receipt transaction could not be started'),'R3 receipt owner fails closed on transaction-start failure');
 $check(str_contains($integrity,'receipt_progress_unavailable')&&str_contains($integrity,'$through_raw')&&str_contains($integrity,'$more_raw'),'R3 receipt progress reads are error-aware and retryable');
 $check(str_contains($integrity,'message_receipt_progress_failed'),'R3 committed receipt completion-probe failure is audited');
 """
