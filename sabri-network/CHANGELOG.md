@@ -2,6 +2,14 @@
 
 ## 2.1.0 — 2026-08-11 onward — Current governing-plan repository corrective candidate
 
+### Fresh 20-round cycle — Round 19 correction set — 2026-09-07
+- Round 19 completed its uninterrupted release/migration/package/runtime-closure review before any Round-19 correction was made; the frozen ledger records four proved defects.
+- Added `class-sn-fresh20-r7-message-read-hardening.php` to the deterministic package's explicit governed required-surface list and added permanent package regression coverage for that runtime requirement.
+- Reconciled current QA/release prose with executable quality-gate truth: every PHP suite present under `tests/` is discovered/cross-checked by the gate; at the Round-19 reviewed state there are 63 unique PHP suites and 10 governed JavaScript syntax entry points.
+- Retired the completed R18 inventory and write-capable correction workflows so later review rounds cannot be modified by stale round-specific automation.
+- Replaced historical-cycle wording in current status/readme surfaces with the active fresh-20 branch boundary. Exact-head CI remains required before Round 20 begins.
+- Repository evidence only: no staging, deployed artifact, DB/schema, migration-execution or live-verification claim is made by this correction set.
+
 ### Fresh 20-round cycle — Round 18 correction closure — 2026-09-06 to 2026-09-07
 - Round 18 was fully reviewed and its defect ledger frozen before correction work began.
 - The canonical PHP review gate is now warning-fatal: all explicit PHP suites execute through `tools/run-php-test.php`, with `E_ALL` diagnostics promoted to test failures.
@@ -17,9 +25,7 @@
 - The previous `review/file17-fresh-10-round-2026-09-04` cycle and older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remain historical evidence only; a prior green SHA is never current-head proof.
 
 ### Current quality and release truth
-- Current explicit full quality inventory is **60 PHP review suites** and **10 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
-- Every explicit PHP review suite runs through the warning-fatal canonical test wrapper.
-- Permanent regression coverage remains inside the governed existing suites rather than adding one-off tests outside the explicit inventory.
+- The executable full quality gate discovers every PHP review suite under `tests/`, invokes each exactly once through the warning-fatal canonical wrapper, and fails on inventory drift. At the Round-19 reviewed state this is **63 unique PHP review suites** and **10 governed JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
 - Deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
 - Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
 - Staging, deployed artifact, DB/schema version, migration execution, live behavior and operational acceptance remain separate evidence gates.
