@@ -8,34 +8,22 @@ File 17 — Sabri Network and Messages 2.1.0
 3) Earlier review ledgers are historical evidence only for their own exact commits.
 
 Specified: current governing-plan File-17 repository scope is traceable.
-Coded Candidate: 2.1.0 current sixth-cycle corrective source.
+Coded Candidate: 2.1.0 active fresh-20 corrective source.
 Packaged: deterministic 2.1.0 ZIP + source manifest only when produced by the exact-head workflow.
-Automated QA: current explicit gate covers 53 PHP review suites, PHP 8.1/8.3 jobs, 9 JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates.
-Historical prior-cycle inventory only: 47 explicit PHP review suites and 8 JavaScript syntax checks; retained solely for attribution and not current QA truth.
+Automated QA: the executable gate discovers every PHP review suite under tests/, invokes each exactly once through the warning-fatal canonical wrapper, and fails on inventory drift. At the Round-19 reviewed state this is 63 unique PHP suites. PHP 8.1/8.3 jobs, 10 governed JavaScript syntax checks, shell/CSS/hygiene, source-manifest and deterministic double-build gates are also enforced.
 Staging Accepted: ابھی نہیں
 Live Deployed: ابھی نہیں
 Operational: ابھی نہیں
 
-Sixth fresh 20-round cycle — 18 August 2026:
-- Frozen starting source: a3a435b162167c9078ded22b08d6c8fb39b6ca27.
-- Review method: complete review round -> frozen defect ledger -> fix every proved defect -> regression/retest -> only then next round.
-- Defect rounds: R2, R5, R6, R8, R9, R12, R18, R19, R20.
-- Clean rounds: R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17.
-- First-ten defect rounds: R2, R5, R6, R8, R9.
-- Permanent current regression: tests/sixth-fresh-twenty-round-contracts.php.
-- Final exact SHA/run/package evidence is established only after the final sixth-cycle head itself completes attached CI; prior runs/hashes are not reused.
+Active fresh 20-round cycle — 6–7 September 2026:
+- Branch: review/file17-fresh-20-round-2026-09-06.
+- Review method: complete review round -> frozen defect ledger -> fix every proved defect -> regression/retest -> exact-head CI -> only then next round.
+- Rounds 1–18 are completed.
+- Round 19 is defect-bearing. Its frozen release/migration/package corrections must pass exact-current-head CI before Round 20 begins.
+- No Round-20 or final-cycle completion claim is made here.
+- Earlier sixth-fresh/seventh-fresh/fresh-10/another-fresh cycle SHAs, run IDs and hashes are historical evidence only.
 
-Current sixth-cycle corrections include:
-- canonical File-00/09 phone/verification truth after File-03 presentation enrichment;
-- caller-supplied message and Smail retry identities;
-- viewer-hidden message exclusion from private search/context and correct pagination progression;
-- transfer idempotency bound to exact file/chunk/conversation/hash/recipient request semantics;
-- failure-safe Future privacy deletion progress;
-- exact Sabri Meet migration-version rollback truth;
-- standalone Messages/communication-settings exact Sabri Green and accessibility hardening;
-- complete current review-suite/runtime/package inventory coverage.
-
-Current coded domains continue to include one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
+Current coded domains include one canonical relationship/message/space/call/private-media backend, Smail, verified-user private transfer <=1 GiB/file, multi-device presence, Sabri Meet, private search, reliable events, reports/appeals/legal holds, privacy export/erasure, and the Founder-approved Future Communication Superset 24. Provider-dependent capabilities remain fail-closed until an approved adapter and separate staging acceptance exist.
 
 External acceptance still pending:
 - real WordPress/PHP/MySQL fresh install, upgrade/migration/race/rollback tests;
