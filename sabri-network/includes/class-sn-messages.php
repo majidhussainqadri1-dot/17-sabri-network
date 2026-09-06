@@ -259,14 +259,17 @@ final class SN_Messages {
         $page = $page_id ? get_post($page_id) : null;
         if ($page instanceof WP_Post && self::is_owned_page($page_id, $owner)) {
             if ($repair || !has_shortcode((string) $page->post_content, trim($shortcode, '[]')) || $page->post_status !== 'publish') {
-                wp_update_post([
+                $updated = wp_update_post([
                     'ID' => $page_id,
                     'post_title' => $title,
                     'post_content' => $shortcode,
                     'post_status' => 'publish',
                     'comment_status' => 'closed',
-                ]);
+                ], true);
+                if (is_wp_error($updated) || (int) $updated !== $page_id) return 0;
+                $page = get_post($page_id);
             }
+            if (!$page instanceof WP_Post || $page->post_status !== 'publish' || !has_shortcode((string) $page->post_content, trim($shortcode, '[]'))) return 0;
             return $page_id;
         }
 

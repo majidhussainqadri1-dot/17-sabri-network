@@ -173,8 +173,14 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         global $wpdb;
         $legacy = $wpdb->prefix . 'sn_phone_otps';
         $backup = $wpdb->prefix . 'sn_phone_otps_f17_retired';
-        $legacy_exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($legacy))) === $legacy;
-        $backup_exists = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($backup))) === $backup;
+        $wpdb->last_error = '';
+        $legacy_probe = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($legacy)));
+        if ($wpdb->last_error !== '') throw new RuntimeException('legacy_otp_presence_check_failed');
+        $legacy_exists = (string)$legacy_probe === $legacy;
+        $wpdb->last_error = '';
+        $backup_probe = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($backup)));
+        if ($wpdb->last_error !== '') throw new RuntimeException('legacy_otp_backup_check_failed');
+        $backup_exists = (string)$backup_probe === $backup;
         if ($legacy_exists && !$backup_exists) {
             $ok = $wpdb->query('RENAME TABLE `' . esc_sql($legacy) . '` TO `' . esc_sql($backup) . '`'); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             if ($ok === false) throw new RuntimeException('legacy_otp_preservation_failed');

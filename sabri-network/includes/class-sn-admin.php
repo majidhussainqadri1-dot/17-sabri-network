@@ -31,12 +31,22 @@ final class SN_Admin {
         if (!SN_Private_Files::ensure_storage()) {
             wp_die(esc_html__('File 17 private storage could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
         }
+        if (!SN_File_Transfer::ensure_storage()) {
+            wp_die(esc_html__('File 17 transfer storage could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
+        }
         if (SN_Activator::ensure_network_page(true) <= 0) {
             wp_die(esc_html__('The File 17 Network page could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
         }
-        SN_Messages::ensure_pages(true);
-        SN_File_Transfer::ensure_page(true);
-        SN_Smail::ensure_page(true);
+        $message_pages = SN_Messages::ensure_pages(true);
+        if (($message_pages['messages'] ?? 0) <= 0 || ($message_pages['settings'] ?? 0) <= 0) {
+            wp_die(esc_html__('The File 17 Messages pages could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
+        }
+        if (SN_File_Transfer::ensure_page(true) <= 0) {
+            wp_die(esc_html__('The File 17 transfer page could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
+        }
+        if (SN_Smail::ensure_page(true) <= 0) {
+            wp_die(esc_html__('The File 17 Smail page could not be repaired safely.', 'sabri-network'), '', ['response' => 503]);
+        }
         SN_Messages::mark_routes_current();
         SN_Activator::ensure_cleanup_schedule();
         if (function_exists('wp_cache_flush')) {

@@ -23,7 +23,8 @@ final class SN_Activator {
         if (!SN_Private_Files::ensure_storage()) throw new RuntimeException('File 17 private message storage is unavailable.');
         if (!SN_File_Transfer::ensure_storage()) throw new RuntimeException('File 17 transfer storage is unavailable.');
         if (self::ensure_network_page() <= 0) throw new RuntimeException('File 17 Network page could not be created safely.');
-        SN_Messages::ensure_pages();
+        $message_pages = SN_Messages::ensure_pages();
+        if (($message_pages['messages'] ?? 0) <= 0 || ($message_pages['settings'] ?? 0) <= 0) throw new RuntimeException('File 17 Messages pages could not be created safely.');
         if (SN_File_Transfer::ensure_page(false) <= 0) throw new RuntimeException('File 17 transfer page could not be created safely.');
         if (SN_Smail::ensure_page(false) <= 0) throw new RuntimeException('File 17 Smail page could not be created safely.');
         SN_Messages::mark_routes_current();
@@ -61,14 +62,17 @@ final class SN_Activator {
         $page = $page_id ? get_post($page_id) : null;
         if ($page instanceof WP_Post && self::is_owned_page($page_id)) {
             if ($repair || !has_shortcode((string) $page->post_content, 'sabri_network') || $page->post_status !== 'publish') {
-                wp_update_post([
+                $updated = wp_update_post([
                     'ID' => $page_id,
                     'post_title' => 'Network',
                     'post_content' => '[sabri_network]',
                     'post_status' => 'publish',
                     'comment_status' => 'closed',
-                ]);
+                ], true);
+                if (is_wp_error($updated) || (int) $updated !== $page_id) return 0;
+                $page = get_post($page_id);
             }
+            if (!$page instanceof WP_Post || $page->post_status !== 'publish' || !has_shortcode((string) $page->post_content, 'sabri_network')) return 0;
             return $page_id;
         }
 
