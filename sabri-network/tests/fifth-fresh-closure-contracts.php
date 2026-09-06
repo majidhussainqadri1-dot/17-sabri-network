@@ -7,7 +7,7 @@ $check(str_contains($note,'Defect rounds: R3,R4,R5,R8,R9,R11,R12,R14,R15,R17,R18
 $check(str_contains($note,'Clean rounds: R1,R2,R6,R7,R10,R13,R16.'),'Closure clean-round ledger mismatch.');
 $check(str_contains($note,'Exact-head QA/package, staging, live, DB/migration and operational statuses remain separately evidenced.'),'Closure status boundary missing.');
 
-// Current another-fresh Round 10 — standalone package and repository-current truth must fail closed.
+// Historical another-fresh Round 10 — preserve its attribution without governing current truth.
 $package=(string)file_get_contents($root.'/tools/package.sh');
 foreach([
     'includes/class-sn-next-message-operations-hardening.php',
@@ -16,19 +16,19 @@ foreach([
     'includes/class-sn-r8-interop-finalization-hardening.php',
     'includes/class-sn-r9-runtime-hardening.php',
 ] as $surface){
-    $check(str_contains($package,$surface),'Current R10: standalone package required-surface inventory is missing '.$surface.'.');
+    $check(str_contains($package,$surface),'Historical another R10: standalone package required-surface inventory is missing '.$surface.'.');
 }
 $readme=(string)file_get_contents($repo.'/README.md');
 $status=(string)file_get_contents($repo.'/STATUS.md');
 $coding=(string)file_get_contents($repo.'/CODING-COMPLETENESS.md');
 $boundary=(string)file_get_contents($root.'/CURRENT-CANDIDATE-BOUNDARY.txt');
-$currentBranch='review/file17-another-10-round-2026-09-05';
-$currentDefectRounds='R1, R2, R3, R4, R5, R6, R7, R8, R9, R10';
+$historicalBranch='review/file17-another-10-round-2026-09-05';
+$historicalDefectRounds='R1, R2, R3, R4, R5, R6, R7, R8, R9, R10';
 foreach(['README'=>$readme,'STATUS'=>$status,'CODING-COMPLETENESS'=>$coding,'CURRENT-CANDIDATE-BOUNDARY'=>$boundary] as $name=>$text){
-    $check(str_contains($text,$currentBranch),'Current R10: '.$name.' must identify the current another-fresh branch.');
-    $check(str_contains($text,$currentDefectRounds),'Current R10: '.$name.' must retain the current cycle all-ten defect-round truth.');
-    $check(!str_contains($text,'Current repository state: fresh 10-round corrective cycle completed on `review/file17-fresh-10-round-2026-09-04`'),'Current R10: '.$name.' must not present the prior fresh branch as current repository truth.');
-    $check(!str_contains($text,'Clean rounds: **R5**')&&!str_contains($text,'R5 was clean'),'Current R10: '.$name.' must not present the prior cycle R5-clean result as current truth.');
+    $check(str_contains($text,$historicalBranch),'Historical another R10: '.$name.' must retain the historical another-fresh branch attribution.');
+    $check(str_contains($text,$historicalDefectRounds),'Historical another R10: '.$name.' must retain that historical cycle all-ten defect-round attribution.');
+    $check(!str_contains($text,'Current repository state: fresh 10-round corrective cycle completed on `review/file17-fresh-10-round-2026-09-04`'),'Historical another R10: '.$name.' must not present the prior fresh branch as current repository truth.');
+    $check(!str_contains($text,'Clean rounds: **R5**')&&!str_contains($text,'R5 was clean'),'Historical another R10: '.$name.' must not present the prior cycle R5-clean result as current truth.');
 }
 
 // Another fresh Round 1 — crash-abandoned idempotency reservations must become terminal fail-closed evidence.
