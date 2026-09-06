@@ -49,10 +49,10 @@ $check(str_contains($r6, "'sn_meet_transaction_failed'") && str_contains($r6, "'
 
 
 $check(str_contains($callRuntime, 'private static bool $lock_truth_error = false') && str_contains($callRuntime, 'sn_call_lock_truth_unavailable'), 'Fresh20 R8: call/Meet lock-discovery SQL failure must have a stable fail-closed error state.');
-$check(substr_count($callRuntime, "$wpdb->last_error = ''") >= 5 && str_contains($callRuntime, 'if (self::$lock_truth_error) return self::lock_truth_error();'), 'Fresh20 R8: authoritative lock-discovery reads must clear/check DB error state before acquiring an incomplete lock set.');
+$check(substr_count($callRuntime, '$wpdb->last_error = \'\'') >= 5 && str_contains($callRuntime, 'if (self::$lock_truth_error) return self::lock_truth_error();'), 'Fresh20 R8: authoritative lock-discovery reads must clear/check DB error state before acquiring an incomplete lock set.');
 $check(str_contains($callRuntime, "'sn:f17:space:'") && str_contains($callRuntime, 'SN_Relationships::pair_lock_name($actor, $peer)'), 'Fresh20 R8: fail-closed discovery must preserve canonical space and relationship lock namespaces.');
 if ($failures) {
     fwrite(STDERR, "Sabri Meet review 2 failures (" . count($failures) . "/$checks):\n - " . implode("\n - ", $failures) . "\n");
     exit(1);
 }
-echo "Sabri Meet review 2 concurrency contracts: PASS ($checks checks)\n";
+echo "Sabri Meet review 2 concurrency contracts: PASS ($checks checks)\n";}
