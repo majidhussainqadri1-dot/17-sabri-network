@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-$root = dirname(__DIR__); $main = file_get_contents($root.'/sabri-network.php'); $migration=file_get_contents($root.'/includes/class-sn-fifth-fresh-migration-hardening.php'); $src = implode("\n", array_map('file_get_contents', array_merge([$root.'/includes/class-sn-smail.php'], glob($root.'/includes/class-sn-smail-part-*.php')))); $tpl = file_get_contents($root.'/templates/smail-app.php'); $js = file_get_contents($root.'/assets/js/smail.js'); $css = file_get_contents($root.'/assets/css/smail.css'); $fails=[];$checks=0;
+$root = dirname(__DIR__); $main = file_get_contents($root.'/sabri-network.php'); $migration=file_get_contents($root.'/includes/class-sn-fifth-fresh-migration-hardening.php'); $src = implode("\n", array_map('file_get_contents', array_merge([$root.'/includes/class-sn-smail.php'], glob($root.'/includes/class-sn-smail-part-*.php')))); $tpl = file_get_contents($root.'/templates/smail-app.php'); $js = file_get_contents($root.'/assets/js/smail.js'); $css = file_get_contents($root.'/assets/css/smail.css'); $final = file_get_contents($root.'/includes/class-sn-fourth-fresh-smail-hardening.php'); $fails=[];$checks=0;
 function smc(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 smc(str_contains($main,'class-sn-smail.php')&&str_contains($main,'SN_Smail::register()')&&str_contains($migration,"[SN_Smail::class,'install']")&&!str_contains($main,'SN_Smail::install()'),'Smail lifecycle is loaded/registered while schema install is owned only by serialized migration governance.');
 foreach(['inbox','sent','drafts','starred','archive','spam','trash'] as $box){smc(str_contains($src,"'$box'"),"Mailbox $box is implemented.");}
@@ -22,4 +22,6 @@ smc(str_contains($css,'min-height:44px'),'Smail interactive targets meet the 44p
 smc(str_contains($css,'@media(max-width:760px)'),'Smail has a compact mobile layout.');
 smc(str_contains($css,'prefers-reduced-motion'),'Smail respects reduced motion.');
 smc(str_contains($css,'var(--sabri-primary,#137a46)'),'Smail consumes the current green design token with a safe fallback.');
+
+smc(str_contains($final,'smail_database_read_failed')&&substr_count($final,'last_error')>=4,'Fresh20 R5: final Smail draft owner must distinguish SQL failure from not-found/version conflict.');
 if($fails){fwrite(STDERR,"Smail static failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Smail static contracts: PASS ($checks checks)\n";

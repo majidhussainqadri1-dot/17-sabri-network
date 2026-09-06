@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-$root=dirname(__DIR__);$src=implode("\n", array_map('file_get_contents', array_merge([$root.'/includes/class-sn-smail.php'], glob($root.'/includes/class-sn-smail-part-*.php'))));$crypto=file_get_contents($root.'/includes/class-sn-communication-crypto.php');$js=file_get_contents($root.'/assets/js/smail.js');$fails=[];$checks=0;
+$root=dirname(__DIR__);$src=implode("\n", array_map('file_get_contents', array_merge([$root.'/includes/class-sn-smail.php'], glob($root.'/includes/class-sn-smail-part-*.php'))));$crypto=file_get_contents($root.'/includes/class-sn-communication-crypto.php');$js=file_get_contents($root.'/assets/js/smail.js');$runtime=file_get_contents($root.'/includes/class-sn-smail-runtime-hardening.php');$fails=[];$checks=0;
 function sma(bool $c,string $m):void{global $fails,$checks;$checks++;if(!$c)$fails[]=$m;}
 sma(!str_contains($src,'wp_mail('),'Smail is internal and does not silently become external email.');
 sma(!str_contains($src,'SMTP'),'Smail does not embed an SMTP backend.');
@@ -23,4 +23,8 @@ sma(!preg_match($debug_pattern, $js),'Production Smail JavaScript contains no de
 sma(str_contains($js,"credentials:'same-origin'")&&str_contains($js,"'X-WP-Nonce'"),'Client requests retain same-origin credentials and REST nonce.');
 sma(str_contains($src,'SN_DB::audit'),'Sensitive Smail state changes are auditable.');
 sma(!str_contains($src,'End-to-End Encrypted'),'Smail makes no unsupported E2EE claim.');
+
+sma(str_contains($runtime,'smail_database_read_failed')&&str_contains($runtime,'bool|WP_Error'),'Fresh20 R5: Smail duplicate truth must propagate canonical DB/decryption read failure instead of conflict.');
+sma(substr_count($runtime,"last_error=''")>=5&&substr_count($runtime,"last_error!==''")>=5,'Fresh20 R5: runtime Smail authoritative reads must explicitly clear and verify DB error state.');
+sma(substr_count($runtime,'if(is_wp_error($same))return $same')>=3,'Fresh20 R5: every send duplicate/race reconciliation path must propagate read failure distinctly.');
 if($fails){fwrite(STDERR,"Smail adversarial failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Smail adversarial contracts: PASS ($checks checks)\n";

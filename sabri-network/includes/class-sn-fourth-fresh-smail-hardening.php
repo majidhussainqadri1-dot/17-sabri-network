@@ -41,11 +41,13 @@ final class SN_Fourth_Fresh_Smail_Hardening {
         $public = sanitize_text_field((string) ($request['public_id'] ?: $request->get_param('id')));
         $expected = absint($request->get_param('version'));
         if ($public !== '') {
+            $wpdb->last_error = '';
             $row = $wpdb->get_row($wpdb->prepare(
                 'SELECT id,version FROM ' . SN_DB::table('smail_drafts') . ' WHERE public_id=%s AND owner_id=%d AND deleted_at IS NULL',
                 $public,
                 $owner
             ));
+            if ($wpdb->last_error !== '') return self::database_error();
             if (!$row) return self::not_found();
             if ($expected <= 0) return new WP_Error('draft_version_required', 'Refresh the draft and provide its exact version.', ['status'=>400]);
             if ($expected !== (int) $row->version) return self::conflict();
@@ -61,11 +63,13 @@ final class SN_Fourth_Fresh_Smail_Hardening {
         $public = sanitize_text_field((string) $request['public_id']);
         $expected = absint($request->get_param('version'));
         if ($expected <= 0) return new WP_Error('draft_version_required', 'Refresh the draft and provide its exact version.', ['status'=>400]);
+        $wpdb->last_error = '';
         $row = $wpdb->get_row($wpdb->prepare(
             'SELECT id,version FROM ' . SN_DB::table('smail_drafts') . ' WHERE public_id=%s AND owner_id=%d AND deleted_at IS NULL',
             $public,
             $owner
         ));
+        if ($wpdb->last_error !== '') return self::database_error();
         if (!$row) return self::not_found();
         if ((int) $row->version !== $expected) return self::conflict();
         $now = current_time('mysql', true);
@@ -78,9 +82,14 @@ final class SN_Fourth_Fresh_Smail_Hardening {
             (int) $row->id,
             $expected
         ));
+        if ($changed === false) return self::database_error();
         if ($changed !== 1) return self::conflict();
         SN_DB::audit('smail_draft_deleted', 'smail_draft', (int) $row->id, 'success', ['version'=>$expected+1], $owner);
         return rest_ensure_response(['deleted'=>true,'version'=>$expected+1]);
+    }
+
+    private static function database_error(): WP_Error {
+        return new WP_Error('smail_database_read_failed', 'Smail state could not be read or written safely. Retry the request.', ['status'=>503]);
     }
 
     private static function conflict(): WP_Error {
