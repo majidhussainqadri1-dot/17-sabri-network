@@ -20,18 +20,22 @@ jobs:
         run: |
           set -euo pipefail
           echo '=== CLAIM CALL SITES ==='
-          grep -RFn --include='*.php' 'SN_High_Risk::claim' sabri-network || true
+          grep -Rn --include='*.php' -F 'SN_High_Risk::claim' sabri-network || true
           echo '=== COMPLETE CALL SITES ==='
-          grep -RFn --include='*.php' 'SN_High_Risk::complete' sabri-network || true
+          grep -Rn --include='*.php' -F 'SN_High_Risk::complete' sabri-network || true
           echo '=== HIGH-RISK TYPE REFERENCES ==='
-          grep -RFnE --include='*.php' 'space_ownership_transfer|conversation_ownership_transfer|space_emergency_recovery|space_destructive_purge|legal_hold_release|provider_configuration|provider_key_rotation|mass_moderation|retention_override' sabri-network || true
+          grep -RnE --include='*.php' 'space_ownership_transfer|conversation_ownership_transfer|space_emergency_recovery|space_destructive_purge|legal_hold_release|provider_configuration|provider_key_rotation|mass_moderation|retention_override' sabri-network || true
           echo '=== OWNERSHIP TRANSFER FUNCTIONS/ROUTES ==='
-          grep -RFnE --include='*.php' 'transfer_.*owner|ownership_transfer|/owner' sabri-network/includes || true
+          grep -RnE --include='*.php' 'transfer_.*owner|ownership_transfer|/owner' sabri-network/includes || true
+          echo '=== DESTRUCTIVE / EMERGENCY SPACE MUTATIONS ==='
+          grep -RnE --include='*.php' 'emergency_recovery|destructive_purge|purge_space|space.*purge|recover.*space|force.*space' sabri-network/includes || true
           echo '=== LEGAL HOLD MUTATIONS ==='
-          grep -RFnE --include='*.php' 'legal_hold.*(release|update|set|clear)|release.*legal_hold|legal_hold' sabri-network/includes | head -n 250 || true
+          grep -RnE --include='*.php' 'legal_hold.*(release|update|set|clear)|release.*legal_hold|legal_hold' sabri-network/includes | head -n 300 || true
           echo '=== PROVIDER CONFIG/ROTATION MUTATIONS ==='
-          grep -RFnE --include='*.php' 'provider_(configuration|key_rotation)|configure_provider|rotate.*key|provider.*config' sabri-network/includes | head -n 250 || true
+          grep -RnE --include='*.php' 'provider_(configuration|key_rotation)|configure_provider|rotate.*key|provider.*config' sabri-network/includes | head -n 300 || true
           echo '=== MASS MODERATION / RETENTION OVERRIDE ==='
-          grep -RFnE --include='*.php' 'mass_moderation|retention_override|bulk.*moder|retention.*override' sabri-network/includes | head -n 250 || true
-          echo '=== TEST WARNINGS SOURCE ==='
-          nl -ba sabri-network/tests/relationships-adversarial-contracts.php | sed -n '35,70p'
+          grep -RnE --include='*.php' 'mass_moderation|retention_override|bulk.*moder|retention.*override' sabri-network/includes | head -n 300 || true
+          echo '=== DIRECT OWNER-ID WRITES OUTSIDE PROTECTED IMPLEMENTATIONS ==='
+          grep -RnE --include='*.php' "owner_id|owner_user_id|role='owner'|'role'=>'owner'" sabri-network/includes | head -n 500 || true
+          echo '=== TEST WARNING SOURCE ==='
+          nl -ba sabri-network/tests/relationships-adversarial-contracts.php | sed -n '1,80p'
