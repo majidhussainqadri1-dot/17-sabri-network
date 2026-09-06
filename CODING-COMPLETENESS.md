@@ -13,7 +13,7 @@ The current cycle on `review/file17-another-10-round-2026-09-05` completed all t
 
 - **Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.
 - **Clean rounds:** none.
-- Frozen ledgers: `FILE17-NEXT-10-ROUND-2026-09-04-R1-LEDGER.md` through `FILE17-NEXT-10-ROUND-2026-09-04-R10-LEDGER.md`.
+- Frozen ledgers: `FILE17-ANOTHER-10-ROUND-2026-09-05-R1-LEDGER.md` through `FILE17-ANOTHER-10-ROUND-2026-09-05-R10-LEDGER.md`.
 - The prior 4-September fresh cycle and older reviewed candidates remain historical evidence only.
 
 ## Current candidate measures
@@ -36,7 +36,7 @@ The current cycle on `review/file17-another-10-round-2026-09-05` completed all t
 - Privacy erasure, semantic purge, interoperability durable-sent truth, speaker/template transaction guards and Future device-key erasure remain retry-safe and fail closed.
 - Bulk Future scheduler recovery now detects and audits database failures.
 - Standalone packaging now explicitly requires all active late runtime hardening surfaces instead of depending on incidental rsync presence.
-- Current repository status/boundary documents identify this next-fresh cycle rather than presenting the prior branch as current truth.
+- Current repository status/boundary documents identify this another-fresh cycle rather than presenting the prior branch as current truth.
 - Deterministic packaging, exact staged-source manifests, PHP 8.1/8.3 gates and the 59-suite/10-JS inventory remain executable quality truth.
 
 ## Current coded domains retained and reverified
