@@ -45,12 +45,16 @@ jobs:
           php -l sabri-network/tools/run-php-test.php
           php -l sabri-network/tests/r18-quality-warning-contracts.php
           bash sabri-network/tools/quality-check.sh
-      - name: Commit quality correction
+      - name: Commit quality correction if needed
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add sabri-network/tools/quality-check.sh
+          if git diff --cached --quiet; then
+            echo 'Canonical warning-fatal quality correction is already present; no commit required.'
+            exit 0
+          fi
           git commit -m 'R18 fix: fail quality gate on PHP runtime warnings'
           git push origin HEAD:review/file17-fresh-20-round-2026-09-06
