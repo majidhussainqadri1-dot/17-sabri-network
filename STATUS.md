@@ -1,10 +1,11 @@
 # Repository Status
 
 **Target:** File 17 — Sabri Network and Messages 2.1.0  
-**Current repository state:** another-fresh 10-round corrective cycle completed on `review/file17-another-10-round-2026-09-05`  
+**Current repository state:** another-fresh 10-round corrective cycle completed on `review/file17-another-10-round-2026-09-05`; current fresh 20-round cycle remains under exact-head review/correction  
 **Previous reviewed cycles/candidates:** historical evidence only  
-**Configured explicit PHP review suites:** **59**  
+**Configured explicit PHP review suites:** **60**  
 **JavaScript syntax entry points:** **10**  
+**PHP review execution:** warning-fatal canonical wrapper  
 **Staging/live/operational:** pending / unverified
 
 ## Governing audit set
@@ -13,20 +14,20 @@
 - Current File 17 Final Harmonized Master Plan + Founder-approved Future Communication Superset 24.
 - Earlier review ledgers and green CI runs are historical evidence only for their own exact commits.
 
-## Latest sequential cycle
+## Latest completed sequential cycle
 
-The current 5–6 September another-fresh cycle used the required order in every round: complete review → freeze all findings → correct proved defects → permanent regression/retest → exact-head CI → only then begin the next round.
+The 5–6 September another-fresh cycle used the required order in every round: complete review → freeze all findings → correct proved defects → permanent regression/retest → exact-head CI → only then begin the next round.
 
 - **Defect-bearing rounds:** R1, R2, R3, R4, R5, R6, R7, R8, R9, R10.
 - **Clean rounds:** none.
 - Ledgers: `FILE17-ANOTHER-10-ROUND-2026-09-05-R1-LEDGER.md` through `FILE17-ANOTHER-10-ROUND-2026-09-05-R10-LEDGER.md`.
 
-Exact automated-QA and package status is determined only by the GitHub Actions run attached to the exact current branch HEAD. Documentation does not reuse a prior SHA as current proof.
+The subsequent fresh 20-round branch follows the same discipline. Round 18 added warning-fatal PHP review execution and its closure remains subject to exact-head CI. Exact automated-QA and package status is determined only by the GitHub Actions run attached to the exact current branch HEAD. Documentation does not reuse a prior SHA as current proof.
 
 ## Evidence status
 
 1. **Specified:** current File-17 plan set represented in repository scope.
-2. **Coded:** current 2.1.0 candidate completed this another-fresh 10-round source review/fix cycle.
+2. **Coded:** current 2.1.0 repository corrective candidate.
 3. **Packaged:** only the deterministic artifact attached to an exact evaluated commit after successful workflow completion.
 4. **Automated-QA Green:** only successful PHP 8.1 and PHP 8.3/full-quality checks attached to that exact commit.
 5. **Staging-Accepted:** pending real WordPress/PHP/MySQL, companion/provider, migration, browser/device and rollback evidence.

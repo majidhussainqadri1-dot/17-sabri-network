@@ -30,12 +30,12 @@ $check(!str_contains($uiJs,'sn-two-plan-modal')&&!str_contains($uiJs,'data-sn-cl
 $check(str_contains($uiJs,'restoreModalFocus')&&str_contains($uiJs,'removedNodes')&&str_contains($uiJs,"node.id === 'sntp-modal'"),'Fresh R10: every active two-plan modal close path must restore focus to the invoking control.');
 
 foreach(['root README'=>$repoReadme,'STATUS'=>$status,'CODING-COMPLETENESS'=>$coding,'plugin readme'=>$pluginReadme,'plugin changelog'=>$pluginChangelog,'candidate boundary'=>$boundary] as $name=>$text){
-    $check(str_contains($text,$currentBranch),"Fresh R10: $name must identify the current next-fresh review branch.");
-    $check(str_contains($text,'59')&&str_contains($text,'10'),"Fresh R10: $name must retain current 59-suite/10-JS release truth.");
+    $check(str_contains($text,$currentBranch),"Fresh R10: $name must identify the current completed review branch.");
+    $check(str_contains($text,'60')&&str_contains($text,'10'),"Fresh R10/current: $name must retain current 60-suite/10-JS release truth.");
     $check(!str_contains($text,'review/file17-next-fresh-10-round-2026-09-03'),"Fresh R10: $name must not present the obsolete next-fresh branch as current truth.");
 }
-$check(str_contains($repoReadme,$currentDefects)&&str_contains($status,$currentDefects)&&str_contains($pluginReadme,$currentDefects),'Fresh R10: current release/status surfaces must record the current defect-bearing rounds.');
-$check(str_contains($repoReadme,'R5')&&str_contains($status,'R5')&&str_contains($pluginReadme,'R5'),'Fresh R10: current release/status surfaces must record R5 as the clean round.');
+$check(str_contains($repoReadme,$currentDefects)&&str_contains($status,$currentDefects)&&str_contains($pluginReadme,$currentDefects),'Fresh R10: current release/status surfaces must record the current completed-cycle defect-bearing rounds.');
+$check(str_contains($repoReadme,'R5')&&str_contains($status,'R5')&&str_contains($pluginReadme,'R5'),'Fresh R10: current release/status surfaces must retain the completed-cycle R5 record.');
 $check(str_contains($pluginReadme,'f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2')&&str_contains($pluginReadme,'historical evidence only'),'Fresh R10: the prior f832 candidate may remain only as explicitly historical evidence, never current-head proof.');
 
 if($fail){fwrite(STDERR,"Fifth/current release-truth failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Fifth/current release-truth contracts: PASS ($checks checks)\n";
