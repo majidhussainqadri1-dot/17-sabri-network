@@ -48,6 +48,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         if ($locked !== 1) return new WP_Error('sn_migration_busy','File 17 schema upgrade is already running. Retry after it completes.',['status'=>503]);
         $snapshot = self::version_snapshot();
         $from = (string)get_option('sn_plugin_version','');
+        $legacy_otp_renamed = false;
         update_option(self::STATE_OPTION, ['status'=>'running','from'=>$from,'to'=>SN_VERSION,'started_at'=>gmdate('c')], false);
         try {
             if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) {
@@ -66,7 +67,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
                 }
                 return true;
             }
-            self::preserve_legacy_otp_table();
+            $legacy_otp_renamed = self::preserve_legacy_otp_table();
             foreach (self::installers() as [$class,$method]) {
                 $wpdb->last_error = '';
                 $class::$method();
@@ -88,12 +89,26 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             }
             return true;
         } catch (Throwable $e) {
+            $rollback_error = '';
+            if ($legacy_otp_renamed) {
+                try {
+                    self::restore_legacy_otp_table();
+                } catch (Throwable $rollback) {
+                    $rollback_error = substr(sanitize_text_field($rollback->getMessage()), 0, 500);
+                }
+            }
             self::restore_version_snapshot($snapshot);
-            update_option(self::STATE_OPTION, [
+            $state = [
                 'status'=>'failed','from'=>$from,'to'=>SN_VERSION,'failed_at'=>gmdate('c'),
                 'reason'=>substr(sanitize_text_field($e->getMessage()),0,500),
-            ], false);
-            if (class_exists('SN_DB')) SN_DB::audit('schema_upgrade_failed','migration',0,'failure',['reason'=>$e->getMessage()],0);
+                'rollback_status'=>$rollback_error === '' ? 'restored' : 'failed',
+            ];
+            if ($rollback_error !== '') $state['rollback_reason'] = $rollback_error;
+            update_option(self::STATE_OPTION, $state, false);
+            if (class_exists('SN_DB')) SN_DB::audit('schema_upgrade_failed','migration',0,'failure',['reason'=>$e->getMessage(),'rollback_status'=>$state['rollback_status']],0);
+            if ($rollback_error !== '') {
+                return new WP_Error('sn_migration_rollback_failed','File 17 schema upgrade failed and legacy rollback restoration could not be proven. Manual recovery is required before retrying.',['status'=>503]);
+            }
             return new WP_Error('sn_migration_failed','File 17 schema upgrade did not pass post-migration verification and will be retried safely.',['status'=>503]);
         } finally {
             $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', self::LOCK));
@@ -163,7 +178,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             'cf01_context_refs'=>['conversation_id','reference_uuid','issued_by','status','version'],
             'message_receipts'=>['message_id','conversation_id','user_id','device_key','updated_at'],
             'message_search_tokens'=>['message_id','conversation_id','sender_id','token_hash'],
-            'event_outbox'=>['event_uuid','event_key','event_type','status','attempts','version'],
+            'event_outbox'=>['event_uuid','event_key','event_type','event_contract','event_schema_version','status','attempts','version'],
             'event_inbox'=>['producer','event_uuid','payload_hash','status','attempts'],
             'meet_meetings'=>['public_id','host_id','conversation_id','status','version'],
             'meet_participants'=>['meeting_id','user_id','role','state','version'],
@@ -194,8 +209,8 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         ];
     }
 
-    /** Preserve legacy File-17 OTP data for rollback evidence before the old installer retires its table. */
-    private static function preserve_legacy_otp_table(): void {
+    /** Preserve legacy File-17 OTP data and return whether this invocation renamed it. */
+    private static function preserve_legacy_otp_table(): bool {
         global $wpdb;
         $legacy = $wpdb->prefix . 'sn_phone_otps';
         $backup = $wpdb->prefix . 'sn_phone_otps_f17_retired';
@@ -211,10 +226,32 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             throw new RuntimeException('backup_otp_discovery_failed');
         }
         $backup_exists = (string)$backup_raw === $backup;
-        if ($legacy_exists && !$backup_exists) {
-            $ok = $wpdb->query('RENAME TABLE `' . esc_sql($legacy) . '` TO `' . esc_sql($backup) . '`'); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-            if ($ok === false) throw new RuntimeException('legacy_otp_preservation_failed');
+        if ($legacy_exists && $backup_exists) {
+            throw new RuntimeException('legacy_otp_backup_conflict');
         }
+        if (!$legacy_exists) return false;
+        $ok = $wpdb->query('RENAME TABLE `' . esc_sql($legacy) . '` TO `' . esc_sql($backup) . '`'); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        if ($ok === false) throw new RuntimeException('legacy_otp_preservation_failed');
+        return true;
+    }
+
+    /** Restore the physical legacy OTP name when this migration invocation fails after preservation. */
+    private static function restore_legacy_otp_table(): void {
+        global $wpdb;
+        $legacy = $wpdb->prefix . 'sn_phone_otps';
+        $backup = $wpdb->prefix . 'sn_phone_otps_f17_retired';
+        $wpdb->last_error = '';
+        $legacy_raw = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($legacy)));
+        if ($wpdb->last_error !== '') throw new RuntimeException('legacy_otp_rollback_discovery_failed');
+        $wpdb->last_error = '';
+        $backup_raw = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($backup)));
+        if ($wpdb->last_error !== '') throw new RuntimeException('backup_otp_rollback_discovery_failed');
+        if ((string)$legacy_raw === $legacy) throw new RuntimeException('legacy_otp_rollback_target_conflict');
+        if ((string)$backup_raw !== $backup) throw new RuntimeException('legacy_otp_rollback_source_missing');
+        $ok = $wpdb->query('RENAME TABLE `' . esc_sql($backup) . '` TO `' . esc_sql($legacy) . '`'); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        if ($ok === false) throw new RuntimeException('legacy_otp_rollback_failed');
+        $restored = (string)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$wpdb->esc_like($legacy)));
+        if ($restored !== $legacy) throw new RuntimeException('legacy_otp_rollback_unverified');
     }
 
     private static function version_snapshot(): array {

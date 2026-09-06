@@ -6,7 +6,6 @@ final class SN_Activator {
 
     public static function activate(): void {
         self::set_defaults();
-        self::retire_legacy_secrets();
         // Activation delegates all schema/version publication to the serialized
         // migration governor. Its verified order includes these historical direct
         // activation steps, now centrally owned rather than duplicated here:
@@ -29,6 +28,9 @@ final class SN_Activator {
         SN_Messages::mark_routes_current();
         self::ensure_cleanup_schedule();
         flush_rewrite_rules(false);
+        // Destructive retirement is deliberately last: a failed governed migration
+        // or later activation readiness check must not mutate the prior installation.
+        self::retire_legacy_secrets();
     }
 
     public static function deactivate(): void {
