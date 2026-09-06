@@ -20,7 +20,8 @@ final class SN_Fourth_Fresh_Privacy_Hardening {
         global $wpdb;
         $reports = SN_DB::table('reports');
         $messages = SN_DB::table('messages');
-        $held = (int) $wpdb->get_var($wpdb->prepare(
+        $wpdb->last_error = '';
+        $held_raw = $wpdb->get_var($wpdb->prepare(
             "SELECT r.id
              FROM $reports r
              LEFT JOIN $messages m ON m.id=r.message_id
@@ -31,7 +32,17 @@ final class SN_Fourth_Fresh_Privacy_Hardening {
             $user_id,
             $user_id
         ));
-        return $held > 0;
+        if ($wpdb->last_error !== '') {
+            if (class_exists('SN_DB')) {
+                SN_DB::audit('legal_hold_discovery_failed', 'user', $user_id, 'failure', [
+                    'query'=>'native_file17_hold',
+                ], 0);
+            }
+            // Retention authorization is a safety boundary: unknown DB truth must
+            // preserve data until a successful read proves that no hold exists.
+            return true;
+        }
+        return (int) $held_raw > 0;
     }
 
     public static function override_two_plan_exporter(array $exporters): array {

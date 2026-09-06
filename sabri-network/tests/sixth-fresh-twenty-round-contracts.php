@@ -16,6 +16,7 @@ $search = $read('includes/class-sn-message-search.php');
 $transfer = $read('includes/class-sn-file-transfer-part-2.php');
 $smail = $read('includes/class-sn-smail-part-2.php');
 $privacy = $read('includes/class-sn-sixth-fresh-privacy-hardening.php');
+$privacyFourth = $read('includes/class-sn-fourth-fresh-privacy-hardening.php');
 $r7privacy = $read('includes/class-sn-r7-privacy-hardening.php');
 $r8interop = $read('includes/class-sn-r8-interop-finalization-hardening.php');
 $r9 = $read('includes/class-sn-r9-runtime-hardening.php');
@@ -104,6 +105,12 @@ $check(str_contains($r9, "'done'=>!\$more_keys") && str_contains($r9, 'Append-on
 $check(str_contains($r9, "remove_action('sn_cleanup_hourly', [SN_Future24_Review_Hardening_O::class, 'bulk_job_preflight'], 0)") && str_contains($r9, "add_action('sn_cleanup_hourly', [self::class, 'bulk_job_preflight'], 0)"), 'Next R9: unchecked bulk scheduler recovery owner must be replaced.');
 $check(str_contains($r9, '$wpdb->query($query) === false') && str_contains($r9, 'future_bulk_recovery_failed'), 'Next R9: bulk scheduler recovery must detect and audit DB failure.');
 
+
+// Fresh20 Round 11 — legal/safety hold discovery must fail closed on DB truth loss.
+$check(str_contains($privacyFourth, "\$wpdb->last_error = ''") && str_contains($privacyFourth, 'legal_hold_discovery_failed'), 'Fresh20 R11: native legal-hold discovery must clear/check database error state and emit audit evidence.');
+$holdErrorPos = strpos($privacyFourth, "if (\$wpdb->last_error !== '')");
+$holdReturnPos = strpos($privacyFourth, 'return true;', $holdErrorPos === false ? 0 : $holdErrorPos);
+$check($holdErrorPos !== false && $holdReturnPos !== false && $holdErrorPos < $holdReturnPos, 'Fresh20 R11: unavailable legal-hold database truth must retain data fail-closed.');
 if ($fail) {
     fwrite(STDERR, "Sixth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
