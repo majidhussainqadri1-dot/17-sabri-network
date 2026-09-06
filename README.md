@@ -17,7 +17,7 @@ The current cycle on `review/file17-another-10-round-2026-09-05` completed all t
 - Frozen ledgers: `FILE17-NEXT-10-ROUND-2026-09-04-R1-LEDGER.md` through `FILE17-NEXT-10-ROUND-2026-09-04-R10-LEDGER.md`.
 - The prior `review/file17-fresh-10-round-2026-09-04` cycle and the older candidate `f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2` remain historical evidence only and are not current-head proof.
 
-The executable repository quality inventory remains **57 PHP review suites** and **10 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. Exact automated-QA status belongs only to the workflow attached to the exact current branch HEAD; tracked documentation deliberately does not hard-code a self-referential final SHA.
+The executable repository quality inventory remains **59 PHP review suites** and **10 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. Exact automated-QA status belongs only to the workflow attached to the exact current branch HEAD; tracked documentation deliberately does not hard-code a self-referential final SHA.
 
 ## Security and provider truth
 

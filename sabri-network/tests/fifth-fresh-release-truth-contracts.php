@@ -31,7 +31,7 @@ $check(str_contains($uiJs,'restoreModalFocus')&&str_contains($uiJs,'removedNodes
 
 foreach(['root README'=>$repoReadme,'STATUS'=>$status,'CODING-COMPLETENESS'=>$coding,'plugin readme'=>$pluginReadme,'plugin changelog'=>$pluginChangelog,'candidate boundary'=>$boundary] as $name=>$text){
     $check(str_contains($text,$currentBranch),"Fresh R10: $name must identify the current next-fresh review branch.");
-    $check(str_contains($text,'57')&&str_contains($text,'10'),"Fresh R10: $name must retain current 57-suite/10-JS release truth.");
+    $check(str_contains($text,'59')&&str_contains($text,'10'),"Fresh R10: $name must retain current 59-suite/10-JS release truth.");
     $check(!str_contains($text,'review/file17-next-fresh-10-round-2026-09-03'),"Fresh R10: $name must not present the obsolete next-fresh branch as current truth.");
 }
 $check(str_contains($repoReadme,$currentDefects)&&str_contains($status,$currentDefects)&&str_contains($pluginReadme,$currentDefects),'Fresh R10: current release/status surfaces must record the current defect-bearing rounds.');

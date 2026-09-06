@@ -11,10 +11,10 @@ $branch='review/file17-another-10-round-2026-09-05';$rounds='R1, R2, R3, R4, R5,
 foreach($docs as $name=>$text){
   $check(str_contains($text,$branch),"R10: $name identifies current review branch");
   $check(str_contains($text,$rounds),"R10: $name records all ten defect-bearing rounds");
-  $check(str_contains($text,'57')&&str_contains($text,'10'),"R10: $name publishes 57-suite/10-JS current inventory");
+  $check(str_contains($text,'59')&&str_contains($text,'10'),"R10: $name publishes 59-suite/10-JS current inventory");
   $check(!str_contains($text,'Clean rounds: **R5**')&&!str_contains($text,'R5 was clean'),"R10: $name does not publish the prior cycle R5-clean outcome as current truth");
 }
-$check(str_contains($qa,'57')&&str_contains($qa,'10'),'R10: QA inventory matches executable 57-suite/10-JS gate');
+$check(str_contains($qa,'59')&&str_contains($qa,'10'),'R10: QA inventory matches executable 59-suite/10-JS gate');
 $check(str_contains($q,'another-fresh-r10-release-truth-contracts.php'),'R10: full quality gate invokes this permanent regression');
 $check(str_contains($readRepo('MANIFEST.md'),'exact staged release tree'),'R10: manifest truth remains executable/exact-commit based');
 if($fail){fwrite(STDERR,"Another fresh R10 release-truth failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Another fresh R10 release-truth contracts: PASS ($checks checks)\n";

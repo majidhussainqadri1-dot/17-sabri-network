@@ -21,7 +21,7 @@ The current cycle on `review/file17-another-10-round-2026-09-05` completed all t
 | Measure | Current repository result |
 |---|---:|
 | Runtime candidate | **2.1.0** |
-| Explicit PHP review suites in full quality gate | **57** |
+| Explicit PHP review suites in full quality gate | **59** |
 | JavaScript entry points syntax-checked | **10** |
 | Permanent regression owner | `sixth-fresh-twenty-round-contracts.php` and `seventh-fresh-ten-round-contracts.php` plus retained current-cycle assertions |
 | Founder-approved Future Communication Superset | **24/24 repository capability paths represented; provider-dependent paths fail closed** |
@@ -37,7 +37,7 @@ The current cycle on `review/file17-another-10-round-2026-09-05` completed all t
 - Bulk Future scheduler recovery now detects and audits database failures.
 - Standalone packaging now explicitly requires all active late runtime hardening surfaces instead of depending on incidental rsync presence.
 - Current repository status/boundary documents identify this next-fresh cycle rather than presenting the prior branch as current truth.
-- Deterministic packaging, exact staged-source manifests, PHP 8.1/8.3 gates and the 57-suite/10-JS inventory remain executable quality truth.
+- Deterministic packaging, exact staged-source manifests, PHP 8.1/8.3 gates and the 59-suite/10-JS inventory remain executable quality truth.
 
 ## Current coded domains retained and reverified
 
