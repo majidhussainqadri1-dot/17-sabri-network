@@ -96,11 +96,11 @@ $check(str_contains($highRisk,"if (\$wpdb->query('START TRANSACTION') === false)
 $txPos=strpos($highRisk,"if (\$wpdb->query('START TRANSACTION') === false)");$grantPos=strpos($highRisk,'$grant = self::consume_grant');$check($txPos!==false&&$grantPos!==false&&$txPos<$grantPos,'Fresh R9: the high-risk transaction-start gate must precede consume_grant().');
 $check(str_contains($workflow,'run_test seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.1 current-boundary job must execute the seventh-fresh regression suite.');
 $check(str_contains($workflow,'php sabri-network/tests/seventh-fresh-ten-round-contracts.php'),'R10: PHP 8.3 release job must explicitly execute the seventh-fresh suite after the full quality gate.');
-$check(str_contains($readme,'59 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
-$check(str_contains($changelog,'59 PHP review suites')&&str_contains($changelog,'10 JavaScript syntax entry points'),'Later R1: changelog release truth must match the current explicit QA inventory.');
+$check(str_contains($readme,'60 PHP review suites')&&str_contains($readme,'10 JavaScript syntax entry points'),'Later R1: readme release truth must match the current explicit QA inventory.');
+$check(str_contains($changelog,'60 PHP review suites')&&str_contains($changelog,'10 JavaScript syntax entry points'),'Later R1: changelog release truth must match the current explicit QA inventory.');
 $check(str_contains($readme,'f832f7b2d4bb4cf67fc9749e1eb9d3219f5fc0a2'),'Later R1: readme must identify the latest completed reviewed source candidate instead of silently reusing sixth-cycle evidence.');
 foreach(['root README'=>$repoReadme,'STATUS'=>$status,'CODING-COMPLETENESS'=>$coding,'QA-INVENTORY'=>$qa,'CURRENT-CANDIDATE-BOUNDARY'=>$boundary] as $name=>$text){
-    $check(str_contains($text,'59')&&str_contains($text,'10'),"Later R2: $name must reflect the current 59-suite/10-JS quality truth.");
+    $check(str_contains($text,'60')&&str_contains($text,'10'),"Later R2: $name must reflect the current 60-suite/10-JS quality truth.");
     $check(!str_contains($text,'53 PHP review suites')&&!str_contains($text,'9 JavaScript syntax entry points'),"Later R2: $name must not retain stale 53/9 current-state claims.");
 }
 $check(!file_exists($repo.'/CHECKSUMS.sha256'),'Later R2: obsolete committed root CHECKSUMS.sha256 must not masquerade as current package truth.');
