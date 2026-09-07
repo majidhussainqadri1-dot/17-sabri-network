@@ -53,7 +53,7 @@ final class SN_Message_Visibility {
 
             $eligible = array_values(array_filter($rows, static function($item) use ($viewer): bool {
                 $id = is_array($item) ? absint($item['id'] ?? 0) : (is_object($item) ? absint($item->id ?? 0) : 0);
-                return $id === 0 || !SN_Message_Operations::is_hidden($viewer, $id);
+                return $id > 0 && !SN_Message_Operations::is_hidden($viewer, $id);
             }));
 
             $first_id = self::message_id(reset($rows));
@@ -99,7 +99,7 @@ final class SN_Message_Visibility {
         $viewer = get_current_user_id();
         $data[$key] = array_values(array_filter($data[$key], static function($item) use ($viewer): bool {
             $id = is_array($item) ? absint($item['id'] ?? 0) : (is_object($item) ? absint($item->id ?? 0) : 0);
-            return $id === 0 || !SN_Message_Operations::is_hidden($viewer, $id);
+            return $id > 0 && !SN_Message_Operations::is_hidden($viewer, $id);
         }));
         $response->set_data($data);
         return $response;
