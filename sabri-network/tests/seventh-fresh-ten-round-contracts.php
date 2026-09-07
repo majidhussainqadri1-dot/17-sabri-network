@@ -27,6 +27,8 @@ $space7=$read('includes/class-sn-spaces-part-7.php');
 $space5=$read('includes/class-sn-spaces-part-5.php');
 $space6=$read('includes/class-sn-spaces-part-6.php');
 $space9=$read('includes/class-sn-spaces-part-9.php');
+$space2=$read('includes/class-sn-spaces-part-2.php');
+$space4=$read('includes/class-sn-spaces-part-4.php');
 $futureG=$read('includes/class-sn-future24-review-hardening-g.php');
 $futureH=$read('includes/class-sn-future24-review-hardening-h.php');
 $highRisk=$read('includes/class-sn-high-risk.php');
@@ -122,4 +124,10 @@ $check(str_contains($messageOps,"pin_delete_failed")&&str_contains($messageOps,"
 $check(str_contains($messageOps,"The message star could not be removed safely."),'Yet R3: unstar must preserve database failure truth.');
 $check(str_contains($messageOps,"sn:f17:message-folder-create:")&&str_contains($messageOps,"sn_folder_state_unavailable")&&str_contains($messageOps,"SELECT RELEASE_LOCK"),'Yet R3: folder aggregate limit must be serialized and fail closed when count truth is unavailable.');
 $check(str_contains($messageOps,"The conversation could not be removed from the folder safely."),'Yet R3: folder-item removal must not return success after failed SQL.');
+
+// Yet-another R4 spaces-governance regressions.
+$check(str_contains($space9,'space_governance_audit_failed')&&str_contains($space9,'if($ok===false)throw new RuntimeException'),'Yet R4: File-17 space governance ledger insertion must fail closed.');
+$check(str_contains($space2,'space_update_commit_failed')&&str_contains($space2,'START TRANSACTION')&&str_contains($space2,'space_settings_updated'),'Yet R4: settings mutation and governance evidence must share a checked transaction.');
+$check(str_contains($space4,'invite_expiry_conflict')&&str_contains($space4,'invite_expiry_commit_failed'),'Yet R4: expired-invite terminal response must prove both expiry update and commit.');
+$check(str_contains($space5,'unban_commit_failed')&&str_contains($space5,'sn_space_unban_failed')&&str_contains($space5,'FOR UPDATE'),'Yet R4: unban must be atomic with locked current authority and governance evidence.');
 if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";

@@ -18,7 +18,7 @@ trait SN_Spaces_Part_4 {
                 if((int)$invite->invitee_id!==$actor){$wpdb->query('ROLLBACK');return self::error('sn_invite_recipient_required','Only the invited recipient may accept or reject.',403);}
                 $status=$decision==='accept'?'accepted':'rejected';
             }
-            if(strtotime((string)$invite->expires_at.' UTC')<=time()){$wpdb->update(self::invites_table(),['status'=>'expired','active_key'=>null,'updated_at'=>self::now(),'version'=>(int)$invite->version+1],['id'=>$id,'status'=>'pending','version'=>(int)$invite->version]);$wpdb->query('COMMIT');return self::error('sn_invite_expired','The invitation expired.',410);}
+            if(strtotime((string)$invite->expires_at.' UTC')<=time()){$expired=$wpdb->update(self::invites_table(),['status'=>'expired','active_key'=>null,'updated_at'=>self::now(),'version'=>(int)$invite->version+1],['id'=>$id,'status'=>'pending','version'=>(int)$invite->version]);if($expired!==1)throw new RuntimeException('invite_expiry_conflict');if($wpdb->query('COMMIT')===false)throw new RuntimeException('invite_expiry_commit_failed');return self::error('sn_invite_expired','The invitation expired.',410);}
             if($decision==='accept'){
                 $contact=SN_Policy::can_contact((int)$invite->inviter_id,$actor,'group');if(is_wp_error($contact)){$wpdb->query('ROLLBACK');return $contact;}
                 $space=self::space((int)$invite->space_id,true);$elig=self::join_eligibility($space,$actor,true);if(is_wp_error($elig)){$wpdb->query('ROLLBACK');return $elig;}

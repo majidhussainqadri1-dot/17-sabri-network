@@ -48,11 +48,18 @@ trait SN_Spaces_Part_5 {
         if($target_member&&!self::can_manage_target((string)$actor_member->role,(string)$target_member->role))return self::error('sn_space_hierarchy_forbidden','This role cannot be banned by the current actor.',403);
         $now=self::now();$existing=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::bans_table().' WHERE space_id=%d AND user_id=%d',$space_id,$target));
         if($action==='unban'){
-            if(!$existing|| (string)$existing->status!=='active')return rest_ensure_response(['status'=>'inactive']);
-            $changed=$wpdb->update(self::bans_table(),['status'=>'revoked','updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'status'=>'active','version'=>(int)$existing->version]);
-            if($changed!==1)return self::error('sn_space_ban_conflict','The ban changed concurrently.',409);
-            self::record($space_id,$actor,'member_unbanned','user',$target,self::text((string)$request->get_param('reason'),500),[]);
-            return rest_ensure_response(['status'=>'revoked']);
+            if($wpdb->query('START TRANSACTION')===false)return self::error('sn_space_transaction_failed','The space change could not start safely.',500);
+            try{
+                $actor_locked=self::member($space_id,$actor,true);
+                $ban_locked=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::bans_table().' WHERE space_id=%d AND user_id=%d FOR UPDATE',$space_id,$target));
+                if(!$actor_locked||!self::can_manage($space_id,$actor,'moderation')){$wpdb->query('ROLLBACK');return self::error('sn_space_moderation_forbidden','Moderation permission is required.',403);}
+                if(!$ban_locked||(string)$ban_locked->status!=='active'){if($wpdb->query('COMMIT')===false)throw new RuntimeException('unban_noop_commit_failed');return rest_ensure_response(['status'=>'inactive']);}
+                $changed=$wpdb->update(self::bans_table(),['status'=>'revoked','updated_at'=>$now,'version'=>(int)$ban_locked->version+1],['id'=>(int)$ban_locked->id,'status'=>'active','version'=>(int)$ban_locked->version]);
+                if($changed!==1)throw new RuntimeException('unban_conflict');
+                self::record($space_id,$actor,'member_unbanned','user',$target,self::text((string)$request->get_param('reason'),500),[]);
+                if($wpdb->query('COMMIT')===false)throw new RuntimeException('unban_commit_failed');
+                return rest_ensure_response(['status'=>'revoked']);
+            }catch(Throwable $e){$wpdb->query('ROLLBACK');return self::error('sn_space_unban_failed','The ban could not be revoked atomically.',500);}
         }
         $expiry=self::future_or_null((string)$request->get_param('expires_at'),365*DAY_IN_SECONDS);if(is_wp_error($expiry))return $expiry;
         if ($wpdb->query('START TRANSACTION') === false) return self::error('sn_space_transaction_failed','The space change could not start safely.',500);
