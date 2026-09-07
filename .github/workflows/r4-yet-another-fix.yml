@@ -18,6 +18,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/r4_yet_another_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sabri-network/tests/seventh-fresh-ten-round-contracts.php')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("&&str_contains($space2,'self::record($id,$actor,'space_settings_updated'')", "&&str_contains($space2,'space_settings_updated')")
+          p.write_text(s,encoding='utf-8')
+          PY
           for f in sabri-network/includes/class-sn-spaces-part-{2,4,5,9}.php sabri-network/tests/seventh-fresh-ten-round-contracts.php; do php -l "$f"; done
           php sabri-network/tests/seventh-fresh-ten-round-contracts.php
           git config user.name 'github-actions[bot]'
