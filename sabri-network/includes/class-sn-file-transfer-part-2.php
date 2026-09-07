@@ -32,6 +32,8 @@ trait SN_File_Transfer_Part_2 {
             if (!self::same_initiation($existing, $recipients, $name, $declared_mime, $total, $chunk_bytes, $conversation_id, $expected)) {
                 return new WP_Error('transfer_idempotency_conflict', 'This transfer idempotency key was already used for different transfer parameters.', ['status' => 409]);
             }
+            $existing_policy = self::revalidate($existing, $sender_id, true);
+            if (is_wp_error($existing_policy)) return $existing_policy;
             return rest_ensure_response(['transfer' => self::format($existing, $sender_id), 'duplicate' => true]);
         }
         $daily_limit = max(self::MAX_FILE_BYTES, (int) apply_filters('sn_network_daily_transfer_bytes', 3 * self::MAX_FILE_BYTES, $sender_id));
@@ -49,6 +51,17 @@ trait SN_File_Transfer_Part_2 {
         $event = null;
         if ($wpdb->query('START TRANSACTION') === false) return new WP_Error('transfer_initiation_failed', 'The private transfer transaction could not start.', ['status'=>500]);
         try {
+            $current_access = self::verified_access();
+            if (is_wp_error($current_access)) { $wpdb->query('ROLLBACK'); return $current_access; }
+            $fresh_recipients = self::resolve_recipients($request, $sender_id);
+            if (is_wp_error($fresh_recipients)) { $wpdb->query('ROLLBACK'); return $fresh_recipients; }
+            $approved_recipients = array_map('intval', $recipients);
+            $current_recipients = array_map('intval', $fresh_recipients);
+            sort($approved_recipients, SORT_NUMERIC); sort($current_recipients, SORT_NUMERIC);
+            if ($approved_recipients !== $current_recipients) {
+                $wpdb->query('ROLLBACK');
+                return new WP_Error('transfer_relationship_changed', 'Transfer membership, relationship or consent changed before the transfer could be created.', ['status'=>409]);
+            }
             if ($wpdb->insert(self::sessions_table(), [
                 'public_id' => $public_id, 'sender_id' => $sender_id, 'conversation_id' => $conversation_id,
                 'original_name' => $original, 'safe_name' => $name, 'declared_mime' => $declared_mime,

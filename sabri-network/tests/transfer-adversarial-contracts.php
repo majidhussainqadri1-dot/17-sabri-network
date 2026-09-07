@@ -33,4 +33,8 @@ fta(!preg_match($debug_pattern, $js),'Production transfer JavaScript has no debu
 fta(str_contains($js,"credentials:'same-origin'")&&str_contains($js,"'X-WP-Nonce'"),'Client REST operations use same-origin credentials and nonce.');
 fta(!str_contains($src,'100% Secure')&&!str_contains($src,'End-to-End Encrypted'),'No unsupported absolute security claim exists.');
 fta(str_contains($src,'SN_DB::audit'),'Transfer lifecycle is auditable.');
+fta(str_contains($src,'$existing_policy = self::revalidate($existing, $sender_id, true)'),'Fresh20 R05: transfer initiation replay must not bypass current relationship and consent truth.');
+fta(str_contains($src,'$fresh_recipients = self::resolve_recipients($request, $sender_id)')&&str_contains($src,"transfer_relationship_changed', 'Transfer membership, relationship or consent changed before the transfer could be created."),'Fresh20 R05: initiation must re-resolve recipients after its transaction starts and fail if the approved set changed.');
+$chunkLock=strpos($src,"SELECT * FROM '.self::sessions_table().' WHERE id=%d FOR UPDATE");$chunkRevalidate=strpos($src,'$locked_policy=self::revalidate($current,$user_id,true)');$chunkInsert=strpos($src,"\$wpdb->insert(self::chunks_table(),['transfer_id'");
+fta($chunkLock!==false&&$chunkRevalidate!==false&&$chunkInsert!==false&&$chunkLock<$chunkRevalidate&&$chunkRevalidate<$chunkInsert,'Fresh20 R05: chunk acceptance must revalidate current policy under the locked session before the chunk ledger mutation.');
 if($fails){fwrite(STDERR,"Transfer adversarial failures (".count($fails)."/$checks):\n - ".implode("\n - ",$fails)."\n");exit(1);}echo "Transfer adversarial contracts: PASS ($checks checks)\n";

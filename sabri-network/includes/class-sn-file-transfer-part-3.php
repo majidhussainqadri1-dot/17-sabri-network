@@ -20,8 +20,10 @@ trait SN_File_Transfer_Part_3 {
         $now=current_time('mysql',true);
         if($wpdb->query('START TRANSACTION')===false){@unlink($path);return new WP_Error('chunk_store_failed','The encrypted chunk transaction could not start.',['status'=>500]);}
         try{
-            $current=$wpdb->get_row($wpdb->prepare('SELECT id,status,expires_at FROM '.self::sessions_table().' WHERE id=%d FOR UPDATE',(int)$row->id));
+            $current=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::sessions_table().' WHERE id=%d FOR UPDATE',(int)$row->id));
             if(!$current||(string)$current->status!=='uploading'||strtotime((string)$current->expires_at)<time())throw new RuntimeException('chunk_session_changed');
+            $locked_policy=self::revalidate($current,$user_id,true);
+            if(is_wp_error($locked_policy)){$wpdb->query('ROLLBACK');@unlink($path);return $locked_policy;}
             if($wpdb->insert(self::chunks_table(),['transfer_id'=>(int)$row->id,'chunk_index'=>$index,'byte_count'=>$bytes,'sha256'=>$sha,'storage_key'=>$storage_key,'created_at'=>$now])===false)throw new RuntimeException('chunk_row_failed');
             $updated=$wpdb->query($wpdb->prepare("UPDATE ".self::sessions_table()." SET received_chunks=received_chunks+1,received_bytes=received_bytes+%d,version=version+1,updated_at=%s WHERE id=%d AND status='uploading'",$bytes,$now,(int)$row->id));
             if($updated!==1)throw new RuntimeException('chunk_counter_failed');

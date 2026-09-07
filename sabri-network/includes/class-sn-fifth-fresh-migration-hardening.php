@@ -30,7 +30,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
     /** Run every repository-owned schema installer under one lock and publish version truth only after verification. */
     public static function upgrade(bool $force = false): bool|WP_Error {
         global $wpdb;
-        if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) {
+        if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema() && self::verify_version_truth()) {
             $state = get_option(self::STATE_OPTION, null);
             if (is_array($state) && ($state['status'] ?? '') === 'complete' && ($state['to'] ?? '') === SN_VERSION) return true;
             $complete_state = [
@@ -51,7 +51,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
         $from = (string)get_option('sn_plugin_version','');
         update_option(self::STATE_OPTION, ['status'=>'running','from'=>$from,'to'=>SN_VERSION,'started_at'=>gmdate('c')], false);
         try {
-            if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) {
+            if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema() && self::verify_version_truth()) {
                 // Another request may have completed the migration while this request
                 // waited for the global lock. Never leave operational migration truth
                 // stuck at "running" on this verified post-lock fast path.
@@ -74,6 +74,7 @@ final class SN_Fifth_Fresh_Migration_Hardening {
                 if ((string)$wpdb->last_error !== '') throw new RuntimeException($class . '::' . $method . ':' . $wpdb->last_error);
             }
             if (!self::verify_schema()) throw new RuntimeException('schema_verification_failed');
+            if (!self::verify_version_truth()) throw new RuntimeException('schema_version_truth_failed');
             update_option('sn_plugin_version', SN_VERSION, false);
             if ((string)get_option('sn_plugin_version','') !== SN_VERSION) {
                 throw new RuntimeException('migration_version_publish_failed');
@@ -179,6 +180,33 @@ final class SN_Fifth_Fresh_Migration_Hardening {
             $table = SN_DB::table($name);
             $actual = array_map('strval', $wpdb->get_col('SHOW COLUMNS FROM `' . esc_sql($table) . '`', 0)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             foreach ($columns as $column) if (!in_array($column,$actual,true)) return false;
+        }
+        return true;
+    }
+
+    /** Installer-local versions are part of migration truth, not independent upgrade authority. */
+    private static function verify_version_truth(): bool {
+        $required = [
+            'sn_db_version'=>'2.0.4',
+            'sn_high_risk_schema_version'=>'1.0.0',
+            'sn_spaces_schema_version'=>'2.0.0',
+            'sn_presence_devices_schema_version'=>'1.0.0',
+            'sn_message_operations_schema_version'=>'1.0.0',
+            'sn_context_adapters_schema_version'=>'1.0.0',
+            'sn_cf01_context_schema_version'=>'1.0.0',
+            'sn_conference_provider_schema_version'=>'1.0.0',
+            'sn_message_receipts_schema_version'=>'1.0.0',
+            'sn_file_transfer_schema_version'=>'1.0.0',
+            'sn_smail_schema_version'=>'1.0.0',
+            'sn_message_search_schema_version'=>'1.0.0',
+            'sn_event_delivery_schema_version'=>'1.0.0',
+            'sn_meet_db_version'=>'1.0.0',
+            'sn_two_plan_schema_version'=>'2.1.0',
+            'sn_two_plan_firewall_schema_version'=>'1.0.0',
+            'sn_future_superset_schema_version'=>'1.0.0',
+        ];
+        foreach ($required as $key=>$version) {
+            if ((string)get_option($key,'') !== $version) return false;
         }
         return true;
     }
