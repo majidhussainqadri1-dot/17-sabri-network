@@ -30,7 +30,21 @@ final class SN_Fifth_Fresh_Migration_Hardening {
     /** Run every repository-owned schema installer under one lock and publish version truth only after verification. */
     public static function upgrade(bool $force = false): bool|WP_Error {
         global $wpdb;
-        if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) return true;
+        if (!$force && (string)get_option('sn_plugin_version','') === SN_VERSION && self::verify_schema()) {
+            $state = get_option(self::STATE_OPTION, null);
+            if (is_array($state) && ($state['status'] ?? '') === 'complete' && ($state['to'] ?? '') === SN_VERSION) return true;
+            $complete_state = [
+                'status'=>'complete','from'=>(string)get_option('sn_plugin_version',''),'to'=>SN_VERSION,'completed_at'=>gmdate('c'),
+                'verification'=>'all-governed-installer-tables-plus-critical-columns-pass',
+                'completion_path'=>'verified-pre-lock-state-repair',
+            ];
+            update_option(self::STATE_OPTION, $complete_state, false);
+            $stored_state = get_option(self::STATE_OPTION, null);
+            if (!is_array($stored_state) || ($stored_state['status'] ?? '') !== 'complete' || ($stored_state['to'] ?? '') !== SN_VERSION) {
+                return new WP_Error('sn_migration_state_unavailable','File 17 schema is verified but migration-state truth could not be published safely.',['status'=>503]);
+            }
+            return true;
+        }
         $locked = (int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)', self::LOCK, self::LOCK_TIMEOUT));
         if ($locked !== 1) return new WP_Error('sn_migration_busy','File 17 schema upgrade is already running. Retry after it completes.',['status'=>503]);
         $snapshot = self::version_snapshot();
