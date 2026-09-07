@@ -30,6 +30,7 @@ $space9=$read('includes/class-sn-spaces-part-9.php');
 $futureG=$read('includes/class-sn-future24-review-hardening-g.php');
 $futureH=$read('includes/class-sn-future24-review-hardening-h.php');
 $highRisk=$read('includes/class-sn-high-risk.php');
+$messageOps=$read('includes/class-sn-message-operations.php');
 $readme=$read('readme.txt');
 $changelog=$read('CHANGELOG.md');
 $repoReadme=$readRepo('README.md');
@@ -114,4 +115,11 @@ $check(!str_contains($bootstrap,'SN_DB::maybe_upgrade();')&&!str_contains($boots
 $migStart=strpos($centralPlan,"if (\$wpdb->query('START TRANSACTION') === false)",strpos($centralPlan,'public static function migrate_message_bodies'));
 $migWrite=strpos($centralPlan,'SN_Message_Body::ensure_encrypted_row($row)',strpos($centralPlan,'public static function migrate_message_bodies'));
 $check($migStart!==false&&$migWrite!==false&&$migStart<$migWrite,'Yet R1: plaintext body migration must prove transaction start before the first mutation.');
+
+// Yet-another R3 message-organization regressions.
+$check(str_contains($messageOps,"sn_pin_transaction_failed")&&str_contains($messageOps,'SELECT id,role FROM '),'Yet R3: pin mutation must enter a checked transaction and lock current member authority.');
+$check(str_contains($messageOps,"pin_delete_failed")&&str_contains($messageOps,"pin_commit_failed"),'Yet R3: pin removal and commit failures must not be reported as success.');
+$check(str_contains($messageOps,"The message star could not be removed safely."),'Yet R3: unstar must preserve database failure truth.');
+$check(str_contains($messageOps,"sn:f17:message-folder-create:")&&str_contains($messageOps,"sn_folder_state_unavailable")&&str_contains($messageOps,"SELECT RELEASE_LOCK"),'Yet R3: folder aggregate limit must be serialized and fail closed when count truth is unavailable.');
+$check(str_contains($messageOps,"The conversation could not be removed from the folder safely."),'Yet R3: folder-item removal must not return success after failed SQL.');
 if($fail){fwrite(STDERR,"Seventh/later fresh contract failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Seventh/later fresh contracts: PASS ($checks checks)\n";
