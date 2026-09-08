@@ -1,5 +1,5 @@
 <?php
-/** Eighth fresh 20-round permanent regression contracts. */
+/** Eighth fresh 20-round permanent regression contracts, extended by later corrective cycles. */
 declare(strict_types=1);
 $root=dirname(__DIR__);$fail=[];$checks=0;
 $read=static fn(string $p):string=>(string)file_get_contents($p);
@@ -12,10 +12,12 @@ $spaces2=$read($root.'/includes/class-sn-spaces-part-2.php');
 $spaces5=$read($root.'/includes/class-sn-spaces-part-5.php');
 $check(str_contains($spaces2,"['join','cancel']")&&str_contains($spaces2,'sn_space_join_action_invalid'),'R4: join mutation must reject unknown actions.');
 $check(str_contains($spaces5,"['role','remove']")&&str_contains($spaces5,'sn_space_member_action_invalid')&&str_contains($spaces5,"['ban','unban']")&&str_contains($spaces5,'sn_space_ban_action_invalid'),'R4: membership and ban mutations must reject unknown actions.');
+$check(str_contains($spaces5,"SN_Outbox::enqueue('space.member_unbanned'")&&str_contains($spaces5,'unban_commit_failed'),'Ninth pre-cycle: successful unban transitions must enqueue a reliable canonical state-change fact before commit.');
 $message=$read($root.'/includes/class-sn-message-runtime-hardening.php');
 $check(str_contains($message,"return new WP_Error('invalid_message_type'")&&!str_contains($message,"))\$type='text';"),'R5: canonical send must reject an unknown message type instead of silently changing request semantics.');
 $visibility=$read($root.'/includes/class-sn-message-visibility.php');
 $check(str_contains($visibility,'MAX_VISIBILITY_SCAN_PAGES')&&str_contains($visibility,'$visible = array_merge($eligible, $visible)')&&str_contains($visibility,'$visible = array_merge($visible, $eligible)'),'R6: message paging must scan across viewer-hidden rows in both older and newer directions.');
+$check(substr_count($visibility,'return $id > 0 && !SN_Message_Operations::is_hidden($viewer, $id);')>=2&&!str_contains($visibility,'return $id === 0 || !SN_Message_Operations::is_hidden'),'Ninth pre-cycle: malformed message/search projections without a positive canonical ID must fail closed at hidden-message privacy boundaries.');
 $check(str_contains($realtime,'sn_presence_state_invalid')&&str_contains($realtime,"['online','away','dnd','offline']"),'R10: explicit invalid presence state must fail closed instead of becoming online.');
 $safety=$read($root.'/includes/class-sn-safety-runtime-hardening.php');
 $check(str_contains($safety,"\$route === '/sabri-network/v2/report'")&&str_contains($safety,'report_replay_conflict')&&str_contains($safety,'report_idempotency_conflict'),'R13: native report creation must be serialized and exact replay must bind content/evidence, not target alone.');
@@ -23,7 +25,11 @@ $integration=$read($root.'/includes/class-sn-fifth-fresh-integration-hardening.p
 $check(str_contains($integration,'enforce_projection_origin_port')&&str_contains($integration,"\$scheme !== 'https'")&&str_contains($integration,'$port !== $home_port')&&str_contains($integration,"isset(\$parts['user'])")&&str_contains($integration,"isset(\$parts['pass'])"),'R14: context projection URLs must enforce exact HTTPS origin including port and reject embedded credentials.');
 $migration=$read($root.'/includes/class-sn-fifth-fresh-migration-hardening.php');
 $check(str_contains($migration,"'conversation_contexts'=>['conversation_id','provider','provider_object_id','attached_by','version']")&&str_contains($migration,"'cf01_context_refs'=>['conversation_id','reference_uuid','issued_by','status','version']")&&!str_contains($migration,"'conversation_contexts'=>['conversation_id','provider','external_id'")&&!str_contains($migration,"'cf01_context_refs'=>['conversation_id','context_ref'"),'R16: migration verification must match the active context-adapter and CF-01 installer column names.');
+$architecture=$read($root.'/ARCHITECTURE.md');
+$cf01=$read($root.'/CF01-COMMUNICATION-CONTEXT-CONTRACT.md');
+$check(str_contains($architecture,'# Architecture — File 17 — runtime 2.1.0')&&str_contains($architecture,'Runtime 2.1.0 is a repository code/package/automated-QA candidate')&&!str_contains($architecture,'runtime 2.0.2'),'Ninth R9: architecture release truth must remain synchronized to runtime 2.1.0.');
+$check(str_contains($cf01,'File 17 candidate runtime: `2.1.0`')&&str_contains($cf01,'reproducible 2.1.0 package and checksum evidence')&&!str_contains($cf01,'File 17 candidate runtime: `2.0.1`'),'Ninth R9: CF-01 communication-context contract must not regress to stale File-17 2.0.1 candidate/package truth.');
 $quality=$read($root.'/tools/quality-check.sh');
 $workflow=$read(dirname($root).'/.github/workflows/quality.yml');
 $check(str_contains($quality,'eighth-fresh-twenty-round-contracts.php')&&substr_count($workflow,'eighth-fresh-twenty-round-contracts.php')>=2,'R20: both the full quality gate and both workflow paths must execute the eighth-cycle regression suite.');
-if($fail){fwrite(STDERR,"Eighth fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eighth fresh 20-round contracts: PASS ($checks checks)\n";
+if($fail){fwrite(STDERR,"Eighth/later fresh failures (".count($fail)."/$checks):\n - ".implode("\n - ",$fail)."\n");exit(1);}echo "Eighth/later fresh contracts: PASS ($checks checks)\n";

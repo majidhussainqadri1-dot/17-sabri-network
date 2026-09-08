@@ -1,4 +1,4 @@
-# Architecture — File 17 — runtime 2.0.2
+# Architecture — File 17 — runtime 2.1.0
 
 ## Canonical ownership
 
@@ -42,7 +42,7 @@ File 17 emits versioned route contracts with `sn_network_route_registered`. File
 
 ### Notifications — File 19
 
-File 19 is the only notification-center and notification-delivery owner. `SN_DB::add_notification()` still exists as a compatibility call site, but runtime 2.0.2 installs a highest-priority terminal `sn_network_notification_handled` bridge which prevents every new File-17 local notification-row write after approved adapters run. If no earlier adapter consumes the event, File 17 emits the metadata-only `sn_network_notification_requested` fact for File 19/approved integration; message bodies are not included.
+File 19 is the only notification-center and notification-delivery owner. `SN_DB::add_notification()` still exists as a compatibility call site, but runtime 2.1.0 installs a highest-priority terminal `sn_network_notification_handled` bridge which prevents every new File-17 local notification-row write after approved adapters run. If no earlier adapter consumes the event, File 17 emits the metadata-only `sn_network_notification_requested` fact for File 19/approved integration; message bodies are not included.
 
 Historical `sn_notifications` schema/data are retained non-destructively for rollback/migration compatibility only. `/notifications` and `/notifications/read` are overridden as compatibility projections to File 19 and do not constitute a second active center. The historic File-17 bell is hidden; File 20 presents File 19's single global bell.
 
@@ -93,9 +93,9 @@ Media transport is an adapter boundary. `sn_network_meet_media_config` may retur
 
 ## Canonical message confidentiality, search and forwarding
 
-Canonical `sn_messages.body` values created or edited by runtime 2.0.2 are authenticated-encryption envelopes with the `SNE1:` prefix. `SN_Message_Body` uses the existing `SN_Communication_Crypto` primitive and binds encryption context to conversation + sender. This is server-side storage encryption, not E2EE.
+Canonical `sn_messages.body` values created or edited by runtime 2.1.0 are authenticated-encryption envelopes with the `SNE1:` prefix. `SN_Message_Body` uses the existing `SN_Communication_Crypto` primitive and binds encryption context to conversation + sender. This is server-side storage encryption, not E2EE.
 
-Pre-2.0.2 plaintext rows remain readable only for compatibility migration. `SN_Central_Plan_Hardening::migrate_message_bodies()` migrates them in bounded batches using optimistic compare-and-swap writes, then rebuilds search tokens. Search decrypts the authorized canonical row only in memory, derives HMAC token hashes and persists no plaintext query/body index.
+Pre-2.1.0 plaintext rows remain readable only for compatibility migration. `SN_Central_Plan_Hardening::migrate_message_bodies()` migrates them in bounded batches using optimistic compare-and-swap writes, then rebuilds search tokens. Search decrypts the authorized canonical row only in memory, derives HMAC token hashes and persists no plaintext query/body index.
 
 `SN_Message_Integrity` owns new send/edit/delete/receipt mutations. The canonical message record, hashed search-index mutation and metadata-only outbox event commit or roll back as one unit. Response formatters decrypt only after current conversation authorization.
 
@@ -139,4 +139,4 @@ Canonical tables use the WordPress prefix and `sn_` namespace. Important invaria
 
 ## Release truth
 
-Runtime 2.0.2 is a repository code/package/automated-QA candidate after four independent plan reviews. The Top-20 plan distinguishes `NOW`, `NEXT`, and `SCALE`; this release must not misrepresent provider-dependent or later-wave capabilities as already live merely because their governance boundary exists. Hostinger staging, real companion plugins/roles/providers, browser/device/RTL/accessibility/load/security acceptance, backup/restore, rollback rehearsal, Founder approval, live deployment and operational monitoring remain separate statuses.
+Runtime 2.1.0 is a repository code/package/automated-QA candidate after the completed plan/review waves represented by this source lineage. The Future Communication Superset remains governed by its explicit activation/provider gates. Hostinger staging, real companion plugins/roles/providers, browser/device/RTL/accessibility/load/security acceptance, backup/restore, rollback rehearsal, Founder approval, live deployment and operational monitoring remain separate statuses.

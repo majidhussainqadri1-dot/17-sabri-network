@@ -55,6 +55,8 @@ trait SN_Spaces_Part_5 {
                 $changed=$wpdb->update(self::bans_table(),['status'=>'revoked','updated_at'=>$now,'version'=>(int)$existing->version+1],['id'=>(int)$existing->id,'status'=>'active','version'=>(int)$existing->version]);
                 if($changed!==1)throw new RuntimeException('ban_conflict');
                 self::record($space_id,$actor,'member_unbanned','user',$target,self::text((string)$request->get_param('reason'),500),[]);
+                $event=SN_Outbox::enqueue('space.member_unbanned','space',$space_id,['space_id'=>$space_id,'user_id'=>$target],'space.member_unbanned:'.$space_id.':'.$target.':'.((int)$existing->version+1));
+                if(is_wp_error($event))throw new RuntimeException($event->get_error_code());
                 if($wpdb->query('COMMIT')===false)throw new RuntimeException('unban_commit_failed');
                 return rest_ensure_response(['status'=>'revoked']);
             }

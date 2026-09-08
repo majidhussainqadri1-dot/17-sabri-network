@@ -2,7 +2,7 @@
 
 ## Status
 
-- File 17 candidate runtime: `2.0.1`.
+- File 17 candidate runtime: `2.1.0`.
 - Contract: `sn.cf01.communication-context` `1.0.0`.
 - Native owner: File 17 — Sabri Network and Messages.
 - State: implementation candidate; automated, staging and owner acceptance remain separate evidence.
@@ -193,7 +193,7 @@ Required before owner acceptance and to cover at minimum:
 ## Acceptance still required
 
 - exact-head PHP 8.1/8.3 and inherited File 17 QA;
-- reproducible 2.0.1 package and checksum evidence;
+- reproducible 2.1.0 package and checksum evidence for the exact candidate under review;
 - native-owner review and merge;
 - accepted File 00/02/09 contracts;
 - CF-01 consumer fixtures against immutable merged versions;
