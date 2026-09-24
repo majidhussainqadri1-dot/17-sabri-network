@@ -159,6 +159,7 @@ final class SN_Relationship_Runtime_Hardening {
                 return self::database_error();
             }
             SN_DB::audit($blocked?'user_blocked':'user_unblocked','user',$target,'success',[],$actor);
+            do_action('sn_network_block_changed', ['viewer_id'=>$actor,'target_id'=>$target,'blocked'=>$blocked], $actor);
             return rest_ensure_response(['blocked'=>$blocked]);
         });
     }
