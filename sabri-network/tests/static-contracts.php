@@ -75,6 +75,11 @@ check(str_contains($rest, 'Legacy attachment requires controlled migration'), 'L
 check(str_contains($privacy, 'wp_privacy_personal_data_exporters'), 'Privacy exporter must be registered.');
 check(str_contains($privacy, 'wp_privacy_personal_data_erasers'), 'Privacy eraser must be registered.');
 check(str_contains($main, 'sn_network_route_registered'), 'File 17 must publish a File-20 route contract.');
+check(str_contains($main, 'sabri_network_contact_claim_v1'), 'File 17 must publish the exact File 03 contact-audience claim.');
+check(str_contains($main, 'sabri_file17_profile_contact_relay_v1'), 'File 17 must publish the privacy-safe File 03 contact relay.');
+check(str_contains($main, 'sabri_network_message_profile_url'), 'File 17 must publish the File 03 internal-message URL contract.');
+check(str_contains($main, "'address_hidden' => true"), 'File 03 relay must never expose the recipient address.');
+check(str_contains($main, "SN_Relationships::state($viewer_id, $target_id)"), 'Profile relay must reauthorize against current File 17 relationship policy.');
 check(!str_contains($main, 'wp_nav_menu_items'), 'File 17 must not inject duplicate global navigation.');
 check(str_contains($activator, 'is_owned_page'), 'Network page repair must be ownership-gated.');
 check(str_contains($rest, "(string) \$row->status !== 'pending'"), 'Contact decisions must be pending-only.');
