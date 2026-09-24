@@ -85,6 +85,11 @@ final class Sabri_Network {
         add_action('wp_enqueue_scripts', ['SN_Shortcode', 'enqueue_if_network'], 20);
         add_shortcode('sabri_network', ['SN_Shortcode', 'render']);
         add_filter('sn_network_profile_action_state', ['SN_Relationships', 'filter_profile_action_state'], 10, 3);
+        // Exact File 03 compatibility contracts. File 17 remains the canonical
+        // owner of relationship, messaging and contact-transport authorization.
+        add_filter('sabri_network_contact_claim_v1', [$this, 'file03_contact_claim'], 10, 4);
+        add_filter('sabri_file17_profile_contact_relay_v1', [$this, 'file03_contact_relay'], 10, 4);
+        add_filter('sabri_network_message_profile_url', [$this, 'file03_message_profile_url'], 10, 3);
 
         SN_Ajax::register();
         SN_High_Risk::register();
@@ -113,6 +118,94 @@ final class Sabri_Network {
         add_filter('the_content', [$this, 'force_network_content'], 9999);
         add_action('sn_cleanup_hourly', ['SN_DB', 'cleanup_expired']);
         add_action('sn_network_retry_private_delete', ['SN_Private_Files', 'retry_delete_bytes']);
+    }
+
+
+    /** Current, subject-bound contact claim consumed by File 03 audiences. */
+    public function file03_contact_claim($claim, int $owner_id, int $viewer_id, string $consumer_contract = ''): array {
+        unset($claim, $consumer_contract);
+        $now = time();
+        $base = [
+            'contract_version' => '1.0.0',
+            'generated_at' => gmdate('c', $now),
+            'valid_until' => gmdate('c', $now + 300),
+            'owner_user_id' => $owner_id,
+            'viewer_user_id' => $viewer_id,
+            'connected' => false,
+        ];
+        if ($owner_id <= 0 || $viewer_id <= 0 || $owner_id === $viewer_id) {
+            return $base;
+        }
+        try {
+            $state = SN_Relationships::state($viewer_id, $owner_id);
+        } catch (Throwable $error) {
+            unset($error);
+            return $base;
+        }
+        if (is_wp_error($state) || !empty($state['blocked'])) {
+            return $base;
+        }
+        $base['connected'] = isset($state['contact']['state']) && $state['contact']['state'] === 'accepted';
+        return $base;
+    }
+
+    /** Privacy-safe first-party relay projection for File 03 profile CTAs. */
+    public function file03_contact_relay($claim, int $target_id, int $viewer_id, string $consumer_contract = ''): array {
+        unset($claim, $consumer_contract);
+        $now = time();
+        $base = [
+            'contract_version' => '1.0.0',
+            'generated_at' => gmdate('c', $now),
+            'valid_until' => gmdate('c', $now + 300),
+            'user_id' => $target_id,
+            'viewer_user_id' => $viewer_id,
+            'available' => false,
+            'url' => '',
+            'label' => '',
+            'address_hidden' => true,
+        ];
+        if ($target_id <= 0 || $viewer_id <= 0 || $target_id === $viewer_id) {
+            return $base;
+        }
+        try {
+            $state = SN_Relationships::state($viewer_id, $target_id);
+        } catch (Throwable $error) {
+            unset($error);
+            return $base;
+        }
+        if (is_wp_error($state) || !empty($state['blocked'])) {
+            return $base;
+        }
+        if (!empty($state['actions']['message']) && isset($state['contact']['state']) && $state['contact']['state'] === 'accepted') {
+            $base['available'] = true;
+            $base['url'] = SN_Messages::messages_url();
+            $base['label'] = __('Message securely', 'sabri-network');
+            return $base;
+        }
+        if (!empty($state['actions']['connect'])) {
+            $base['available'] = true;
+            $base['url'] = SN_Activator::network_url();
+            $base['label'] = __('Connect securely', 'sabri-network');
+        }
+        return $base;
+    }
+
+    /** Existing File 03 internal-message action: URL only when messaging is currently authorized. */
+    public function file03_message_profile_url($url, int $owner_id, int $viewer_id): string {
+        unset($url);
+        if ($owner_id <= 0 || $viewer_id <= 0 || $owner_id === $viewer_id) {
+            return '';
+        }
+        try {
+            $state = SN_Relationships::state($viewer_id, $owner_id);
+        } catch (Throwable $error) {
+            unset($error);
+            return '';
+        }
+        if (is_wp_error($state) || !empty($state['blocked']) || empty($state['actions']['message']) || ($state['contact']['state'] ?? '') !== 'accepted') {
+            return '';
+        }
+        return SN_Messages::messages_url();
     }
 
     public function load_textdomain(): void {
