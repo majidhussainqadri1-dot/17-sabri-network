@@ -11,7 +11,8 @@ trait SN_Spaces_Part_6 {
         $wpdb->query('START TRANSACTION');
         try{
             $space=self::space($id,true);
-            if(!$space||!self::can_manage($id,$actor,'lifecycle')){$wpdb->query('ROLLBACK');return self::error('sn_space_lifecycle_forbidden','Lifecycle permission is required.',403);}
+            $access=$space?self::assert_manage_locked($id,$actor,'lifecycle'):self::error('sn_space_not_found','The space is unavailable.',404);
+            if(!$space||is_wp_error($access)){$wpdb->query('ROLLBACK');return self::error('sn_space_lifecycle_forbidden','Current lifecycle permission is required.',403);}
             if(!in_array($next,$transitions[(string)$space->state]??[],true)){$wpdb->query('ROLLBACK');return self::error('sn_space_transition_invalid','This lifecycle transition is not allowed.',409);}
             if($expected!==(int)$space->version){$wpdb->query('ROLLBACK');return self::error('sn_space_version_conflict','The space changed. Reload and retry.',409);}
             $data=['state'=>$next,'locked_reason'=>self::text((string)$request->get_param('reason'),500),'updated_at'=>$now,'version'=>$expected+1];

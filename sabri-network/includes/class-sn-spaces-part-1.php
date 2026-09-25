@@ -31,6 +31,18 @@ trait SN_Spaces_Part_1 {
         $now = self::now();
         $wpdb->query('START TRANSACTION');
         try {
+            if ($parent_id > 0) {
+                $parent_locked = self::space($parent_id, true);
+                if (!$parent_locked || (string) $parent_locked->type !== 'community' || !in_array((string) $parent_locked->state, ['active','restricted'], true)) {
+                    $wpdb->query('ROLLBACK');
+                    return self::error('sn_space_parent_invalid', 'The parent community is unavailable.', 409);
+                }
+                $parent_access = self::assert_manage_locked($parent_id, $actor, 'settings');
+                if (is_wp_error($parent_access)) {
+                    $wpdb->query('ROLLBACK');
+                    return self::error('sn_space_parent_forbidden', 'Current parent-community management permission is required.', 403);
+                }
+            }
             $ok = $wpdb->insert(self::spaces_table(), [
                 'public_id'=>wp_generate_uuid4(),'parent_id'=>$parent_id,'owner_user_id'=>$actor,
                 'type'=>$type,'subtype'=>self::text((string)$request->get_param('subtype'),40),'slug'=>$slug,'name'=>$name,
@@ -69,16 +81,22 @@ trait SN_Spaces_Part_1 {
         $after = absint($request->get_param('after'));
         $type = sanitize_key((string)$request->get_param('type'));
         $type_sql = in_array($type,self::TYPES,true) ? $wpdb->prepare(' AND s.type=%s',$type) : '';
+        // Mirror can_view() in SQL so inaccessible closed rows cannot consume a page
+        // slot and make later discoverable spaces disappear from cursor traversal.
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT DISTINCT s.* FROM ".self::spaces_table()." s LEFT JOIN ".self::members_table()." m ON m.space_id=s.id AND m.user_id=%d AND m.status='active' WHERE s.id>%d AND s.state NOT IN ('deletion_requested') AND (s.visibility IN ('public','discoverable_private') OR m.id IS NOT NULL) $type_sql ORDER BY s.id ASC LIMIT %d",
+            "SELECT DISTINCT s.* FROM ".self::spaces_table()." s LEFT JOIN ".self::members_table()." m ON m.space_id=s.id AND m.user_id=%d AND m.status='active' WHERE s.id>%d AND s.state<>'deletion_requested' AND (m.id IS NOT NULL OR (s.state<>'closed' AND s.visibility IN ('public','discoverable_private'))) $type_sql ORDER BY s.id ASC LIMIT %d",
             $viewer,$after,$limit+1
         ));
-        $items=[];$next=null;
+        $accessible=[];
         foreach (is_array($rows)?$rows:[] as $row) {
-            if (!self::can_view($row,$viewer)) continue;
-            if (count($items)===$limit){$next=(int)$row->id;break;}
-            $items[]=self::format_space($row,$viewer);
+            if (self::can_view($row,$viewer)) $accessible[]=$row;
         }
+        $has_more=count($accessible)>$limit;
+        if($has_more)$accessible=array_slice($accessible,0,$limit);
+        $items=array_map(static fn($row)=>self::format_space($row,$viewer),$accessible);
+        // The cursor must be the last item actually returned. Using the first unseen
+        // row as an exclusive `after` cursor skips that row permanently.
+        $next=$has_more&&$accessible?(int)end($accessible)->id:null;
         return rest_ensure_response(['items'=>$items,'next_after'=>$next]);
     }
 

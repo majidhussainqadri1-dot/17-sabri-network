@@ -7,10 +7,36 @@
 - Preserved File 17 as the only communication owner and retained File 00/02 identity, File 19 notification, File 20 shell, File 26 global-search and File 08/CF-01 clinical ownership boundaries.
 - Fresh review cycles remain independently counted/audited; a green workflow for one SHA is never reused as evidence for another.
 
-### Current sixth fresh 20-round cycle — 2026-08-18
+### Seventh-fresh closure — 20 sequential rounds
+- Every round completed the whole review before its defect ledger was frozen; all proved defects were then corrected and regression/retested before the next round began.
+- Defect rounds: **R3, R4, R5, R6, R7, R8, R9, R11, R13, R14, R15, R16, R17, R18, R19, R20**.
+- Clean rounds: **R1, R2, R10, R12**.
+- First-ten defect rounds: **R3, R4, R5, R6, R7, R8, R9**.
+- R3/R4 revalidated File-00 and space-management authority inside current locks instead of relying on pre-lock authorization state.
+- R5/R6 bound canonical message/forwarding retry identities to exact semantics and serialized receipt authorization/state writes.
+- R7/R8 made private transfer storage fail closed before session commit and serialized presence/transfer authorization, idempotency and quota decisions.
+- R9 enforced approved SFU group-call capability and provider-specific endpoint semantics.
+- R11 preserved message legal holds during privacy erasure and made retained-data behavior retry-safe.
+- R13 corrected public/discoverable space pagination so hidden/ineligible rows cannot consume or skip returned page slots.
+- R14 serialized cross-file context membership, authorization and capacity checks.
+- R15 protected transfer/context regressions with permanent contract coverage.
+- R16 made Smail use the final canonical message runtime with exact subject/recipient replay scope, mailbox-state completeness and exact draft cleanup.
+- R17 derived report privacy legal-hold retention truth only from current locked rows and rechecked hold state on target minimization.
+- R18 extended migration version/schema truth to current message receipts, private search and event outbox/inbox surfaces.
+- R19 restored keyboard focus correctly across both active custom modal systems and permanently regression-gated it.
+- R20 synchronized packaged/current repository evidence, installation/upgrade/security guidance and package gates to the seventh cycle; stale fifth/sixth-current and obsolete 2.0 migration claims are no longer release truth.
+
+### Current quality and release truth
+- Current explicit full quality inventory is **53 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
+- Current cycle/package identity is carried by `REVIEW-CYCLE-ID.txt`, `CURRENT-CANDIDATE-BOUNDARY.txt`, `QA-INVENTORY.txt`, `SYSTEM-STATUS.txt` and `NO-LIVE-CLAIM.txt`, all explicitly required by packaging.
+- Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
+- Repository/package evidence does not establish staging, live DB/migration parity, live deployment or operational acceptance.
+
+### Historical sixth fresh 20-round cycle — 2026-08-18
 - Frozen starting reviewed source: `a3a435b162167c9078ded22b08d6c8fb39b6ca27`.
-- Defect rounds: **R2, R5, R6, R8, R9, R12, R18, R19, R20**.
-- Clean rounds: **R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17**.
+- Historical defect rounds: **R2, R5, R6, R8, R9, R12, R18, R19, R20**.
+- Historical clean rounds: **R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17**.
 - Preserved canonical File-00/09 phone and verification truth after File-03 presentation enrichment.
 - Required caller-supplied stable retry identities for canonical message and Smail sends.
 - Kept hidden-for-self messages out of private search/context and corrected pagination after visibility filtering.
@@ -19,12 +45,6 @@
 - Restored exact Sabri Meet `sn_meet_db_version` rollback truth in migration failure handling.
 - Extended exact Sabri Green/accessibility hardening to standalone Messages/communication-settings surfaces.
 - Added `sixth-fresh-twenty-round-contracts.php`, restored omitted fifth closure/release-truth suites to the full gate, and required the sixth runtime privacy layer in quality/package surfaces.
-
-### Current quality and release truth
-- Current explicit full quality inventory is **53 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
-- Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
-- Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
-- Historical review evidence remains historical; staging, live and operational acceptance remain separate external gates.
 
 ### 2.1.0 capability line retained
 - Unknown-sender message requests with encrypted first-message storage and transactional acceptance.
@@ -102,3 +122,5 @@
 
 ## Status law
 A successful source review, CI run or deterministic ZIP is not equivalent to staging acceptance, live deployment or operational completion. Those states require separate real-environment evidence and Founder acceptance.
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔

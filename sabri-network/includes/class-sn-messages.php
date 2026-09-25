@@ -430,47 +430,63 @@ final class SN_Messages {
         }
 
         $messages = SN_DB::table('messages');
-        $target = $wpdb->get_row($wpdb->prepare(
-            "SELECT id,sender_id,deleted_at FROM $messages WHERE id=%d AND conversation_id=%d",
-            $requested_message_id,
-            $conversation_id
-        ));
-        if (!$target || $target->deleted_at) {
-            return self::not_found();
-        }
-        if ((int) $target->sender_id === $user_id) {
-            return new WP_Error('own_message_receipt', 'A sender cannot create a recipient receipt for the same message.', ['status' => 409]);
-        }
-
+        $members = SN_DB::table('members');
         $table = self::receipt_table();
-        $state_column = $state === 'read' ? 'read_at' : 'delivered_at';
-        $device_through = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COALESCE(MAX(message_id),0) FROM $table
-             WHERE conversation_id=%d AND user_id=%d AND device_key=%s AND $state_column IS NOT NULL",
-            $conversation_id,
-            $user_id,
-            $device_key
-        ));
-
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT id FROM $messages
-             WHERE conversation_id=%d AND id>%d AND id<=%d AND sender_id<>%d AND deleted_at IS NULL
-             ORDER BY id ASC LIMIT %d",
-            $conversation_id,
-            $device_through,
-            $requested_message_id,
-            $user_id,
-            self::MAX_RECEIPT_RANGE
-        ));
-        if (!is_array($rows)) {
-            return new WP_Error('database_error', 'The receipt range could not be read.', ['status' => 500]);
-        }
-
         $now = current_time('mysql', true);
-        $through_message_id = $device_through;
+        $through_message_id = 0;
         $recorded = 0;
-        $wpdb->query('START TRANSACTION');
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return new WP_Error('database_error', 'The receipt could not be recorded.', ['status' => 500]);
+        }
         try {
+            // Serialize the receipt against membership removal and target deletion/state
+            // so a permission result captured before this transaction cannot authorize it.
+            $member = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM $members WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE",
+                $conversation_id,
+                $user_id
+            ));
+            $target = $wpdb->get_row($wpdb->prepare(
+                "SELECT id,sender_id,deleted_at FROM $messages WHERE id=%d AND conversation_id=%d FOR UPDATE",
+                $requested_message_id,
+                $conversation_id
+            ));
+            if (!$member || !$target || $target->deleted_at) {
+                throw new DomainException('not_found');
+            }
+            if ((int) $target->sender_id === $user_id) {
+                throw new LogicException('own_message_receipt');
+            }
+            SN_Membership_Assertions::clear_cache($user_id);
+            $access = SN_Policy::access();
+            if (is_wp_error($access)) {
+                throw new UnexpectedValueException($access->get_error_code());
+            }
+
+            $state_column = $state === 'read' ? 'read_at' : 'delivered_at';
+            $device_through = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COALESCE(MAX(message_id),0) FROM $table
+                 WHERE conversation_id=%d AND user_id=%d AND device_key=%s AND $state_column IS NOT NULL",
+                $conversation_id,
+                $user_id,
+                $device_key
+            ));
+            $through_message_id = $device_through;
+
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT id FROM $messages
+                 WHERE conversation_id=%d AND id>%d AND id<=%d AND sender_id<>%d AND deleted_at IS NULL
+                 ORDER BY id ASC LIMIT %d",
+                $conversation_id,
+                $device_through,
+                $requested_message_id,
+                $user_id,
+                self::MAX_RECEIPT_RANGE
+            ));
+            if (!is_array($rows)) {
+                throw new RuntimeException('receipt_range_failed');
+            }
+
             foreach ($rows as $row) {
                 $row_id = (int) $row->id;
                 if ($state === 'read') {
@@ -512,7 +528,7 @@ final class SN_Messages {
             }
             if ($state === 'read' && $through_message_id > 0) {
                 $pointer = $wpdb->query($wpdb->prepare(
-                    'UPDATE ' . SN_DB::table('members') . ' SET last_read_message_id=GREATEST(last_read_message_id,%d) WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',
+                    'UPDATE ' . $members . ' SET last_read_message_id=GREATEST(last_read_message_id,%d) WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL',
                     $through_message_id,
                     $conversation_id,
                     $user_id
@@ -521,7 +537,9 @@ final class SN_Messages {
                     throw new RuntimeException('read_pointer_failed');
                 }
             }
-            $wpdb->query('COMMIT');
+            if ($wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('receipt_commit_failed');
+            }
         } catch (Throwable $e) {
             $wpdb->query('ROLLBACK');
             SN_DB::audit('message_receipt_failed', 'conversation', $conversation_id, 'failure', [
@@ -530,6 +548,15 @@ final class SN_Messages {
                 'state' => $state,
                 'reason' => $e->getMessage(),
             ], $user_id);
+            if ($e instanceof DomainException) {
+                return self::not_found();
+            }
+            if ($e instanceof LogicException && $e->getMessage() === 'own_message_receipt') {
+                return new WP_Error('own_message_receipt', 'A sender cannot create a recipient receipt for the same message.', ['status' => 409]);
+            }
+            if ($e instanceof UnexpectedValueException) {
+                return new WP_Error($e->getMessage(), 'Current authorization no longer permits this receipt update.', ['status' => 403]);
+            }
             return new WP_Error('database_error', 'The receipt could not be recorded.', ['status' => 500]);
         }
 
