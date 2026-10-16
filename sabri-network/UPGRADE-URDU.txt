@@ -1,35 +1,43 @@
-File 17 کو 1.1.0 سے 2.0.0 پر Upgrade کرنے کا دستور
+File 17 کو سابق package سے 2.1.0 پر Upgrade کرنے کا محفوظ دستور
 
 قبل از Upgrade
 
-1۔ Database، wp-content اور configuration کا verified backup بنائیں۔
-2۔ موجودہ File 17 package، version، checksums اور active integrations درج کریں۔
-3۔ Legacy OTP/SMS/TURN settings کی موجودگی note کریں؛ 2.0.0 انہیں delete کرے گا۔
-4۔ Legacy Media Library attachments کی فہرست بنائیں۔ 2.0 API انہیں public URL نہیں دے گی؛ controlled private migration الگ عمل ہے۔
-5۔ Staging clone پر upgrade کریں۔
+1۔ Database، wp-content، File-17 private storage اور configuration کا verified backup بنائیں اور restore rehearsal کریں۔
+2۔ موجودہ deployed File 17 package/version، DB/schema version options، migration state، artifact checksum اور active integrations درج کریں۔
+3۔ GitHub repository candidate کو live/deployed truth نہ سمجھیں؛ staging پر نصب exact ZIP اور اس کے generated manifest/SHA-256 کی parity الگ verify کریں۔
+4۔ Legacy File-17 OTP table `sn_phone_otps` موجود ہو تو migration governor اسے delete نہیں کرتا؛ rollback/evidence کے لیے اسے `sn_phone_otps_f17_retired` کے نام سے preserve کرنے کی کوشش کرتا ہے۔
+5۔ Legacy Media Library/private attachment state اور communication encryption key backup کی فہرست بنائیں۔
+6۔ Upgrade پہلے Staging clone پر کریں۔
 
 Upgrade کے دوران
 
-- Schema 2.0.0 نئی integrity keys، attachment ledger، rate limits اور audit tables بنائے گا۔
-- Direct conversations اور contact pairs کی keys backfill ہوں گی۔
-- ناقص direct conversations archive ہوسکتی ہیں؛ reconciliation report دیکھیں۔
-- Legacy OTP table ختم ہوگا۔
-- Network page صرف File-17-owned page ہونے پر repair ہوگا؛ کسی غیر متعلق /network page کو overwrite نہیں کیا جائے گا۔
+- 2.1.0 کا serialized migration governor `sn:f17:schema-upgrade:v2.1` lock کے تحت repository-owned installers چلاتا ہے۔
+- Migration state `sn_migration_state` میں running/complete/failed truth درج ہوتی ہے۔
+- Version options صرف post-migration schema verification کامیاب ہونے کے بعد current truth بنائے جاتے ہیں؛ failure پر version snapshot restore کیا جاتا ہے اور migration retryable failure رہتی ہے۔
+- Verification canonical conversations/members/messages/reports/calls/spaces، receipts، presence devices، transfer/Smail، private message-search tokens، event outbox/inbox، Future records، context/CF-01 references اور دوسرے current critical schemas/columns کو verify کرتی ہے۔
+- Legacy File-17 OTP evidence جہاں موجود ہو، old installer سے پہلے retired backup table میں preserve کیا جاتا ہے۔
+- Network/Messages pages صرف File-17-owned surface ہونے پر repair ہوں؛ غیر متعلق pages overwrite نہ کیے جائیں۔
 
 Upgrade کے بعد
 
-1۔ Network → System Check میں تمام tables، private storage اور identity authority دیکھیں۔
-2۔ Contact request → accept → direct message → read → reaction → report workflow آزمائیں۔
-3۔ Block/unblock، minor/guardian، suspension اور unauthorized IDOR tests کریں۔
-4۔ Image، audio، video، PDF/DOCX/XLSX upload policies آزمائیں۔ Scanner کے بغیر documents fail-closed ہونے چاہییں۔
-5۔ Direct call create/join/decline/end اور duplicate-call race آزمائیں۔
-6۔ Privacy export/erasure اور attachment deletion آزمائیں۔
-7۔ File 20 route، File 19 notification اور File 25 action integrations آزمائیں۔
+1۔ Network → System Check میں runtime 2.1.0، current DB/schema truth، missing tables/columns، private storage اور identity authority verify کریں۔
+2۔ `sn_migration_state` کو complete سمجھنے سے پہلے actual required tables/columns بھی verify کریں؛ option value کو اکیلا ثبوت نہ سمجھیں۔
+3۔ Contact request → accept → direct message → exact retry → read/receipt → reaction → report/appeal workflow آزمائیں۔
+4۔ Block/unblock، minor/guardian، suspension، relationship/space role changes اور unauthorized IDOR/concurrency tests کریں۔
+5۔ Image/audio/video/document upload، scanner fail-closed، 1 GiB transfer initiation/resume/quota/integrity/revocation tests کریں۔
+6۔ Direct calls اور approved SFU group calls کے create/join/decline/end/provider-failure tests کریں۔
+7۔ Privacy export/erasure، legal-hold retention، attachment deletion اور repeated retry/progress tests کریں۔
+8۔ File 00/02 identity، File 19 notifications، File 20 shell، File 26 search boundary اور relevant cross-file context integrations آزمائیں۔
+9۔ Browser/device، RTL/LTR، keyboard focus, cron/outbox, load/race اور backup/restore tests مکمل کریں۔
 
 Rollback
 
-- نئی writes روکیں۔
-- 2.0.0 deactivate کریں۔
-- verified pre-upgrade database/files restore کریں۔
-- restore کے بعد identity، messages، attachments، cron اور page routes کی smoke testing کریں۔
-- 1.1.0 کو نئے 2.0 data پر براہِ راست چلانا محفوظ rollback نہیں؛ database restore لازم ہے۔
+- نئی writes روکیں اور exact deployed build/version/DB/migration state freeze کریں۔
+- approved rollback point کے مطابق plugin/files اور verified pre-upgrade database/private-storage/configuration restore کریں۔
+- communication master secret/key material کی restore parity verify کریں، ورنہ encrypted data unreadable ہوسکتا ہے۔
+- restore کے بعد identity، messages/Smail، receipts، attachments/transfers، calls, privacy, cron/outbox اور routes کی smoke testing کریں۔
+- پرانا runtime نئے 2.1.0 schema/data پر براہِ راست چلانا safe rollback نہ سمجھیں؛ validated data restore/parity لازم ہے۔
+
+Repository tests یا migration code کا موجود ہونا اس بات کا ثبوت نہیں کہ live migration ہوچکی ہے۔
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔

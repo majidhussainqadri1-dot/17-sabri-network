@@ -185,6 +185,14 @@ final class SN_Relationships {
         $acquired = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,5)', $lock));
         if ($acquired !== 1) return new WP_Error('relationship_busy', 'This relationship is changing. Try again.', ['status' => 409]);
         try {
+            // The route permission callback may have populated the request-local
+            // File-00 assertion cache before we acquired the canonical pair lock.
+            // A relationship mutation must make its final eligibility decision
+            // from a fresh assertion after serialization, not from that pre-lock
+            // snapshot.
+            SN_Membership_Assertions::clear_cache();
+            $access = SN_Policy::access();
+            if (is_wp_error($access)) return $access;
             return $callback();
         } finally {
             $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
