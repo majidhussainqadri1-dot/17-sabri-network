@@ -66,6 +66,35 @@ $check(str_contains($package, 'includes/class-sn-sixth-fresh-privacy-hardening.p
 $check(str_contains($workflow, 'run_test sixth-fresh-twenty-round-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-closure-contracts.php') && str_contains($workflow, 'run_test fifth-fresh-release-truth-contracts.php'), 'R20: PHP 8.1 exact-head workflow must execute the complete current closure set.');
 $check(substr_count($workflow, 'sixth-fresh-twenty-round-contracts.php') >= 2, 'R20: sixth-cycle regression suite must run in both minimum and full-quality workflow paths.');
 
+
+/** 2026-10-19 40-round follow-up: true runtime authorization and release inventory. */
+$attachmentGuard = $read('includes/class-sn-attachment-runtime-hardening.php');
+$attachmentBlock = explode('public static function verify_private_download_integrity(): void {', $attachmentGuard, 2)[1] ?? '';
+$attachmentBlock = explode('public static function override_routes()', $attachmentBlock, 2)[0];
+$databasePos = strpos($attachmentBlock, 'global $wpdb;');
+$check($databasePos !== false && strpos($attachmentBlock, 'is_user_logged_in()') !== false
+    && strpos($attachmentBlock, 'is_user_logged_in()') < $databasePos,
+    'F17-SEC-01: guests must never cause pre-delivery attachment DB/digest I/O.');
+$check($databasePos !== false && strpos($attachmentBlock, 'wp_verify_nonce(') !== false
+    && strpos($attachmentBlock, 'wp_verify_nonce(') < $databasePos
+    && strpos($attachmentBlock, 'SN_DB::user_can_access_attachment(') !== false
+    && strpos($attachmentBlock, 'SN_DB::user_can_access_attachment(') < $databasePos,
+    'F17-SEC-01: exact attachment nonce and current viewer authorization must precede hashing.');
+
+$transferStart = explode('public static function initiate(', $transfer, 2)[1] ?? '';
+$transferStart = explode('private static function same_initiation', $transferStart, 2)[0];
+$storagePos = strpos($transferStart, 'if (!self::ensure_storage())');
+$transactionPos = strpos($transferStart, "\$wpdb->query('START TRANSACTION')");
+$check($storagePos !== false && $transactionPos !== false && $storagePos < $transactionPos,
+    'F17-REL-02: refuse a new transfer before reserving the session when encrypted storage is unavailable.');
+$check(str_contains($transferStart, 'transfer_storage_unavailable'),
+    'F17-REL-02: failed storage gate must expose explicit fail-closed 503 error.');
+
+$check(str_contains($quality, 'assets/js/round20-correction.js')
+    && str_contains($package, 'round20-correction.js')
+    && substr_count($workflow, 'node --check sabri-network/assets/js/round20-correction.js') >= 2,
+    'F17-QA-03: loaded round-20 browser script must be syntax checked in the package and both CI jobs.');
+
 if ($fail) {
     fwrite(STDERR, "Sixth fresh 20-round contract failures (" . count($fail) . "/$checks):\n - " . implode("\n - ", $fail) . "\n");
     exit(1);
