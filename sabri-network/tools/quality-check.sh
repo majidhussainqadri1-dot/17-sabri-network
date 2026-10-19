@@ -59,6 +59,13 @@ done < <(find . -path './build' -prune -o -name '*.php' -type f -print0 | sort -
 
 echo '== JavaScript and shell syntax =='
 js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js assets/js/round20-correction.js)
+mapfile -t discovered_js < <(find assets/js -maxdepth 1 -type f -name '*.js' -print | LC_ALL=C sort)
+mapfile -t declared_js < <(printf '%s\n' "${js_files[@]}" | LC_ALL=C sort -u)
+if [[ "$(printf '%s\n' "${discovered_js[@]}")" != "$(printf '%s\n' "${declared_js[@]}")" ]]; then
+  echo 'JavaScript source inventory differs from the syntax-checked release entry points.' >&2
+  diff -u <(printf '%s\n' "${discovered_js[@]}") <(printf '%s\n' "${declared_js[@]}") >&2 || true
+  exit 1
+fi
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
