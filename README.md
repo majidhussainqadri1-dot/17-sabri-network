@@ -17,7 +17,7 @@ The sixth independent cycle froze reviewed source `a3a435b162167c9078ded22b08d6c
 - First-ten defect rounds: **R2, R5, R6, R8, R9**.
 - Full ledger: `FILE17-SIXTH-FRESH-20-ROUND-AUDIT-2026-08-18.md`.
 
-The current explicit repository quality inventory is **54 PHP review suites** and **10 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. The permanent current-cycle regression suites include `sixth-fresh-twenty-round-contracts.php` and `seventh-fresh-idempotency-runtime-contracts.php`.
+The current explicit repository quality inventory is **55 PHP review suites** and **10 JavaScript syntax entry points**, plus shell/CSS/accessibility/hygiene checks, exact staged-source manifest validation and deterministic double-build packaging. The permanent current-cycle regression suites include `sixth-fresh-twenty-round-contracts.php` and `seventh-fresh-idempotency-runtime-contracts.php`.
 
 Sixth-cycle corrections protect File-00/09 identity truth from presentation overrides, require caller-owned message/Smail retry identities, keep hidden messages out of private search/context, bind transfer idempotency to exact request semantics, make Future privacy progress failure-safe, restore exact Sabri Meet migration-version rollback truth, cover standalone Messages with File-17 UI hardening, and close release-test/package inventory gaps.
 
