@@ -1,4 +1,11 @@
-# Architecture — File 17 — runtime 2.0.2
+# Architecture — File 17 — runtime 2.1.0
+
+> **Version interpretation (reviewed 2026-10-19):** This document records the
+> architectural foundation established in the 2.0.2 line, including historical
+> references below. The current GitHub plugin runtime is **2.1.0**, as declared
+> in `sabri-network.php`. The later 2.1.0 canonical messaging, Future-24,
+> migration/privacy hardening and CF-01 contracts supplement the foundations
+> described here. Neither this document nor CI establishes live deployment.
 
 ## Canonical ownership
 
@@ -139,4 +146,4 @@ Canonical tables use the WordPress prefix and `sn_` namespace. Important invaria
 
 ## Release truth
 
-Runtime 2.0.2 is a repository code/package/automated-QA candidate after four independent plan reviews. The Top-20 plan distinguishes `NOW`, `NEXT`, and `SCALE`; this release must not misrepresent provider-dependent or later-wave capabilities as already live merely because their governance boundary exists. Hostinger staging, real companion plugins/roles/providers, browser/device/RTL/accessibility/load/security acceptance, backup/restore, rollback rehearsal, Founder approval, live deployment and operational monitoring remain separate statuses.
+The 2.0.2 line supplied an earlier repository architecture baseline; the audited GitHub main plugin version is now 2.1.0. Prior source references to runtime 2.0.2 are historical implementation context, not a current release-version claim. The Top-20 plan distinguishes `NOW`, `NEXT`, and `SCALE`; this release must not misrepresent provider-dependent or later-wave capabilities as already live merely because their governance boundary exists. Hostinger staging, real companion plugins/roles/providers, browser/device/RTL/accessibility/load/security acceptance, backup/restore, rollback rehearsal, Founder approval, live deployment and operational monitoring remain separate statuses.

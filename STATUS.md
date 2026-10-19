@@ -1,10 +1,21 @@
+# Current GitHub-only evidence checkpoint — 2026-10-19
+
+- Audited `main` HEAD: `8ae656e51796d1f05865d8be5dca2480443d79ca`.
+- That **immutable old HEAD** passed workflow `36077208413` (PHP 8.1 boundary and PHP 8.3 full quality/deterministic package), created 2026-09-25 00:22:06 UTC.
+- A subsequent correction branch changes documentation, the quality guard and the audit record. **Its own exact-head CI and package remain pending until separately verified**; never reuse the old green result.
+- The former root `CHECKSUMS.sha256` was a historical 59-entry list, not a current 2.1.0 package manifest; archived under `historical/`. The current release authority is the generated staged `MANIFEST.sha256` plus exact-commit ZIP hash.
+- Staging / deployed version / database / migration / operational state: **unverified**. No production-resolution claim.
+- 40 **thematic repository static inspections**, not 40 end-to-end executions or 40 independent complete code sweeps, are documented in `FILE17-2026-10-19-40-CHECK-EVIDENCE.md`.
+
+---
+
 # Repository Status
 
 **Target:** File 17 — Sabri Network and Messages 2.1.0  
-**State:** sixth fresh 20-round sequential review completed; exact-head CI/package evidence pending until the final branch head passes  
+**Historical sixth-cycle state (as written 2026-08-18):** sixth fresh 20-round sequential review completed; exact-head CI/package evidence was then pending  
 **Frozen starting source:** `a3a435b162167c9078ded22b08d6c8fb39b6ca27`  
-**Configured explicit PHP review suites:** **53**  
-**JavaScript syntax entry points:** **9**  
+**Configured explicit PHP review suites:** **56**  
+**JavaScript syntax entry points:** **10**  
 **Staging/live/operational:** pending / unverified
 
 ## Governing audit set

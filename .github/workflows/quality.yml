@@ -44,6 +44,7 @@ jobs:
           done
           node --check sabri-network/assets/js/future-superset.js
           node --check sabri-network/assets/js/fifth-fresh-ui.js
+          node --check sabri-network/assets/js/round20-correction.js
           python3 - <<'PY'
           from pathlib import Path
           css=Path('sabri-network/assets/css/future-superset.css').read_text(encoding='utf-8')
@@ -83,6 +84,8 @@ jobs:
           run_test fifth-fresh-closure-contracts.php
           run_test fifth-fresh-release-truth-contracts.php
           run_test sixth-fresh-twenty-round-contracts.php
+          run_test seventh-fresh-idempotency-runtime-contracts.php
+          run_test eighth-fresh-future-idempotency-runtime-contracts.php
           run_test file03-profile-contracts.php
 
   quality-and-package:
@@ -116,6 +119,7 @@ jobs:
           set -o pipefail
           node --check sabri-network/assets/js/future-superset.js
           node --check sabri-network/assets/js/fifth-fresh-ui.js
+          node --check sabri-network/assets/js/round20-correction.js
           if ! bash sabri-network/tools/quality-check.sh 2>&1 | tee /tmp/file17-quality.log; then
             tail -n 80 /tmp/file17-quality.log | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::error file=sabri-network\/tools\/quality-check.sh::/'
             exit 1

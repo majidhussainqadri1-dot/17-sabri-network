@@ -29,6 +29,13 @@ final class SN_Attachment_Runtime_Hardening {
         $attachment_id = absint(get_query_var(self::PRIVATE_QUERY_VAR));
         if (!$attachment_id && isset($_GET[self::PRIVATE_QUERY_VAR])) $attachment_id = absint(wp_unslash($_GET[self::PRIVATE_QUERY_VAR]));
         if ($attachment_id <= 0) return;
+        // This early integrity hook runs before the protected download handler.
+        // Do not query or hash private bytes before authenticating the viewer.
+        if (!is_user_logged_in()) return;
+        $user_id = get_current_user_id();
+        $nonce = sanitize_text_field(wp_unslash((string) ($_GET['sn_file_nonce'] ?? '')));
+        if (!wp_verify_nonce($nonce, 'sn_private_file_' . $attachment_id . '_' . $user_id)) return;
+        if (!SN_DB::user_can_access_attachment($attachment_id, $user_id)) return;
         global $wpdb;
         $row = $wpdb->get_row($wpdb->prepare('SELECT id,storage_key,sha256,deleted_at FROM ' . SN_DB::table('attachments') . ' WHERE id=%d', $attachment_id));
         if (!$row || $row->deleted_at !== null) return;

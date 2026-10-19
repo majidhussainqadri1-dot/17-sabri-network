@@ -44,14 +44,11 @@ final class SN_Future_Superset {
         'F17-FUT-24'=>['slug'=>'interop-gateway','phase'=>'advanced-trust','provider'=>'interop','label'=>'Standards-Based Interoperability Gateway'],
     ]; }
 
+    /** Caller-owned identity: identical payloads are not necessarily the same operation. */
     private static function client(WP_REST_Request $request, int $user_id, string $purpose): string {
         $candidate = strtolower(trim((string) $request->get_param('client_id')));
-        if (preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $candidate)) return $user_id . ':' . $purpose . ':' . $candidate;
-        $params = $request->get_params(); unset($params['client_id']);
-        $normalize = static function (&$value) use (&$normalize): void { if (!is_array($value)) return; if (!array_is_list($value)) ksort($value, SORT_STRING); foreach ($value as &$nested) $normalize($nested); unset($nested); };
-        $normalize($params);
-        $json = wp_json_encode($params, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        return $user_id . ':' . $purpose . ':auto-' . substr(hash('sha256', (string) $json), 0, 48);
+        if (!preg_match('/^[a-z0-9][a-z0-9._:-]{7,63}$/', $candidate)) return '';
+        return $user_id . ':' . $purpose . ':' . $candidate;
     }
 
     public static function cleanup(): void {

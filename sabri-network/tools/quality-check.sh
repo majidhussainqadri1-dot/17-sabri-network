@@ -31,6 +31,23 @@ required=(
 for file in "${required[@]}"; do test -f "$file" || { echo "Missing required file: $file" >&2; exit 1; }; done
 echo 'Required canonical surfaces: PASS'
 
+echo '== Versioned release metadata and checksum authority =='
+python3 - <<'PY'
+from pathlib import Path
+root = Path('.')
+plugin = (root / 'sabri-network.php').read_text(encoding='utf-8')
+version_lines = [line.split('Version:', 1)[1].strip() for line in plugin.splitlines() if 'Version:' in line]
+assert version_lines, 'Plugin version missing'
+version = version_lines[0]
+manifest = (root / '../MANIFEST.md').read_text(encoding='utf-8')
+architecture = (root / 'ARCHITECTURE.md').read_text(encoding='utf-8')
+assert 'Integrity Authority (runtime ' + version + ')' in manifest, 'Release manifest version drift'
+assert architecture.startswith('# Architecture — File 17 — runtime ' + version), 'Architecture version drift'
+assert not (root / '../CHECKSUMS.sha256').exists(), 'Obsolete root checksum inventory must remain archived'
+assert 'MANIFEST.sha256' in (root / 'tools/package.sh').read_text(encoding='utf-8'), 'Build manifest generation missing'
+print('Release metadata / integrity authority: PASS (' + version + ')')
+PY
+
 echo '== PHP syntax =='
 php_count=0
 while IFS= read -r -d '' file; do
@@ -41,7 +58,14 @@ done < <(find . -path './build' -prune -o -name '*.php' -type f -print0 | sort -
 (( php_count >= 90 )) || { echo "Unexpected PHP inventory contraction: $php_count" >&2; exit 1; }
 
 echo '== JavaScript and shell syntax =='
-js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js)
+js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js assets/js/round20-correction.js)
+mapfile -t discovered_js < <(find assets/js -maxdepth 1 -type f -name '*.js' -print | LC_ALL=C sort)
+mapfile -t declared_js < <(printf '%s\n' "${js_files[@]}" | LC_ALL=C sort -u)
+if [[ "$(printf '%s\n' "${discovered_js[@]}")" != "$(printf '%s\n' "${declared_js[@]}")" ]]; then
+  echo 'JavaScript source inventory differs from the syntax-checked release entry points.' >&2
+  diff -u <(printf '%s\n' "${discovered_js[@]}") <(printf '%s\n' "${declared_js[@]}") >&2 || true
+  exit 1
+fi
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
@@ -66,7 +90,7 @@ tests=(
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
  two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php fourth-fresh-twenty-round-contracts.php
  fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php fifth-fresh-closure-contracts.php fifth-fresh-release-truth-contracts.php
- sixth-fresh-twenty-round-contracts.php file03-profile-contracts.php
+ sixth-fresh-twenty-round-contracts.php seventh-fresh-idempotency-runtime-contracts.php eighth-fresh-future-idempotency-runtime-contracts.php file03-profile-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)

@@ -21,7 +21,7 @@
 - Added `sixth-fresh-twenty-round-contracts.php`, restored omitted fifth closure/release-truth suites to the full gate, and required the sixth runtime privacy layer in quality/package surfaces.
 
 ### Current quality and release truth
-- Current explicit full quality inventory is **53 PHP review suites** and **9 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
+- Current explicit full quality inventory is **53 PHP review suites** and **10 JavaScript syntax entry points**, plus PHP 8.1/8.3 syntax, shell/CSS/accessibility/hygiene, exact staged-source manifest and deterministic double-build gates.
 - Current deterministic artifact name remains `17-sabri-network-and-messages-2.1.0.zip`.
 - Provider-dependent/high-risk capabilities remain fail-closed until their separate provider/security/staging acceptance gates pass.
 - Historical review evidence remains historical; staging, live and operational acceptance remain separate external gates.
