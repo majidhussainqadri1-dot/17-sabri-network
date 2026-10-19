@@ -14,6 +14,11 @@ find "$STAGE/sabri-network" -type f -name '*.php' -print0 | sort -z | xargs -0 -
 for file in network.js meet.js messages.js message-search.js smail.js file-transfer.js two-plan-ui.js future-superset.js fifth-fresh-ui.js round20-correction.js; do
   node --check "$STAGE/sabri-network/assets/js/$file"
 done
+# Also inspect every staged entry: a newly shipped browser script must never
+# silently bypass syntax validation before the governed ZIP is produced.
+for source_file in "$STAGE/sabri-network/assets/js/"*.js; do
+  node --check "$source_file"
+done
 grep -q 'Version: 2.1.0' "$STAGE/sabri-network/sabri-network.php"
 grep -q "define('SN_CF01_COMMUNICATION_CONTEXT_VERSION', '1.0.0')" "$STAGE/sabri-network/sabri-network.php"
 required=(
