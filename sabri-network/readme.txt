@@ -20,7 +20,7 @@ The independent 18 August 2026 cycle froze reviewed source a3a435b162167c9078ded
 
 Defect rounds: R2, R5, R6, R8, R9, R12, R18, R19, R20. Clean rounds: R1, R3, R4, R7, R10, R11, R13, R14, R15, R16, R17.
 
-The current explicit QA gate contains 53 PHP review suites and 9 JavaScript syntax entry points. The permanent current-cycle regression suite is sixth-fresh-twenty-round-contracts.php. Current hardening protects canonical identity truth, caller-owned message/Smail idempotency, private-search hidden-state visibility, transfer semantic idempotency binding, privacy retry progress, migration rollback truth, standalone Messages UI governance and complete release/package inventory.
+The current explicit QA gate contains 53 PHP review suites and 10 JavaScript syntax entry points. The permanent current-cycle regression suite is sixth-fresh-twenty-round-contracts.php. Current hardening protects canonical identity truth, caller-owned message/Smail idempotency, private-search hidden-state visibility, transfer semantic idempotency binding, privacy retry progress, migration rollback truth, standalone Messages UI governance and complete release/package inventory.
 
 == Installation ==
 Install and test on staging. Connect current identity authority, private storage, approved malware/media scanner, File 19 notification fabric, File 20 shell, File 26 federated-search consumer where applicable, approved translation/call/AI/interoperability providers and accepted companion contracts. Complete fresh-install/upgrade/migration, restore/decrypt/key-rotation, rollback, security/privacy, accessibility, real-role, browser/device, load and backup/restore acceptance before live deployment.
@@ -29,7 +29,7 @@ Install and test on staging. Connect current identity authority, private storage
 = 2.1.0 =
 * Current repository corrective line for the governing central plan, File 17 plan and approved Future Communication Superset 24.
 * Sixth fresh 20-round review corrects canonical identity projection truth, caller-owned message/Smail retry identity, hidden-message search visibility, transfer semantic idempotency, Future privacy progress, Meet migration rollback truth, standalone Messages UI governance and release-test/package inventory.
-* Current explicit quality inventory: 53 PHP review suites plus 9 JavaScript syntax entry points, deterministic source manifest and byte-for-byte package reproduction.
+* Current explicit quality inventory: 53 PHP review suites plus 10 JavaScript syntax entry points, deterministic source manifest and byte-for-byte package reproduction.
 
 = 2.0.3 =
 * Historical forty-round corrective line; see repository audit ledger for its exact evidence.
