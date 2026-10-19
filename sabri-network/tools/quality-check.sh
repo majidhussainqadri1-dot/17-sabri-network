@@ -34,10 +34,20 @@ echo 'Required canonical surfaces: PASS'
 echo '== Versioned release metadata and checksum authority =='
 python3 - <<'PY'
 from pathlib import Path
-import re
-root=Path('.')
-plugin=(root/'sabri-network.php').read_text(encoding='utf-8')
-match=re.search(r'(?m)^\s*\*\s*Version:\s*(\d+\.\d+\.\d+)\s*
+root = Path('.')
+plugin = (root / 'sabri-network.php').read_text(encoding='utf-8')
+version_lines = [line.split('Version:', 1)[1].strip() for line in plugin.splitlines() if 'Version:' in line]
+assert version_lines, 'Plugin version missing'
+version = version_lines[0]
+manifest = (root / '../MANIFEST.md').read_text(encoding='utf-8')
+architecture = (root / 'ARCHITECTURE.md').read_text(encoding='utf-8')
+assert 'Integrity Authority (runtime ' + version + ')' in manifest, 'Release manifest version drift'
+assert architecture.startswith('# Architecture — File 17 — runtime ' + version), 'Architecture version drift'
+assert not (root / '../CHECKSUMS.sha256').exists(), 'Obsolete root checksum inventory must remain archived'
+assert 'MANIFEST.sha256' in (root / 'tools/package.sh').read_text(encoding='utf-8'), 'Build manifest generation missing'
+print('Release metadata / integrity authority: PASS (' + version + ')')
+PY
+
 echo '== PHP syntax =='
 php_count=0
 while IFS= read -r -d '' file; do
