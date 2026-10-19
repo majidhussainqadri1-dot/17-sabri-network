@@ -15,7 +15,7 @@
 **Historical sixth-cycle state (as written 2026-08-18):** sixth fresh 20-round sequential review completed; exact-head CI/package evidence was then pending  
 **Frozen starting source:** `a3a435b162167c9078ded22b08d6c8fb39b6ca27`  
 **Configured explicit PHP review suites:** **53**  
-**JavaScript syntax entry points:** **9**  
+**JavaScript syntax entry points:** **10**  
 **Staging/live/operational:** pending / unverified
 
 ## Governing audit set
