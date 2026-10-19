@@ -58,7 +58,7 @@ done < <(find . -path './build' -prune -o -name '*.php' -type f -print0 | sort -
 (( php_count >= 90 )) || { echo "Unexpected PHP inventory contraction: $php_count" >&2; exit 1; }
 
 echo '== JavaScript and shell syntax =='
-js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js)
+js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js/message-search.js assets/js/smail.js assets/js/file-transfer.js assets/js/two-plan-ui.js assets/js/future-superset.js assets/js/fifth-fresh-ui.js assets/js/round20-correction.js)
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
