@@ -84,6 +84,7 @@ jobs:
           run_test fifth-fresh-closure-contracts.php
           run_test fifth-fresh-release-truth-contracts.php
           run_test sixth-fresh-twenty-round-contracts.php
+          run_test seventh-fresh-idempotency-runtime-contracts.php
           run_test file03-profile-contracts.php
 
   quality-and-package:
