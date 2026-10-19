@@ -34,6 +34,11 @@ trait SN_File_Transfer_Part_2 {
             }
             return rest_ensure_response(['transfer' => self::format($existing, $sender_id), 'duplicate' => true]);
         }
+        // Fail closed before reserving a persistent transfer session.
+        // Existing idempotent transfers have already been reconciled above.
+        if (!self::ensure_storage()) {
+            return new WP_Error('transfer_storage_unavailable', 'Private encrypted transfer storage is unavailable.', ['status' => 503]);
+        }
         $daily_limit = max(self::MAX_FILE_BYTES, (int) apply_filters('sn_network_daily_transfer_bytes', 3 * self::MAX_FILE_BYTES, $sender_id));
         $today = gmdate('Y-m-d 00:00:00');
         $used = (int) $wpdb->get_var($wpdb->prepare('SELECT COALESCE(SUM(total_bytes),0) FROM ' . self::sessions_table() . ' WHERE sender_id=%d AND created_at>=%s AND status NOT IN (\'rejected\',\'revoked\',\'expired\')', $sender_id, $today));
