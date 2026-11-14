@@ -5,7 +5,52 @@ trait SN_Future_Superset_Part_2 {
     public static function message_versions(WP_REST_Request $r): WP_REST_Response|WP_Error {global $wpdb;$mid=absint($r['id']);$m=self::message_row($mid);$u=get_current_user_id();if(!$m||!empty($m->deleted_at)||!self::conversation_member((int)$m->conversation_id,$u)||SN_Message_Operations::is_hidden($u,$mid))return self::not_found();$rows=$wpdb->get_results($wpdb->prepare('SELECT * FROM '.self::versions_table().' WHERE message_id=%d ORDER BY revision DESC LIMIT 50',$mid));$out=[];foreach(is_array($rows)?$rows:[] as $x){$p=SN_Communication_Crypto::decrypt((string)$x->body_cipher,'future-message-version|'.$mid.'|'.(int)$x->revision);if(!is_wp_error($p))$out[]=['revision'=>(int)$x->revision,'body'=>$p,'editor_id'=>(int)$x->editor_id,'created_at'=>(string)$x->created_at];}return rest_ensure_response(['message_id'=>$mid,'versions'=>$out]);}
 
     public static function bulk_conversations(WP_REST_Request $r): WP_REST_Response|WP_Error {
-        global $wpdb;$u=get_current_user_id();$ids=array_slice(array_values(array_unique(array_filter(array_map('absint',(array)$r->get_param('conversation_ids'))))),0,100);$act=self::enum((string)$r->get_param('action'),['archive','unarchive','mute','unmute','mark_read','mark_unread','label','assign','export_request'],'');if(!$ids||$act==='')return self::error('sn_bulk_invalid','Select conversations and a supported operation.',400);$params=[];if($act==='label')$params['label']=mb_substr(sanitize_text_field((string)$r->get_param('label')),0,80);if($act==='assign'){$params['assignee_id']=absint($r->get_param('assignee_id'));if($params['assignee_id']<=0)return self::error('sn_bulk_assignee_required','Select an assignee.',400);}$data=['action'=>$act,'conversation_ids'=>$ids,'params'=>$params,'preview'=>rest_sanitize_boolean($r->get_param('preview')),'cursor'=>0,'results'=>[],'requested_at'=>self::now()];$id=self::create_record('F17-FUT-10',$u,'user',$u,$data,self::client($r,$u,'bulk-conversations'),gmdate('Y-m-d H:i:s',time()+7*DAY_IN_SECONDS),'queued');if(is_wp_error($id))return $id;$row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-10' AND owner_id=%d AND scope_type='user'",$id,$u));$stored=$row?self::decode($row):$data;return new WP_REST_Response(['job_id'=>$id,'state'=>$row?(string)$row->state:'queued','action'=>$act,'preview'=>(bool)$data['preview'],'progress'=>is_wp_error($stored)?0:(int)($stored['cursor']??0),'total'=>count($ids)],202);
+        global $wpdb;
+        $u=get_current_user_id();
+        $ids=array_slice(array_values(array_unique(array_filter(array_map('absint',(array)$r->get_param('conversation_ids'))))),0,100);
+        $act=self::enum((string)$r->get_param('action'),
+            ['archive','unarchive','mute','unmute','mark_read','mark_unread','label','assign','export_request'],'');
+        if(!$ids||$act==='')return self::error('sn_bulk_invalid','Select conversations and a supported operation.',400);
+        $params=[];
+        if($act==='label')$params['label']=mb_substr(sanitize_text_field((string)$r->get_param('label')),0,80);
+        if($act==='assign'){
+            $params['assignee_id']=absint($r->get_param('assignee_id'));
+            if($params['assignee_id']<=0)return self::error('sn_bulk_assignee_required','Select an assignee.',400);
+            $reason=mb_substr(sanitize_textarea_field(wp_unslash((string)$r->get_param('handoff_reason'))),0,500);
+            if($reason==='')return self::error('sn_bulk_handoff_reason_required','Bulk assignment requires a reasoned handoff.',400);
+            $versions=$r->get_param('expected_versions');
+            if(!is_array($versions))return self::error('sn_bulk_handoff_versions_required','Refresh every selected inbox and provide its exact expected version.',400);
+            $expected=[];
+            foreach($ids as $c){
+                $value=$versions[(string)$c]??$versions[$c]??null;
+                $v=absint($value);
+                if($v<=0)return self::error('sn_bulk_handoff_versions_required','Every selected team inbox needs an existing expected version.',400);
+                $expected[(string)$c]=$v;
+            }
+            $params['handoff_reason']=$reason;
+            $params['expected_versions']=$expected;
+            $raw_sla=trim((string)$r->get_param('sla_due_at'));
+            if($raw_sla!==''){
+                $ts=strtotime($raw_sla);
+                if($ts===false||$ts<=time()||$ts>time()+90*DAY_IN_SECONDS)
+                    return self::error('sn_bulk_handoff_sla_invalid','Choose an SLA time within the next 90 days.',400);
+                $params['sla_due_at']=gmdate('Y-m-d H:i:s',$ts);
+            }
+        }
+        $data=['action'=>$act,'conversation_ids'=>$ids,'params'=>$params,
+            'preview'=>rest_sanitize_boolean($r->get_param('preview')),
+            'cursor'=>0,'results'=>[],'requested_at'=>self::now()];
+        $id=self::create_record('F17-FUT-10',$u,'user',$u,$data,
+            self::client($r,$u,'bulk-conversations'),gmdate('Y-m-d H:i:s',time()+7*DAY_IN_SECONDS),'queued');
+        if(is_wp_error($id))return $id;
+        $row=$wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-10' AND owner_id=%d AND scope_type='user'",$id,$u));
+        $stored=$row?self::decode($row):$data;
+        return new WP_REST_Response([
+            'job_id'=>$id,'state'=>$row?(string)$row->state:'queued',
+            'action'=>$act,'preview'=>(bool)$data['preview'],
+            'progress'=>is_wp_error($stored)?0:(int)($stored['cursor']??0),'total'=>count($ids)
+        ],202);
     }
     public static function bulk_job_status(WP_REST_Request $r): WP_REST_Response|WP_Error {global $wpdb;$u=get_current_user_id();$id=absint($r['id']);$row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-10' AND owner_id=%d AND scope_type='user'",$id,$u));if(!$row)return self::not_found();$d=self::decode($row);if(is_wp_error($d))return $d;return rest_ensure_response(['job_id'=>$id,'state'=>(string)$row->state,'action'=>(string)($d['action']??''),'preview'=>(bool)($d['preview']??false),'progress'=>(int)($d['cursor']??0),'total'=>count((array)($d['conversation_ids']??[])),'results'=>(array)($d['results']??[])]);}
     public static function cancel_bulk_job(WP_REST_Request $r): WP_REST_Response|WP_Error {global $wpdb;$u=get_current_user_id();$id=absint($r['id']);$row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-10' AND owner_id=%d AND scope_type='user'",$id,$u));if(!$row)return self::not_found();if(in_array((string)$row->state,['completed','cancelled','failed'],true))return rest_ensure_response(['job_id'=>$id,'state'=>(string)$row->state]);if((string)$row->state==='processing')return self::error('sn_bulk_job_busy','The current chunk is being processed; retry cancellation after this bounded chunk finishes.',409);$ok=$wpdb->update(self::records_table(),['state'=>'cancelled','updated_at'=>self::now(),'version'=>(int)$row->version+1],['id'=>$id,'state'=>'queued','version'=>(int)$row->version]);return $ok===1?rest_ensure_response(['job_id'=>$id,'state'=>'cancelled']):self::error('sn_bulk_job_conflict','Bulk job changed before cancellation.',409);}
@@ -27,14 +72,73 @@ trait SN_Future_Superset_Part_2 {
             elseif(in_array($act,['archive','unarchive','mute','unmute'],true)){$field=str_contains($act,'archive')?'is_archived':'is_muted';$value=in_array($act,['archive','mute'],true)?1:0;$ok=$wpdb->update(SN_DB::table('members'),[$field=>$value],['conversation_id'=>$c,'user_id'=>$u,'left_at'=>null]);if($ok===false)throw new RuntimeException('preference_failed');}
             elseif($act==='label'){$label=mb_substr(sanitize_text_field((string)($params['label']??'')),0,80);$id=self::upsert_record('F17-FUT-10',$u,'conversation',$c,['subtype'=>'label','label'=>$label,'updated_by'=>$u],'bulk-label:'.$u.':'.$c,null);if(is_wp_error($id))throw new RuntimeException($id->get_error_code());}
             elseif($act==='assign'){
-                $wpdb->query('START TRANSACTION');
+                $reason=trim((string)($params['handoff_reason']??''));
+                $versions=is_array($params['expected_versions']??null)?$params['expected_versions']:[];
+                $expected=absint($versions[(string)$c]??$versions[$c]??0);
+                // Legacy queued jobs created without a reason/CAS version must
+                // fail closed; they are never silently upgraded into handoffs.
+                if($reason===''||$expected<=0)
+                    return ['conversation_id'=>$c,'status'=>'handoff_reason_or_version_required'];
+                if($wpdb->query('START TRANSACTION')===false)
+                    throw new RuntimeException('bulk_assign_transaction_failed');
                 try{
-                    $actor_member=$wpdb->get_row($wpdb->prepare('SELECT role FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$c,$u));if(!$actor_member||(!in_array((string)$actor_member->role,['owner','moderator'],true)&&!user_can($u,'manage_options')))throw new RuntimeException('bulk_assign_authority_changed');
-                    $target_member=$wpdb->get_var($wpdb->prepare('SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$c,$assignee));if(!$target_member)throw new RuntimeException('bulk_assign_target_changed');
-                    if(!has_filter('sn_network_team_inbox_delegation_allowed')||!(bool)apply_filters('sn_network_team_inbox_delegation_allowed',false,$c,$u,'manage')||!(bool)apply_filters('sn_network_team_inbox_delegation_allowed',false,$c,$assignee,'work'))throw new RuntimeException('bulk_assign_delegation_changed');
-                    $team=['enabled'=>true,'assignee_id'=>$assignee,'status'=>'open','updated_by'=>$u,'bulk_job_id'=>$job_id];$a=self::upsert_record('F17-FUT-05',0,'conversation',$c,$team,'team:'.$c,null);if(is_wp_error($a))throw new RuntimeException($a->get_error_code());$b=self::upsert_record('F17-FUT-06',0,'conversation',$c,['assignee_id'=>$assignee,'handoff_by'=>$u,'status'=>'open','bulk_job_id'=>$job_id],'assignment:'.$c,null);if(is_wp_error($b))throw new RuntimeException($b->get_error_code());
+                    $actor_member=$wpdb->get_row($wpdb->prepare(
+                        'SELECT role FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$c,$u));
+                    if(!$actor_member||(!in_array((string)$actor_member->role,['owner','moderator'],true)&&!user_can($u,'manage_options')))
+                        throw new RuntimeException('bulk_assign_authority_changed');
+                    $target_member=$wpdb->get_var($wpdb->prepare(
+                        'SELECT id FROM '.SN_DB::table('members').' WHERE conversation_id=%d AND user_id=%d AND left_at IS NULL LIMIT 1 FOR UPDATE',$c,$assignee));
+                    if(!$target_member)throw new RuntimeException('bulk_assign_target_changed');
+                    if(!has_filter('sn_network_team_inbox_delegation_allowed')
+                        ||!(bool)apply_filters('sn_network_team_inbox_delegation_allowed',false,$c,$u,'manage')
+                        ||!(bool)apply_filters('sn_network_team_inbox_delegation_allowed',false,$c,$assignee,'work'))
+                        throw new RuntimeException('bulk_assign_delegation_changed');
+
+                    $receipt_key='bulk-handoff-receipt:'.$job_id.':'.$c;
+                    $prior_receipt=$wpdb->get_row($wpdb->prepare(
+                        'SELECT * FROM '.self::records_table().' WHERE client_key=%s LIMIT 1 FOR UPDATE',hash('sha256',$receipt_key)));
+                    if($prior_receipt){
+                        $record=self::decode($prior_receipt);
+                        if(is_wp_error($record)
+                            ||(string)($record['subtype']??'')!=='handoff_receipt'
+                            ||(int)($record['bulk_job_id']??0)!==$job_id
+                            ||(int)($record['assignee_id']??0)!==$assignee
+                            ||(string)($record['handoff_reason']??'')!==$reason)
+                            throw new RuntimeException('bulk_handoff_receipt_conflict');
+                        if($wpdb->query('COMMIT')===false)throw new RuntimeException('bulk_assign_commit_failed');
+                        return ['conversation_id'=>$c,'status'=>'already_applied'];
+                    }
+
+                    $prior=$wpdb->get_row($wpdb->prepare(
+                        "SELECT * FROM ".self::records_table()." WHERE feature_id='F17-FUT-05' AND owner_id=0 AND scope_type='conversation' AND scope_id=%d AND state='active' ORDER BY id DESC LIMIT 1 FOR UPDATE",$c));
+                    if(!$prior||(int)$prior->version!==$expected)
+                        throw new RuntimeException('bulk_handoff_stale');
+                    $prior_data=self::decode($prior);
+                    if(is_wp_error($prior_data))throw new RuntimeException('bulk_handoff_decode_failed');
+                    $from=absint($prior_data['assignee_id']??0);
+                    $now=self::now();
+                    $team=['enabled'=>true,'assignee_id'=>$assignee,'status'=>'open',
+                        'updated_by'=>$u,'bulk_job_id'=>$job_id,'updated_at'=>$now];
+                    $a=self::upsert_record('F17-FUT-05',0,'conversation',$c,$team,'team:'.$c,null);
+                    if(is_wp_error($a))throw new RuntimeException($a->get_error_code());
+                    $b=self::upsert_record('F17-FUT-06',0,'conversation',$c,
+                        ['subtype'=>'assignment','assignee_id'=>$assignee,'previous_assignee_id'=>$from,
+                         'handoff_by'=>$u,'handoff_reason'=>$reason,'handoff_at'=>$now,
+                         'status'=>'open','bulk_job_id'=>$job_id,'team_version'=>$expected+1,
+                         'sla_due_at'=>(string)($params['sla_due_at']??'')],
+                        'assignment:'.$c,null);
+                    if(is_wp_error($b))throw new RuntimeException($b->get_error_code());
+                    $receipt=['subtype'=>'handoff_receipt','bulk_job_id'=>$job_id,'assignee_id'=>$assignee,
+                        'previous_assignee_id'=>$from,'handoff_by'=>$u,'handoff_reason'=>$reason,
+                        'handoff_at'=>$now,'team_version'=>$expected+1,
+                        'sla_due_at'=>(string)($params['sla_due_at']??'')];
+                    $receipt_id=self::create_record('F17-FUT-06',$u,'conversation',$c,$receipt,$receipt_key,null);
+                    if(is_wp_error($receipt_id))throw new RuntimeException($receipt_id->get_error_code());
                     if($wpdb->query('COMMIT')===false)throw new RuntimeException('bulk_assign_commit_failed');
-                }catch(Throwable $assignment_error){$wpdb->query('ROLLBACK');throw $assignment_error;}
+                }catch(Throwable $assignment_error){
+                    $wpdb->query('ROLLBACK');
+                    throw $assignment_error;
+                }
             }
             elseif($act==='export_request'){do_action('sn_network_conversation_export_requested',['owner'=>'file-17','conversation_id'=>$c,'requester_id'=>$u,'bulk_job_id'=>$job_id,'idempotency_key'=>'file17-bulk-export:'.$job_id.':'.$c]);}
             else return ['conversation_id'=>$c,'status'=>'unsupported'];
