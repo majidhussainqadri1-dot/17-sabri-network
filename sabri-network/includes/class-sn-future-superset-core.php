@@ -8,7 +8,70 @@ trait SN_Future_Superset_Core {
     public static function register_assets(): void {wp_register_style('sn-future-superset',SN_URL.'assets/css/future-superset.css',[],SN_VERSION);wp_register_script('sn-future-superset',SN_URL.'assets/js/future-superset.js',[],SN_VERSION,true);}
     public static function render_workspace(): string {if(!is_user_logged_in())return '<div class="snf-card"><p>Sign in to use advanced communication controls.</p></div>';wp_enqueue_style('sn-future-superset');wp_enqueue_script('sn-future-superset');wp_localize_script('sn-future-superset','SN_FUTURE_CONFIG',['restUrl'=>esc_url_raw(rest_url('sabri-network/v2/')),'nonce'=>wp_create_nonce('wp_rest')]);return '<section id="sn-future-workspace" class="snf-workspace" aria-labelledby="snf-title"><header><h2 id="snf-title">Advanced Communication</h2><p>24 governed File 17 enhancements. Provider-dependent capabilities remain unavailable until approved adapters are connected.</p></header><div id="snf-status" role="status">Loading capabilities…</div><div class="snf-grid"><form id="snf-lock-form" class="snf-card"><h3>Sensitive conversation lock</h3><label>Conversation ID<input name="conversation_id" type="number" min="1" required></label><label><input name="enabled" type="checkbox" checked> Require fresh step-up</label><button type="submit">Save lock policy</button></form><form id="snf-reminder-form" class="snf-card"><h3>Remind me later</h3><label>Conversation ID<input name="conversation_id" type="number" min="1" required></label><label>Reminder time<input name="remind_at" type="datetime-local" required></label><label>Label<input name="label" maxlength="191"></label><button type="submit">Create reminder</button></form><form id="snf-template-form" class="snf-card"><h3>Saved professional reply</h3><label>Title<input name="title" maxlength="120" required></label><label>Text<textarea name="body" maxlength="8000" required></textarea></label><button type="submit">Save template</button></form></div></section>';}
     public static function emit_contract(): void {do_action('sn_network_future_contract_registered',['owner'=>'file-17','schema_version'=>self::SCHEMA_VERSION,'feature_count'=>self::FEATURE_COUNT,'features'=>self::features(),'notification_owner'=>'file-19','global_search_owner'=>'file-26','private_message_search_owner'=>'file-17','ai_owner'=>'file-16','e2ee_claim'=>'provider-gated-audited-only']);}
-    private static function create_record(string $f,int $owner,string $type,int $scope,array $data,string $client,?string $expires,string $state='active'): int|WP_Error {global $wpdb;if($client==='')return self::error('sn_future_client_id_required','A caller-supplied idempotency key is required.',400);$json=wp_json_encode($data,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);if(!is_string($json)||strlen($json)>self::MAX_PAYLOAD_BYTES)return self::error('sn_future_payload_invalid','Advanced communication data is too large.',413);$cipher=SN_Communication_Crypto::encrypt($json,'future-record|'.$f.'|'.$owner.'|'.$type.'|'.$scope);if(is_wp_error($cipher))return $cipher;$key=hash('sha256',$client);$ok=$wpdb->insert(self::records_table(),['feature_id'=>$f,'owner_id'=>$owner,'scope_type'=>$type,'scope_id'=>$scope,'state'=>$state,'payload_cipher'=>$cipher,'client_key'=>$key,'expires_at'=>$expires,'created_at'=>self::now(),'updated_at'=>self::now()]);if($ok===false){$id=(int)$wpdb->get_var($wpdb->prepare('SELECT id FROM '.self::records_table().' WHERE client_key=%s',$key));return $id?:self::db_error();}return (int)$wpdb->insert_id;}
+    /**
+     * Caller retry IDs are stable identities, not a licence to change the
+     * requested operation. A duplicate key must agree with the original
+     * feature, subject and canonical request semantics before returning an ID.
+     */
+    private static function create_record(
+        string $f,int $owner,string $type,int $scope,array $data,
+        string $client,?string $expires,string $state='active'
+    ): int|WP_Error {
+        global $wpdb;
+        if ($client==='') return self::error('sn_future_client_id_required','A caller-supplied idempotency key is required.',400);
+        $json=wp_json_encode($data,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+        if (!is_string($json)||strlen($json)>self::MAX_PAYLOAD_BYTES)
+            return self::error('sn_future_payload_invalid','Advanced communication data is too large.',413);
+        $cipher=SN_Communication_Crypto::encrypt($json,'future-record|'.$f.'|'.$owner.'|'.$type.'|'.$scope);
+        if (is_wp_error($cipher)) return $cipher;
+        $key=hash('sha256',$client);
+        $ok=$wpdb->insert(self::records_table(),[
+            'feature_id'=>$f,'owner_id'=>$owner,'scope_type'=>$type,'scope_id'=>$scope,
+            'state'=>$state,'payload_cipher'=>$cipher,'client_key'=>$key,'expires_at'=>$expires,
+            'created_at'=>self::now(),'updated_at'=>self::now()
+        ]);
+        if ($ok!==false) return (int)$wpdb->insert_id;
+
+        // A unique-key collision may represent a safe retry, or a different
+        // creation with a reused client ID. Never silently conflate the two.
+        $existing=$wpdb->get_row($wpdb->prepare(
+            'SELECT * FROM '.self::records_table().' WHERE client_key=%s LIMIT 1',$key
+        ));
+        if (!is_object($existing)) return self::db_error();
+        if ((string)$existing->feature_id!==$f||(int)$existing->owner_id!==$owner
+            ||(string)$existing->scope_type!==$type||(int)$existing->scope_id!==$scope)
+            return self::error('sn_future_idempotency_conflict','This client key already identifies another communication operation.',409);
+        $stored=self::decode($existing);
+        if (is_wp_error($stored)) return $stored;
+        // Progress fields are generated after an accepted bulk job and must not
+        // convert a genuine retry of that same job into a changed request.
+        if ($f==='F17-FUT-10') {
+            foreach (['requested_at','cursor','results'] as $volatile) {
+                unset($stored[$volatile],$data[$volatile]);
+            }
+        }
+        if (!self::same_request_semantics($stored,$data))
+            return self::error('sn_future_idempotency_conflict','This client key was reused for different communication parameters.',409);
+        // FUT-07 reminder time is stored in expires_at rather than its payload.
+        // Reusing a key to create a reminder at a different time must conflict.
+        if ($f==='F17-FUT-07'&&(string)$existing->expires_at!==(string)$expires)
+            return self::error('sn_future_idempotency_conflict','A reminder client key cannot be reused for a different time.',409);
+        return (int)$existing->id>0?(int)$existing->id:self::db_error();
+    }
+
+    private static function same_request_semantics(array $first,array $second): bool {
+        $normalize=static function (&$value) use (&$normalize): void {
+            if(!is_array($value))return;
+            if(!array_is_list($value))ksort($value,SORT_STRING);
+            foreach($value as &$nested)$normalize($nested);
+            unset($nested);
+        };
+        $normalize($first);
+        $normalize($second);
+        $a=wp_json_encode($first,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+        $b=wp_json_encode($second,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+        return is_string($a)&&is_string($b)&&hash_equals(hash('sha256',$a),hash('sha256',$b));
+    }
     private static function upsert_record(string $f,int $owner,string $type,int $scope,array $data,string $client,?string $expires): int|WP_Error {global $wpdb;$row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE feature_id=%s AND owner_id=%d AND scope_type=%s AND scope_id=%d AND state<>'deleted' ORDER BY id DESC LIMIT 1",$f,$owner,$type,$scope));if(!$row)return self::create_record($f,$owner,$type,$scope,$data,$client,$expires);$json=wp_json_encode($data,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);$cipher=SN_Communication_Crypto::encrypt((string)$json,'future-record|'.$f.'|'.$owner.'|'.$type.'|'.$scope);if(is_wp_error($cipher))return $cipher;$ok=$wpdb->update(self::records_table(),['payload_cipher'=>$cipher,'expires_at'=>$expires,'state'=>'active','updated_at'=>self::now(),'version'=>(int)$row->version+1],['id'=>(int)$row->id,'version'=>(int)$row->version]);return $ok===1?(int)$row->id:self::error('sn_future_record_conflict','Advanced communication state changed before update.',409);}
     private static function active_record(string $f,int $owner,string $type,int $scope): ?object {global $wpdb;$x=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE feature_id=%s AND owner_id=%d AND scope_type=%s AND scope_id=%d AND state='active' ORDER BY id DESC LIMIT 1",$f,$owner,$type,$scope));return is_object($x)?$x:null;}
     private static function decode(object $x): array|WP_Error {$plain=SN_Communication_Crypto::decrypt((string)$x->payload_cipher,'future-record|'.(string)$x->feature_id.'|'.(int)$x->owner_id.'|'.(string)$x->scope_type.'|'.(int)$x->scope_id);if(is_wp_error($plain))return $plain;$d=json_decode($plain,true);return is_array($d)?$d:self::error('sn_future_record_invalid','Advanced communication data is invalid.',500);}
