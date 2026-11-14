@@ -88,6 +88,7 @@ jobs:
           run_test seventh-fresh-idempotency-runtime-contracts.php
           run_test eighth-fresh-future-idempotency-runtime-contracts.php
           run_test v12-3-team-inbox-atomicity-runtime-contracts.php
+          run_test v12-3-effective-handoff-route-runtime-contracts.php
           run_test file03-profile-contracts.php
 
   quality-and-package:
