@@ -27,7 +27,53 @@ trait SN_Future_Superset_Part_1 {
     public static function pre_dispatch($result,$server,WP_REST_Request $r){if($result!==null)return $result;$route=$r->get_route();if(!str_starts_with($route,'/sabri-network/v2/'))return $result;$u=get_current_user_id();if($u<=0)return $result;$c=0;$m=null;if(preg_match('#/conversations/(\d+)#',$route,$x))$c=(int)$x[1];elseif(preg_match('#/messages/(\d+)#',$route,$x)){$m=self::message_row((int)$x[1]);$c=$m?(int)$m->conversation_id:0;}elseif(preg_match('#/future/team-inbox/(\d+)#',$route,$x))$c=(int)$x[1];if($c<=0&&in_array($route,['/sabri-network/v2/future/e2ee-policy','/sabri-network/v2/future/reminders','/sabri-network/v2/future/citations','/sabri-network/v2/future/case-discussions','/sabri-network/v2/future/ai-assistant','/sabri-network/v2/future/semantic-search','/sabri-network/v2/future/interop'],true))$c=absint($r->get_param('conversation_id'));if($c<=0)return $result;$lock=self::active_record('F17-FUT-04',$u,'conversation',$c);if($lock){$d=self::decode($lock);if(!is_wp_error($d)&&!empty($d['enabled'])&&!(bool)apply_filters('sn_network_step_up_verified',false,$u,$c,'conversation_lock',(int)($d['step_up_ttl']??900)))return self::error('sn_conversation_step_up_required','This sensitive conversation requires fresh step-up verification.',403);}if($r->get_method()==='POST'&&preg_match('#^/sabri-network/v2/messages/\d+$#',$route)&&$m&&self::conversation_member($c,$u)&&!SN_Message_Operations::is_hidden($u,(int)$m->id)&&SN_Policy::can_edit_message($m,$u)){$new=trim(sanitize_textarea_field(wp_unslash((string)$r->get_param('body'))));$old=SN_Message_Body::decrypt_row($m);if(!is_wp_error($old)&&$new!==''&&hash('sha256',$old)!==hash('sha256',$new)){$id=self::capture_message_version($m,$u);if(is_wp_error($id))return $id;$r->set_param('_sn_future_snapshot_id',(int)$id);}}return $result;}
     public static function post_dispatch($response,$server,WP_REST_Request $r){$id=absint($r->get_param('_sn_future_snapshot_id'));if($id>0&&method_exists($response,'get_status')&&(int)$response->get_status()>=400){global $wpdb;$wpdb->delete(self::versions_table(),['id'=>$id],['%d']);}return $response;}
     public static function get_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_member($c,$u))return self::not_found();$row=self::active_record('F17-FUT-05',0,'conversation',$c);$d=$row?self::decode($row):[];return is_wp_error($d)?$d:rest_ensure_response(['conversation_id'=>$c,'team_inbox'=>$d?:['enabled'=>false,'assignee_id'=>0,'status'=>'open']]);}
-    public static function set_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_manager($c,$u))return self::error('forbidden','Conversation management permission is required.',403);$a=absint($r->get_param('assignee_id'));if($a&&!self::conversation_member($c,$a))return self::error('sn_assignment_member_required','The assignee must be an active conversation member.',409);$d=['enabled'=>rest_sanitize_boolean($r->get_param('enabled')),'assignee_id'=>$a,'status'=>self::enum((string)$r->get_param('status'),['open','pending','resolved'],'open'),'updated_by'=>$u];$id=self::upsert_record('F17-FUT-05',0,'conversation',$c,$d,'team:'.$c,null);if(is_wp_error($id))return $id;self::upsert_record('F17-FUT-06',0,'conversation',$c,['assignee_id'=>$a,'handoff_by'=>$u,'status'=>$d['status']],'assignment:'.$c,null);return rest_ensure_response(['conversation_id'=>$c,'team_inbox'=>$d]);}
+    public static function set_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $c = absint($r['id']);
+        $u = get_current_user_id();
+        if (!self::conversation_manager($c, $u)) {
+            return self::error('forbidden', 'Conversation management permission is required.', 403);
+        }
+        $a = absint($r->get_param('assignee_id'));
+        if ($a && !self::conversation_member($c, $a)) {
+            return self::error('sn_assignment_member_required', 'The assignee must be an active conversation member.', 409);
+        }
+        $d = [
+            'enabled' => rest_sanitize_boolean($r->get_param('enabled')),
+            'assignee_id' => $a,
+            'status' => self::enum((string) $r->get_param('status'), ['open', 'pending', 'resolved'], 'open'),
+            'updated_by' => $u,
+        ];
+        // FUT-05 and FUT-06 represent one user-visible handoff; a partial write
+        // must never be acknowledged as success. Both records use the same DB.
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return self::error('sn_team_inbox_transaction_failed', 'Team inbox update could not start.', 503);
+        }
+        try {
+            $inbox_id = self::upsert_record('F17-FUT-05', 0, 'conversation', $c, $d, 'team:' . $c, null);
+            if (is_wp_error($inbox_id)) {
+                $wpdb->query('ROLLBACK');
+                return $inbox_id;
+            }
+            $assignment_id = self::upsert_record(
+                'F17-FUT-06', 0, 'conversation', $c,
+                ['assignee_id' => $a, 'handoff_by' => $u, 'status' => $d['status']],
+                'assignment:' . $c, null
+            );
+            if (is_wp_error($assignment_id)) {
+                $wpdb->query('ROLLBACK');
+                return $assignment_id;
+            }
+            if ($wpdb->query('COMMIT') === false) {
+                $wpdb->query('ROLLBACK');
+                return self::error('sn_team_inbox_transaction_failed', 'Team inbox update could not be committed.', 503);
+            }
+        } catch (Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            return self::error('sn_team_inbox_transaction_failed', 'Team inbox update failed safely.', 500);
+        }
+        return rest_ensure_response(['conversation_id' => $c, 'team_inbox' => $d]);
+    }
     public static function handoff_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$r->set_param('enabled',true);return self::set_team_inbox($r);}
     public static function create_reminder(WP_REST_Request $r): WP_REST_Response|WP_Error {$u=get_current_user_id();$at=self::future_time((string)$r->get_param('remind_at'),365*DAY_IN_SECONDS);if(is_wp_error($at))return $at;$c=absint($r->get_param('conversation_id'));if($c&&!self::conversation_member($c,$u))return self::not_found();$id=self::create_record('F17-FUT-07',$u,'conversation',$c,['message_id'=>absint($r->get_param('message_id')),'label'=>mb_substr(sanitize_text_field((string)$r->get_param('label')),0,191)],self::client($r,$u,'reminder'),$at);return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'remind_at'=>$at],201);}
     public static function list_reminders(): WP_REST_Response {return rest_ensure_response(['items'=>self::owned('F17-FUT-07',get_current_user_id())]);}
