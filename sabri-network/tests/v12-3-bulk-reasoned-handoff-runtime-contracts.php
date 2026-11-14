@@ -167,7 +167,8 @@ $again=$run->invoke(null,42,7,'assign',$params,false,301);
 $check(($again['status']??'')==='already_applied','Idempotent retry reports previously committed handoff');
 $check($wpdb->writes===$count,'Idempotent retry creates no duplicate receipt or assignment');
 
-$changed=$run->invoke(null,42,7,'assign',$params+['handoff_reason'=>'Altered'],false,301);
+$changed=$run->invoke(null,42,7,'assign',array_replace($params,['handoff_reason'=>'Altered']),false,301);
+$check(($changed['status']??'')==='failed','Conflicting job replay is rejected');
 $check($wpdb->writes===$count,'Reused job key cannot mutate prior transaction');
 
 $wpdb=new FakeBulkDB();$wpdb->seed();$wpdb->fail_receipt=true;
