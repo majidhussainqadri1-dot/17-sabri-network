@@ -13,23 +13,44 @@ final class SN_Future24_Review_Hardening_K {
     }
     public static function get_team_inbox(WP_REST_Request $r):WP_REST_Response|WP_Error{$conversation=absint($r['id']);$user=get_current_user_id();if(!self::delegated($conversation,$user,'view'))return self::not_found();$row=self::team_row($conversation);$data=$row?self::decode($row):['enabled'=>false,'assignee_id'=>0,'status'=>'open','version'=>0];if(is_wp_error($data))return $data;return rest_ensure_response(['conversation_id'=>$conversation,'team_inbox'=>$data,'version'=>$row?(int)$row->version:0,'delegation_revalidated'=>true]);}
     public static function set_team_inbox(WP_REST_Request $r):WP_REST_Response|WP_Error{
-        $conversation=absint($r['id']);$actor=get_current_user_id();$lock=self::lock($conversation);if(is_wp_error($lock))return$lock;
+        $conversation=absint($r['id']);$actor=get_current_user_id();
+        $lock=self::lock($conversation);if(is_wp_error($lock))return $lock;
         try{
-            if(!self::conversation_manager($conversation,$actor)||!self::delegated($conversation,$actor,'manage'))return self::error('forbidden','Current delegated team-inbox management authority is required.',403);
-            $assignee=absint($r->get_param('assignee_id'));
-            if($assignee&&!SN_DB::is_member($conversation,$assignee))return self::error('sn_assignment_member_required','The assignee must be a current conversation member.',409);
-            if($assignee&&!self::delegated($conversation,$assignee,'work'))return self::error('sn_assignment_delegation_required','The assignee lacks a current delegated work assertion.',403);
+            if(!self::conversation_manager($conversation,$actor)||!self::delegated($conversation,$actor,'manage'))
+                return self::error('forbidden','Current delegated team-inbox management authority is required.',403);
             $row=self::team_row($conversation);
             $expected=absint($r->get_param('expected_version'));
-            // Creation is explicitly version 0. Every mutation of an existing team
-            // inbox must name the exact version the client reviewed; omitting the
-            // version must never silently overwrite a newer assignee/status decision.
-            if($row&&$expected<=0)return self::error('sn_team_inbox_version_required','Refresh the team inbox and provide its expected version.',400);
-            if($row&&$expected!==(int)$row->version)return self::error('sn_team_inbox_stale','Team inbox changed; refresh before updating.',409);
-            if(!$row&&$expected!==0)return self::error('sn_team_inbox_stale','Team inbox state changed; refresh before creating it.',409);
-            $data=['enabled'=>rest_sanitize_boolean($r->get_param('enabled')),'assignee_id'=>$assignee,'status'=>self::enum((string)$r->get_param('status'),['open','pending','resolved'],'open'),'updated_by'=>$actor,'updated_at'=>current_time('mysql',true)];
+            if($row&&$expected<=0)
+                return self::error('sn_team_inbox_version_required','Refresh the team inbox and provide its expected version.',400);
+            if($row&&$expected!==(int)$row->version)
+                return self::error('sn_team_inbox_stale','Team inbox changed; refresh before updating.',409);
+            if(!$row&&$expected!==0)
+                return self::error('sn_team_inbox_stale','Team inbox state changed; refresh before creating it.',409);
+
+            $previous=$row?self::decode($row):['assignee_id'=>0];
+            if(is_wp_error($previous))return $previous;
+            $prior_assignee=absint($previous['assignee_id']??0);
+            // FUT-05 settings must not circumvent FUT-06's dedicated handoff
+            // transaction, reason, version-bound receipt and SLA governance.
+            // An omitted assignee is a settings-only update, not an unassignment.
+            $raw_assignee=$r->get_param('assignee_id');
+            $assignee=$raw_assignee===null?$prior_assignee:absint($raw_assignee);
+            if($assignee!==$prior_assignee)
+                return self::error('sn_handoff_endpoint_required','Assign or change staff through the dedicated handoff action with its required reason and receipt.',409);
+            if($assignee&&!SN_DB::is_member($conversation,$assignee))
+                return self::error('sn_assignment_member_required','The assignee must be a current conversation member.',409);
+            if($assignee&&!self::delegated($conversation,$assignee,'work'))
+                return self::error('sn_assignment_delegation_required','The assignee lacks a current delegated work assertion.',403);
+            $data=[
+                'enabled'=>rest_sanitize_boolean($r->get_param('enabled')),
+                'assignee_id'=>$assignee,
+                'status'=>self::enum((string)$r->get_param('status'),['open','pending','resolved'],'open'),
+                'updated_by'=>$actor,
+                'updated_at'=>current_time('mysql',true)
+            ];
             $saved=self::save_team($conversation,$row,$data);if(is_wp_error($saved))return $saved;
-            SN_DB::audit('future_team_inbox_updated','conversation',$conversation,'success',['assignee_id'=>$assignee,'status'=>$data['status'],'version'=>$saved['version']],$actor);
+            SN_DB::audit('future_team_inbox_updated','conversation',$conversation,'success',
+                ['assignee_id'=>$assignee,'status'=>$data['status'],'version'=>$saved['version']],$actor);
             return rest_ensure_response(['conversation_id'=>$conversation,'team_inbox'=>$data,'version'=>$saved['version']]);
         }finally{self::unlock($conversation);}
     }
