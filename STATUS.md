@@ -2,7 +2,7 @@
 
 ## V12.3 source development current snapshot — 15 November 2026
 
-**Current candidate:** 33 governed Advanced Communication forms; 57 PHP review/runtime suites + nine JS entry syntax checks + one Node DOM/fetch runtime suite; one additional read-only live freeze utility. These numbers are source/test inventories, NOT overall feature or production-readiness percentages. The earlier '27 controls' paragraph below is historical. The newer plan-to-code map is `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md`.
+**Current candidate:** 33 governed Advanced Communication forms; 58 PHP review/runtime suites + nine JS entry syntax checks + one Node DOM/fetch runtime suite; one additional read-only live freeze utility. These numbers are source/test inventories, NOT overall feature or production-readiness percentages. The earlier '27 controls' paragraph below is historical. The newer plan-to-code map is `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md`.
 
 **Source improvements:** backend transaction/CAS team assignment; reminder cancel/reschedule and File-19 handoff privacy/consent checks; owner-only allowlisted saved-reply preview (not sent); provider- and language-owner-gated opt-in AI translation; optional authorized conversation suggestions and read-only device key/history views. No new DB tables, no plugin-version bump, no live deployment. **External blockers:** WordPress connection (HTTP 530 on last check), real DB/migration freeze, verified 1 GiB/scanner/storage, E2EE audit, STUN/TURN/SFU, File16/20/19 adapters and full staging acceptance. Latest exact-branch CI and immutable package must be independently verified.
 
