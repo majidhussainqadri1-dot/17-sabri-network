@@ -131,8 +131,12 @@ trait SN_Future_Superset_Part_1 {
             if($type==='direct'){
                 $target=absint($r->get_param('user_id'));
                 if($target<=0){
-                    $members=(array)$r->get_param('member_ids');
-                    $target=absint($members[0]??0);
+                    // Use the same member normalization as the canonical
+                    // conversation creator; otherwise [self, peer] could bypass
+                    // the existing direct-chat lock lookup.
+                    $members=array_values(array_unique(array_filter(array_map('absint',(array)$r->get_param('member_ids')))));
+                    $members=array_values(array_diff($members,[$u]));
+                    $target=$members[0]??0;
                 }
                 if($target>0&&$target!==$u){
                     global $wpdb;
