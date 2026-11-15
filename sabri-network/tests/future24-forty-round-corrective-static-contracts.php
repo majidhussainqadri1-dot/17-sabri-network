@@ -60,4 +60,6 @@ $assert(!str_contains($advancedUI,"option.innerHTML"),'V12.3 suggestion titles m
 $assert(str_contains($advancedUI,'snf-lobby-read-form')&&str_contains($advancedUI,'snf-speaker-queue-read-form'),'V12.3: call lobby and speaker queue current-state views must remain accessible.');
 $assert(str_contains($advancedUI,'snf-network-quality-form')&&str_contains($advancedUI,'telemetry_consent'),'V12.3: network guidance must separate client measurements from optional telemetry storage consent.');
 $assert(str_contains($advancedUI,"number('packet_loss_pct',0,100)")&&str_contains($advancedUI,"number('jitter_ms',0,5000)"),'V12.3: network diagnostic form must reject out-of-range measurements before transport.');
+$savedViewOwner=$read('includes/class-sn-future24-review-hardening-a.php');
+$assert(str_contains($savedViewOwner,'SN_Future_Superset::sensitive_preview_access($user_id,$c)')&&str_contains($savedViewOwner,'if(is_wp_error($preview))return $preview;if(!$preview)continue;'),'V12.3: saved private smart views must fail closed and omit locked conversation metadata before listing.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
