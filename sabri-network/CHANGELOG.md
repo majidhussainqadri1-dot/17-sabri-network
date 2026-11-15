@@ -1,5 +1,14 @@
 # Changelog
 
+## V12.3 Security hardening follow-up — 2026-11-15 (unreleased)
+
+- Fail closed on corrupt conversation lock state and redact sensitive previews from locked conversation lists.
+- Serialize device-key registration/rotation and local audit-log append; reject and rollback unlogged changes.
+- Gate E2EE, key verification/transparency and other external features on evidence of approved providers, rather than code presence.
+- Paginate local device-key history and explicitly distinguish unsigned local audit from independently verified transparency proof.
+- Add four runtime test suites and full quality gate coverage. Not a live/deployment acceptance statement.
+
+
 ## V12.3 source candidate — third code/QA pass (15 November 2026; unreleased)
 
 - Increased advanced communication workspace to 33 governed controls; added current-authority conversation suggestions, device-key and key history read-only views without implying audited E2EE.
