@@ -125,3 +125,13 @@ This is **source-code / test-coverage** accounting. It does not classify failure
 A source/test pass only proves these diagnostics are coded; **no actual site snapshot has been collected** because the live WordPress connector remains unavailable. Schema columns and row-count estimates are needed to exclude stale migrations or partial deployments *before* asserting an application-code root cause. Runtime logs require a separately authorized, privacy-aware collection process.
 
 The stronger parity helper also verifies the exact proposed ZIP *itself*: every archive path must be in the embedded manifest, all decompressed archive bytes must hash identically, duplicate paths and symbolic-link entries are rejected, and then deployed source files are compared. These negative fixtures run synthetically in the full gate, without using user data.
+
+## Additional audit precision and negative regressions — 15 November 2026
+
+| ID | New verified source/test observation | Resolution in isolated PR | Live proof |
+| --- | --- | --- | --- |
+| SRC-08 | Freeze schema list used a SQL LIKE pattern in which underscores could match unrelated table names | Replaced the table-name match with an exact fixed-prefix equality on LEFT(TABLE_NAME, CHAR_LENGTH(prefix)); it remains read-only | Not run on live |
+| SRC-09 | Per-archive-member SHA-256 loop could skip the last manifest entry when it had no final newline | Changed the read loop to process a nonempty final line regardless of trailing newline; added a forged-last-member negative fixture | Not run on live |
+| TEST-02 | First attempted ZIP symlink fixture was malformed by a newline escaping error, caught by exact-commit CI shell syntax check | Replaced the whole test with a clean, deterministic fixture and reran quality checks; follow-up regressions added | Not a live bug |
+
+**Source review total in this increment:** nine distinct source/interface/audit gap identifiers SRC-01–SRC-09, all patched *in the PR*. **Test fixture errors:** two identified and corrected in the PR. **Validated live fixes:** zero. An exact-commit successful GitHub run, not a historical green run, remains the acceptance condition for repository QA; production requires separate staging and exact-live verification.
