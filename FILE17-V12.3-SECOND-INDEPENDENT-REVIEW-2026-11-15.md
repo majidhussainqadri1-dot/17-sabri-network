@@ -38,3 +38,27 @@
 | Operational | **NO** |
 
 Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+## Review A — corrections and exact-source retest (2026-11-15)
+- R07-01 fixed in `includes/class-sn-future-superset-part-1.php`, tested in `v12-3-reminder-authorized-create-runtime-contracts.php`: rejects orphan/nonmember/foreign/deleted/hidden/blocked/malformed targets before insert.
+- R07-02 partially mitigated in `includes/class-sn-future-superset.php`: absent File19 notification hook now retries instead of marking fired; failed finalization is not treated as successful. `v12-3-reminder-dispatch-failclosed-runtime-contracts.php` verifies missing-listener and retry stability. **Actual File19 durable acceptance is not demonstrated and remains an open integration blocker.**
+- R07-03 fixed in `includes/class-sn-future24-review-hardening-m.php`: reschedule and cancel require exact client expected_version; tested in `v12-3-reminder-versioned-mutations-runtime-contracts.php`.
+- Regression-discovered UX dependency R07-04 corrected: `SN_Future_Superset_Core::owned()` now includes `version` in list projections so the client can supply a real expected_version; assertion added to the authorized-create suite.
+- `main` not changed, no staging/live deployment.
+- **Exact correction head `6b09a8561ffdf46ced145eb308caf7027056b74c`**: GitHub Actions run `43664518846`, PHP 8.1 boundary **success**, PHP 8.3 full quality and reproducible package **success**. Current inventory **63 PHP suites, 10 JavaScript entry points**. This is automated-QA evidence only; not a WordPress/MySQL or File19 provider acceptance result.
+
+## Independent Review B — findings freeze before new changes
+Review lens: privacy-at-output, mid-request revocation, provider callbacks, stale state, cross-file authority and independent negative cases; focus on `SN_Fifth_Fresh_Knowledge_Hardening` (effective priority-3100 REST override) delegating to `SN_Future24_Review_Hardening_G` rather than auditing superseded legacy handlers.
+
+| ID | Severity | Proved code-path discrepancy | Bounded correction/test |
+|---|---|---|---|
+| F17-V123-AI-POST-01 | P1, private AI output after revocation | `G::ai_assistant()` validates member, File16 authorization, minor policy and selected message visibility **before** `apply_filters('sn_network_ai_assistant_result',...)`, but after the provider returns it immediately emits the result without a fresh owner/membership/selected-message check. Provider may take long enough for membership/approval or a message to change. | Recheck conversation membership, File16 governance and every selected message's deletion/hidden status **after** provider callback but **before** returning results; refuse stale context, never emit generated content on revoke. Runtime test simulates revocation inside provider. |
+| F17-V123-SEM-POST-02 | P1, private search result after mid-projection revoke | `G::semantic_search()` rechecks consent and membership after provider returns but before up to 50 DB projections, then emits accumulated snippets without a final check. A revoke during projection may make the returned private snippets stale. | Revalidate consent and member status immediately before emitting the result, including provenance of current message visibility as needed. Test simulates an authorization change during message retrieval. |
+| F17-V123-F19-ACK-OPEN | External integration blocker, **not a new code defect** | An installed `sn_network_notification_requested` action hook is not proof that File19 durably accepted the event or that the delivery transport succeeded. | Require File19 companion/staging acceptance and explicit durable delivery evidence before `Operational` status; do not invent File19 code or claim delivery. |
+
+**Review B count:** 2 proved additional source-level privacy timing gaps; 1 provider-contract blocker. Freeze this finding set before any new code edits. The previous A findings are not recounted.
+
+## Reviews/release controls
+Two distinct *source* review passes are documented. They do **not** constitute the V12.3 two complete **independent end-to-end reviews**, because staging, real database, cross-file provider, browser, accessibility, backup/restore and deployed-parity acceptance remain absent. No evidence from a previous successful source SHA may be reused for a later code change.
+
+Mandatory final fields: Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status.
