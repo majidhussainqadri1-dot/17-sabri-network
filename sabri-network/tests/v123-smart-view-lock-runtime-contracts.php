@@ -45,12 +45,15 @@ class SN_Future_Superset {
 class FakeDB {
     public string $prefix='wp_';
     public string $last_error='';
+    public bool $failedQuery=false;
     public function prepare(string $sql,mixed ...$args):string{return $sql;}
     public function get_row(string $sql):?object{
         if(!str_contains($sql,"feature_id='F17-FUT-11'"))throw new RuntimeException('Unexpected saved view query.');
         return (object)['id'=>55,'feature_id'=>'F17-FUT-11','owner_id'=>7,'scope_type'=>'user','scope_id'=>7,'payload_cipher'=>'cipher'];
     }
-    public function get_results(string $sql):array{
+    public function get_results(string $sql):array|false{
+        if($this->failedQuery){$this->last_error='DB connection lost';return false;}
+        $this->last_error='';
         if(!str_contains($sql,'wp_sn_members')||!str_contains($sql,'wp_sn_conversations'))throw new RuntimeException('Unexpected conversation query');
         return [
           (object)['id'=>17,'type'=>'direct','title'=>'Secret patient conversation','updated_at'=>'private timestamp','last_message_id'=>50,'last_read_message_id'=>10,'is_muted'=>0,'is_archived'=>0],
@@ -73,6 +76,10 @@ check($allowed instanceof WP_REST_Response&&count($allowed->get_data()['items'])
 SN_Future_Superset::$locked='error';
 $bad=SN_Future24_Review_Hardening_A::smart_view_results($req);
 check($bad instanceof WP_Error&&$bad->get_error_code()==='sn_conversation_lock_state_unavailable','Corrupt lock must abort saved view instead of leaking or silently skipping it.');
+$wpdb->failedQuery=true;
+$queryFailed=SN_Future24_Review_Hardening_A::smart_view_results($req);
+check($queryFailed instanceof WP_Error&&$queryFailed->get_error_code()==='sn_smart_view_query_unavailable','Failed private-view DB query must not be reported as an empty successful result.');
+$wpdb->failedQuery=false;
 SN_DB::$member=false;
 $revoked=SN_Future24_Review_Hardening_A::smart_view_results($req);
 check($revoked instanceof WP_REST_Response && count($revoked->get_data()['items'])===0,'Revoked member cannot see private smart view results.');
