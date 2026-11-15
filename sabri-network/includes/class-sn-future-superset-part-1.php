@@ -2,8 +2,32 @@
 declare(strict_types=1); defined('ABSPATH') || exit;
 trait SN_Future_Superset_Part_1 {
     public static function capabilities(): WP_REST_Response {
-        $provider=(array)apply_filters('sn_network_e2ee_provider_status',[]); $items=[];
-        foreach(self::features() as $id=>$f){$status='available'; if($id==='F17-FUT-01'&&(empty($provider['ready'])||empty($provider['audited'])))$status='provider-gated'; if(in_array($id,['F17-FUT-02','F17-FUT-03'],true)&&!has_filter('sn_network_device_public_key_valid'))$status='provider-gated'; if($id==='F17-FUT-22'&&!has_filter('sn_network_ai_assistant_result'))$status='provider-gated'; if($id==='F17-FUT-23'&&!has_filter('sn_network_private_semantic_search_result'))$status='provider-gated'; if(in_array($id,['F17-FUT-17','F17-FUT-18','F17-FUT-19','F17-FUT-20'],true)&&!(bool)apply_filters('sn_network_sfu_available',false,get_current_user_id(),0))$status='provider-gated'; $items[]=['id'=>$id]+$f+['status'=>$status];}
+        $e2ee=(array)apply_filters('sn_network_e2ee_provider_status',[]);
+        $device=(array)apply_filters('sn_network_device_verification_provider_status',[]);
+        $transparency=(array)apply_filters('sn_network_key_transparency_provider_status',[]);
+        $items=[];
+        foreach(self::features() as $id=>$feature){
+            $gated=false;
+            if($id==='F17-FUT-01')
+                $gated=empty($e2ee['ready'])||empty($e2ee['audited'])||empty($e2ee['protocol'])||empty($e2ee['audit_ref']);
+            if($id==='F17-FUT-02')
+                $gated=!has_filter('sn_network_device_public_key_valid')||empty($device['ready'])||empty($device['revocation_propagation'])||empty($device['key_change_warning']);
+            if($id==='F17-FUT-03')
+                $gated=empty($transparency['ready'])||empty($transparency['signed_checkpoint'])||empty($transparency['consistency_proof'])||empty($transparency['audited']);
+            if($id==='F17-FUT-04')$gated=!has_filter('sn_network_step_up_verified');
+            if($id==='F17-FUT-07')$gated=has_action('sn_network_notification_requested')===false;
+            if($id==='F17-FUT-15')$gated=!has_filter('sn_network_citation_resolve');
+            if($id==='F17-FUT-16')$gated=!has_filter('sn_network_case_discussion_professional_allowed');
+            if(in_array($id,['F17-FUT-17','F17-FUT-18','F17-FUT-19','F17-FUT-20'],true))
+                $gated=!(bool)apply_filters('sn_network_sfu_available',false,get_current_user_id(),0);
+            if($id==='F17-FUT-22')
+                $gated=!has_filter('sn_network_ai_assistant_result')||!has_filter('sn_network_ai_context_authorized')||!has_filter('sn_network_ai_context_redact');
+            if($id==='F17-FUT-23')
+                $gated=!has_filter('sn_network_private_semantic_search_result')||!has_filter('sn_network_private_semantic_purge_result');
+            if($id==='F17-FUT-24')
+                $gated=!has_filter('sn_network_interop_provider_ready')||!has_filter('sn_network_interop_remote_allowed');
+            $items[]=['id'=>$id]+$feature+['status'=>$gated?'provider-gated':'available'];
+        }
         return rest_ensure_response(['schema_version'=>self::SCHEMA_VERSION,'feature_count'=>self::FEATURE_COUNT,'items'=>$items]);
     }
     public static function set_e2ee_policy(WP_REST_Request $r): WP_REST_Response|WP_Error {
