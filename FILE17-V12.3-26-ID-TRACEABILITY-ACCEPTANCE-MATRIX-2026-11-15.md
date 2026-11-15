@@ -60,9 +60,9 @@ Primary source: current stacked candidate `review/file17-v123-reminders-20261115
 - **Not yet performed:** full isolated WordPress integration with active companions, real migration, MySQL deadlocks, SFU/scanner, device/accessibility, File19 durable ack, live deployed state and rollback rehearsal.
 
 ## New executable front-end release evidence (not browser certification)
-- `tests/v12-3-reminder-workspace-dom.js` invoked in exact PHP 8.1 job and full quality gate with `TZ=UTC` and `TZ=America/New_York`. Exercises live-response-shaped fake `fetch`, DOM mutation and status; **not** a browser test with WordPress cookie/session.
+- `tests/v12-3-reminder-workspace-dom.js` invoked in exact PHP 8.1 job and full quality gate with `TZ=UTC` and `TZ=America/New_York`. Exercises live-response-shaped fake `fetch`, DOM mutation and status; **not** a browser test with WordPress cookie/session. Includes server-committed-but-response-lost idempotent retry, distinct confirmed creation, malicious label text and unversioned disabled controls.
 - `tests/v12-3-reminder-workspace-static-contracts.php` checks 35 accessibility/CAS/source contracts; actual NVDA/VoiceOver/TalkBack, 320–1440px and WCAG2.2 testing remain pending.
-- Latest verified source inventory on preceding green SHA `8f5b9389e362dca005716ec5f4d0ed6eae35b1f1`: **66 PHP suites, 10 JS entry points**, PHP8.1/8.3 successful. A later report commit requires its own green CI, it cannot inherit this result.
+- Exact code/test SHA `fd7e5e0f741167ce5e8b906fa2b06e314480f42a` passed Actions run `43666687413` (both PHP8.1 and 8.3 jobs): **187 PHP files, 66 PHP suites, 10 JavaScript source entry points**, DOM **28 UTC + 32 New York** and static UI contract **38** checks. A later document commit cannot reuse this as exact-head green proof; check a fresh run.
 
 ## Required launch acceptance table (one row per active route)
 `requirement_id | route | exact source SHA | installed build+hash | owner | dependency+min_version | actor+role | allowed result | denied result | stale/failure result | test ID | browser/device | DB/version | audit trace | screenshot/trace | review A | review B | founder approval | stage result | live result`.
