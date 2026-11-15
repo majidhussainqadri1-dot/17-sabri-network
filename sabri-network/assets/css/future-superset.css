@@ -5,3 +5,15 @@
 .snf-card label:has(> input[type="checkbox"]){display:flex;align-items:center;gap:10px;min-height:44px;line-height:1.4}
 .snf-card input[type="checkbox"]{flex:0 0 20px;width:20px;height:20px;min-height:20px;margin:0;accent-color:#087a4e}
 .snf-card select:focus-visible{outline:3px solid #087a4e;outline-offset:2px}
+
+/* V12.3 progressive-disclosure for governed Next/SCALE/Advanced controls. */
+.snf-more{margin-top:18px;border:1px solid #dce5e0;border-radius:16px;padding:12px 16px;background:#f6fbf8}
+.snf-more>summary{display:list-item;cursor:pointer;min-height:44px;padding:10px 4px;font-weight:700;color:#075b3b}
+.snf-more>summary:focus-visible{outline:3px solid #087a4e;outline-offset:2px}
+.snf-more>.snf-grid{margin-top:14px}
+.snf-more>p{max-width:80ch;margin:8px 0 14px}
+.snf-readout{max-height:340px;overflow:auto;overflow-wrap:anywhere;white-space:pre-wrap;font:inherit;font-size:.9rem;line-height:1.5;direction:auto}
+.snf-workspace [hidden]{display:none!important}
+.snf-card p{margin:0;color:#475569;font-size:.9rem}
+.snf-status textarea[readonly]{width:100%;min-height:90px;margin-top:8px;padding:10px;border:1px solid #cbd5e1;border-radius:10px;overflow-wrap:anywhere;font:inherit}
+.snf-card select:disabled,.snf-card button:disabled{opacity:.6;cursor:not-allowed}
