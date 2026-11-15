@@ -74,11 +74,9 @@ final class SN_Future_Superset {
                 continue;
             }
             try {
-                // WordPress do_action() succeeds even when no consumer is registered.
-                // Never mark a reminder as fired if File19 has no receiving hook.
-                if(has_action('sn_network_notification_requested')===false)
-                    throw new RuntimeException('notification_consumer_unavailable');
-                do_action('sn_network_notification_requested', ['owner'=>'file-17','recipient_id'=>(int)$record->owner_id,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>(int)$record->scope_id,'message_id'=>(int)($data['message_id']??0),'idempotency_key'=>'file17-future-reminder:' . (int)$record->id]);
+                // WordPress actions have no acceptance receipt. File19's documented
+                // canonical PHP ingestion API returns one after a durable transaction.
+                self::ingest_file19_reminder($record);
                 $completed=$wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
                 if($completed!==1)throw new RuntimeException('reminder_finalization_conflict');
             } catch (Throwable $error) {
@@ -90,6 +88,47 @@ final class SN_Future_Superset {
         $temp = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-13' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
         foreach (is_array($temp) ? $temp : [] as $record) self::expire_temp($record);
         $wpdb->query($wpdb->prepare("UPDATE " . self::records_table() . " SET state='expired',updated_at=%s,version=version+1 WHERE state='active' AND expires_at IS NOT NULL AND expires_at<%s AND feature_id NOT IN ('F17-FUT-07','F17-FUT-10','F17-FUT-13')", $now, $now));
+    }
+
+    /**
+     * File19 owns delivery. File17 emits only an idempotent fact; an intake
+     * receipt is not proof of actual push/SMS/email delivery.
+     */
+    private static function ingest_file19_reminder(object $record): void {
+        if(!function_exists('sun_register_notification_producer')
+            ||!function_exists('sun_ingest_domain_event'))
+            throw new RuntimeException('file19_notification_contract_unavailable');
+        $registered=sun_register_notification_producer('sabri-file17',[
+            'owner'=>'File 17',
+            'event_types'=>['Communication.ReminderDue'],
+            'schema_versions'=>['1.0.0'],
+            'allowed_data_fields'=>['action_name','summary']
+        ]);
+        if($registered!==true)throw new RuntimeException('file19_producer_registration_failed');
+        $event_id='f17-reminder-'.(int)$record->id;
+        $accepted=sun_ingest_domain_event([
+            'producer'=>'sabri-file17',
+            'owner'=>'File 17',
+            'event_id'=>$event_id,
+            'event_type'=>'Communication.ReminderDue',
+            'schema_version'=>'1.0.0',
+            'occurred_at'=>gmdate('c'),
+            'recipients'=>[['user_id'=>(int)$record->owner_id]],
+            'category'=>'messages',
+            'priority'=>'normal',
+            'sensitivity'=>'sensitive',
+            'data'=>[
+                'action_name'=>'Communication reminder',
+                'summary'=>'A private communication reminder is ready.'
+            ],
+            'idempotency_key'=>$event_id
+        ]);
+        if(is_wp_error($accepted))
+            throw new RuntimeException('file19_intake_'.sanitize_key($accepted->get_error_code()));
+        if(!is_array($accepted)
+            ||!in_array((string)($accepted['status']??''),['processed','duplicate'],true)
+            ||empty($accepted['event_public_id']))
+            throw new RuntimeException('file19_intake_unverified');
     }
 
     /**
