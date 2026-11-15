@@ -2,6 +2,11 @@
 
 ## V12.3 Security hardening follow-up — 2026-11-15 (unreleased)
 
+- Verified actual InnoDB storage engines at key-change time; fail closed on MyISAM/unverified engine and declare InnoDB for new key/audit tables. No automatic conversion of existing production tables.
+- Extended read-only live-freeze evidence to capture table storage engines and added nontransactional-storage regression coverage.
+- Current exact full gate contains 63 explicit PHP suites; historical counts in earlier notes are not current release metrics.
+
+
 - Fail closed on corrupt conversation lock state and redact sensitive previews from locked conversation lists.
 - Serialize device-key registration/rotation and local audit-log append; reject and rollback unlogged changes.
 - Gate E2EE, key verification/transparency and other external features on evidence of approved providers, rather than code presence.
