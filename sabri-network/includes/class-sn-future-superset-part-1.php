@@ -26,8 +26,45 @@ trait SN_Future_Superset_Part_1 {
     public static function set_conversation_lock(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_member($c,$u))return self::not_found();$existing=self::active_record('F17-FUT-04',$u,'conversation',$c);if($existing){$old=self::decode($existing);if(!is_wp_error($old)&&!empty($old['enabled'])&&!(bool)apply_filters('sn_network_step_up_verified',false,$u,$c,'conversation_lock',max(60,min(3600,(int)($old['step_up_ttl']??900)))))return self::error('sn_conversation_step_up_required','Fresh step-up verification is required before changing this sensitive conversation lock.',403);}$data=['enabled'=>rest_sanitize_boolean($r->get_param('enabled')),'step_up_ttl'=>max(60,min(3600,absint($r->get_param('step_up_ttl'))?:900))];$id=self::upsert_record('F17-FUT-04',$u,'conversation',$c,$data,'lock:'.$u.':'.$c,null);return is_wp_error($id)?$id:rest_ensure_response($data);}
     public static function pre_dispatch($result,$server,WP_REST_Request $r){if($result!==null)return $result;$route=$r->get_route();if(!str_starts_with($route,'/sabri-network/v2/'))return $result;$u=get_current_user_id();if($u<=0)return $result;$c=0;$m=null;if(preg_match('#/conversations/(\d+)#',$route,$x))$c=(int)$x[1];elseif(preg_match('#/messages/(\d+)#',$route,$x)){$m=self::message_row((int)$x[1]);$c=$m?(int)$m->conversation_id:0;}elseif(preg_match('#/future/team-inbox/(\d+)#',$route,$x))$c=(int)$x[1];if($c<=0&&in_array($route,['/sabri-network/v2/future/e2ee-policy','/sabri-network/v2/future/reminders','/sabri-network/v2/future/citations','/sabri-network/v2/future/case-discussions','/sabri-network/v2/future/ai-assistant','/sabri-network/v2/future/semantic-search','/sabri-network/v2/future/interop'],true))$c=absint($r->get_param('conversation_id'));if($c<=0)return $result;$lock=self::active_record('F17-FUT-04',$u,'conversation',$c);if($lock){$d=self::decode($lock);if(!is_wp_error($d)&&!empty($d['enabled'])&&!(bool)apply_filters('sn_network_step_up_verified',false,$u,$c,'conversation_lock',(int)($d['step_up_ttl']??900)))return self::error('sn_conversation_step_up_required','This sensitive conversation requires fresh step-up verification.',403);}if($r->get_method()==='POST'&&preg_match('#^/sabri-network/v2/messages/\d+$#',$route)&&$m&&self::conversation_member($c,$u)&&!SN_Message_Operations::is_hidden($u,(int)$m->id)&&SN_Policy::can_edit_message($m,$u)){$new=trim(sanitize_textarea_field(wp_unslash((string)$r->get_param('body'))));$old=SN_Message_Body::decrypt_row($m);if(!is_wp_error($old)&&$new!==''&&hash('sha256',$old)!==hash('sha256',$new)){$id=self::capture_message_version($m,$u);if(is_wp_error($id))return $id;$r->set_param('_sn_future_snapshot_id',(int)$id);}}return $result;}
     public static function post_dispatch($response,$server,WP_REST_Request $r){$id=absint($r->get_param('_sn_future_snapshot_id'));if($id>0&&method_exists($response,'get_status')&&(int)$response->get_status()>=400){global $wpdb;$wpdb->delete(self::versions_table(),['id'=>$id],['%d']);}return $response;}
-    public static function get_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_member($c,$u))return self::not_found();$row=self::active_record('F17-FUT-05',0,'conversation',$c);$d=$row?self::decode($row):[];return is_wp_error($d)?$d:rest_ensure_response(['conversation_id'=>$c,'team_inbox'=>$d?:['enabled'=>false,'assignee_id'=>0,'status'=>'open']]);}
-    public static function set_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_manager($c,$u))return self::error('forbidden','Conversation management permission is required.',403);$a=absint($r->get_param('assignee_id'));if($a&&!self::conversation_member($c,$a))return self::error('sn_assignment_member_required','The assignee must be an active conversation member.',409);$d=['enabled'=>rest_sanitize_boolean($r->get_param('enabled')),'assignee_id'=>$a,'status'=>self::enum((string)$r->get_param('status'),['open','pending','resolved'],'open'),'updated_by'=>$u];$id=self::upsert_record('F17-FUT-05',0,'conversation',$c,$d,'team:'.$c,null);if(is_wp_error($id))return $id;self::upsert_record('F17-FUT-06',0,'conversation',$c,['assignee_id'=>$a,'handoff_by'=>$u,'status'=>$d['status']],'assignment:'.$c,null);return rest_ensure_response(['conversation_id'=>$c,'team_inbox'=>$d]);}
+    public static function get_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_member($c,$u))return self::not_found();$row=self::active_record('F17-FUT-05',0,'conversation',$c);$d=$row?self::decode($row):[];return is_wp_error($d)?$d:rest_ensure_response(['conversation_id'=>$c,'team_inbox'=>$d?:['enabled'=>false,'assignee_id'=>0,'status'=>'open'],'version'=>$row?(int)$row->version:0]);}
+    public static function set_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $c=absint($r['id']);$u=get_current_user_id();$a=absint($r->get_param('assignee_id'));
+        if($c<=0||!self::conversation_manager($c,$u)||SN_Policy::is_suspended($u))return self::error('forbidden','Conversation management permission is required.',403);
+        $expected=$r->get_param('expected_version');
+        if(!is_scalar($expected)||!ctype_digit((string)$expected))return self::error('sn_team_precondition_required','Read the current team inbox and send its version before changing assignments.',428);
+        $expected=(int)$expected;
+        if($a&&(!self::conversation_member($c,$a)||SN_Policy::is_suspended($a)))return self::error('sn_assignment_member_required','Assignee must be an eligible current conversation participant.',409);
+        // Serialize concurrent owner/moderator handoffs, never publish partial F17-05/06 state.
+        $lock='sn:f17:team:'.$c;
+        $locked=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,5));
+        if($locked!==1)return self::error('sn_team_lock_unavailable','Team inbox state is busy; retry after refreshing its version.',503);
+        $inTransaction=false;
+        try {
+            if($wpdb->query('START TRANSACTION')===false)return self::db_error();
+            $inTransaction=true;
+            $conversation=$wpdb->get_row($wpdb->prepare('SELECT status FROM '.SN_DB::table('conversations').' WHERE id=%d FOR UPDATE',$c));
+            if(!$conversation||(string)$conversation->status!=='active')return self::error('sn_team_conversation_closed','Only an active conversation can be assigned.',409);
+            if(!self::conversation_manager($c,$u)||SN_Policy::is_suspended($u))return self::error('forbidden','Conversation management permission has changed.',403);
+            if($a&&(!self::conversation_member($c,$a)||SN_Policy::is_suspended($a)))return self::error('sn_assignment_member_required','Assignee membership or eligibility has changed.',409);
+            $current=self::active_record('F17-FUT-05',0,'conversation',$c);
+            $version=$current?(int)$current->version:0;
+            if($expected!==$version)return self::error('sn_team_stale_version','Team assignment changed. Refresh before retrying.',409);
+            $d=['enabled'=>rest_sanitize_boolean($r->get_param('enabled')),'assignee_id'=>$a,'status'=>self::enum((string)$r->get_param('status'),['open','pending','resolved'],'open'),'updated_by'=>$u];
+            $team=self::upsert_record('F17-FUT-05',0,'conversation',$c,$d,'team:'.$c,null);
+            if(is_wp_error($team))return $team;
+            $assignment=self::upsert_record('F17-FUT-06',0,'conversation',$c,['assignee_id'=>$a,'handoff_by'=>$u,'status'=>$d['status'],'expected_team_version'=>$version],'assignment:'.$c,null);
+            if(is_wp_error($assignment))return $assignment;
+            if(!self::conversation_manager($c,$u)||($a&&!self::conversation_member($c,$a)))return self::error('sn_team_actor_revoked','Membership changed during assignment.',409);
+            if($wpdb->query('COMMIT')===false)return self::db_error();
+            $inTransaction=false;
+            SN_DB::audit('future_team_inbox_updated','conversation',$c,'success',['assignee_id'=>$a,'status'=>$d['status'],'version'=>$version+1],$u);
+            return rest_ensure_response(['conversation_id'=>$c,'team_inbox'=>$d,'version'=>$version+1]);
+        } finally {
+            if($inTransaction)$wpdb->query('ROLLBACK');
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));
+        }
+    }
     public static function handoff_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$r->set_param('enabled',true);return self::set_team_inbox($r);}
     public static function create_reminder(WP_REST_Request $r): WP_REST_Response|WP_Error {
         $u=get_current_user_id();$at=self::future_time((string)$r->get_param('remind_at'),365*DAY_IN_SECONDS);
