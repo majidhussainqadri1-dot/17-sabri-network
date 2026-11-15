@@ -34,6 +34,7 @@ $assert(str_contains($main, "define('SN_VERSION', '2.1.0')"), 'Plugin candidate 
 $assert(str_contains($css, '#087a4e'), 'F17-CEN-02 primary Sabri Green must be present.');
 $assert(str_contains($part1, "if(\$id==='F17-FUT-04'&&!has_filter('sn_network_step_up_verified'))"), 'Conversation-lock capability must be provider-gated without step-up.');
 $assert(str_contains($part1, 'sn_conversation_step_up_provider_unavailable'), 'Lock activation must refuse missing/unverified step-up provider.');
+$assert(str_contains($part1, 'function set_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {global $wpdb;'), 'Team inbox requires a valid WPDB scope.');
 $assert(str_contains($part1, "if(\$wpdb->query('START TRANSACTION')===false)"), 'Shared team inbox mutation must start an atomic transaction.');
 $assert(str_contains($part1, "if(is_wp_error(\$assignment))"), 'A failed assignment must not be reported as a successful inbox update.');
 $assert(str_contains($part1, "if(\$wpdb->query('COMMIT')===false)"), 'Both team inbox writes must commit together.');
