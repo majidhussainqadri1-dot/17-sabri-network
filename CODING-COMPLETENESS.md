@@ -1,3 +1,25 @@
+# V12.3 candidate update — 15 November 2026
+
+This addendum takes precedence over the historical 2026-08 assessment below **for the PR #25 candidate only**. It does not prove the installed site has these updates.
+
+| Test/release dimension | Source-evidence status |
+|---|---|
+| Exact immutable reviewed source SHA | `8f9d333a15b1e9d7de6a60099add2f4643f3a3d9` |
+| GitHub Actions | `43669265546`, both PHP 8.1 and PHP 8.3 succeeded |
+| PHP source+tests | 188 files; 67 PHP review suites; File19 intake 52 PASS |
+| JavaScript | 10 source entry points, DOM reminders UTC 28 + DST/New York 32 |
+| Deterministic installable ZIP SHA-256 | `cd53bca420d658ab78e75c5b3e14ba13a1486a58fb51f7aba9027582fd6f313c` |
+| 26 File17 IDs | Source-to-acceptance mapping exists in `FILE17-V12.3-26-ID-TRACEABILITY-ACCEPTANCE-MATRIX-2026-11-15.md`; NOT 26 operational features |
+| Reviews | A–G source passes, 15 newly tracked candidate paths corrected, plus 4 earlier source paths; NOT two completed independent real-environment E2E reviews |
+| File19 | Source-compatible producer registration and File19 returned intake ack; real installed File19/File01 notification delivery and DB transaction unverified |
+| Staging | PENDING |
+| Live deployment/version/DB/migration/parity | UNVERIFIED |
+| Operational | **NO** |
+
+Release gate remains **STOP** under CEN-REL-001: no active-scope operational claim without actual plugin/DB source parity, complete companion acceptance, staging/restore, two full independent reviews, Founder approval and live re-test.
+
+---
+
 # File 17 — Coding Completeness Assessment
 
 **Assessment target:** Sabri Network and Messages 2.1.0  
