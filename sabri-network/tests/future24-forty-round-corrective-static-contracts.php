@@ -43,4 +43,8 @@ $assert(str_contains($reminderDispatch,'function reminder_authorized(')&&substr_
 $assert(str_contains($reminderDispatch,'SN_DB::is_member($c,$u)')&&str_contains($reminderDispatch,'SN_Message_Operations::is_hidden($u,$message)')&&str_contains($reminderDispatch,'SN_DB::is_blocked($u,(int)$m->sender_id)'),'V12.3 reminder must cancel on revoked membership, hidden message and blocked sender.');
 $assert(str_contains($reminderCore,"'version'=>(int)\$x->version"),'V12.3 client must be able to read current record version before updating.');
 $assert(str_contains($advancedUI,'snf-reminder-cancel-form')&&str_contains($advancedUI,'snf-reminder-reschedule-form'),'V12.3 reminder lifecycle must be accessible in the workspace.');
+$assert(str_contains($reminderApi,'function preview_template(')&&str_contains($reminderApi,"'recipient_name','clinic_name','appointment_date'"),'V12.3 F17-FUT-08 preview must accept only approved variables.');
+$assert(str_contains($reminderApi,"'not_sent'=>true")&&str_contains($reminderApi,"'requires_manual_review'=>true"),'V12.3 saved replies must never send without manual review.');
+$assert(str_contains($reminderApi,"'sn_template_variables_unresolved'")&&str_contains($reminderApi,"'sn_template_clinical_guard'"),'V12.3 template variable and professional content safeguards must be present.');
+$assert(str_contains($reminderDispatch,"'/future/templates/(?P<id>\\d+)/preview'")&&str_contains($advancedUI,'snf-template-preview-form'),'V12.3 private template preview route and UI must be wired.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
