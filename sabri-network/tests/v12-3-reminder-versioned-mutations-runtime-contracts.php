@@ -27,9 +27,11 @@ final class WP_REST_Request implements ArrayAccess {
 final class SN_DB {
     public static array $audits=[];
     public static bool $is_member=true;
+    public static bool $active=true;
     public static function is_member(int $conversation,int $user):bool {
         return self::$is_member&&$conversation===42&&$user===7;
     }
+    public static function is_active_conversation_member(int $c,int $u):bool{return self::$active&&self::is_member($c,$u);}
     public static function audit(string $event,string $object,int $id,string $result,array $meta,int $user):void{
         self::$audits[]=['event'=>$event,'id'=>$id,'result'=>$result];
     }
