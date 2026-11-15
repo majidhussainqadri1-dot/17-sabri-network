@@ -197,5 +197,34 @@
   }));
   bind('snf-device-list-form', async () => ({status_message:'The account-owned public key metadata is displayed without private secret material.',workspace_readout:await api('future/device-keys'),workspace_title:'My device-key metadata — NOT an E2EE certification'}));
   bind('snf-key-transparency-form', async data => ({status_message:'Read-only permitted key-change records shown below; checkpoint consistency is not independently proven here.',workspace_readout:await api('future/key-transparency/' + Number(data.get('user_id'))),workspace_title:'Permitted device-key change history'}));
+  // Accessible suggestions use only conversations currently returned by canonical File-17 membership filtering.
+  // A stale selection is never authority; every action is rechecked server-side.
+  async function loadConversationChoices() {
+    if (typeof root.querySelectorAll !== 'function') return;
+    const fields = [...root.querySelectorAll('input[name="conversation_id"]')];
+    if (!fields.length) return;
+    try {
+      const result = await api('conversations');
+      const rows = Array.isArray(result?.conversations) ? result.conversations : [];
+      const choices = document.createElement('datalist');
+      choices.id = 'snf-authorized-conversation-choices';
+      const seen = new Set();
+      for (const item of rows.slice(0, 300)) {
+        const id = Number(item?.id);
+        if (!Number.isSafeInteger(id) || id < 1 || seen.has(id)) continue;
+        seen.add(id);
+        const option = document.createElement('option');
+        option.value = String(id);
+        option.label = String(item?.title || 'Conversation').slice(0, 100);
+        choices.append(option);
+      }
+      if (!seen.size) return;
+      root.append(choices);
+      fields.forEach(field => field.setAttribute('list', choices.id));
+    } catch (_error) {
+      // Existing numeric controls remain usable if the current list cannot be retrieved.
+    }
+  }
+  loadConversationChoices();
   loadCapabilities();
 })();
