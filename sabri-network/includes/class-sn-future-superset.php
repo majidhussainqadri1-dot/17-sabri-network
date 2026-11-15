@@ -61,8 +61,17 @@ final class SN_Future_Superset {
         $due = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-07' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
         foreach (is_array($due) ? $due : [] as $record) {
             $data = self::decode($record); if (is_wp_error($data)) continue;
+            // A reminder is not a perpetual grant to disclose a revoked conversation.
+            if (!self::reminder_authorized($record,$data)) {
+                $wpdb->update(self::records_table(),['state'=>'cancelled','updated_at'=>$now,'version'=>(int)$record->version+1],['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]);
+                continue;
+            }
             $claimed = $wpdb->update(self::records_table(), ['state'=>'firing','updated_at'=>$now,'version'=>(int)$record->version+1], ['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]); if ($claimed !== 1) continue;
             try {
+                if (!self::reminder_authorized($record,$data)) {
+                    $wpdb->update(self::records_table(),['state'=>'cancelled','updated_at'=>self::now(),'version'=>(int)$record->version+2],['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                    continue;
+                }
                 do_action('sn_network_notification_requested', ['owner'=>'file-17','recipient_id'=>(int)$record->owner_id,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>(int)$record->scope_id,'message_id'=>(int)($data['message_id']??0),'idempotency_key'=>'file17-future-reminder:' . (int)$record->id]);
                 $wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
             } catch (Throwable $error) {
@@ -82,6 +91,24 @@ final class SN_Future_Superset {
         add_filter('wp_privacy_personal_data_exporters',[self::class,'register_exporter']); add_filter('wp_privacy_personal_data_erasers',[self::class,'register_eraser']);
         add_action('wp_enqueue_scripts',[self::class,'register_assets'],6); add_shortcode('sabri_communication_advanced',[self::class,'render_workspace']); add_action('sn_network_future_contract_request',[self::class,'emit_contract']);
     }
+    /**
+     * Re-evaluate canonical permissions before scheduling or handing off a
+     * communication reminder. The reminder record itself is never authority.
+     */
+    private static function reminder_authorized(object $record,array $data): bool {
+        $u=(int)$record->owner_id;
+        if($u<1||!get_user_by('id',$u)||SN_Policy::is_suspended($u))return false;
+        $c=(int)$record->scope_id;
+        if($c>0&&!SN_DB::is_member($c,$u))return false;
+        $message=absint($data['message_id']??0);
+        if($message>0){
+            if($c<=0)return false;
+            $m=self::message_row($message);
+            if(!$m||(int)$m->conversation_id!==$c||$m->deleted_at||SN_Message_Operations::is_hidden($u,$message)||SN_DB::is_blocked($u,(int)$m->sender_id))return false;
+        }
+        return true;
+    }
+
     public static function maybe_upgrade(): void { if((string)get_option('sn_future_superset_schema_version','')!==self::SCHEMA_VERSION) self::install(); }
     public static function install(): void {
         global $wpdb; require_once ABSPATH.'wp-admin/includes/upgrade.php'; $c=$wpdb->get_charset_collate();
