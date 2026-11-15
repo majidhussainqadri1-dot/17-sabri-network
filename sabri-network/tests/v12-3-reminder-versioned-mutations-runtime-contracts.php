@@ -26,6 +26,10 @@ final class WP_REST_Request implements ArrayAccess {
 }
 final class SN_DB {
     public static array $audits=[];
+    public static bool $is_member=true;
+    public static function is_member(int $conversation,int $user):bool {
+        return self::$is_member&&$conversation===42&&$user===7;
+    }
     public static function audit(string $event,string $object,int $id,string $result,array $meta,int $user):void{
         self::$audits[]=['event'=>$event,'id'=>$id,'result'=>$result];
     }
@@ -42,7 +46,7 @@ final class ReminderMutationDB {
     public bool $force_update_failure=false;
     public function seed(string $state='active',int $version=3):void{
         $this->row=(object)[
-            'id'=>31,'feature_id'=>'F17-FUT-07','owner_id'=>7,
+            'id'=>31,'feature_id'=>'F17-FUT-07','owner_id'=>7,'scope_id'=>42,
             'state'=>$state,'version'=>$version,
             'expires_at'=>gmdate('Y-m-d H:i:s',time()+3000),
         ];
@@ -103,6 +107,17 @@ $check($wpdb->writes===2,'Terminal cancellation retry does not mutate again');
 $terminal=SN_Future24_Review_Hardening_M::reschedule($request(['expected_version'=>5]));
 $check($terminal instanceof WP_Error&&$terminal->get_error_code()==='sn_reminder_terminal',
     'Terminal reminder cannot be resurrected via reschedule');
+
+$wpdb=new ReminderMutationDB();$wpdb->seed();
+SN_DB::$is_member=false;
+$denied=SN_Future24_Review_Hardening_M::reschedule($request(['expected_version'=>3]));
+$check($denied instanceof WP_Error&&$denied->get_error_code()==='sn_reminder_access_revoked',
+    'Removed conversation member cannot create a new due-time acknowledgement');
+$check($wpdb->writes===0&&$wpdb->row->version===3,'Revocation produces no mutation');
+$ownerCancel=SN_Future24_Review_Hardening_M::cancel($request(['expected_version'=>3]));
+$check($ownerCancel instanceof WP_REST_Response&&$wpdb->row->state==='cancelled',
+    'Owner can still cancel their own stale reminder after access revocation');
+SN_DB::$is_member=true;
 
 $wpdb=new ReminderMutationDB();$wpdb->seed();
 $wpdb->force_update_failure=true;
