@@ -29,10 +29,63 @@
     return data;
   };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const announce = (message, error = false) => { status.className = error ? 'snf-status snf-error' : 'snf-status'; status.textContent = message; };
+  // Keep the capability inventory intact when an action returns; report outcomes separately.
+  const feedback = document.createElement('div');
+  feedback.id = 'snf-feedback';
+  feedback.className = 'snf-status';
+  feedback.setAttribute('role', 'status');
+  feedback.setAttribute('aria-live', 'polite');
+  feedback.hidden = true;
+  status.insertAdjacentElement('afterend', feedback);
+  const inviteOutput = document.createElement('div');
+  inviteOutput.className = 'snf-status';
+  inviteOutput.hidden = true;
+  feedback.insertAdjacentElement('afterend', inviteOutput);
+  const announce = (message, error = false) => {
+    feedback.className = error ? 'snf-status snf-error' : 'snf-status';
+    feedback.textContent = String(message);
+    feedback.hidden = false;
+  };
+  const showInvitation = payload => {
+    inviteOutput.replaceChildren();
+    inviteOutput.hidden = false;
+    const label = document.createElement('label');
+    label.textContent = 'Private invitation: share this single-use-or-limited-use link only with the intended participant.';
+    const field = document.createElement('textarea');
+    field.readOnly = true;
+    field.rows = 3;
+    field.setAttribute('aria-label', 'Private invitation token');
+    field.value = String(payload);
+    label.append(field);
+    inviteOutput.append(label);
+  };
   const featureList = items => `<div class="snf-feature-list">${items.map(item => `<article class="snf-feature"><div><strong>${esc(item.id)} — ${esc(item.label)}</strong><small>${esc(item.phase)}${item.provider ? ` · provider: ${esc(item.provider)}` : ''}</small></div><span class="snf-badge snf-${esc(item.status)}">${esc(item.status)}</span></article>`).join('')}</div>`;
   async function loadCapabilities() { try { const data = await api('future/capabilities'); status.innerHTML = `<strong>${Number(data.feature_count || 0)} advanced File 17 capabilities</strong>${featureList(data.items || [])}`; status.className='snf-status'; } catch (error) { announce(error.message,true); } }
-  const bind = (id, handler) => { const form=document.getElementById(id); if(!form)return; form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button[type="submit"]');if(button)button.disabled=true;try{await handler(new FormData(form));announce('Saved successfully.');if(id!=='snf-lock-form')form.reset();}catch(error){announce(error.message,true);}finally{if(button)button.disabled=false;}}); };
+  const bind = (id, handler) => {
+    const form = document.getElementById(id);
+    if (!form) return;
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = form.querySelector('button[type="submit"]') || form.querySelector('button');
+      if (button?.disabled) return;
+      if (button) button.disabled = true;
+      inviteOutput.hidden = true;
+      inviteOutput.replaceChildren();
+      try {
+        const result = await handler(new FormData(form));
+        const message = result?.job_id
+          ? `Batch ${Number(result.job_id)} queued (processed only when the worker runs); check the job status before relying on it.`
+          : (result?.status_message || 'Request accepted. Final processing or provider confirmation may still be required.');
+        announce(message);
+        if (typeof result?.qr_payload === 'string') showInvitation(result.qr_payload);
+        if (id !== 'snf-lock-form' && id !== 'snf-bulk-form') form.reset();
+      } catch (error) {
+        announce(error?.message || 'The request failed.', true);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    });
+  };
   bind('snf-lock-form', data => api(`future/conversation-locks/${Number(data.get('conversation_id'))}`, {method:'POST', body:{enabled:data.get('enabled')==='on'}}));
   bind('snf-reminder-form', data => { const local=String(data.get('remind_at')||'');const parsed=local?new Date(local):null;return api('future/reminders',{method:'POST',body:{conversation_id:Number(data.get('conversation_id')),remind_at:parsed&&!Number.isNaN(parsed.getTime())?parsed.toISOString():local,label:String(data.get('label')||'')}}); });
   bind('snf-template-form', data => api('future/templates',{method:'POST',body:{title:String(data.get('title')||''),body:String(data.get('body')||'')}}));
