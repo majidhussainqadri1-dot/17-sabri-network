@@ -41,6 +41,6 @@ $assert(substr_count($reminderApi,"'expected_version'")>=2&&str_contains($remind
 $assert(str_contains($reminderDispatch,"'/future/reminders/(?P<id>\\d+)/cancel'")&&str_contains($reminderDispatch,"'/future/reminders/(?P<id>\\d+)/reschedule'"),'V12.3 reminder REST routes must be registered under the canonical namespace.');
 $assert(str_contains($reminderDispatch,'function reminder_authorized(')&&substr_count($reminderDispatch,'self::reminder_authorized($record,$data)')>=2,'V12.3 queued reminder must revalidate access before notification handoff.');
 $assert(str_contains($reminderDispatch,'SN_DB::is_member($c,$u)')&&str_contains($reminderDispatch,'SN_Message_Operations::is_hidden($u,$message)')&&str_contains($reminderDispatch,'SN_DB::is_blocked($u,(int)$m->sender_id)'),'V12.3 reminder must cancel on revoked membership, hidden message and blocked sender.');
-$assert(str_contains($reminderCore,"'version'=>(int)$x->version"),'V12.3 client must be able to read current record version before updating.');
+$assert(str_contains($reminderCore,"'version'=>(int)\$x->version"),'V12.3 client must be able to read current record version before updating.');
 $assert(str_contains($advancedUI,'snf-reminder-cancel-form')&&str_contains($advancedUI,'snf-reminder-reschedule-form'),'V12.3 reminder lifecycle must be accessible in the workspace.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
