@@ -29,6 +29,7 @@ function get_current_user_id():int{return 11;}
 function absint(mixed $v):int{return abs((int)$v);}
 function get_user_by(string $field,int $id):object|false{return $id===11?(object)['ID'=>11]:false;}
 function sanitize_text_field(string $s):string{return trim($s);}
+function current_time(string $type,bool $gmt=false):string{return gmdate('Y-m-d H:i:s');}
 function has_action(string $hook):int|false{return TestState::$listener?10:false;}
 function do_action(string $hook,mixed $payload):void{TestState::$events[]=['hook'=>$hook,'payload'=>$payload];}
 class TestState {
@@ -48,6 +49,7 @@ class SN_Communication_Crypto {
     public static function decrypt(string $cipher,string $context):string|WP_Error{return $cipher==='LOCKED'?'{"enabled":true}':'{"message_id":44,"label":"Private clinical note"}';}
 }
 class FakeDB {
+    public string $prefix='test_';
     public object $row;public array $updates=[];public string $conversationStatus='active';
     public function __construct(){ $this->row=(object)['id'=>29,'feature_id'=>'F17-FUT-07','owner_id'=>11,'scope_type'=>'conversation','scope_id'=>33,'state'=>'active','version'=>3,'expires_at'=>'2026-11-15 00:00:00','updated_at'=>'2026-11-14 00:00:00','payload_cipher'=>'CIPHER'];}
     public function prepare(string $sql,mixed ...$args):string{return $sql.' /* '.json_encode($args).' */';}
