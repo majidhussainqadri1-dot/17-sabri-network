@@ -358,6 +358,18 @@ final class SN_DB {
         ));
     }
 
+    /** Scope-sensitive check for actions that require a *currently active* conversation. */
+    public static function is_active_conversation_member(int $conversation_id,int $user_id): bool {
+        global $wpdb;
+        if($conversation_id<=0||$user_id<=0)return false;
+        return (bool)$wpdb->get_var($wpdb->prepare(
+            'SELECT m.id FROM '.self::table('members').' m '.
+            'INNER JOIN '.self::table('conversations').' c ON c.id=m.conversation_id '.
+            "WHERE m.conversation_id=%d AND m.user_id=%d AND m.left_at IS NULL AND c.status='active' LIMIT 1",
+            $conversation_id,$user_id
+        ));
+    }
+
     public static function member_role(int $conversation_id, int $user_id): string {
         global $wpdb;
         return (string) $wpdb->get_var($wpdb->prepare(
