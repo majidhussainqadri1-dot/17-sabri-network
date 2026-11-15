@@ -73,3 +73,7 @@ Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provis
 **Regression:** `tests/v123-network-quality-runtime-contracts.php` executes grade boundaries and opt-out contract assertions. The DOM/fetch test checks accepted vs rejected client metrics, preserved precision, and affirmative consent. Real packet-loss/jitter/bandwidth simulation, WebRTC client collection, peer reconnect, retention audit and actual staging provider testing remain pending.
 
 **Live status:** This is a proven repository algorithm issue only; exact deployed build and migration parity remain unknown. No live fix claimed.
+
+### Quality metrics REST negative-path acceptance
+
+The original endpoint also silently clamped invalid or absent REST metrics before grading, allowing forged 200% loss or missing bandwidth to produce a plausible answer. Source-level implementation now requires all four numeric metrics to be finite and within declared bounds; RTT/jitter/downlink must be whole numbers. Invalid client input returns 400 before storage, and opt-out still returns non-storing diagnostic guidance. The shared runtime regression exercises negative, overflow, nonnumeric, fractional and missing metric scenarios. This does **not** establish quality of actual WebRTC measurements or a live production deployment.
