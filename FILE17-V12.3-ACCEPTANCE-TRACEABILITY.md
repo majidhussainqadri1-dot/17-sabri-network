@@ -56,3 +56,10 @@
 **Live incident truth:** Deployed version UNVERIFIED; DB version UNVERIFIED; migration UNVERIFIED; live verification NOT PERFORMED; proven live fixes ZERO.
 
 Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+## Additional UI contract validation — 15 Nov 2026
+
+- FUT-17: read-only call lobby view through canonical authorized call endpoint; this does not claim actual SFU admission tests.
+- FUT-18: read-only speaker queue through current call membership; moderator changes still require server permission and concurrent-device staging.
+- FUT-21: explicit user-entered metric diagnostics for packet loss/latency/jitter/bandwidth, range-validated in JS, with telemetry_consent default false. Values are *not* browser-measured; actual poor-network simulation and consent-based server retention remain to be tested.
+- New 36-form DOM/fetch test covers route shape, read-only GETs, invalid packet loss rejection, fractional precision and consent opt-in/out.
