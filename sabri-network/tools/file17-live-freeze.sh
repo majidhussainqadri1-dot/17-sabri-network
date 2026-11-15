@@ -38,6 +38,12 @@ if [[ "$prefix" =~ ^[a-zA-Z0-9_]+$ ]]; then
   printf 'Table prefix: %s\n' "$prefix"
   # Query only table NAMES; never display rows, users, conversations, messages or secrets.
   wp_ro db query "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME LIKE '${prefix}sn_%' ORDER BY TABLE_NAME" --skip-column-names 2>/dev/null || printf 'Database table inventory: unverified\n'
+  printf 'Schema column/type inventory (names and SQL types only; no record content):\n'
+  wp_ro db query "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,CHAR_LENGTH('${prefix}sn_'))='${prefix}sn_' ORDER BY TABLE_NAME,ORDINAL_POSITION LIMIT 3000" --skip-column-names 2>/dev/null || printf 'Schema column/type inventory: unverified\n'
+  printf 'Schema index inventory (index and column names only):\n'
+  wp_ro db query "SELECT TABLE_NAME,INDEX_NAME,COLUMN_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,CHAR_LENGTH('${prefix}sn_'))='${prefix}sn_' ORDER BY TABLE_NAME,INDEX_NAME,SEQ_IN_INDEX LIMIT 3000" --skip-column-names 2>/dev/null || printf 'Schema index inventory: unverified\n'
+  printf 'Table row counts (INFORMATION_SCHEMA.TABLE_ROWS estimates only; may be inaccurate for InnoDB):\n'
+  wp_ro db query "SELECT TABLE_NAME,TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,CHAR_LENGTH('${prefix}sn_'))='${prefix}sn_' ORDER BY TABLE_NAME LIMIT 500" --skip-column-names 2>/dev/null || printf 'Approximate row inventory: unverified\n'
 else
   printf 'Database schema: unverified (no trustworthy table prefix).\n'
 fi
