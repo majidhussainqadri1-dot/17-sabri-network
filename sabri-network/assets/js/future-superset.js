@@ -50,7 +50,7 @@
     status.textContent = message;
   };
   const featureList = items => `<div class="snf-feature-list">${items.map(item =>
-    `<article class="snf-feature"><div><strong>${esc(item.id)} — ${esc(item.label)}</strong><small>${esc(item.phase)}${item.provider ? ` · provider: ${esc(item.provider)}` : ''}</small></div><span class="snf-badge snf-${esc(item.status)}">${esc(item.status)}</span></article>`
+    `<article class="snf-feature"><div><strong>${esc(item.id)} — ${esc(item.label)}</strong><small>${esc(item.phase)}${item.provider ? ` · provider: ${esc(item.provider)}` : ''} · ${item.ui_mode === 'workspace' ? 'Workspace controls' : 'API-only (not a complete interface)'}</small></div><span class="snf-badge snf-${esc(item.status)}">${esc(item.status)}</span></article>`
   ).join('')}</div>`;
 
   async function loadCapabilities() {
@@ -203,8 +203,8 @@
       if (button) button.disabled = true;
       try {
         await handler(new FormData(form));
-        announce('Saved successfully.');
-        if (id !== 'snf-lock-form') form.reset();
+        announce(id === 'snf-history-form' ? 'Authorized history loaded.' : 'Saved successfully.');
+        if (!['snf-lock-form', 'snf-history-form'].includes(id)) form.reset();
       } catch (error) { announce(error.message, true); }
       finally { if (button) button.disabled = false; }
     });
@@ -235,6 +235,54 @@
   bind('snf-template-form', data => api('future/templates', {
     method: 'POST', body: {title: String(data.get('title') || ''), body: String(data.get('body') || '')}
   }));
+  // Settings-only updates use the effective FUT-05 handler; never reassign here.
+  bind('snf-team-settings-form', async data => {
+    const id = Number(data.get('conversation_id'));
+    const current = await api('future/team-inbox/' + id);
+    const expected = Number(current.version || 0);
+    return api('future/team-inbox/' + id, {
+      method: 'POST',
+      body: {expected_version: expected, enabled: data.get('enabled') === 'on',
+        status: String(data.get('status') || 'open')}
+    });
+  });
+  // FUT-06 is the sole assignment route; current CAS version and a real reason
+  // are required, and both are rechecked by the server under a DB lock.
+  bind('snf-handoff-form', async data => {
+    const id = Number(data.get('conversation_id'));
+    const current = await api('future/team-inbox/' + id);
+    const expected = Number(current.version || 0);
+    if (expected < 1) throw new Error('Create and enable the team inbox before assigning staff.');
+    return api('future/team-inbox/' + id + '/handoff', {
+      method: 'POST',
+      body: {assignee_id: Number(data.get('assignee_id')),
+        reason: String(data.get('reason') || ''), expected_version: expected}
+    });
+  });
+  bind('snf-view-form', data => api('future/smart-views', {
+    method: 'POST',
+    body: {name: String(data.get('name') || ''),
+      criteria: {unread: data.get('unread') === 'on',
+        has_files: data.get('has_files') === 'on',
+        days: Math.max(1, Math.min(365, Number(data.get('days') || 30)))}}
+  }));
+  bind('snf-history-form', async data => {
+    const output = document.getElementById('snf-history-output');
+    if (!output) throw new Error('The secure version history panel is unavailable.');
+    output.textContent = 'Loading authorized history…';
+    try {
+      const id = Number(data.get('message_id'));
+      const result = await api('future/messages/' + id + '/versions');
+      const items = Array.isArray(result.versions) ? result.versions : [];
+      output.textContent = items.length ? items.map(item =>
+        'Revision ' + Number(item.revision) + ' · ' + String(item.created_at || '') +
+        '\\n' + String(item.body || '')
+      ).join('\\n\\n') : 'No prior versions available.';
+    } catch (error) {
+      output.textContent = 'History unavailable.';
+      throw error;
+    }
+  });
   if (refreshReminders) refreshReminders.addEventListener('click', loadReminders);
   loadCapabilities();
   loadReminders();
