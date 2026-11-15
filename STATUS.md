@@ -1,3 +1,5 @@
+**Newest V12.3 source QA inventory (15 Nov 2026): 64 PHP suites, 9 JavaScript syntax checks, 1 Node workspace runtime test, 36 advanced UI forms. 13 distinct source-level defect conditions corrected in Draft PR #27, not confirmed live defects. Staging and live parity unverified.**
+
 **Most recent V12.3 source QA inventory (15 Nov 2026): 63 explicitly invoked PHP review/runtime suites, 9 production JS syntax checks, 1 Node DOM/fetch workspace runtime test and 1 read-only ZIP/live-parity fixture. Advanced Communication contains 36 UI forms. These counts are NOT 100% implementation or live readiness.**
 
 **Latest source enhancement (15 Nov):** 36 governed interactive forms (33 prior + authorized read-only lobby, speaker queue and consent-minimized call diagnostics). Independent Node mock tests assert bounds and opt-out. This is *not* proof of real SFU media, actual client network measurements or live completeness.
