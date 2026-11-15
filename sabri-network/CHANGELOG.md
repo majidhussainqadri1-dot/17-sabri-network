@@ -126,3 +126,9 @@
 
 ## Status law
 A successful source review, CI run or deterministic ZIP is not equivalent to staging acceptance, live deployment or operational completion. Those states require separate real-environment evidence and Founder acceptance.
+
+### V12.3 source increment: call readouts and opt-in diagnostics (15 Nov 2026)
+
+- Added three authorized progressive-disclosure forms for call lobby, speaker queue and manually entered network metrics, reusing protected existing File-17 REST API routes.
+- Preserved opt-in telemetry default=false, range validation and clear statement that metrics are client supplied, not a measured speed test.
+- Expanded Node regression to 36 forms; real SFU/WebRTC and browser-device quality verification still pending.
