@@ -16,6 +16,24 @@ final class SN_Future24_Review_Hardening_G {
      * Zero downlink is a valid severe degradation signal, never an unmeasured "good" rating.
      * ICE retries are suggested only for packet loss, jitter or round-trip degradation.
      */
+    /**
+     * REST metrics are untrusted. Never silently clamp invalid values into a
+     * misleading grade; reject missing, nonfinite, negative and oversized input.
+     */
+    public static function validated_quality_metrics(array $input):array|WP_Error {
+        $bounds=['packet_loss_pct'=>100.0,'rtt_ms'=>5000.0,'jitter_ms'=>5000.0,'downlink_kbps'=>1000000.0];
+        $output=[];
+        foreach($bounds as $field=>$maximum){
+            $raw=$input[$field]??null;
+            if(!is_int($raw)&&!is_float($raw)&&!is_string($raw))return self::error('sn_quality_metrics_invalid','All call quality metrics must be finite numbers.',400);
+            if(!is_numeric($raw))return self::error('sn_quality_metrics_invalid','All call quality metrics must be finite numbers.',400);
+            $value=(float)$raw;
+            if(!is_finite($value)||$value<0||$value>$maximum)return self::error('sn_quality_metrics_out_of_range','Call quality metric outside permitted range.',400);
+            if($field!=='packet_loss_pct'&&floor($value)!==$value)return self::error('sn_quality_metrics_invalid','Latency, jitter and bandwidth must be whole numbers.',400);
+            $output[$field]=$field==='packet_loss_pct'?round($value,2):(int)$value;
+        }
+        return $output;
+    }
     public static function assess_network_quality(float $loss,int $rtt,int $jitter,int $down):array {
         $poor=($loss>=8 || $rtt>=700 || $jitter>=120 || $down<150);
         $fair=($loss>=3 || $rtt>=350 || $jitter>=40 || $down<750);
@@ -24,7 +42,7 @@ final class SN_Future24_Review_Hardening_G {
         if($poor && ($loss>=8 || $rtt>=700 || $jitter>=120))$hints['retry_ice']=true;
         return [$quality,$hints];
     }
-    public static function network_quality(WP_REST_Request $r):WP_REST_Response|WP_Error{global $wpdb;$call=absint($r['id']);$user=get_current_user_id();if(!self::call_member($call,$user))return self::not_found();$loss=max(0,min(100,(float)$r->get_param('packet_loss_pct')));$rtt=max(0,min(5000,absint($r->get_param('rtt_ms'))));$jitter=max(0,min(5000,absint($r->get_param('jitter_ms'))));$down=max(0,min(1000000,absint($r->get_param('downlink_kbps'))));[$quality,$hints]=self::assess_network_quality($loss,$rtt,$jitter,$down);$consent=rest_sanitize_boolean($r->get_param('telemetry_consent'));if(!$consent)return rest_ensure_response(['quality'=>$quality,'hints'=>$hints,'stored'=>false,'diagnostic_only'=>true]);$expires=gmdate('Y-m-d H:i:s',time()+max(1,min(72,(int)apply_filters('sn_network_quality_retention_hours',24,$user,$call)))*HOUR_IN_SECONDS);$payload=['quality'=>$quality,'packet_loss_bucket'=>self::bucket($loss,[1,3,8,15]),'rtt_bucket'=>self::bucket($rtt,[100,250,500,1000]),'jitter_bucket'=>self::bucket($jitter,[20,50,100,250]),'downlink_bucket'=>self::bucket($down,[300,1000,3000,10000]),'consent'=>true];$id=self::upsert_quality($user,$call,$payload,$expires);if(is_wp_error($id))return $id;SN_DB::audit('future_network_quality','call',$call,'success',['quality'=>$quality,'retention_hours'=>round((strtotime($expires)-time())/HOUR_IN_SECONDS)],$user);return rest_ensure_response(['quality'=>$quality,'hints'=>$hints,'stored'=>true,'expires_at'=>$expires,'diagnostic_only'=>true]);}
+    public static function network_quality(WP_REST_Request $r):WP_REST_Response|WP_Error{global $wpdb;$call=absint($r['id']);$user=get_current_user_id();if(!self::call_member($call,$user))return self::not_found();$metrics=self::validated_quality_metrics(['packet_loss_pct'=>$r->get_param('packet_loss_pct'),'rtt_ms'=>$r->get_param('rtt_ms'),'jitter_ms'=>$r->get_param('jitter_ms'),'downlink_kbps'=>$r->get_param('downlink_kbps')]);if(is_wp_error($metrics))return $metrics;$loss=$metrics['packet_loss_pct'];$rtt=$metrics['rtt_ms'];$jitter=$metrics['jitter_ms'];$down=$metrics['downlink_kbps'];[$quality,$hints]=self::assess_network_quality($loss,$rtt,$jitter,$down);$consent=rest_sanitize_boolean($r->get_param('telemetry_consent'));if(!$consent)return rest_ensure_response(['quality'=>$quality,'hints'=>$hints,'stored'=>false,'diagnostic_only'=>true]);$expires=gmdate('Y-m-d H:i:s',time()+max(1,min(72,(int)apply_filters('sn_network_quality_retention_hours',24,$user,$call)))*HOUR_IN_SECONDS);$payload=['quality'=>$quality,'packet_loss_bucket'=>self::bucket($loss,[1,3,8,15]),'rtt_bucket'=>self::bucket($rtt,[100,250,500,1000]),'jitter_bucket'=>self::bucket($jitter,[20,50,100,250]),'downlink_bucket'=>self::bucket($down,[300,1000,3000,10000]),'consent'=>true];$id=self::upsert_quality($user,$call,$payload,$expires);if(is_wp_error($id))return $id;SN_DB::audit('future_network_quality','call',$call,'success',['quality'=>$quality,'retention_hours'=>round((strtotime($expires)-time())/HOUR_IN_SECONDS)],$user);return rest_ensure_response(['quality'=>$quality,'hints'=>$hints,'stored'=>true,'expires_at'=>$expires,'diagnostic_only'=>true]);}
     public static function ai_assistant(WP_REST_Request $r):WP_REST_Response|WP_Error{global $wpdb;$user=get_current_user_id();$conversation=absint($r->get_param('conversation_id'));if($conversation<=0||!SN_DB::is_member($conversation,$user))return self::not_found();if(!rest_sanitize_boolean($r->get_param('explicit_consent')))return self::error('sn_ai_consent_required','Explicit per-request consent is required.',400);$task=sanitize_key((string)$r->get_param('task'));if(!in_array($task,['summary','draft','action_items','explain','translate'],true))return self::error('sn_ai_task_invalid','Select an approved AI assistance task.',400);
         $targetLocale='';
         if($task==='translate'){
