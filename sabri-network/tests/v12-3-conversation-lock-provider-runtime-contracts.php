@@ -42,7 +42,13 @@ function wp_json_encode(mixed $v,int $flags=0): string|false {return json_encode
 function rest_ensure_response(mixed $v): WP_REST_Response {return new WP_REST_Response((array)$v);}
 $stepUp='absent';
 function has_filter(string $name): bool {global $stepUp;return $name==='sn_network_step_up_verified'&&$stepUp!=='absent';}
-function apply_filters(string $name,mixed $default,mixed ...$args): mixed {global $stepUp;return $name==='sn_network_step_up_verified'?$stepUp==='valid':$default;}
+$stepUpCalls=0;
+function apply_filters(string $name,mixed $default,mixed ...$args): mixed {
+    global $stepUp,$stepUpCalls;
+    if($name!=='sn_network_step_up_verified')return $default;
+    $stepUpCalls++;
+    return $stepUp==='valid'||($stepUp==='one-shot'&&$stepUpCalls===1);
+}
 final class FakeDB {
     public string $prefix='wp_';
     public int $insert_id=0;
@@ -75,6 +81,11 @@ $check($lock['status']==='available','Verified provider can advertise available 
 $allowed=SN_Future_Superset::set_conversation_lock($request);
 $check($allowed instanceof WP_REST_Response,'Valid step-up may enable lock');
 $check($wpdb->writes===1,'Successful enable creates exactly one canonical record');
+$stepUp='one-shot';$stepUpCalls=0;
+$oneShotUpdate=SN_Future_Superset::set_conversation_lock($request);
+$check($oneShotUpdate instanceof WP_REST_Response,'Existing enabled lock must accept one valid single-use step-up assertion');
+$check($stepUpCalls===1,'One sensitive edit may consume only one File00/02 assertion');
+$check($wpdb->writes===2,'A one-shot authorized update remains atomic');
 $stepUp='absent';
 $privateSearch=new WP_REST_Request(['route'=>'/sabri-network/v2/conversations/42/search']);
 $blocked=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
@@ -82,13 +93,13 @@ $check(is_wp_error($blocked)&&$blocked->get_error_code()==='sn_conversation_step
     'After provider loss, a previously locked private search must fail closed');
 $deniedChange=SN_Future_Superset::set_conversation_lock(new WP_REST_Request(['id'=>42,'enabled'=>false]));
 $check(is_wp_error($deniedChange),'Provider loss cannot bypass an existing conversation lock by disabling it');
-$check($wpdb->writes===1,'Rejected unlock cannot mutate the saved lock');
+$check($wpdb->writes===2,'Rejected unlock cannot mutate the saved lock');
 $stepUp='valid';
 $readable=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
 $check($readable===null,'Valid fresh step-up may continue the authorized private search route');
 $unlocked=SN_Future_Superset::set_conversation_lock(new WP_REST_Request(['id'=>42,'enabled'=>false]));
 $check($unlocked instanceof WP_REST_Response,'Valid step-up can disable an existing protected lock');
-$check($wpdb->writes===2,'Authenticated disable updates the same canonical lock');
+$check($wpdb->writes===3,'Authenticated disable updates the same canonical lock');
 $stepUp='absent';
 $after=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
 $check($after===null,'After authorized unlock, no stale lock remains to block the route');
