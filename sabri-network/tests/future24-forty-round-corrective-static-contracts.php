@@ -50,6 +50,6 @@ $assert(str_contains($reminderDispatch,"'/future/templates/(?P<id>\\d+)/preview'
 $aiHardening=$read('includes/class-sn-future24-review-hardening-g.php');
 $assert(str_contains($aiHardening,"'summary','draft','action_items','explain','translate'"),'F17-FUT-22 must support explicitly authorized translation task.');
 $assert(str_contains($aiHardening,'sn_network_ai_translation_locale_allowed')&&str_contains($aiHardening,'sn_ai_translation_locale_not_approved'),'F17-FUT-22 translation locale must fail closed under authoritative language-owner approval.');
-$assert(str_contains($aiHardening,"'target_locale'=>$task==='translate'?$targetLocale:null"),'F17-FUT-22 translation must pass only the approved locale to the File-16 adapter.');
+$assert(str_contains($aiHardening,"'target_locale'=>\$task==='translate'?\$targetLocale:null"),'F17-FUT-22 translation must pass only the approved locale to the File-16 adapter.');
 $assert(str_contains($advancedUI,'Translate (approved locale)')&&str_contains($advancedUI,"target_locale:String(data.get('target_locale')"),'F17-FUT-22 consented translation UI must send its target locale.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
