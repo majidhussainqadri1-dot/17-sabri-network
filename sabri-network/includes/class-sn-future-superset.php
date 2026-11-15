@@ -59,6 +59,20 @@ final class SN_Future_Superset {
         foreach (is_array($due) ? $due : [] as $record) {
             $data = self::decode($record); if (is_wp_error($data)) continue;
             $claimed = $wpdb->update(self::records_table(), ['state'=>'firing','updated_at'=>$now,'version'=>(int)$record->version+1], ['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]); if ($claimed !== 1) continue;
+            // Earlier preflight happens on a separate hook. Authority can change
+            // after preflight and before this due event is actually dispatched.
+            if (!self::reminder_dispatch_authorized($record, $data)) {
+                $cancelled=$wpdb->update(self::records_table(),
+                    ['state'=>'cancelled','updated_at'=>self::now(),'version'=>(int)$record->version+2],
+                    ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                SN_DB::audit('future_reminder_authorization_revoked','future_record',
+                    (int)$record->id,$cancelled===1?'success':'failure',
+                    ['reason'=>'authorization_or_source_changed'],
+                    (int)$record->owner_id);
+                // A failed cancel is not permission to notify. The stale-firing
+                // recovery job will re-enter this check before a later attempt.
+                continue;
+            }
             try {
                 // WordPress do_action() succeeds even when no consumer is registered.
                 // Never mark a reminder as fired if File19 has no receiving hook.
@@ -76,6 +90,25 @@ final class SN_Future_Superset {
         $temp = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-13' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
         foreach (is_array($temp) ? $temp : [] as $record) self::expire_temp($record);
         $wpdb->query($wpdb->prepare("UPDATE " . self::records_table() . " SET state='expired',updated_at=%s,version=version+1 WHERE state='active' AND expires_at IS NOT NULL AND expires_at<%s AND feature_id NOT IN ('F17-FUT-07','F17-FUT-10','F17-FUT-13')", $now, $now));
+    }
+
+    /**
+     * Authoritative check immediately before File19 receives a due-reminder fact.
+     * The hourly preflight is useful cleanup, not proof of a durable permission.
+     */
+    private static function reminder_dispatch_authorized(object $record,array $data): bool {
+        global $wpdb;
+        $owner=(int)$record->owner_id;
+        $conversation=(int)$record->scope_id;
+        if($owner<=0||$conversation<=0||!SN_DB::is_member($conversation,$owner))return false;
+        $message=absint($data['message_id']??0);
+        if($message<=0)return true;
+        $m=$wpdb->get_row($wpdb->prepare(
+            'SELECT id,sender_id,deleted_at FROM '.SN_DB::table('messages').
+            ' WHERE id=%d AND conversation_id=%d LIMIT 1',$message,$conversation));
+        if(!$m||!empty($m->deleted_at)||SN_Message_Operations::is_hidden($owner,$message)
+            ||SN_DB::is_blocked($owner,(int)$m->sender_id))return false;
+        return true;
     }
 
     public static function register(): void {
