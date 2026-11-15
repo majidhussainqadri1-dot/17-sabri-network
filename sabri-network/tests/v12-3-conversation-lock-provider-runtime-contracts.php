@@ -16,6 +16,7 @@ final class WP_REST_Request implements ArrayAccess {
     public function __construct(private array $params=[]) {}
     public function get_param(string $key): mixed {return $this->params[$key]??null;}
     public function get_route(): string {return (string)($this->params['route']??'');}
+    public function get_method(): string {return (string)($this->params['method']??'GET');}
     public function set_param(string $key,mixed $value): void {$this->params[$key]=$value;}
     public function offsetExists(mixed $offset): bool {return isset($this->params[$offset]);}
     public function offsetGet(mixed $offset): mixed {return $this->params[$offset]??null;}
