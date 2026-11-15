@@ -72,3 +72,12 @@ Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provis
 - Two categories remain only partially addressed: exhaustive V12.3 clause-level acceptance and user-facing completeness across all 24 Future capabilities.
 - One additional CSS control-size defect was corrected in source; browser-level verification remains pending.
 - Live defects fixed and independently verified: **zero claimed**.
+
+## V12.3 implementation cycle II — 15 November 2026
+- **Total rendered actionable forms: 27** (3 original + 4 first cycle + 20 second cycle). This counts controls, not compliance with all 24 features or completed clinical/provider integrations.
+- **Source modifications:** advanced JS with progressive disclosure, safe text-only readouts, separate feedback that preserves capability inventory, private invitation output, bounded/confirmed batch operation and status/cancellation, managed community invitations and temporary membership, mentor lifecycle, de-identified case discussion, hand-raise and host lobby request, explicit AI consent, private semantic consent/withdrawal, authorized personal item listing/revocation. CSS for accessible focus/checkbox, responsive disclosure, readout.
+- **Automated checks:** 27-form Node DOM/fetch runtime test, no-consent early refusal, route/nonce/idempotency contract, batch preview and destructive confirmation, escaped provider and feature response, no automatic retry on 503 refusal; extended PHP static assertions; 53 existing PHP suites retained.
+- **Not verified:** actual E2EE, proof transparency, audited device cryptography, approved AI/semantic/index/purge providers, SFU/TURN, clinical eligibility owner adapters, cross-file integration, real staging DB migration and private 1 GiB upload and true live deployment parity.
+- **Live administration blocked:** connection attempts to both https://www.sabrihomeopathy.com and https://sabrihomeopathy.com returned HTTP 530 via the WordPress connector. This response does not establish the failing origin/hop or root cause; no live code, schema or firewall change was made.
+- **Important:** old section calling out *only three advanced UI forms* is a baseline historical observation and is superseded **for source code only** by the 27-control inventory above. All separate V12.3 acceptance obligations remain open until exercised in a real environment.
+
