@@ -1,3 +1,14 @@
+# V12.3 reconciliation — 15 November 2026
+
+Plan: Sabri Website Master Plan V12.3 (13 November 2026); plugin candidate 2.1.0.
+Verified main HEAD: 8ae656e51796d1f05865d8be5dca2480443d79ca (25 September 2026).
+Exact-HEAD GitHub Actions run 39201819466 (19 October 2026): PHP 8.1 boundary job SUCCESS; PHP 8.3 full-quality/deterministic package job SUCCESS.
+These checks are for the baseline SHA, not for this review branch, current deployed code, migrations or live functionality.
+V12.3 postdates the baseline commit. Full clause-by-clause acceptance is not established.
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+---
+
 # File 17 — Coding Completeness Assessment
 
 **Assessment target:** Sabri Network and Messages 2.1.0  
