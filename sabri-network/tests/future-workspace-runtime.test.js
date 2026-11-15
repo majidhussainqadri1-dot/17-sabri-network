@@ -78,10 +78,15 @@ vm.runInNewContext(source,{document,window,fetch:fetchStub,FormData:FakeFormData
 
 const run = async () => {
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(forms.size,29,'3 legacy + 4 prior + 12 Next + 8 lifecycle/privacy + 2 reminder controls should be wired');
+  assert.equal(forms.size,30,'3 legacy + 4 prior + 12 Next + 8 lifecycle/privacy + 2 reminder + 1 team read controls should be wired');
   assert.match(status.innerHTML,/24 advanced File 17 capabilities/);
   assert.ok(!status.innerHTML.includes('<img'),'capability names must be HTML-escaped');
 
+  await forms.get('snf-team-inbox-read-form').submit({conversation_id:'8'});
+  assert.equal(requests.at(-1).endpoint,'future/team-inbox/8','team manager must be able to read current version');
+  await forms.get('snf-team-inbox-form').submit({conversation_id:'8',assignee_id:'11',status:'pending',enabled:'on',expected_version:'3'});
+  assert.equal(requests.at(-1).endpoint,'future/team-inbox/8');
+  assert.equal(JSON.parse(requests.at(-1).options.body).expected_version,3,'team assignment must carry last observed version');
   const beforeInventory = status.innerHTML;
   await forms.get('snf-smart-view-form').submit({name:'Unread cases',unread:'on',has_files:null,days:'30'});
   assert.equal(status.innerHTML,beforeInventory,'form success must not erase capability inventory');
@@ -164,6 +169,6 @@ const run = async () => {
   await forms.get('snf-reminder-cancel-form').submit({id:'79',expected_version:'1'});
   assert.equal(requests.length,deniedCount,'reminder cancellation requires explicit confirmation');
   for (const form of forms.values()) assert.equal(form.button.disabled,false,'button must re-enable after completion/refusal: '+form.id);
-  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (29 forms, consent, batch, escaping, feedback)\n');
+  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (30 forms, consent, batch, escaping, feedback)\n');
 };
 run().catch(error=>{console.error(error);process.exitCode=1;});
