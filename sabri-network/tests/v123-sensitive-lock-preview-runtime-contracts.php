@@ -25,6 +25,25 @@ function is_wp_error(mixed $v):bool{return $v instanceof WP_Error;}
 function apply_filters(string $name,mixed $default,...$args):mixed{
     return $name==='sn_network_step_up_verified' ? (bool)($GLOBALS['stepup_verified']??false) : $default;
 }
+function sanitize_key(string $s):string{return strtolower(preg_replace('/[^a-z0-9_-]/','',$s));}
+class SN_DB {
+    public static function table(string $part):string{return 'wp_sn_'.$part;}
+    public static function direct_key(int $a,int $b):string{$ids=[$a,$b];sort($ids,SORT_NUMERIC);return hash('sha256',implode(':',$ids));}
+}
+class FakeLockDB {
+    public string $last_error='';
+    public ?int $existingId=17;
+    public bool $failLookup=false;
+    public function prepare(string $sql,mixed ...$values):string {
+        if(!str_contains($sql,'wp_sn_conversations')||!str_contains($sql,'direct_key'))throw new RuntimeException('Unexpected lookup query');
+        return $sql;
+    }
+    public function get_var(string $sql):?int{
+        if($this->failLookup){$this->last_error='simulated DB failure';return null;}
+        $this->last_error='';return $this->existingId;
+    }
+}
+$wpdb=new FakeLockDB();
 require_once dirname(__DIR__).'/includes/class-sn-future-superset-part-1.php';
 final class SN_Future_Superset {
     use SN_Future_Superset_Part_1;
@@ -67,6 +86,16 @@ check(($restoreResponse['conversation']['owner_id']??-1)===0,'Restore reply must
 check($data['conversations'][1]['last_message']['body']==='visible message','Unlocked conversation must remain usable.');
 $pre=SN_Future_Superset::pre_dispatch(null,null,new WP_REST_Request('/sabri-network/v2/conversations/17'));
 check($pre instanceof WP_Error&&$pre->get_error_code()==='sn_conversation_step_up_required','Direct locked conversation must require step-up.');
+$directRestore=new WP_REST_Request('/sabri-network/v2/conversations','POST',['type'=>'direct','user_id'=>8]);
+$restorePre=SN_Future_Superset::pre_dispatch(null,null,$directRestore);
+check($restorePre instanceof WP_Error&&$restorePre->get_error_code()==='sn_conversation_step_up_required','Restoring an existing locked direct conversation must require fresh step-up before any mutation.');
+$wpdb->existingId=null;
+check(SN_Future_Superset::pre_dispatch(null,null,$directRestore)===null,'A genuinely new conversation must not inherit another chat lock.');
+$wpdb->existingId=17;$wpdb->failLookup=true;
+$restoreDBFail=SN_Future_Superset::pre_dispatch(null,null,$directRestore);
+check($restoreDBFail instanceof WP_Error&&$restoreDBFail->get_error_code()==='sn_conversation_lock_lookup_unavailable','Failed existing-chat lookup must fail closed.');
+$wpdb->failLookup=false;
+
 $GLOBALS['stepup_verified']=true;
 $unlocked=SN_Future_Superset::post_dispatch(rows(),null,$list)->get_data();
 check($unlocked['conversations'][0]['last_message']['body']==='secret message','Fresh approved step-up may reveal content.');
