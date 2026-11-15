@@ -143,6 +143,12 @@ $check(SN_Future24_Review_Hardening_M::create_reminder($req(['message_id'=>14]))
 SN_DB::$blocked[8]=true;
 $check(SN_Future24_Review_Hardening_M::create_reminder($req(['message_id'=>15])) instanceof WP_Error,
     'Blocked sender cannot become a reminder source');
+SN_DB::$active[42]=false;
+$archived=SN_Future24_Review_Hardening_M::create_reminder($req());
+$check($archived instanceof WP_Error,
+    'Archived conversation remains non-actionable even if member row persists');
+$check($wpdb->successful_inserts===0,'Archived conversation cannot create a due reminder');
+SN_DB::$active[42]=true;
 $check($wpdb->successful_inserts===0,'Every rejected create made zero persistent writes');
 
 $valid=SN_Future24_Review_Hardening_M::create_reminder($req());
