@@ -48,6 +48,8 @@ jobs:
           node --check sabri-network/assets/js/round20-correction.js
           TZ=UTC node sabri-network/tests/v12-3-reminder-workspace-dom.js
           TZ=America/New_York node sabri-network/tests/v12-3-reminder-workspace-dom.js
+          node --check sabri-network/tests/v12-3-reasoned-workspace-dom.js
+          node sabri-network/tests/v12-3-reasoned-workspace-dom.js
           python3 - <<'PY'
           from pathlib import Path
           css=Path('sabri-network/assets/css/future-superset.css').read_text(encoding='utf-8')
@@ -100,6 +102,8 @@ jobs:
           run_test v12-3-reminder-dst-timezone-runtime-contracts.php
           run_test v12-3-reminder-workspace-static-contracts.php
           run_test v12-3-reminder-active-conversation-membership-runtime-contracts.php
+          run_test v12-3-conversation-lock-provider-runtime-contracts.php
+          run_test v12-3-workspace-route-static-contracts.php
           run_test file03-profile-contracts.php
 
   quality-and-package:

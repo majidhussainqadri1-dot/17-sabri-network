@@ -69,6 +69,8 @@ fi
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 echo '== V12.3 reminder UI DOM and timezone journeys =='
 for zone in UTC America/New_York; do TZ="$zone" node tests/v12-3-reminder-workspace-dom.js; done
+node --check tests/v12-3-reasoned-workspace-dom.js
+node tests/v12-3-reasoned-workspace-dom.js
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
 
@@ -92,7 +94,7 @@ tests=(
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
  two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php fourth-fresh-twenty-round-contracts.php
  fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php fifth-fresh-closure-contracts.php fifth-fresh-release-truth-contracts.php
- sixth-fresh-twenty-round-contracts.php seventh-fresh-idempotency-runtime-contracts.php eighth-fresh-future-idempotency-runtime-contracts.php v12-3-team-inbox-atomicity-runtime-contracts.php v12-3-effective-handoff-route-runtime-contracts.php v12-3-future-idempotency-semantics-runtime-contracts.php v12-3-bulk-reasoned-handoff-runtime-contracts.php v12-3-reminder-authorized-create-runtime-contracts.php v12-3-reminder-dispatch-failclosed-runtime-contracts.php v12-3-reminder-versioned-mutations-runtime-contracts.php v12-3-private-results-post-provider-revocation-runtime-contracts.php v12-3-reminder-dst-timezone-runtime-contracts.php v12-3-reminder-workspace-static-contracts.php v12-3-reminder-active-conversation-membership-runtime-contracts.php file03-profile-contracts.php
+ sixth-fresh-twenty-round-contracts.php seventh-fresh-idempotency-runtime-contracts.php eighth-fresh-future-idempotency-runtime-contracts.php v12-3-team-inbox-atomicity-runtime-contracts.php v12-3-effective-handoff-route-runtime-contracts.php v12-3-future-idempotency-semantics-runtime-contracts.php v12-3-bulk-reasoned-handoff-runtime-contracts.php v12-3-reminder-authorized-create-runtime-contracts.php v12-3-reminder-dispatch-failclosed-runtime-contracts.php v12-3-reminder-versioned-mutations-runtime-contracts.php v12-3-private-results-post-provider-revocation-runtime-contracts.php v12-3-reminder-dst-timezone-runtime-contracts.php v12-3-reminder-workspace-static-contracts.php v12-3-reminder-active-conversation-membership-runtime-contracts.php v12-3-conversation-lock-provider-runtime-contracts.php v12-3-workspace-route-static-contracts.php file03-profile-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)
