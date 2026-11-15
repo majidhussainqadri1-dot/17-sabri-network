@@ -113,3 +113,9 @@ Effective source corrections:
 | Proven deployed/production failures resolved | **0** | Live deployed bytes, DB/schema/migration and functional re-tests remain unavailable |
 
 **Honest limitations:** two distinct source review passes and a third edge-case/UX pass are recorded; these do **not** qualify as V12.3's two complete independent WordPress/real-provider/backup/restore/live acceptance cycles. The registered File19 notification hook is **not** proof of durable acceptance or delivered notification. Approval gate is **STOP**, no merge, install or deployment.
+
+## Final independent UX retry review E — finding frozen before correction
+| ID | Scope | Exact failure | Required bounded change |
+|---|---|---|---|
+| F17-V123-REM-RETRY-09 | Reminder creation request loss and user retry | The UI `api()` utility creates a fresh random `Idempotency-Key/client_id` on **every** POST when no persistent per-operation key is supplied. If the server commits a reminder and the HTTP response is lost, a user resubmitting the unchanged creation form gets a **different** caller-owned ID, so the database cannot detect a retry; a second reminder is legitimately created. | Hold one caller-owned creation key for an unchanged form payload across ambiguous network failures. Use a new key only if submitted parameters change or a successful response is received. Add a deterministic DOM test simulating server commit then lost HTTP response and verify exactly one record after resubmission. |
+Do not apply this to separate intentional operations: identical payloads submitted **after a confirmed success** must still receive different IDs. This review does **not** assert that a corresponding defect exists in the unverified deployed version.
