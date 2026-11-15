@@ -50,6 +50,9 @@ final class FakeReminderDB {
     public string $prefix='wp_';
     public ?object $due=null;
     public bool $fail_finalization=false;
+    public bool $fail_cancellation=false;
+    public bool $message_exists=true;
+    public bool $message_deleted=false;
     public array $queries=[];
     public int $state_writes=0;
     public function seed(int $id=17):void {
@@ -64,7 +67,9 @@ final class FakeReminderDB {
     public function prepare(string $sql,mixed ...$args):string{return $sql;}
     public function get_row(string $sql):?object {
         if(str_contains($sql,'wp_sn_messages')){
-            return (object)['id'=>11,'conversation_id'=>42,'sender_id'=>8,'deleted_at'=>null];
+            if(!$this->message_exists)return null;
+            return (object)['id'=>11,'conversation_id'=>42,'sender_id'=>8,
+                'deleted_at'=>$this->message_deleted?'2026-11-14 10:00:00':null];
         }
         return null;
     }
@@ -82,6 +87,7 @@ final class FakeReminderDB {
         if(isset($where['state'])&&(string)$where['state']!==(string)$this->due->state)return 0;
         if(isset($where['version'])&&(int)$where['version']!==(int)$this->due->version)return 0;
         if($this->fail_finalization&&($data['state']??'')==='fired')return false;
+        if($this->fail_cancellation&&($data['state']??'')==='cancelled')return false;
         foreach($data as $k=>$v)$this->due->{$k}=$v;
         ++$this->state_writes;return 1;
     }
@@ -129,4 +135,30 @@ $check($GLOBALS['notifications'][0]['payload']['idempotency_key']===
        $GLOBALS['notifications'][1]['payload']['idempotency_key'],
     'Retried dispatch retains exact downstream deduplication identity');
 
+
+// Simulate a revoked member or source change *after* the earlier preflight hook
+// but *before* the actual due dispatch. The scheduler must never emit.
+foreach(['revoked','hidden','blocked','deleted','missing','scope','failed_cancel'] as $i=>$mode){
+    $wpdb=new FakeReminderDB();$wpdb->seed(40+$i);
+    SN_DB::$member=true;SN_DB::$blocked=[];SN_Message_Operations::$hidden=[];
+    if($mode==='revoked'||$mode==='failed_cancel')SN_DB::$member=false;
+    if($mode==='hidden')SN_Message_Operations::$hidden[11]=true;
+    if($mode==='blocked')SN_DB::$blocked[8]=true;
+    if($mode==='deleted')$wpdb->message_deleted=true;
+    if($mode==='missing')$wpdb->message_exists=false;
+    if($mode==='scope')$wpdb->due->scope_id=0;
+    if($mode==='failed_cancel')$wpdb->fail_cancellation=true;
+    SN_DB::$audits=[];$GLOBALS['notifications']=[];
+    $GLOBALS['notification_listener']=true;
+    SN_Future_Superset::cleanup();
+    $check(count($GLOBALS['notifications'])===0,
+        "Changed due authorization ($mode) never reaches File19");
+    $expected=$mode==='failed_cancel'?'firing':'cancelled';
+    $check($wpdb->due->state===$expected,
+        "Revoked due fact ($mode) becomes terminal or safely held, never fired");
+    $check(count(SN_DB::$audits)===1
+        && SN_DB::$audits[0]['event']==='future_reminder_authorization_revoked',
+        "Revoked fact ($mode) is auditable without private message text");
+}
+SN_DB::$member=true;SN_DB::$blocked=[];SN_Message_Operations::$hidden=[];
 echo "V12.3 F17-FUT-07 fail-closed handoff: $checks PASS, 0 FAIL\n";
