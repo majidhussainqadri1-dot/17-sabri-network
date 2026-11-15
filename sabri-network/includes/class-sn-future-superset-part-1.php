@@ -71,9 +71,14 @@ trait SN_Future_Superset_Part_1 {
         if(is_wp_error($at))return $at;
         $c=absint($r->get_param('conversation_id'));$message=absint($r->get_param('message_id'));
         if($c&&(!self::conversation_member($c,$u)||SN_Policy::is_suspended($u)))return self::not_found();
+        if($c){global $wpdb;$state=$wpdb->get_var($wpdb->prepare('SELECT status FROM '.SN_DB::table('conversations').' WHERE id=%d',$c));if((string)$state!=='active')return self::not_found();}
         if($message){$m=self::message_row($message);if(!$c||!$m||(int)$m->conversation_id!==$c||$m->deleted_at||SN_Message_Operations::is_hidden($u,$message)||SN_DB::is_blocked($u,(int)$m->sender_id))return self::not_found();}
         $id=self::create_record('F17-FUT-07',$u,'conversation',$c,['message_id'=>$message,'label'=>mb_substr(sanitize_text_field((string)$r->get_param('label')),0,191)],self::client($r,$u,'reminder'),$at);
-        return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'remind_at'=>$at,'version'=>1],201);
+        if(is_wp_error($id))return $id;
+        global $wpdb;
+        $row=$wpdb->get_row($wpdb->prepare("SELECT state,expires_at,version FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-07' AND owner_id=%d",$id,$u));
+        if(!$row)return self::db_error();
+        return new WP_REST_Response(['id'=>$id,'remind_at'=>(string)$row->expires_at,'state'=>(string)$row->state,'version'=>(int)$row->version],(string)$row->state==='active'?201:200);
     }
     public static function cancel_reminder(WP_REST_Request $r): WP_REST_Response|WP_Error {
         global $wpdb;$u=get_current_user_id();$id=absint($r['id']);
