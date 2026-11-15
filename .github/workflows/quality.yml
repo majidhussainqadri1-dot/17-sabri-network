@@ -46,6 +46,8 @@ jobs:
           node --check sabri-network/assets/js/future-superset.js
           node --check sabri-network/assets/js/fifth-fresh-ui.js
           node --check sabri-network/assets/js/round20-correction.js
+          TZ=UTC node sabri-network/tests/v12-3-reminder-workspace-dom.js
+          TZ=America/New_York node sabri-network/tests/v12-3-reminder-workspace-dom.js
           python3 - <<'PY'
           from pathlib import Path
           css=Path('sabri-network/assets/css/future-superset.css').read_text(encoding='utf-8')
