@@ -1,3 +1,13 @@
+## V12.3 source development current snapshot — 15 November 2026
+
+**Current candidate:** 33 governed Advanced Communication forms; 57 PHP review/runtime suites + nine JS entry syntax checks + one Node DOM/fetch runtime suite; one additional read-only live freeze utility. These numbers are source/test inventories, NOT overall feature or production-readiness percentages. The earlier '27 controls' paragraph below is historical. The newer plan-to-code map is `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md`.
+
+**Source improvements:** backend transaction/CAS team assignment; reminder cancel/reschedule and File-19 handoff privacy/consent checks; owner-only allowlisted saved-reply preview (not sent); provider- and language-owner-gated opt-in AI translation; optional authorized conversation suggestions and read-only device key/history views. No new DB tables, no plugin-version bump, no live deployment. **External blockers:** WordPress connection (HTTP 530 on last check), real DB/migration freeze, verified 1 GiB/scanner/storage, E2EE audit, STUN/TURN/SFU, File16/20/19 adapters and full staging acceptance. Latest exact-branch CI and immutable package must be independently verified.
+
+**Live truth:** deployed version UNKNOWN; DB version UNKNOWN; migration UNKNOWN; live re-test NOT DONE. `main` baseline HEAD is 8ae656e51796d1f05865d8be5dca2480443d79ca; PR #27 remains draft.
+
+---
+
 ## Second V12.3 source implementation pass — 15 November 2026
 The Advanced Communication workspace now registers **27 interactive forms**: 3 original, 4 from the first V12.3 review and 20 further Next/SCALE/Advanced user and lifecycle journeys added in the second pass. They reuse existing File-17 REST handlers, current server authorization and provider fail-closed gates; this count is **not** the count of operationally approved features. New user actions include authorized revision viewing, bounded preview/confirmed batches and job polling/cancellation, community invite issuance/redeem/revoke, temporary community access, mentorship accept/end, de-identified case consent, call controls, optional File 16 AI, private semantic consent/withdrawal and purge-state reporting, authorized saved view and private-record operations.
 A Node DOM/fetch runtime contract for these 27 forms runs in full `tools/quality-check.sh`, alongside the 53 existing PHP suites. Future-specific PHP static assertions cover consent, safe response rendering and UI guards. The capability inventory remains visible after action feedback.
