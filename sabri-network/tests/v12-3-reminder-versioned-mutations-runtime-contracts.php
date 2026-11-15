@@ -122,6 +122,17 @@ $check($ownerCancel instanceof WP_REST_Response&&$wpdb->row->state==='cancelled'
 SN_DB::$is_member=true;
 
 $wpdb=new ReminderMutationDB();$wpdb->seed();
+SN_DB::$active=false;
+$archived=SN_Future24_Review_Hardening_M::reschedule($request(['expected_version'=>3]));
+$check($archived instanceof WP_Error&&$archived->get_error_code()==='sn_reminder_access_revoked',
+    'Archived conversation with stale member row cannot reschedule');
+$check($wpdb->writes===0,'Archived conversation cannot update canonical reminder');
+$ownerCancel=SN_Future24_Review_Hardening_M::cancel($request(['expected_version'=>3]));
+$check($ownerCancel instanceof WP_REST_Response&&$wpdb->row->state==='cancelled',
+    'Owner can safely cancel personal reminder for archived conversation');
+SN_DB::$active=true;
+
+$wpdb=new ReminderMutationDB();$wpdb->seed();
 $wpdb->force_update_failure=true;
 $conflict=SN_Future24_Review_Hardening_M::reschedule($request(['expected_version'=>3]));
 $check($conflict instanceof WP_Error&&$conflict->get_error_code()==='sn_reminder_stale',
