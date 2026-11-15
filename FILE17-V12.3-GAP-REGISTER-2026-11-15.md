@@ -117,3 +117,11 @@ This is **source-code / test-coverage** accounting. It does not classify failure
 **Negative fixture tests:** `tests/v123-live-parity-runtime.sh` now creates (a) an archive-only unlisted extra, (b) a manifest-listed file with forged archive bytes, and (c) a symlink ZIP member with the *same literal bytes* as the approved file. All three must be rejected while a normal deterministic package still passes.
 
 **Accounting:** SRC-07 package attestation gap identified and source-patched; this increment has **seven source/interface/audit findings and one test-fixture defect**. Live verification remains zero.
+
+## Expanded read-only schema evidence — 15 November 2026
+
+`tools/file17-live-freeze.sh` now additionally collects **schema metadata only**, including first-party SN table names, columns and SQL data types, index and indexed-column names, and `INFORMATION_SCHEMA.TABLE_ROWS` *estimates* (clearly marked inaccurate for some InnoDB tables). It does **not** read private message bodies, contact graphs, uploaded media, secret wp-config values or raw application logs. A fixed option inventory includes `sn_plugin_version`, `sn_db_version`, `sn_future_superset_schema_version`, `sn_two_plan_schema_version` and `sn_meet_db_version`.
+
+A source/test pass only proves these diagnostics are coded; **no actual site snapshot has been collected** because the live WordPress connector remains unavailable. Schema columns and row-count estimates are needed to exclude stale migrations or partial deployments *before* asserting an application-code root cause. Runtime logs require a separately authorized, privacy-aware collection process.
+
+The stronger parity helper also verifies the exact proposed ZIP *itself*: every archive path must be in the embedded manifest, all decompressed archive bytes must hash identically, duplicate paths and symbolic-link entries are rejected, and then deployed source files are compared. These negative fixtures run synthetically in the full gate, without using user data.
