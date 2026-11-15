@@ -80,6 +80,8 @@ const records = [{
   expires_at: utcSQL(Date.now()+7200000), data: {label: 'Professional follow-up'}
 }];
 const requests = [];
+const createByKey = new Map();
+let lostResponseAfterCreate = false;
 let failNextMutation = false;
 let keyCounter = 0;
 async function fetch(url, options = {}) {
@@ -95,12 +97,20 @@ async function fetch(url, options = {}) {
   if (resource === 'future/reminders' && method === 'POST') {
     if (!body.client_id) return response({message:'Client ID is required'},400);
     if (!(body.conversation_id > 0) || !body.remind_at?.endsWith('Z')) return response({message:'Invalid scope or instant'},400);
+    if (createByKey.has(body.client_id)) return response({
+      id:createByKey.get(body.client_id),version:1
+    },201);
     const created = {
-      id:32,version:1,scope_id:body.conversation_id,state:'active',
+      id:31+records.length,version:1,scope_id:body.conversation_id,state:'active',
       expires_at:utcSQL(body.remind_at),data:{label:body.label}
     };
     records.push(created);
-    return response({id:32,version:1},201);
+    createByKey.set(body.client_id,created.id);
+    if(lostResponseAfterCreate){
+      lostResponseAfterCreate=false;
+      throw new Error('Simulated network response loss after server commit');
+    }
+    return response({id:created.id,version:1},201);
   }
   const match = resource.match(/^future\/reminders\/(\d+)$/);
   if (match && ['POST','DELETE'].includes(method)) {
@@ -201,6 +211,36 @@ async function submit(form) {
     check(elements['snf-status'].textContent.includes('occurs twice'),
       'Ambiguous DST time produces a clear client error');
   }
+
+  const retryFields = {
+    conversation_id:'42', label:'Lost-response retry',
+    remind_at:formatLocal(new Date(Date.now()+21600000))
+  };
+  const creationForm = elements['snf-reminder-form'];
+  creationForm.fields = {...retryFields};
+  const countBeforeLoss = records.length;
+  lostResponseAfterCreate=true;
+  await submit(creationForm);
+  check(records.length === countBeforeLoss+1,
+    'Simulated server commit precedes a lost HTTP response');
+  check(elements['snf-status'].textContent.includes('Simulated network response loss'),
+    'Ambiguous network failure is surfaced rather than falsely acknowledged');
+  const ambiguous = requests.filter(x=>x.resource==='future/reminders'&&x.method==='POST').slice(-1)[0];
+  await submit(creationForm);
+  const replay = requests.filter(x=>x.resource==='future/reminders'&&x.method==='POST').slice(-1)[0];
+  check(ambiguous.body.client_id === replay.body.client_id,
+    'Unchanged form retry preserves the exact caller-owned idempotency key');
+  check(records.length === countBeforeLoss+1,
+    'Replayed request after lost response cannot create a duplicate reminder');
+  check(elements['snf-status'].textContent==='Saved successfully.',
+    'A reconciled retry produces a genuine success notification');
+  creationForm.fields = {...retryFields};
+  await submit(creationForm);
+  const separatelyCreated = requests.filter(x=>x.resource==='future/reminders'&&x.method==='POST').slice(-1)[0];
+  check(separatelyCreated.body.client_id !== replay.body.client_id,
+    'A separate intentional creation after confirmed success gets a new key');
+  check(records.length === countBeforeLoss+2,
+    'The client can intentionally create the same reminder again after success');
 
   records.push({
     id: 90, version: 0, scope_id: 42, state: 'active',
