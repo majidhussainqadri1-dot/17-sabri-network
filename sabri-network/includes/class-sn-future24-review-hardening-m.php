@@ -19,6 +19,9 @@ final class SN_Future24_Review_Hardening_M {
             return self::error('sn_reminder_busy','This reminder is already being handed off; retry after its current state is known.',409);
         if((string)$row->state!=='active')
             return self::error('sn_reminder_terminal','A fired, cancelled or expired reminder cannot be resurrected; create a new reminder instead.',409);
+        // Owning the historical reminder does not regrant revoked conversation access.
+        if((int)$row->scope_id<=0||!SN_DB::is_member((int)$row->scope_id,$user))
+            return self::error('sn_reminder_access_revoked','Conversation access was revoked; the reminder cannot be rescheduled.',403);
         // Optimistic DB CAS alone does not ensure that this client saw the
         // version it is about to overwrite. Require caller-owned prior version.
         $expected=absint($r->get_param('expected_version'));
