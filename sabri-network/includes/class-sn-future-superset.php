@@ -100,7 +100,7 @@ final class SN_Future_Superset {
         global $wpdb;
         $owner=(int)$record->owner_id;
         $conversation=(int)$record->scope_id;
-        if($owner<=0||$conversation<=0||!SN_DB::is_member($conversation,$owner))return false;
+        if($owner<=0||$conversation<=0||!SN_DB::is_active_conversation_member($conversation,$owner))return false;
         $message=absint($data['message_id']??0);
         if($message<=0)return true;
         $m=$wpdb->get_row($wpdb->prepare(
