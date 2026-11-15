@@ -89,6 +89,10 @@ check($pre instanceof WP_Error&&$pre->get_error_code()==='sn_conversation_step_u
 $directRestore=new WP_REST_Request('/sabri-network/v2/conversations','POST',['type'=>'direct','user_id'=>8]);
 $restorePre=SN_Future_Superset::pre_dispatch(null,null,$directRestore);
 check($restorePre instanceof WP_Error&&$restorePre->get_error_code()==='sn_conversation_step_up_required','Restoring an existing locked direct conversation must require fresh step-up before any mutation.');
+$normalizedRestore=new WP_REST_Request('/sabri-network/v2/conversations','POST',['member_ids'=>[7,8,8]]);
+$normalizedResult=SN_Future_Superset::pre_dispatch(null,null,$normalizedRestore);
+check($normalizedResult instanceof WP_Error&&$normalizedResult->get_error_code()==='sn_conversation_step_up_required','Member IDs containing self first must not bypass restored direct-chat lock.');
+
 $wpdb->existingId=null;
 check(SN_Future_Superset::pre_dispatch(null,null,$directRestore)===null,'A genuinely new conversation must not inherit another chat lock.');
 $wpdb->existingId=17;$wpdb->failLookup=true;
