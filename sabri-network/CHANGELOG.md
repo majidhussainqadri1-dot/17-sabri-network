@@ -1,5 +1,17 @@
 # Changelog
 
+## V12.3 advanced communication source candidate — 2026-11-15 (unreleased / no plugin version change)
+
+- Updated V12.3 source-to-plan gap/release ledger; distinguished the verified 19 October 2026 baseline CI from staging/live truth.
+- Added 24 advanced-workspace controls across two source review passes to the original 3 forms (27 total), reusing governed REST endpoints instead of parallel message or contact data stores.
+- Added private semantic consent withdrawal and visible asynchronous purge-pending state, explicit user approval for potentially destructive operations, safe bounded bulk-preview/cancel/status, and consent refusal before sending selected AI/case context.
+- Preserved capability inventory while displaying action results and errors in a dedicated accessible status; rendered authorized results as text (never as response HTML).
+- Added accessible native checkbox/select sizing, keyboard focus and mobile progressive disclosure.
+- Added a native Node DOM/fetch runtime suite to the full quality gate and extended the existing Future-24 PHP static contracts.
+- No new custom DB tables or migrations, no change to protected message backend ownership, no live installation or production acceptance claim.
+- Audited E2EE, independent key transparency, SFU calls, private semantic/AI provider integration, scanner/storage and cross-module staging remain separate fail-closed acceptance gates.
+
+
 ## 2.1.0 — 2026-08-11 onward — Current governing-plan repository corrective candidate
 
 ### Governing reconciliation
