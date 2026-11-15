@@ -46,5 +46,5 @@ foreach([
 $src=file_get_contents(dirname(__DIR__).'/includes/class-sn-future24-review-hardening-g.php');
 $fallback=file_get_contents(dirname(__DIR__).'/includes/class-sn-future-superset-part-3.php');
 $assert(str_contains($fallback,'SN_Future24_Review_Hardening_G::assess_network_quality'),'Canonical and fallback quality grading must share the same heuristic.');
-$assert(str_contains($src,"if(!$consent)return rest_ensure_response")&&str_contains($src,"'stored'=>false"),'Privacy opt-out must remain a non-storing server path.');
+$assert(str_contains($src,'if(!$consent)return rest_ensure_response')&&str_contains($src,"'stored'=>false"),'Privacy opt-out must remain a non-storing server path.');
 echo "V12.3 call-quality grading runtime contracts: PASS\n";
