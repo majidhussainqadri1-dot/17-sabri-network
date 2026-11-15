@@ -76,7 +76,7 @@ vm.runInNewContext(source,{document,window,fetch:fetchStub,FormData:FakeFormData
 
 const run = async () => {
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(forms.size,19,'3 legacy + 4 prior + 12 newly added forms should be wired');
+  assert.equal(forms.size,27,'3 legacy + 4 prior + 12 Next + 8 lifecycle/privacy forms should be wired');
   assert.match(status.innerHTML,/24 advanced File 17 capabilities/);
   assert.ok(!status.innerHTML.includes('<img'),'capability names must be HTML-escaped');
 
@@ -120,7 +120,29 @@ const run = async () => {
   assert.equal(invitation.attributes['aria-label'],'Private invitation token');
   assert.equal(status.innerHTML,beforeInventory,'invitation must not erase capability inventory');
 
+  await forms.get('snf-semantic-consent-form').submit({enabled:'no'});
+  assert.equal(requests.at(-1).endpoint,'future/semantic-search/consent','withdrawal must use canonical private consent route');
+  assert.equal(JSON.parse(requests.at(-1).options.body).enabled,false,'withdrawal must be explicit false');
+  await forms.get('snf-semantic-consent-form').submit({enabled:'yes'});
+  assert.equal(JSON.parse(requests.at(-1).options.body).enabled,true,'enable must require explicit affirmative opt-in');
+  await forms.get('snf-smart-results-form').submit({id:'31'});
+  assert.equal(requests.at(-1).endpoint,'future/smart-views/31/results');
+  await forms.get('snf-bulk-status-form').submit({id:'41'});
+  assert.equal(requests.at(-1).endpoint,'future/conversations/bulk/41');
+  confirmResult = false;
+  count = requests.length;
+  await forms.get('snf-revoke-record-form').submit({id:'23'});
+  assert.equal(requests.length,count,'erasure must require explicit confirmation');
+  confirmResult = true;
+  await forms.get('snf-revoke-record-form').submit({id:'23'});
+  assert.equal(requests.at(-1).endpoint,'future/records/23');
+  assert.equal(requests.at(-1).options.method,'DELETE');
+  await forms.get('snf-invite-revoke-form').submit({id:'61'});
+  assert.equal(requests.at(-1).endpoint,'future/community-invites/61/revoke');
+  await forms.get('snf-mentorship-end-form').submit({id:'77'});
+  assert.equal(requests.at(-1).endpoint,'future/mentorships/77/end');
+
   for (const form of forms.values()) assert.equal(form.button.disabled,false,'button must re-enable after completion/refusal: '+form.id);
-  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (19 forms, consent, batch, escaping, feedback)\n');
+  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (27 forms, consent, batch, escaping, feedback)\n');
 };
 run().catch(error=>{console.error(error);process.exitCode=1;});
