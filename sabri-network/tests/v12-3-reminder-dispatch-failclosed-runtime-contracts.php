@@ -21,10 +21,12 @@ final class SN_Communication_Crypto {
 final class SN_DB {
     public static array $audits=[];
     public static bool $member=true;
+    public static bool $active=true;
     public static array $blocked=[];
     public static function is_member(int $conversation,int $owner):bool {
         return self::$member&&$conversation===42&&$owner===7;
     }
+    public static function is_active_conversation_member(int $c,int $u):bool{return self::$active&&self::is_member($c,$u);}
     public static function table(string $name):string{return 'wp_sn_'.$name;}
     public static function is_blocked(int $user,int $sender):bool{return !empty(self::$blocked[$sender]);}
     public static function audit(string $event,string $object,int $id,string $state,array $details,int $user=0):void{
@@ -138,10 +140,11 @@ $check($GLOBALS['notifications'][0]['payload']['idempotency_key']===
 
 // Simulate a revoked member or source change *after* the earlier preflight hook
 // but *before* the actual due dispatch. The scheduler must never emit.
-foreach(['revoked','hidden','blocked','deleted','missing','scope','failed_cancel'] as $i=>$mode){
+foreach(['revoked','archived','hidden','blocked','deleted','missing','scope','failed_cancel'] as $i=>$mode){
     $wpdb=new FakeReminderDB();$wpdb->seed(40+$i);
-    SN_DB::$member=true;SN_DB::$blocked=[];SN_Message_Operations::$hidden=[];
+    SN_DB::$member=true;SN_DB::$active=true;SN_DB::$blocked=[];SN_Message_Operations::$hidden=[];
     if($mode==='revoked'||$mode==='failed_cancel')SN_DB::$member=false;
+    if($mode==='archived')SN_DB::$active=false;
     if($mode==='hidden')SN_Message_Operations::$hidden[11]=true;
     if($mode==='blocked')SN_DB::$blocked[8]=true;
     if($mode==='deleted')$wpdb->message_deleted=true;
