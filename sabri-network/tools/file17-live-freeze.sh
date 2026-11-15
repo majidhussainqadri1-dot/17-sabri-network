@@ -28,7 +28,7 @@ printf 'Runtime PHP: %s\n' "$(php -r 'echo PHP_VERSION;' 2>/dev/null || printf '
 printf 'WordPress core: %s\n' "$(wp_ro core version 2>/dev/null || printf 'unverified')"
 printf 'Plugin version: %s\n' "$(wp_ro plugin get sabri-network --field=version 2>/dev/null || printf 'unverified')"
 printf 'Plugin state: %s\n' "$(wp_ro plugin get sabri-network --field=status 2>/dev/null || printf 'unverified')"
-for key in sn_plugin_version sn_future_superset_schema_version sn_meet_db_version sn_db_version; do
+for key in sn_plugin_version sn_future_superset_schema_version sn_two_plan_schema_version sn_meet_db_version sn_db_version; do
   value="$(wp_ro option get "$key" 2>/dev/null || printf 'absent/unverified')"
   if [[ "${#value}" -gt 128 ]]; then value='non-scalar/unverified'; fi
   printf 'wp_options %s: %s\n' "$key" "$value"
