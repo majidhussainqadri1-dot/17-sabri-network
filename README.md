@@ -38,3 +38,9 @@ Canonical private message bodies use authenticated server-side encryption at res
 A green CI or ZIP is not production completion. Final sixth-cycle SHA/run/package evidence is recorded only after the final immutable head itself passes.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+## V12.3 crosswalk (November 2026)
+
+This 2.1.0 source predates the V12.3 Master Plan. The V12.3 reconciliation branch adds fail-closed step-up lock activation, atomic team inbox/assignment status, governed UI for 3 further features, feature UI/API capability transparency, and a version-specific regression gate. See `V12.3-FILE17-RECONCILIATION.md`.
+
+A 24/24 capability registry demonstrates repository representation only. It does **not** establish working E2EE, SFU media, AI provider, secure transfer scanner or live acceptance. A new exact-head quality check and real staging/live tests remain obligatory.

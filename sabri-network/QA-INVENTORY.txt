@@ -1,1 +1,8 @@
-Expected fifth-cycle full quality inventory after final synchronization: all PHP review suites present under tests/ and all nine File-17 JavaScript entry points. Exact counts are asserted by tools/quality-check.sh and current GitHub Actions.
+File 17 — V12.3 branch review inventory (candidate)
+Repository plugin candidate: 2.1.0.
+Expected explicit PHP suite inventory: 54 (53 existing + v12-3-file17-contracts.php).
+Expected JavaScript syntax entry points: 9.
+The quality script verifies that every PHP suite on disk is invoked exactly once.
+PHP 8.1 boundary and PHP 8.3 full-quality/package workflows run for exact immutable commits.
+A new branch requires its OWN CI pass. Older main runs do not prove the branch.
+Staging/live/provider/DB/schema/migration parity: UNVERIFIED.

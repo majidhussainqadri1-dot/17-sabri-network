@@ -39,3 +39,17 @@ The sixth cycle corrected canonical identity projection authority, caller-owned 
 Real fresh-install/upgrade/migration/race testing, current companion contracts, approved scanner/media/translation/AI/interoperability providers, browser/device/RTL/accessibility/load, key backup/restore/rotation, backup/rollback rehearsal, Founder staging sign-off, live deployment, deployed-artifact parity and monitoring/support/SLO evidence remain separate gates.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+## V12.3 reconciliation — 15 November 2026
+
+Original repository HEAD `8ae656e51796d1f05865d8be5dca2480443d79ca`; repository v2.1.0. The original HEAD passed CI on 2026-09-25 and 2026-10-19; these historical runs do not establish status for a later modified branch.
+
+Working branch `audit/file17-v12-3-close-gates-20261115` provides bounded V12.3 corrections and tests:
+- An initial conversation lock now requires an already available and verified File-00/02 step-up assertion, preventing an unsupported provider from silently locking a conversation.
+- Shared team inbox + assignment writes use an atomic transaction and reject a failed second write.
+- Workspace UI now exposes authorized team inbox, private view, and safe text-only message revision history controls; API-only capabilities are explicitly labelled.
+- Plan reconciliation and version-accurate packaging/QA documentation are recorded in `V12.3-FILE17-RECONCILIATION.md`.
+
+Real staging/WordPress/MySQL integration, external providers, protected-device flows, accessibility/RTL/browser test, penetration/load tests, deployed artifact/DB evidence, and founder sign-off remain separate acceptance gates.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**

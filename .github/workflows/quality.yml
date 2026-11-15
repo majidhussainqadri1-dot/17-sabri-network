@@ -6,6 +6,7 @@ on:
       - main
       - codex/**
       - review/**
+      - audit/**
       - complete/**
   pull_request:
     branches:
