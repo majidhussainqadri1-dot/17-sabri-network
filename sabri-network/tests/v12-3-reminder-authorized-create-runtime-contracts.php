@@ -31,8 +31,10 @@ final class WP_REST_Request implements ArrayAccess {
 final class SN_REST {public static function access():bool{return true;}}
 final class SN_DB {
     public static array $membership=[42=>true,43=>true];
+    public static array $active=[42=>true,43=>true];
     public static array $blocked=[];
     public static function is_member(int $c,int $u):bool{return $u===7&&($c>0)&&!empty(self::$membership[$c]);}
+    public static function is_active_conversation_member(int $c,int $u):bool{return self::is_member($c,$u)&&!empty(self::$active[$c]);}
     public static function is_blocked(int $viewer,int $sender):bool{return !empty(self::$blocked[$sender]);}
     public static function table(string $name):string{return 'wp_sn_'.$name;}
 }
