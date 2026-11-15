@@ -123,6 +123,20 @@ trait SN_Future_Superset_Part_1 {
             'consistency_proof_verified'=>false
         ]);
     }
+    /**
+     * Canonical File-17 preview permission for secondary consumers such as
+     * private saved views; a corrupt lock must not be treated as unlocked.
+     */
+    public static function sensitive_preview_access(int $user,int $conversation): bool|WP_Error {
+        if($user<=0||$conversation<=0||!self::conversation_member($conversation,$user))return self::not_found();
+        $lock=self::active_record('F17-FUT-04',$user,'conversation',$conversation);
+        if(!$lock)return true;
+        $policy=self::decode($lock);
+        if(is_wp_error($policy))return self::error('sn_conversation_lock_state_unavailable','Sensitive conversation preview authorization is unavailable.',503);
+        if(empty($policy['enabled']))return true;
+        $ttl=max(60,min(3600,(int)($policy['step_up_ttl']??900)));
+        return (bool)apply_filters('sn_network_step_up_verified',false,$user,$conversation,'conversation_lock',$ttl);
+    }
     public static function set_conversation_lock(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_member($c,$u))return self::not_found();$existing=self::active_record('F17-FUT-04',$u,'conversation',$c);if($existing){$old=self::decode($existing);if(!is_wp_error($old)&&!empty($old['enabled'])&&!(bool)apply_filters('sn_network_step_up_verified',false,$u,$c,'conversation_lock',max(60,min(3600,(int)($old['step_up_ttl']??900)))))return self::error('sn_conversation_step_up_required','Fresh step-up verification is required before changing this sensitive conversation lock.',403);}$data=['enabled'=>rest_sanitize_boolean($r->get_param('enabled')),'step_up_ttl'=>max(60,min(3600,absint($r->get_param('step_up_ttl'))?:900))];$id=self::upsert_record('F17-FUT-04',$u,'conversation',$c,$data,'lock:'.$u.':'.$c,null);return is_wp_error($id)?$id:rest_ensure_response($data);}
     public static function pre_dispatch($result,$server,WP_REST_Request $r){if($result!==null)return $result;$route=$r->get_route();if(!str_starts_with($route,'/sabri-network/v2/'))return $result;$u=get_current_user_id();if($u<=0)return $result;$c=0;$m=null;if(preg_match('#/conversations/(\d+)#',$route,$x))$c=(int)$x[1];elseif(preg_match('#/messages/(\d+)#',$route,$x)){$m=self::message_row((int)$x[1]);$c=$m?(int)$m->conversation_id:0;}elseif(preg_match('#/future/team-inbox/(\d+)#',$route,$x))$c=(int)$x[1];if($c<=0&&$route==='/sabri-network/v2/conversations'&&$r->get_method()==='POST'){
             // Creating/restoring a direct conversation can reopen an existing
