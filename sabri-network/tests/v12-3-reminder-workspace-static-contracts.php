@@ -62,7 +62,7 @@ $check(str_contains($js,"catch (error) { announce(error.message, true); }"),
     'Stale/cross-permission server errors remain visible');
 $check(str_contains($m,"sn_reminder_dst_nonexistent")&&str_contains($m,"sn_reminder_dst_ambiguous"),
     'Backend refuses ambiguous/nonexistent wall-clock times');
-$check(str_contains($base,"$"."c<=0||!self::conversation_member"),
+$check(str_contains($base,"$"."c<=0||!SN_DB::is_active_conversation_member"),
     'Backend refuses orphan reminder creation');
 
 foreach([
