@@ -140,6 +140,8 @@
     "<form id=\"snf-reminder-reschedule-form\" class=\"snf-card\"><h3>Reschedule my reminder</h3><p>Only the current owner and current message/conversation member may reschedule it.</p><label>Reminder ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Current version<input name=\"expected_version\" type=\"number\" min=\"1\" required></label><label>New reminder time (local)<input name=\"remind_at\" type=\"datetime-local\" required></label><button type=\"submit\">Change reminder time</button></form>",
     "<form id=\"snf-team-inbox-read-form\" class=\"snf-card\"><h3>Read current team assignment</h3><p>Obtain the current version, then enter it above before changing any assignment.</p><label>Conversation ID<input name=\"conversation_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Read team state and version</button></form>",
     "<form id=\"snf-template-preview-form\" class=\"snf-card\"><h3>Preview my saved reply — never auto-send</h3><p>Only three safe variables are supported: recipient_name, clinic_name and appointment_date. The preview remains private until you manually send it through the canonical Messages interface.</p><label>My template ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Recipient name<input name=\"recipient_name\" maxlength=\"191\"></label><label>Clinic name<input name=\"clinic_name\" maxlength=\"191\"></label><label>Appointment date<input name=\"appointment_date\" maxlength=\"191\"></label><button type=\"submit\">Preview without sending</button></form>",
+    "<form id=\"snf-device-list-form\" class=\"snf-card\"><h3>My current public device-key records</h3><p>Read-only verification metadata. These records are not raw private keys and do not certify an audited E2EE protocol.</p><button type=\"submit\">View my device records</button></form>",
+    "<form id=\"snf-key-transparency-form\" class=\"snf-card\"><h3>Device-key change history (authorized contacts)</h3><p>Read-only, privacy-minimized evidence. This is not independent verification of a signed transparency checkpoint.</p><label>Account ID<input name=\"user_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Read permitted key-change history</button></form>",
     "</div></details>",
   ].join('');
   root.insertAdjacentHTML('beforeend', nextJourneyForms);
@@ -193,5 +195,7 @@
     }}),
     workspace_title:'Plain-text saved reply preview — NOT SENT'
   }));
+  bind('snf-device-list-form', async () => ({status_message:'The account-owned public key metadata is displayed without private secret material.',workspace_readout:await api('future/device-keys'),workspace_title:'My device-key metadata — NOT an E2EE certification'}));
+  bind('snf-key-transparency-form', async data => ({status_message:'Read-only permitted key-change records shown below; checkpoint consistency is not independently proven here.',workspace_readout:await api('future/key-transparency/' + Number(data.get('user_id'))),workspace_title:'Permitted device-key change history'}));
   loadCapabilities();
 })();
