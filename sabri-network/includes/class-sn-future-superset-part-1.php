@@ -126,38 +126,49 @@ trait SN_Future_Superset_Part_1 {
     public static function set_conversation_lock(WP_REST_Request $r): WP_REST_Response|WP_Error {$c=absint($r['id']);$u=get_current_user_id();if(!self::conversation_member($c,$u))return self::not_found();$existing=self::active_record('F17-FUT-04',$u,'conversation',$c);if($existing){$old=self::decode($existing);if(!is_wp_error($old)&&!empty($old['enabled'])&&!(bool)apply_filters('sn_network_step_up_verified',false,$u,$c,'conversation_lock',max(60,min(3600,(int)($old['step_up_ttl']??900)))))return self::error('sn_conversation_step_up_required','Fresh step-up verification is required before changing this sensitive conversation lock.',403);}$data=['enabled'=>rest_sanitize_boolean($r->get_param('enabled')),'step_up_ttl'=>max(60,min(3600,absint($r->get_param('step_up_ttl'))?:900))];$id=self::upsert_record('F17-FUT-04',$u,'conversation',$c,$data,'lock:'.$u.':'.$c,null);return is_wp_error($id)?$id:rest_ensure_response($data);}
     public static function pre_dispatch($result,$server,WP_REST_Request $r){if($result!==null)return $result;$route=$r->get_route();if(!str_starts_with($route,'/sabri-network/v2/'))return $result;$u=get_current_user_id();if($u<=0)return $result;$c=0;$m=null;if(preg_match('#/conversations/(\d+)#',$route,$x))$c=(int)$x[1];elseif(preg_match('#/messages/(\d+)#',$route,$x)){$m=self::message_row((int)$x[1]);$c=$m?(int)$m->conversation_id:0;}elseif(preg_match('#/future/team-inbox/(\d+)#',$route,$x))$c=(int)$x[1];if($c<=0&&in_array($route,['/sabri-network/v2/future/e2ee-policy','/sabri-network/v2/future/reminders','/sabri-network/v2/future/citations','/sabri-network/v2/future/case-discussions','/sabri-network/v2/future/ai-assistant','/sabri-network/v2/future/semantic-search','/sabri-network/v2/future/interop'],true))$c=absint($r->get_param('conversation_id'));if($c<=0)return $result;$lock=self::active_record('F17-FUT-04',$u,'conversation',$c);if($lock){$d=self::decode($lock);if(is_wp_error($d))return self::error('sn_conversation_lock_state_unavailable','The sensitive conversation lock state cannot be verified.',503);if(!empty($d['enabled'])&&!(bool)apply_filters('sn_network_step_up_verified',false,$u,$c,'conversation_lock',(int)($d['step_up_ttl']??900)))return self::error('sn_conversation_step_up_required','This sensitive conversation requires fresh step-up verification.',403);}if($r->get_method()==='POST'&&preg_match('#^/sabri-network/v2/messages/\d+$#',$route)&&$m&&self::conversation_member($c,$u)&&!SN_Message_Operations::is_hidden($u,(int)$m->id)&&SN_Policy::can_edit_message($m,$u)){$new=trim(sanitize_textarea_field(wp_unslash((string)$r->get_param('body'))));$old=SN_Message_Body::decrypt_row($m);if(!is_wp_error($old)&&$new!==''&&hash('sha256',$old)!==hash('sha256',$new)){$id=self::capture_message_version($m,$u);if(is_wp_error($id))return $id;$r->set_param('_sn_future_snapshot_id',(int)$id);}}return $result;}
     public static function post_dispatch($response,$server,WP_REST_Request $r){
-        // V12.3 F17-FUT-04: a conversation-wide listing is not permission to render
-        // private preview text on a shared or recently unlocked device.
-        if($r->get_method()==='GET'&&$r->get_route()==='/sabri-network/v2/conversations'&&
+        // V12.3 F17-FUT-04: both the GET list and POST create/restore replies
+        // can contain last-message previews from a pre-existing locked conversation.
+        $route=$r->get_route();
+        if($route==='/sabri-network/v2/conversations'&&
+            in_array($r->get_method(),['GET','POST'],true)&&
             $response instanceof WP_REST_Response&&(int)$response->get_status()<400){
             $data=$response->get_data();
-            if(is_array($data)&&isset($data['conversations'])&&is_array($data['conversations'])){
-                $user=get_current_user_id();
-                if($user>0){
-                    foreach($data['conversations'] as &$conversation){
-                        if(!is_array($conversation))continue;
-                        $conversationId=absint($conversation['id']??0);
-                        if($conversationId<=0)continue;
-                        $lock=self::active_record('F17-FUT-04',$user,'conversation',$conversationId);
-                        if(!$lock)continue;
-                        $policy=self::decode($lock);
-                        if(is_wp_error($policy)){
-                            // Fail closed rather than displaying possibly protected previews.
-                            return new WP_REST_Response(['code'=>'sn_conversation_lock_state_unavailable','message'=>'Sensitive conversation previews cannot be verified.'],503);
+            if(is_array($data)){
+                $list=isset($data['conversations'])&&is_array($data['conversations']);
+                $single=isset($data['conversation'])&&is_array($data['conversation']);
+                if($list||$single){
+                    $user=get_current_user_id();
+                    if($user>0){
+                        $items=$list?$data['conversations']:[$data['conversation']];
+                        foreach($items as &$conversation){
+                            if(!is_array($conversation))continue;
+                            $conversationId=absint($conversation['id']??0);
+                            if($conversationId<=0)continue;
+                            $lock=self::active_record('F17-FUT-04',$user,'conversation',$conversationId);
+                            if(!$lock)continue;
+                            $policy=self::decode($lock);
+                            if(is_wp_error($policy)){
+                                // Returning a partial listing or private restore response is unsafe.
+                                return new WP_REST_Response(['code'=>'sn_conversation_lock_state_unavailable','message'=>'Sensitive conversation previews cannot be verified.'],503);
+                            }
+                            if(empty($policy['enabled']))continue;
+                            $ttl=max(60,min(3600,(int)($policy['step_up_ttl']??900)));
+                            if((bool)apply_filters('sn_network_step_up_verified',false,$user,$conversationId,'conversation_lock',$ttl))continue;
+                            $conversation['last_message']=null;
+                            $conversation['description']='';
+                            $conversation['title']='Locked conversation';
+                            $conversation['avatar']='';
+                            $conversation['owner_id']=0;
+                            $conversation['updated_at']='';
+                            $conversation['unread_count']=0;
+                            $conversation['can_post']=false;
+                            $conversation['sensitive_locked']=true;
                         }
-                        if(empty($policy['enabled']))continue;
-                        $ttl=max(60,min(3600,(int)($policy['step_up_ttl']??900)));
-                        if((bool)apply_filters('sn_network_step_up_verified',false,$user,$conversationId,'conversation_lock',$ttl))continue;
-                        $conversation['last_message']=null;
-                        $conversation['description']='';
-                        $conversation['title']='Locked conversation';
-                        $conversation['avatar']='';
-                        $conversation['unread_count']=0;
-                        $conversation['can_post']=false;
-                        $conversation['sensitive_locked']=true;
+                        unset($conversation);
+                        if($list)$data['conversations']=$items;
+                        else $data['conversation']=$items[0];
+                        $response->set_data($data);
                     }
-                    unset($conversation);
-                    $response->set_data($data);
                 }
             }
         }
