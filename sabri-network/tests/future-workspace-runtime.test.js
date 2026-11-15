@@ -77,6 +77,11 @@ async function fetchStub(url, options) {
 }
 const window = {SN_FUTURE_CONFIG:{restUrl,nonce:'test-nonce'},crypto:{randomUUID:()=>'00000000-0000-4000-8000-'+String(++uuidNumber).padStart(12,'0')},confirm:()=>confirmResult};
 const source = fs.readFileSync(path.join(__dirname,'../assets/js/future-superset.js'),'utf8');
+const formStart = source.indexOf('snf-network-quality-form');
+const formEnd = source.indexOf('</form>', formStart);
+assert.ok(formStart >= 0 && formEnd > formStart,'Quality form must be present');
+const qualityFormSource = source.slice(formStart, formEnd);
+assert.ok(!qualityFormSource.includes('value=\\\"0\\\"'),'Quality input must have no arbitrary zero metric defaults');
 vm.runInNewContext(source,{document,window,fetch:fetchStub,FormData:FakeFormData,Uint8Array,console},{filename:'future-superset.js'});
 
 const run = async () => {
