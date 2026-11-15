@@ -12,6 +12,12 @@
 - Actual SFU/TURN/E2EE/AI/index/scanner/storage staging verification and live deployment parity remain mandatory; **not operationally accepted**.
 
 
+### QoS input and grading corrective candidate — 15 Nov 2026
+- Proven source issue: packet jitter and downlink were ignored in quality grading and invalid REST values were silently clamped.
+- Implemented a shared conservative grade helper for authoritative/fallback handlers, limited ICE retry hints to conditions indicating transport instability, removed invented zero input defaults and fail-closed validated untrusted metrics.
+- Added an isolated executable PHP regression for grades, numeric boundaries and opt-out contracts (58 PHP suites including this addition).
+- No claim of actual browser-collected network speed, SFU integration or deployed fix.
+
 ## V12.3 advanced communication source candidate — 2026-11-15 (unreleased / no plugin version change)
 
 - Updated V12.3 source-to-plan gap/release ledger; distinguished the verified 19 October 2026 baseline CI from staging/live truth.
