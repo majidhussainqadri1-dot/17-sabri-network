@@ -47,4 +47,9 @@ $assert(str_contains($reminderApi,'function preview_template(')&&str_contains($r
 $assert(str_contains($reminderApi,"'not_sent'=>true")&&str_contains($reminderApi,"'requires_manual_review'=>true"),'V12.3 saved replies must never send without manual review.');
 $assert(str_contains($reminderApi,"'sn_template_variables_unresolved'")&&str_contains($reminderApi,"'sn_template_clinical_guard'"),'V12.3 template variable and professional content safeguards must be present.');
 $assert(str_contains($reminderDispatch,"'/future/templates/(?P<id>\\d+)/preview'")&&str_contains($advancedUI,'snf-template-preview-form'),'V12.3 private template preview route and UI must be wired.');
+$aiHardening=$read('includes/class-sn-future24-review-hardening-g.php');
+$assert(str_contains($aiHardening,"'summary','draft','action_items','explain','translate'"),'F17-FUT-22 must support explicitly authorized translation task.');
+$assert(str_contains($aiHardening,'sn_network_ai_translation_locale_allowed')&&str_contains($aiHardening,'sn_ai_translation_locale_not_approved'),'F17-FUT-22 translation locale must fail closed under authoritative language-owner approval.');
+$assert(str_contains($aiHardening,"'target_locale'=>$task==='translate'?$targetLocale:null"),'F17-FUT-22 translation must pass only the approved locale to the File-16 adapter.');
+$assert(str_contains($advancedUI,'Translate (approved locale)')&&str_contains($advancedUI,"target_locale:String(data.get('target_locale')"),'F17-FUT-22 consented translation UI must send its target locale.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
