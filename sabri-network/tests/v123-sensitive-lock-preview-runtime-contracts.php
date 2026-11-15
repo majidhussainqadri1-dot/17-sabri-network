@@ -43,7 +43,7 @@ final class SN_Future_Superset {
 }
 function check(bool $condition,string $message):void{if(!$condition){fwrite(STDERR,"FAIL: $message\n");exit(1);}}
 function rows():WP_REST_Response{return new WP_REST_Response(['conversations'=>[
-    ['id'=>17,'title'=>'Private peer','description'=>'Sensitive notes','last_message'=>['body'=>'secret message'],'avatar'=>'private-avatar','unread_count'=>8,'can_post'=>true],
+    ['id'=>17,'title'=>'Private peer','description'=>'Sensitive notes','last_message'=>['body'=>'secret message'],'avatar'=>'private-avatar','owner_id'=>42,'updated_at'=>'private-timestamp','unread_count'=>8,'can_post'=>true],
     ['id'=>18,'title'=>'Public chat','description'=>'Open','last_message'=>['body'=>'visible message'],'unread_count'=>2,'can_post'=>true],
 ]]);}
 $list=new WP_REST_Request('/sabri-network/v2/conversations');
@@ -56,6 +56,14 @@ check($data['conversations'][0]['last_message']===null,'Locked preview text must
 check($data['conversations'][0]['title']==='Locked conversation','Locked title must be neutral.');
 check($data['conversations'][0]['description']===''&&$data['conversations'][0]['unread_count']===0,'Locked metadata must be suppressed.');
 check(($data['conversations'][0]['sensitive_locked']??false)===true,'Client must receive an explicit lock badge state.');
+check(($data['conversations'][0]['owner_id']??-1)===0 && ($data['conversations'][0]['updated_at']??'x')==='', 'Locked creator and activity metadata must not leak.');
+$restore=new WP_REST_Request('/sabri-network/v2/conversations','POST');
+$existing=rows()->get_data()['conversations'][0];
+$restoreResponse=SN_Future_Superset::post_dispatch(new WP_REST_Response(['conversation'=>$existing,'existing'=>true]),null,$restore)->get_data();
+check($restoreResponse['conversation']['last_message']===null,'Restoring an existing locked conversation must not disclose preview through POST.');
+check($restoreResponse['conversation']['title']==='Locked conversation','Restore reply must hide a locked peer title.');
+check(($restoreResponse['conversation']['owner_id']??-1)===0,'Restore reply must hide sensitive peer owner metadata.');
+
 check($data['conversations'][1]['last_message']['body']==='visible message','Unlocked conversation must remain usable.');
 $pre=SN_Future_Superset::pre_dispatch(null,null,new WP_REST_Request('/sabri-network/v2/conversations/17'));
 check($pre instanceof WP_Error&&$pre->get_error_code()==='sn_conversation_step_up_required','Direct locked conversation must require step-up.');
@@ -70,6 +78,8 @@ SN_Future_Superset::$locks=[17=>'corrupt'];
 $failed=SN_Future_Superset::post_dispatch(rows(),null,$list);
 check($failed instanceof WP_REST_Response && $failed->get_status()===503,'Corrupt stored lock state must fail the entire preview listing closed.');
 check(!str_contains(json_encode($failed->get_data()),'secret message'),'Corrupt-policy failure must not leak message previews.');
+$restoreCorrupt=SN_Future_Superset::post_dispatch(new WP_REST_Response(['conversation'=>rows()->get_data()['conversations'][0]]),null,new WP_REST_Request('/sabri-network/v2/conversations','POST'));
+check($restoreCorrupt instanceof WP_REST_Response&&$restoreCorrupt->get_status()===503,'Corrupt lock in restore reply must fail closed, not return existing-message metadata.');
 $preFailed=SN_Future_Superset::pre_dispatch(null,null,new WP_REST_Request('/sabri-network/v2/conversations/17'));
 check($preFailed instanceof WP_Error&&$preFailed->get_error_code()==='sn_conversation_lock_state_unavailable','Direct access with corrupt lock must fail closed.');
 check(SN_Future_Superset::pre_dispatch(null,null,new WP_REST_Request('/other-plugin/v1/example'))===null,'Other REST namespaces remain unaffected.');
