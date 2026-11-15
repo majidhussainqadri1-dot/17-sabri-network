@@ -26,4 +26,11 @@ $assert(str_contains($advancedUI,"data.get('student_id')"), 'V12.3: mentorship m
 $advancedCSS=$read('assets/css/future-superset.css');
 $assert(str_contains($advancedCSS,'input[type="checkbox"]')&&str_contains($advancedCSS,'min-height:20px'), 'V12.3: checkbox geometry must not inherit full-width text-input controls.');
 $assert(str_contains($advancedCSS,'select:focus-visible'), 'V12.3: advanced selector must expose keyboard focus.');
+$v123Forms=['snf-revisions-form','snf-bulk-form','snf-invite-create-form','snf-invite-redeem-form','snf-temp-member-form','snf-mentorship-decision-form','snf-case-form','snf-handraise-form','snf-lobby-form','snf-ai-form','snf-semantic-form','snf-safety-form','snf-my-records-form','snf-smart-results-form','snf-bulk-status-form','snf-bulk-cancel-form','snf-semantic-consent-form','snf-revoke-record-form','snf-invite-revoke-form','snf-mentorship-end-form'];
+foreach($v123Forms as $form){$assert(str_contains($advancedUI,$form),'V12.3: expected governed Next/Advanced action missing: '.$form);}
+$assert(str_contains($advancedUI,'snf-feedback')&&str_contains($advancedUI,'showReadout'),'V12.3: outcomes must not overwrite the capability inventory.');
+$assert(str_contains($advancedUI,"data.get('explicit_consent') !== 'on'")&&str_contains($advancedUI,"data.get('consent_asserted') !== 'on'"),'V12.3: selected AI and private case content must fail before transport without explicit consent.');
+$assert(str_contains($advancedUI,'future/semantic-search/consent')&&str_contains($advancedUI,'purge_pending'),'V12.3: private semantic consent withdrawal must surface incomplete index erasure.');
+$assert(str_contains($advancedUI,'window.confirm('),'V12.3: irreversible actions and non-preview batch execution must require direct user confirmation.');
+$assert(str_contains($advancedCSS,'snf-more>summary:focus-visible')&&str_contains($advancedCSS,'.snf-readout'),'V12.3: disclosure and safe text-only result visibility must be styled.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
