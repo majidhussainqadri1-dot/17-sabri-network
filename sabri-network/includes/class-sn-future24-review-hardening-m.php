@@ -10,7 +10,31 @@ final class SN_Future24_Review_Hardening_M {
         register_rest_route('sabri-network/v2','/future/reminders/(?P<id>\d+)',[['methods'=>'POST','callback'=>[self::class,'reschedule'],'permission_callback'=>[SN_REST::class,'access']],['methods'=>'DELETE','callback'=>[self::class,'cancel'],'permission_callback'=>[SN_REST::class,'access']]]);
     }
     public static function create_reminder(WP_REST_Request $r):WP_REST_Response|WP_Error{$normalized=self::normalize_time((string)$r->get_param('remind_at'),(string)$r->get_param('timezone'));if(is_wp_error($normalized))return $normalized;$r->set_param('remind_at',$normalized);return SN_Future_Superset::create_reminder($r);}
-    public static function reschedule(WP_REST_Request $r):WP_REST_Response|WP_Error{
+    public static function reschedule(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $user=get_current_user_id();
+        $row=self::row(absint($r['id']),$user);
+        if(!$row)return self::not_found();
+        if((string)$row->state==='firing')
+            return self::error('sn_reminder_busy','This reminder is already being handed off; retry after its current state is known.',409);
+        if((string)$row->state!=='active')
+            return self::error('sn_reminder_terminal','A fired, cancelled or expired reminder cannot be resurrected; create a new reminder instead.',409);
+        // Optimistic DB CAS alone does not ensure that this client saw the
+        // version it is about to overwrite. Require caller-owned prior version.
+        $expected=absint($r->get_param('expected_version'));
+        if($expected<=0)
+            return self::error('sn_reminder_version_required','Refresh this reminder and provide its current expected version.',400);
+        if($expected!==(int)$row->version)
+            return self::error('sn_reminder_stale','Reminder changed before rescheduling.',409);
+        $when=self::normalize_time((string)$r->get_param('remind_at'),(string)$r->get_param('timezone'));
+        if(is_wp_error($when))return $when;
+        $ok=$wpdb->update($wpdb->prefix.'sn_future_records',
+            ['expires_at'=>$when,'updated_at'=>current_time('mysql',true),'version'=>(int)$row->version+1],
+            ['id'=>(int)$row->id,'state'=>'active','version'=>(int)$row->version]);
+        if($ok!==1)return self::error('sn_reminder_stale','Reminder changed before rescheduling.',409);
+        SN_DB::audit('future_reminder_rescheduled','future_record',(int)$row->id,'success',['remind_at'=>$when],$user);
+        return rest_ensure_response(['id'=>(int)$row->id,'state'=>'active','remind_at'=>$when,'version'=>(int)$row->version+1]);
+    }
         global $wpdb;$user=get_current_user_id();$row=self::row(absint($r['id']),$user);if(!$row)return self::not_found();
         if((string)$row->state==='firing')return self::error('sn_reminder_busy','This reminder is already being handed off; retry after its current state is known.',409);
         if((string)$row->state!=='active')return self::error('sn_reminder_terminal','A fired, cancelled or expired reminder cannot be resurrected; create a new reminder instead.',409);
@@ -18,7 +42,29 @@ final class SN_Future24_Review_Hardening_M {
         $ok=$wpdb->update($wpdb->prefix.'sn_future_records',['expires_at'=>$when,'updated_at'=>current_time('mysql',true),'version'=>(int)$row->version+1],['id'=>(int)$row->id,'state'=>'active','version'=>(int)$row->version]);if($ok!==1)return self::error('sn_reminder_stale','Reminder changed before rescheduling.',409);
         SN_DB::audit('future_reminder_rescheduled','future_record',(int)$row->id,'success',['remind_at'=>$when],$user);return rest_ensure_response(['id'=>(int)$row->id,'state'=>'active','remind_at'=>$when,'version'=>(int)$row->version+1]);
     }
-    public static function cancel(WP_REST_Request $r):WP_REST_Response|WP_Error{
+    public static function cancel(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $user=get_current_user_id();
+        $row=self::row(absint($r['id']),$user);
+        if(!$row)return self::not_found();
+        if(in_array((string)$row->state,['cancelled','fired','expired'],true))
+            return rest_ensure_response(['id'=>(int)$row->id,'state'=>(string)$row->state]);
+        if((string)$row->state==='firing')
+            return self::error('sn_reminder_busy','This reminder is already being handed off; retry after its current state is known.',409);
+        if((string)$row->state!=='active')
+            return self::error('sn_reminder_stale','Reminder is not in a cancellable state.',409);
+        $expected=absint($r->get_param('expected_version'));
+        if($expected<=0)
+            return self::error('sn_reminder_version_required','Refresh this reminder and provide its current expected version.',400);
+        if($expected!==(int)$row->version)
+            return self::error('sn_reminder_stale','Reminder changed before cancellation.',409);
+        $ok=$wpdb->update($wpdb->prefix.'sn_future_records',
+            ['state'=>'cancelled','updated_at'=>current_time('mysql',true),'version'=>(int)$row->version+1],
+            ['id'=>(int)$row->id,'state'=>'active','version'=>(int)$row->version]);
+        if($ok!==1)return self::error('sn_reminder_stale','Reminder changed before cancellation.',409);
+        SN_DB::audit('future_reminder_cancelled','future_record',(int)$row->id,'success',[],$user);
+        return rest_ensure_response(['id'=>(int)$row->id,'state'=>'cancelled','version'=>(int)$row->version+1]);
+    }
         global $wpdb;$user=get_current_user_id();$row=self::row(absint($r['id']),$user);if(!$row)return self::not_found();
         if(in_array((string)$row->state,['cancelled','fired','expired'],true))return rest_ensure_response(['id'=>(int)$row->id,'state'=>(string)$row->state]);
         if((string)$row->state==='firing')return self::error('sn_reminder_busy','This reminder is already being handed off; retry after its current state is known.',409);
