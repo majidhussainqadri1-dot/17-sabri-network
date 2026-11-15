@@ -135,3 +135,34 @@ The stronger parity helper also verifies the exact proposed ZIP *itself*: every 
 | TEST-02 | First attempted ZIP symlink fixture was malformed by a newline escaping error, caught by exact-commit CI shell syntax check | Replaced the whole test with a clean, deterministic fixture and reran quality checks; follow-up regressions added | Not a live bug |
 
 **Source review total in this increment:** nine distinct source/interface/audit gap identifiers SRC-01–SRC-09, all patched *in the PR*. **Test fixture errors:** two identified and corrected in the PR. **Validated live fixes:** zero. An exact-commit successful GitHub run, not a historical green run, remains the acceptance condition for repository QA; production requires separate staging and exact-live verification.
+
+
+## 15 November 2026 — Follow-up security implementation and exact-HEAD evidence
+
+**Evidence class:** source/repository findings only; not proven defects of the deployed build. Main branch remains the 8ae656e5 baseline. Isolated implementation PR #27.
+
+### Source defects found and corrected in this branch (six distinct conditions)
+
+1. F17-FUT-04: locked conversations were eligible to disclose sensitive last-message snippets and metadata from the multi-conversation GET listing. The post-dispatch output now redacts private preview/description/title/avatar/unread_count/can_post for locks without current step-up verification.
+2. F17-FUT-04: an undecryptable conversation-lock policy was ignored (fail-open). Relevant direct requests now fail closed; a corrupt policy in the listing returns HTTP 503 without private previews.
+3. F17-FUT-02/03: device-key change could report success even when the corresponding local audit-log insertion failed. Key and local log now share a transaction; log failure rolls back the key change.
+4. F17-FUT-03: concurrent device rotations could compute the same key-log predecessor. A single MySQL advisory lock serializes updates to the global chain, with transaction cleanup and explicit lock release.
+5. F17-FUT-01/02/03 and other provider-linked capabilities could be advertised as available based on insufficient readiness evidence. The capability contract now explicitly checks audited provider attributes and fail-closed integration hooks. This is not independent provider certification.
+6. F17-FUT-03: the key-history endpoint displayed only the earliest 500 entries with no pagination, so recent changes could be invisible. It now supports bounded keyset pagination and labels the log as local audit evidence, not signed checkpoint/consistency proof.
+
+### Regression proof
+
+- `tests/v123-sensitive-lock-preview-runtime-contracts.php`: locked/unlocked preview redaction, corrupt-policy denial and namespace isolation.
+- `tests/v123-device-key-atomic-runtime-contracts.php`: register, no-op retry, failed log rollback, one-event rotation and lock release.
+- `tests/v123-provider-availability-runtime-contracts.php`: unavailable until all required provider proofs; loss of proof immediately regates advanced features.
+- `tests/v123-key-history-pagination-runtime-contracts.php`: 230 ordered records without omission/duplication, DB error fail-closed, blocked contact and unsigned-proof labeling.
+- These tests are invoked by `tools/quality-check.sh` alongside the pre-existing File-17 suites. During development, the new pagination test exposed a defect in its own SQL mock; the mock was fixed and the full exact-commit workflow passed.
+- **Verified CI:** commit `82011e2826b7b18b2486f4c2546147d84e2c9ea2`, workflow 43737533452, both PHP 8.1 and PHP 8.3 full quality/deterministic package: SUCCESS. Any later doc commit has to pass its own exact-commit CI.
+
+### Unresolved acceptance and external blockers
+
+- Live deployed package checksum/version, DB version, schema/migration state and runtime evidence have not been obtained. The separate WordPress connector attempts previously returned HTTP 530; root cause remains unknown.
+- The real environment still needs actual 1 GiB resumable transfer/scanning, multi-device calls/STUN/TURN/SFU, independently audited E2EE and transparency provider, File 16/private semantic AI approval and erasure, File 00/02/03/08/19/20/24/25/26 interop, real WP/MySQL migration/rollback, and RTL/mobile/accessibility/security/load acceptance.
+- New repository fixes are **not merged, not deployed, and not independently verified live**. Live fixes claimed: **0**.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
