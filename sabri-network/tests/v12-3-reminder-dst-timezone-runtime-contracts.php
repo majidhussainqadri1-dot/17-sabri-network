@@ -20,13 +20,14 @@ $check=static function(bool $ok,string $why)use(&$checks):void{
 };
 $method=new ReflectionMethod(SN_Future24_Review_Hardening_M::class,'normalize_time');
 $normalize=static fn(string $value,string $zone=''):string|WP_Error=>$method->invoke(null,$value,$zone);
-$future=gmdate('Y-m-d\TH:i:s\Z',time()+7200);
+$futureTs=time()+7200;
+$future=gmdate('Y-m-d\TH:i:s\Z',$futureTs);
 $accepted=$normalize($future);
-$check(is_string($accepted)&&$accepted===gmdate('Y-m-d H:i:s',time()+7200),
+$check(is_string($accepted)&&$accepted===gmdate('Y-m-d H:i:s',$futureTs),
     'An explicit ISO UTC instant remains exact');
 $check($normalize('tomorrow','Asia/Karachi') instanceof WP_Error,
     'Natural-language timestamps cannot be silently interpreted');
-$noZone=$normalize(gmdate('Y-m-d\TH:i:s',time()+7200));
+$noZone=$normalize(gmdate('Y-m-d\TH:i:s',$futureTs));
 $check($noZone instanceof WP_Error&&$noZone->get_error_code()==='sn_reminder_timezone_required',
     'An offset-free local timestamp requires a timezone');
 $validLocal=gmdate('Y-m-d\TH:i:s',time()+2*DAY_IN_SECONDS+3600);
