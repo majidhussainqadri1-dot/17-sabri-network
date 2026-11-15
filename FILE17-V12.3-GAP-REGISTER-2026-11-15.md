@@ -175,3 +175,13 @@ The stronger parity helper also verifies the exact proposed ZIP *itself*: every 
 **Current automated inventory:** 63 PHP review/runtime suites, 9 JS entry syntax checks, 1 Node workspace runtime suite, 36 advanced forms and read-only ZIP/parity regression. The source-level **7 defect conditions** were addressed in the isolated PR; 1 test-fixture parameter-cursor mistake was corrected during CI. Live verified fixes remain zero. PHP 8.1/8.3 and deterministic package passed on the exact source commit `579cbc2768e1bef851855af94085c60788e371af` (workflow 43738225834). Any new documentation commit must pass its own CI before that result transfers.
 
 **Live truth:** Deployment version UNKNOWN; DB version UNKNOWN; migration state UNKNOWN; runtime storage engines UNKNOWN; live re-test NOT DONE. WordPress authorization handshake was blocked by HTTP 530 again on 15 November 2026; the response does not prove origin/root cause.
+
+## Further F17-FUT-04 direct-conversation restore security review (15 November 2026)
+
+Three additional observable request paths were corrected in the repository candidate:
+
+8. `POST /sabri-network/v2/conversations` may return an already-existing sensitive direct conversation with title, preview and activity metadata. The same response-redaction boundary now covers both listing GET and create/restore POST, including current step-up and corrupt-lock fail-closed rules.
+9. A direct-conversation restore request did not include its existing conversation ID and could reopen a locked thread without step-up. The pre-dispatch contract now looks up the canonical direct conversation key *before* restore and demands the current File00/02 step-up assertion. Failed DB lookup fails closed.
+10. Direct chat restore with `member_ids=[self,peer]` could select the wrong lookup target if the lock guard failed to remove self first. Target normalization now matches the canonical conversation creator, with an explicit negative regression test.
+
+The same `v123-sensitive-lock-preview-runtime-contracts.php` test now exercises all three restore paths, current and expired/unavailable step-up and conditional response redaction. **Cumulative source-level defect conditions corrected in this PR: 10** (counting individually reproducible pathways; not 10 proven live defects). The test inventory remains **63 PHP suites**, 9 production JS syntax checks and one Node workspace test, with the release-blocking environmental gates unchanged. No new production version or migrations were deployed.
