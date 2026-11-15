@@ -59,7 +59,12 @@ final class SN_Future_Superset {
         $stale = gmdate('Y-m-d H:i:s', time() - 15 * MINUTE_IN_SECONDS);
         $wpdb->query($wpdb->prepare("UPDATE " . self::records_table() . " SET state='active',updated_at=%s,version=version+1 WHERE feature_id='F17-FUT-07' AND state='firing' AND updated_at<%s", $now, $stale));
         $due = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-07' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
+        // File 19 owns delivery; an event without a registered consumer is not completion.
+        if(has_action('sn_network_notification_requested')===false&&is_array($due)&&$due){
+            SN_DB::audit('future_reminder_delivery_unavailable','future_record',0,'failure',['reason'=>'notification_consumer_unavailable'],0);
+        }
         foreach (is_array($due) ? $due : [] as $record) {
+            if(has_action('sn_network_notification_requested')===false)break;
             $data = self::decode($record); if (is_wp_error($data)) continue;
             // A reminder is not a perpetual grant to disclose a revoked conversation.
             if (!self::reminder_authorized($record,$data)) {
@@ -72,7 +77,19 @@ final class SN_Future_Superset {
                     $wpdb->update(self::records_table(),['state'=>'cancelled','updated_at'=>self::now(),'version'=>(int)$record->version+2],['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
                     continue;
                 }
-                do_action('sn_network_notification_requested', ['owner'=>'file-17','recipient_id'=>(int)$record->owner_id,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>(int)$record->scope_id,'message_id'=>(int)($data['message_id']??0),'idempotency_key'=>'file17-future-reminder:' . (int)$record->id]);
+                $conversation=(int)$record->scope_id;
+                $lock=$conversation>0?self::active_record('F17-FUT-04',(int)$record->owner_id,'conversation',$conversation):null;
+                $lockData=$lock?self::decode($lock):[];
+                // Locked-conversation notifications never expose user text or a message preview reference.
+                $private=is_array($lockData)&&!empty($lockData['enabled']);
+                do_action('sn_network_notification_requested', [
+                    'owner'=>'file-17','recipient_id'=>(int)$record->owner_id,
+                    'type'=>'communication_reminder','title'=>'Communication reminder',
+                    'body'=>$private?'Private reminder':mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),
+                    'entity_type'=>'conversation','entity_id'=>$conversation,
+                    'message_id'=>$private?0:(int)($data['message_id']??0),
+                    'idempotency_key'=>'file17-future-reminder:'.(int)$record->id
+                ]);
                 $wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
             } catch (Throwable $error) {
                 $wpdb->update(self::records_table(), ['state'=>'active','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
@@ -99,7 +116,12 @@ final class SN_Future_Superset {
         $u=(int)$record->owner_id;
         if($u<1||!get_user_by('id',$u)||SN_Policy::is_suspended($u))return false;
         $c=(int)$record->scope_id;
-        if($c>0&&!SN_DB::is_member($c,$u))return false;
+        if($c>0){
+            if(!SN_DB::is_member($c,$u))return false;
+            global $wpdb;
+            $state=$wpdb->get_var($wpdb->prepare('SELECT status FROM '.SN_DB::table('conversations').' WHERE id=%d',$c));
+            if((string)$state!=='active')return false;
+        }
         $message=absint($data['message_id']??0);
         if($message>0){
             if($c<=0)return false;
