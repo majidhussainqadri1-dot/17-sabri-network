@@ -58,7 +58,7 @@ class FakeDB {
     public function get_row(string $sql):?object {
         if(str_contains($sql,"feature_id='F17-FUT-07'")) {
             if(str_contains($sql,"state='active'")&&$this->row->state!=='active')return null;
-            if(str_contains($sql,'"')||true)return clone $this->row;
+            return clone $this->row;
         }
         if(str_contains($sql,'FROM test_sn_messages'))return (object)['id'=>44,'conversation_id'=>33,'sender_id'=>22,'deleted_at'=>TestState::$messageDeleted?'2026-11-15':null];
         if(str_contains($sql,'F17-FUT-04'))return (object)['feature_id'=>'F17-FUT-04','owner_id'=>11,'scope_type'=>'conversation','scope_id'=>33,'payload_cipher'=>'LOCKED'];
