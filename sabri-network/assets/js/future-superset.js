@@ -142,6 +142,9 @@
     "<form id=\"snf-template-preview-form\" class=\"snf-card\"><h3>Preview my saved reply — never auto-send</h3><p>Only three safe variables are supported: recipient_name, clinic_name and appointment_date. The preview remains private until you manually send it through the canonical Messages interface.</p><label>My template ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Recipient name<input name=\"recipient_name\" maxlength=\"191\"></label><label>Clinic name<input name=\"clinic_name\" maxlength=\"191\"></label><label>Appointment date<input name=\"appointment_date\" maxlength=\"191\"></label><button type=\"submit\">Preview without sending</button></form>",
     "<form id=\"snf-device-list-form\" class=\"snf-card\"><h3>My current public device-key records</h3><p>Read-only verification metadata. These records are not raw private keys and do not certify an audited E2EE protocol.</p><button type=\"submit\">View my device records</button></form>",
     "<form id=\"snf-key-transparency-form\" class=\"snf-card\"><h3>Device-key change history (authorized contacts)</h3><p>Read-only, privacy-minimized evidence. This is not independent verification of a signed transparency checkpoint.</p><label>Account ID<input name=\"user_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Read permitted key-change history</button></form>",
+    "<form id=\"snf-lobby-read-form\" class=\"snf-card\"><h3>View current waiting-room status</h3><p>Current call members only; a stale result does not authorize entry.</p><label>Call ID<input name=\"call_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Read waiting room</button></form>",
+    "<form id=\"snf-speaker-queue-read-form\" class=\"snf-card\"><h3>View current speaker queue</h3><p>Read-only: call moderator rights are enforced separately for queue changes.</p><label>Call ID<input name=\"call_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Read speaker queue</button></form>",
+    "<form id=\"snf-network-quality-form\" class=\"snf-card\"><h3>My current call network quality</h3><p>Enter estimates provided by your browser or call client; this form does not independently measure your connection. Telemetry storage is opt-in and short-lived.</p><label>Call ID<input name=\"call_id\" type=\"number\" min=\"1\" required></label><label>Packet loss %<input name=\"packet_loss_pct\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" value=\"0\" required></label><label>Round-trip latency (ms)<input name=\"rtt_ms\" type=\"number\" min=\"0\" max=\"5000\" step=\"1\" value=\"0\" required></label><label>Jitter (ms)<input name=\"jitter_ms\" type=\"number\" min=\"0\" max=\"5000\" step=\"1\" value=\"0\" required></label><label>Downlink bandwidth (kbps)<input name=\"downlink_kbps\" type=\"number\" min=\"0\" max=\"1000000\" step=\"1\" value=\"0\" required></label><label><input name=\"telemetry_consent\" type=\"checkbox\"> I consent to short-lived, minimal telemetry storage</label><button type=\"submit\">Get call quality guidance</button></form>",
     "</div></details>",
   ].join('');
   root.insertAdjacentHTML('beforeend', nextJourneyForms);
@@ -225,6 +228,26 @@
       // Existing numeric controls remain usable if the current list cannot be retrieved.
     }
   }
+  // FUT-17/18: safe GETs; FUT-21: input diagnostics, not invented measurements.
+  bind('snf-lobby-read-form', async data => ({status_message:'Current authorized call waiting-room state is shown below.',workspace_readout:await api('calls/' + Number(data.get('call_id')) + '/lobby'),workspace_title:'Current call waiting room'}));
+  bind('snf-speaker-queue-read-form', async data => ({status_message:'Current authorized speaker queue is shown below.',workspace_readout:await api('calls/' + Number(data.get('call_id')) + '/speaker-queue'),workspace_title:'Current speaker queue'}));
+  bind('snf-network-quality-form', async data => {
+    const number = (key, min, max) => {
+      const raw=String(data.get(key) ?? '').trim();
+      if (!raw) throw new Error('A measured value is required: '+key);
+      const value=Number(raw);
+      if (!Number.isFinite(value) || value < min || value > max) throw new Error('Quality metric is outside the permitted range: '+key);
+      return value;
+    };
+    const metrics={
+      packet_loss_pct:number('packet_loss_pct',0,100),
+      rtt_ms:number('rtt_ms',0,5000),
+      jitter_ms:number('jitter_ms',0,5000),
+      downlink_kbps:number('downlink_kbps',0,1000000),
+      telemetry_consent:data.get('telemetry_consent') === 'on'
+    };
+    return {status_message:metrics.telemetry_consent?'Current quality guidance received; telemetry retention is server-governed.':'Current guidance received without requested telemetry storage.',workspace_readout:await api('calls/' + Number(data.get('call_id')) + '/network-quality',{method:'POST',body:metrics}),workspace_title:'Call network guidance — not an active speed test'};
+  });
   loadConversationChoices();
   loadCapabilities();
 })();
