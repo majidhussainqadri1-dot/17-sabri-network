@@ -117,6 +117,9 @@ const run = async () => {
   await forms.get('snf-ai-form').submit({conversation_id:'8',message_ids:'51,52,52',task:'summary',explicit_consent:'on'});
   assert.equal(requests.at(-1).endpoint,'future/ai-assistant');
   assert.deepEqual(JSON.parse(requests.at(-1).options.body).message_ids,[51,52]);
+  await forms.get('snf-ai-form').submit({conversation_id:'8',message_ids:'51',task:'translate',target_locale:'ur',explicit_consent:'on'});
+  assert.equal(JSON.parse(requests.at(-1).options.body).task,'translate','Translation must remain an explicit, opt-in task');
+  assert.equal(JSON.parse(requests.at(-1).options.body).target_locale,'ur','Approved locale must be forwarded, not inferred');
   const readout=nodes.filter(n=>n.className==='snf-readout').at(-1);
   assert.ok(readout.textContent.includes('<script>escape this text</script>'),'response remains literal safe text');
   assert.equal(readout.innerHTML,'','untrusted provider content must never be injected as HTML');
