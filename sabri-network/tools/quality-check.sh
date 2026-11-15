@@ -45,6 +45,7 @@ js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
+node tests/future-workspace-runtime.test.js
 
 echo '== All File 17 review and correction suites =='
 tests=(
