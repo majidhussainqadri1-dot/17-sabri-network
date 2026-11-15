@@ -28,12 +28,22 @@ class FakeDB {
     public array $keys=[];
     public array $logs=[];
     public bool $failLog=false;
+    public string $storageEngine='InnoDB';
     public bool $locked=false;
     public array $queries=[];
     private ?array $saved=null;
     public function prepare(string $sql,mixed ...$args):string {
         $values=array_map(static fn($v)=>is_int($v)?(string)$v:"'".str_replace("'","''",(string)$v)."'",$args);
         $i=0;return preg_replace_callback('/%[ds]/',static function($m)use(&$i,$values){return $values[$i++]??'NULL';},$sql);
+    }
+    public function get_results(string $sql):array {
+        if(!str_contains($sql,'INFORMATION_SCHEMA.TABLES')||!str_contains($sql,'wp_sn_future_device_keys')||!str_contains($sql,'wp_sn_future_key_log'))
+            throw new RuntimeException('Unexpected engine proof query.');
+        $this->last_error='';
+        return [
+            (object)['TABLE_NAME'=>'wp_sn_future_device_keys','ENGINE'=>$this->storageEngine],
+            (object)['TABLE_NAME'=>'wp_sn_future_key_log','ENGINE'=>$this->storageEngine]
+        ];
     }
     public function get_var(string $sql):mixed {
         $this->last_error='';
@@ -73,6 +83,11 @@ require_once dirname(__DIR__).'/includes/class-sn-future-superset-part-1.php';
 require_once dirname(__DIR__).'/includes/class-sn-future-superset-core.php';
 final class SN_Future_Superset {use SN_Future_Superset_Part_1,SN_Future_Superset_Core;}
 function check(bool $v,string $label):void{if(!$v){fwrite(STDERR,"FAIL: $label\n");exit(1);}}
+$wpdb->storageEngine='MyISAM';
+$unsafe=SN_Future_Superset::register_device_key(new WP_REST_Request(['device_id'=>'mobile','algorithm'=>'x25519','public_key'=>'valid-public-key-a']));
+check($unsafe instanceof WP_Error && $unsafe->get_error_code()==='sn_device_key_transactional_storage_required','Nontransactional key storage must be rejected before writes.');
+check(!$wpdb->keys && !$wpdb->logs && !$wpdb->queries,'Refused nontransactional storage cannot mutate keys or their audit log.');
+$wpdb->storageEngine='InnoDB';
 $first=SN_Future_Superset::register_device_key(new WP_REST_Request(['device_id'=>'mobile','algorithm'=>'x25519','public_key'=>'valid-public-key-a']));
 check($first instanceof WP_REST_Response,'Initial registration must succeed.');
 check(count($wpdb->logs)===1&&count($wpdb->keys)===1,'First key needs exactly one audit commitment.');
