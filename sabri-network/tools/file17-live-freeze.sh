@@ -38,6 +38,8 @@ if [[ "$prefix" =~ ^[a-zA-Z0-9_]+$ ]]; then
   printf 'Table prefix: %s\n' "$prefix"
   # Query only table NAMES; never display rows, users, conversations, messages or secrets.
   wp_ro db query "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,CHAR_LENGTH('${prefix}sn_'))='${prefix}sn_' ORDER BY TABLE_NAME" --skip-column-names 2>/dev/null || printf 'Database table inventory: unverified\n'
+  printf 'Transactional storage-engine inventory (table and engine names only):\n'
+  wp_ro db query "SELECT TABLE_NAME,ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,CHAR_LENGTH('${prefix}sn_'))='${prefix}sn_' ORDER BY TABLE_NAME LIMIT 500" --skip-column-names 2>/dev/null || printf 'Storage-engine inventory: unverified\n'
   printf 'Schema column/type inventory (names and SQL types only; no record content):\n'
   wp_ro db query "SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,CHAR_LENGTH('${prefix}sn_'))='${prefix}sn_' ORDER BY TABLE_NAME,ORDINAL_POSITION LIMIT 3000" --skip-column-names 2>/dev/null || printf 'Schema column/type inventory: unverified\n'
   printf 'Schema index inventory (index and column names only):\n'
