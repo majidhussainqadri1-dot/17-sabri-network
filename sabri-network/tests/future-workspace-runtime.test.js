@@ -87,7 +87,7 @@ const run = async () => {
   assert.equal(suggestions.children[0].label,'<img src=x onerror=alert(1)>','Conversation titles remain literal text');
   assert.equal(suggestions.children[0].innerHTML,'','Untrusted conversation labels must never become HTML');
   assert.equal(suggestionField.attributes.list,suggestions.id,'Numeric conversation fields should use the authorized datalist');
-  assert.equal(forms.size,33,'3 original + 4 initial + 12 Next + 8 lifecycle/privacy + 2 reminder + 1 team read + 1 template preview + 2 key-history controls should be wired');
+  assert.equal(forms.size,36,'33 prior plus call lobby read, speaker-queue read and consent-minimized quality diagnostics');
   assert.match(status.innerHTML,/24 advanced File 17 capabilities/);
   assert.ok(!status.innerHTML.includes('<img'),'capability names must be HTML-escaped');
 
@@ -190,7 +190,24 @@ const run = async () => {
   await forms.get('snf-key-transparency-form').submit({user_id:'88'});
   assert.equal(requests.at(-1).endpoint,'future/key-transparency/88','Key-change evidence must retain server-side relationship authorization');
   assert.equal(requests.at(-1).options.method,'GET','Key-change evidence display is read-only');
+  await forms.get('snf-lobby-read-form').submit({call_id:'47'});
+  assert.equal(requests.at(-1).endpoint,'calls/47/lobby','waiting-room read must use its canonical call route');
+  assert.equal(requests.at(-1).options.method,'GET');
+  await forms.get('snf-speaker-queue-read-form').submit({call_id:'47'});
+  assert.equal(requests.at(-1).endpoint,'calls/47/speaker-queue','speaker queue read must not mutate moderation state');
+  assert.equal(requests.at(-1).options.method,'GET');
+  const quality = forms.get('snf-network-quality-form');
+  let qualityBefore = requests.length;
+  await quality.submit({call_id:'47',packet_loss_pct:'101',rtt_ms:'45',jitter_ms:'9',downlink_kbps:'800',telemetry_consent:null});
+  assert.equal(requests.length,qualityBefore,'out-of-range packet loss must be rejected before transport');
+  await quality.submit({call_id:'47',packet_loss_pct:'8.25',rtt_ms:'45',jitter_ms:'9',downlink_kbps:'800',telemetry_consent:null});
+  assert.equal(requests.at(-1).endpoint,'calls/47/network-quality');
+  assert.equal(JSON.parse(requests.at(-1).options.body).telemetry_consent,false,'network telemetry should default to no storage consent');
+  assert.equal(JSON.parse(requests.at(-1).options.body).packet_loss_pct,8.25,'fractional loss must retain precision');
+  await quality.submit({call_id:'47',packet_loss_pct:'1',rtt_ms:'20',jitter_ms:'2',downlink_kbps:'1000',telemetry_consent:'on'});
+  assert.equal(JSON.parse(requests.at(-1).options.body).telemetry_consent,true,'consented diagnostics must be explicit per request');
+
   for (const form of forms.values()) assert.equal(form.button.disabled,false,'button must re-enable after completion/refusal: '+form.id);
-  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (33 forms, consent, batch, escaping, feedback)\n');
+  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (36 forms, consent, batch, escaping, diagnostics)\n');
 };
 run().catch(error=>{console.error(error);process.exitCode=1;});
