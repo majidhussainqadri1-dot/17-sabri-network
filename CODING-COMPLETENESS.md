@@ -1,3 +1,5 @@
+> V12.3 current source update (15 November 2026): 33 Advanced Communication UI controls, 57 PHP review/runtime suites, 1 Node DOM/fetch runtime suite, read-only live parity script and clause-by-clause F17-FUT-01–24 acceptance mapping were added on draft PR #27. Important backend corrections include transactional CAS team assignments and guarded reminder lifecycle, safe template preview and translation provider gates. These are repository candidates only; staging/live deployment, package parity, real providers and cross-file clinical/privacy integrations remain unverified. The historical sixth-cycle metrics below must not be read as the current V12.3 final operational acceptance. See `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md`.
+
 # V12.3 reconciliation — 15 November 2026
 
 Plan: Sabri Website Master Plan V12.3 (13 November 2026); plugin candidate 2.1.0.
