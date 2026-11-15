@@ -55,3 +55,20 @@ Date: 2026-11-15. Governing document: Sabri Website Master Plan V12.3. Baseline 
 | Proven live issues fixed | 0 claimed |
 
 Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+## Implementation performed in this isolated branch
+
+- Corrected historical root MANIFEST.md version heading to 2.1.0, with explicit notice that its enumerated list is historical.
+- Updated STATUS.md and CODING-COMPLETENESS.md to acknowledge the 19 October exact-main-head successful workflow while preserving the unverified live/staging boundary.
+- Corrected packaged QA-INVENTORY.txt wording; source manifest is produced afresh by deterministic package job.
+- Added four direct advanced workspace forms: saved private views (F17-FUT-11), manager-controlled team inbox (F17-FUT-05/06), scholarly citation references (F17-FUT-15), and mentor-student invitation (F17-FUT-14). Existing canonical endpoints enforce server-side authorization, roles and guardian policy.
+- Corrected checkbox geometry and select keyboard-focus affordances in advanced workspace; added static regression assertions in the existing suite.
+- This work does NOT close the full twenty-four-feature experience or provider acceptance; each branch commit requires its own exact-commit CI and staged browser validation.
+
+## Review defect accounting at this branch
+
+- Five initial gap **categories** were documented (not five proven live runtime defects).
+- Three documentation/status categories have proposed repository corrections (root manifest version, QA inventory, baseline CI status).
+- Two categories remain only partially addressed: exhaustive V12.3 clause-level acceptance and user-facing completeness across all 24 Future capabilities.
+- One additional CSS control-size defect was corrected in source; browser-level verification remains pending.
+- Live defects fixed and independently verified: **zero claimed**.
