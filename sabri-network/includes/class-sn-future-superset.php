@@ -60,8 +60,13 @@ final class SN_Future_Superset {
             $data = self::decode($record); if (is_wp_error($data)) continue;
             $claimed = $wpdb->update(self::records_table(), ['state'=>'firing','updated_at'=>$now,'version'=>(int)$record->version+1], ['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]); if ($claimed !== 1) continue;
             try {
+                // WordPress do_action() succeeds even when no consumer is registered.
+                // Never mark a reminder as fired if File19 has no receiving hook.
+                if(has_action('sn_network_notification_requested')===false)
+                    throw new RuntimeException('notification_consumer_unavailable');
                 do_action('sn_network_notification_requested', ['owner'=>'file-17','recipient_id'=>(int)$record->owner_id,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>(int)$record->scope_id,'message_id'=>(int)($data['message_id']??0),'idempotency_key'=>'file17-future-reminder:' . (int)$record->id]);
-                $wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                $completed=$wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                if($completed!==1)throw new RuntimeException('reminder_finalization_conflict');
             } catch (Throwable $error) {
                 $wpdb->update(self::records_table(), ['state'=>'active','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
                 SN_DB::audit('future_reminder_handoff_failed','future_record',(int)$record->id,'failure',['reason'=>$error->getMessage()],(int)$record->owner_id);
