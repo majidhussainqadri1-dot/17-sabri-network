@@ -2,6 +2,10 @@
 /** Isolated executable V12.3 call-quality grading contracts; no WordPress DB or live provider assumed. */
 declare(strict_types=1);
 define('ABSPATH', __DIR__.'/');
+final class WP_Error {
+    public function __construct(public string $code,public string $message,public array $data=[]){}
+    public function get_error_code():string{return $this->code;}
+}
 require_once dirname(__DIR__).'/includes/class-sn-future24-review-hardening-g.php';
 $assert=static function(bool $ok,string $message):void {if(!$ok){fwrite(STDERR,"FAIL: $message\n");exit(1);}};
 $grade=static fn(float $loss,int $rtt,int $jitter,int $kbps):array=>
@@ -22,6 +26,23 @@ $assert($state==='fair','Packet loss boundary must remain effective.');
 $assert($state==='poor'&&!empty($hints['retry_ice']),'Excessive round-trip time remains poor.');
 [$state,$hints]=$grade(0,0,0,0);
 $assert($state==='poor','Missing effective downlink must never be labelled good.');
+$metrics=['packet_loss_pct'=>8.25,'rtt_ms'=>50,'jitter_ms'=>10,'downlink_kbps'=>1500];
+$normalized=SN_Future24_Review_Hardening_G::validated_quality_metrics($metrics);
+$assert(is_array($normalized)&&$normalized['packet_loss_pct']===8.25&&$normalized['rtt_ms']===50,'Accurate measured metrics must survive normalization without silent clamping.');
+foreach([
+    ['packet_loss_pct'=>-1],
+    ['packet_loss_pct'=>101],
+    ['packet_loss_pct'=>'not-a-number'],
+    ['packet_loss_pct'=>null],
+    ['rtt_ms'=>5001],
+    ['rtt_ms'=>2.5],
+    ['jitter_ms'=>5001],
+    ['downlink_kbps'=>1000001],
+    ['downlink_kbps'=>'INF'],
+] as $tamper){
+    $result=SN_Future24_Review_Hardening_G::validated_quality_metrics(array_replace($metrics,$tamper));
+    $assert($result instanceof WP_Error,'Invalid REST-quality telemetry must fail before grading/storing: '.json_encode($tamper));
+}
 $src=file_get_contents(dirname(__DIR__).'/includes/class-sn-future24-review-hardening-g.php');
 $fallback=file_get_contents(dirname(__DIR__).'/includes/class-sn-future-superset-part-3.php');
 $assert(str_contains($fallback,'SN_Future24_Review_Hardening_G::assess_network_quality'),'Canonical and fallback quality grading must share the same heuristic.');
