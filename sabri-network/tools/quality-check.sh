@@ -46,6 +46,9 @@ for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
 bash -n tools/file17-live-freeze.sh
+bash -n tools/file17-parity-check.sh
+bash -n tests/v123-live-parity-runtime.sh
+bash tests/v123-live-parity-runtime.sh
 node tests/future-workspace-runtime.test.js
 
 echo '== All File 17 review and correction suites =='
