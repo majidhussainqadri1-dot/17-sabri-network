@@ -48,6 +48,7 @@ require_once dirname(__DIR__).'/includes/class-sn-future-superset-part-1.php';
 final class SN_Future_Superset {
     use SN_Future_Superset_Part_1;
     public static array $locks=[];
+    private static function conversation_member(int $conversation,int $user):bool {return $user===7&&in_array($conversation,[17,18],true);}
     private static function active_record(string $feature,int $user,string $scope,int $id):?object {
         if($feature!=='F17-FUT-04'||$user!==7||$scope!=='conversation')return null;
         return array_key_exists($id,self::$locks)?(object)['id'=>$id]:null;
@@ -68,6 +69,9 @@ function rows():WP_REST_Response{return new WP_REST_Response(['conversations'=>[
 $list=new WP_REST_Request('/sabri-network/v2/conversations');
 SN_Future_Superset::$locks=[17=>['enabled'=>true,'step_up_ttl'=>120]];
 $GLOBALS['stepup_verified']=false;
+check(SN_Future_Superset::sensitive_preview_access(7,17)===false,'Private saved views must not reveal locked conversations without step-up.');
+check(SN_Future_Superset::sensitive_preview_access(7,18)===true,'Unrestricted conversation remains visible to authorized owner.');
+check(SN_Future_Superset::sensitive_preview_access(9,17) instanceof WP_Error,'Unauthorized viewer cannot inspect lock state.');
 $blocked=SN_Future_Superset::post_dispatch(rows(),null,$list);
 check($blocked->get_status()===200,'Listing remains usable when individual lock is active.');
 $data=$blocked->get_data();
@@ -101,6 +105,7 @@ check($restoreDBFail instanceof WP_Error&&$restoreDBFail->get_error_code()==='sn
 $wpdb->failLookup=false;
 
 $GLOBALS['stepup_verified']=true;
+check(SN_Future_Superset::sensitive_preview_access(7,17)===true,'Fresh step-up permits private saved view inclusion.');
 $unlocked=SN_Future_Superset::post_dispatch(rows(),null,$list)->get_data();
 check($unlocked['conversations'][0]['last_message']['body']==='secret message','Fresh approved step-up may reveal content.');
 SN_Future_Superset::$locks=[17=>['enabled'=>false]];
@@ -108,6 +113,7 @@ $GLOBALS['stepup_verified']=false;
 $disabled=SN_Future_Superset::post_dispatch(rows(),null,$list)->get_data();
 check($disabled['conversations'][0]['last_message']['body']==='secret message','Disabled lock must not redact.');
 SN_Future_Superset::$locks=[17=>'corrupt'];
+check(SN_Future_Superset::sensitive_preview_access(7,17) instanceof WP_Error,'Corrupt lock must fail closed for saved private views.');
 $failed=SN_Future_Superset::post_dispatch(rows(),null,$list);
 check($failed instanceof WP_REST_Response && $failed->get_status()===503,'Corrupt stored lock state must fail the entire preview listing closed.');
 check(!str_contains(json_encode($failed->get_data()),'secret message'),'Corrupt-policy failure must not leak message previews.');
