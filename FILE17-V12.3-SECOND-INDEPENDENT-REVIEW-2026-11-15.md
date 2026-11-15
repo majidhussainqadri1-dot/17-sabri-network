@@ -62,3 +62,14 @@ Review lens: privacy-at-output, mid-request revocation, provider callbacks, stal
 Two distinct *source* review passes are documented. They do **not** constitute the V12.3 two complete **independent end-to-end reviews**, because staging, real database, cross-file provider, browser, accessibility, backup/restore and deployed-parity acceptance remain absent. No evidence from a previous successful source SHA may be reused for a later code change.
 
 Mandatory final fields: Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status.
+
+## Review B corrections / Review C DST edge-case finding freeze
+- B01 and B02 source corrections introduced in `includes/class-sn-future24-review-hardening-g.php`. The regression `v12-3-private-results-post-provider-revocation-runtime-contracts.php` tests mid-provider File16/member/minor/hidden/deleted revocation and mid-projection semantic consent/member/hidden revocation. Exact green 64-suite SHA: `7d4eb8eeb9c9095b6b3ee55621a7d749fcd89279`, GitHub Actions `43664899000` (PHP 8.1 and 8.3 jobs successful). This does not prove companion runtime lock consistency or actual provider.
+- Additional V12.3 deliverables: `FILE17-V12.3-26-ID-TRACEABILITY-ACCEPTANCE-MATRIX-2026-11-15.md` and `FILE17-V12.3-DEPLOYED-REALITY-FREEZE-RUNBOOK-2026-11-15.md`. These map all 26 stable File17 IDs to source and staging requirements; no live claim.
+
+**Review C confirmed source concern, before changing code:**
+| ID | Severity | Evidence | Required test/correction |
+|---|---|---|---|
+| F17-V123-R07-DST-05 | P1/P2, wrong scheduled instant | Effective `SN_Future24_Review_Hardening_M::normalize_time()` currently creates `new DateTimeImmutable($value,new DateTimeZone($timezone))` without validating the requested wall time. PHP normalizes the nonexistent `America/New_York 2027-03-14 02:30` to `03:30` silently; the repeated fall-back `2027-11-07 01:30` accepts one offset without disambiguation. V12.3 F17-FUT-07 explicitly requires DST/timezone correctness. | Reject invalid/nonexistent/ambiguous **local wall times** with a clear error; require an explicit UTC offset or Z to select an ambiguous instant. Preserve valid UTC/offset-based requests and normal local wall time. Test next-year real IANA transition windows and dynamic validity. |
+
+The no-listener safeguard for F17-FUT-07 still does **not** prove File19 durable acceptance; that remains an independent integration blocker.
