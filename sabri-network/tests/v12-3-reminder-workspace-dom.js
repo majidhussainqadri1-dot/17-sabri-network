@@ -202,7 +202,19 @@ async function submit(form) {
       'Ambiguous DST time produces a clear client error');
   }
 
+  records.push({
+    id: 90, version: 0, scope_id: 42, state: 'active',
+    expires_at: utcSQL(Date.now() + 7200000),
+    data: {label: '<svg onload=alert(1)>Private display test'}
+  });
   await elements['snf-refresh-reminders'].events.click();
+  const rendered = elements['snf-reminders'].children[0].children;
+  const legacy = rendered[rendered.length - 1];
+  check(legacy.textContent.includes('<svg onload=alert(1)>Private display test'),
+    'User-controlled label is displayed literally via DOM textContent, never executed');
+  check(findByText(legacy,'Cancel')?.disabled===true
+     &&findByText(legacy,'Reschedule')?.disabled===true,
+    'Record without a valid current version cannot be mutated from the UI');
   check(requests.filter(x=>x.resource==='future/reminders'&&x.method==='GET').length >= 4,
     'Refresh control explicitly reloads canonical reminder state');
   check(!elements['snf-refresh-reminders'].disabled,'Refresh control is restored after completion');
