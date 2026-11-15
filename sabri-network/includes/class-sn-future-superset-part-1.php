@@ -43,6 +43,20 @@ trait SN_Future_Superset_Part_1 {
         if(!has_filter('sn_network_device_public_key_valid')||!(bool)apply_filters('sn_network_device_public_key_valid',false,$alg,$key,$u,$device))
             return self::error('sn_device_key_provider_unavailable','Device-key registration requires an approved key-validation provider.',503);
         $fp=hash('sha256',$alg.'|'.$key);
+        // MyISAM/non-transactional tables cannot honor atomic key+log rollback.
+        // Verify actual runtime storage engines rather than trusting the schema plan.
+        $keyTable=self::device_keys_table();
+        $logTable=self::key_log_table();
+        $engines=$wpdb->get_results($wpdb->prepare(
+            'SELECT TABLE_NAME,ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN (%s,%s)',
+            $keyTable,$logTable
+        ));
+        $verified=[];
+        foreach(is_array($engines)?$engines:[] as $engine){
+            if(is_object($engine))$verified[(string)$engine->TABLE_NAME]=strtolower((string)$engine->ENGINE);
+        }
+        if($wpdb->last_error!==''||count($verified)!==2||($verified[$keyTable]??'')!=='innodb'||($verified[$logTable]??'')!=='innodb')
+            return self::error('sn_device_key_transactional_storage_required','Device key changes require verified transactional storage for both the key and audit tables.',503);
         // Serializing the global commitment chain prevents two valid rotations
         // from calculating the same predecessor and silently forking the log.
         $lock='sn:f17:device-key-log';
