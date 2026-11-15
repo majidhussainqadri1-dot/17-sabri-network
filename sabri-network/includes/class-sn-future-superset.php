@@ -81,7 +81,7 @@ final class SN_Future_Superset {
                 $lock=$conversation>0?self::active_record('F17-FUT-04',(int)$record->owner_id,'conversation',$conversation):null;
                 $lockData=$lock?self::decode($lock):[];
                 // Locked-conversation notifications never expose user text or a message preview reference.
-                $private=is_array($lockData)&&!empty($lockData['enabled']);
+                $private=(bool)$lock&&(is_wp_error($lockData)||(is_array($lockData)&&!empty($lockData['enabled'])));
                 do_action('sn_network_notification_requested', [
                     'owner'=>'file-17','recipient_id'=>(int)$record->owner_id,
                     'type'=>'communication_reminder','title'=>'Communication reminder',
