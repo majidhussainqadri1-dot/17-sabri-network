@@ -62,7 +62,11 @@ fi
 LC_ALL=C sort "$temp/approved-archive-names" > "$temp/approved-archive-sorted"
 # A ZIP symbolic link is not equivalent to a regular deployed plugin source file,
 # even if the literal link target bytes happen to match the expected file digest.
-if unzip -Z -l "$approved_zip" 2>/dev/null | grep -q '^l'; then
+if ! unzip -Z -l "$approved_zip" > "$temp/approved-archive-listing" 2>/dev/null; then
+  printf 'PARITY BLOCKED: ZIP permission metadata is unavailable\n' >&2
+  exit 19
+fi
+if grep '^l' "$temp/approved-archive-listing" >/dev/null; then
   printf 'PARITY BLOCKED: approved ZIP contains a symbolic-link archive member\n' >&2
   exit 18
 fi
