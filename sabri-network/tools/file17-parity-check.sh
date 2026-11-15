@@ -78,7 +78,7 @@ if [[ "$(LC_ALL=C sort -u "$temp/expected-names" | wc -l)" -ne "$(wc -l < "$temp
   printf 'PARITY BLOCKED: approved manifest lists a duplicate file path\n' >&2
   exit 15
 fi
-while IFS= read -r line; do
+while IFS= read -r line || [[ -n "$line" ]]; do
   advertised="${line:0:64}"
   archive_path="${line:66}"
   if ! actual="$(unzip -p "$approved_zip" "$archive_path" 2>/dev/null | sha256sum | awk '{print $1}')"; then
