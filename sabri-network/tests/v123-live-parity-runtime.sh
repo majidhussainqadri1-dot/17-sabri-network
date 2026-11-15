@@ -45,6 +45,22 @@ if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/archive-
   exit 1
 fi
 
+# A manifest without a final newline must still hash-check its last listed ZIP member.
+mkdir -p "$tmp/nonl/sabri-network" "$tmp/no-final-newline-fixture/sabri-network"
+cp -- "$tmp/sabri-network/sabri-network.php" "$tmp/sabri-network/test.txt" "$tmp/nonl/sabri-network/"
+manifest_without_newline="$(cat "$tmp/sabri-network/MANIFEST.sha256")"
+printf '%s' "$manifest_without_newline" > "$tmp/nonl/sabri-network/MANIFEST.sha256"
+(
+  cd "$tmp/nonl"
+  zip -X -q "$tmp/archive-no-final-newline.zip" sabri-network/sabri-network.php sabri-network/test.txt sabri-network/MANIFEST.sha256
+)
+printf 'forged trailing entry\n' > "$tmp/no-final-newline-fixture/sabri-network/test.txt"
+(cd "$tmp/no-final-newline-fixture" && zip -X -q "$tmp/archive-no-final-newline.zip" sabri-network/test.txt)
+if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/nonl/sabri-network" "$tmp/archive-no-final-newline.zip" >/dev/null 2>&1; then
+  printf 'FAIL: the last no-newline manifest member was not authenticated.\n' >&2
+  exit 1
+fi
+
 # Filesystem mutation, extra installed code and forged local manifest must each fail.
 printf 'changed\n' > "$tmp/sabri-network/test.txt"
 if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved.zip" >/dev/null 2>&1; then
