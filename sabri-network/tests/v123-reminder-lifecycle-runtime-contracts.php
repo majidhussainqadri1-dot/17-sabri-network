@@ -34,7 +34,7 @@ function has_action(string $hook):int|false{return TestState::$listener?10:false
 function do_action(string $hook,mixed $payload):void{TestState::$events[]=['hook'=>$hook,'payload'=>$payload];}
 class TestState {
     public static bool $listener=true;public static bool $member=true;public static bool $suspended=false;
-    public static bool $blocked=false;public static bool $hidden=false;public static bool $messageDeleted=false;
+    public static bool $blocked=false;public static bool $hidden=false;public static bool $messageDeleted=false;public static bool $lockCorrupt=false;
     public static array $events=[];public static array $audit=[];
 }
 class SN_DB {
@@ -46,7 +46,7 @@ class SN_DB {
 class SN_Policy {public static function is_suspended(int $u):bool{return TestState::$suspended;}}
 class SN_Message_Operations {public static function is_hidden(int $u,int $m):bool{return TestState::$hidden;}}
 class SN_Communication_Crypto {
-    public static function decrypt(string $cipher,string $context):string|WP_Error{return $cipher==='LOCKED'?'{"enabled":true}':'{"message_id":44,"label":"Private clinical note"}';}
+    public static function decrypt(string $cipher,string $context):string|WP_Error{return $cipher==='LOCKED'?(TestState::$lockCorrupt?new WP_Error('decrypt_unavailable','Lock unavailable'):'{"enabled":true}'):'{"message_id":44,"label":"Private clinical note"}';}
 }
 class FakeDB {
     public string $prefix='test_';
@@ -82,7 +82,7 @@ class FakeDB {
 }
 require_once SN_DIR.'includes/class-sn-future-superset.php';
 function check(bool $state,string $message):void{if(!$state){fwrite(STDERR,"FAIL: ".$message."\n");exit(1);}}
-function reset_case():void{global $wpdb;$wpdb=new FakeDB();TestState::$listener=true;TestState::$member=true;TestState::$suspended=false;TestState::$blocked=false;TestState::$hidden=false;TestState::$messageDeleted=false;TestState::$events=[];TestState::$audit=[];}
+function reset_case():void{global $wpdb;$wpdb=new FakeDB();TestState::$listener=true;TestState::$member=true;TestState::$suspended=false;TestState::$blocked=false;TestState::$hidden=false;TestState::$messageDeleted=false;TestState::$lockCorrupt=false;TestState::$events=[];TestState::$audit=[];}
 function req(array $overrides=[]):WP_REST_Request{return new WP_REST_Request(array_merge(['id'=>29,'expected_version'=>3,'remind_at'=>gmdate('c',time()+3600)],$overrides));}
 reset_case();
 $r=SN_Future_Superset::reschedule_reminder(req());
@@ -120,4 +120,10 @@ check(count(TestState::$events)===1,'Authorized reminder handoff must run once.'
 $payload=TestState::$events[0]['payload'];
 check($payload['body']==='Private reminder'&&(int)$payload['message_id']===0,'Locked conversation must suppress notification text and message preview reference.');
 check((string)$wpdb->row->state==='fired','Successful handoff must advance to fired.');
+reset_case();TestState::$lockCorrupt=true;
+SN_Future_Superset::cleanup();
+check(count(TestState::$events)===1,'A corrupt lock must still permit a privacy-redacted reminder to its authorized owner.');
+$failedLockNotification=TestState::$events[0]['payload'];
+check($failedLockNotification['body']==='Private reminder'&&(int)$failedLockNotification['message_id']===0,'Undecryptable lock must never release a private label or message reference.');
+
 echo "V12.3 reminder lifecycle, privacy and dispatch runtime contracts: PASS\n";
