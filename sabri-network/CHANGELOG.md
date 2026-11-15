@@ -1,5 +1,14 @@
 # Changelog
 
+## V12.3 privacy hardening and smart-view regression — 2026-11-15 (unreleased)
+
+- Blocked sensitive conversation disclosure in private saved views without current step-up; fail closed on corrupt lock.
+- Corrected unreadable-lock reminder labels and message references in File 19 notification handoff.
+- Fail visibly on DB errors in saved private-view query rather than returning misleading empty success.
+- Added real-handler PHP saved-view runtime suite: locked/authorized/corrupt/revoked and SQL failure. 64 PHP suites in full quality inventory.
+- No live deployment, migration or actual provider verification claimed.
+
+
 ## V12.3 Security hardening follow-up — 2026-11-15 (unreleased)
 
 - Verified actual InnoDB storage engines at key-change time; fail closed on MyISAM/unverified engine and declare InnoDB for new key/audit tables. No automatic conversion of existing production tables.
