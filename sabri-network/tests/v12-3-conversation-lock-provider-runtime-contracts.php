@@ -15,6 +15,7 @@ final class WP_REST_Response {
 final class WP_REST_Request implements ArrayAccess {
     public function __construct(private array $params=[]) {}
     public function get_param(string $key): mixed {return $this->params[$key]??null;}
+    public function get_route(): string {return (string)($this->params['route']??'');}
     public function set_param(string $key,mixed $value): void {$this->params[$key]=$value;}
     public function offsetExists(mixed $offset): bool {return isset($this->params[$offset]);}
     public function offsetGet(mixed $offset): mixed {return $this->params[$offset]??null;}
@@ -45,9 +46,11 @@ final class FakeDB {
     public string $prefix='wp_';
     public int $insert_id=0;
     public int $writes=0;
+    public ?object $row=null;
     public function prepare(string $sql,mixed ...$args): string {return $sql;}
-    public function get_row(string $sql): ?object {return null;}
-    public function insert(string $table,array $values): int {$this->writes++;$this->insert_id++;return 1;}
+    public function get_row(string $sql): ?object {return $this->row;}
+    public function insert(string $table,array $values): int {$this->writes++;$this->insert_id++;$this->row=(object)(['id'=>$this->insert_id,'version'=>1]+$values);return 1;}
+    public function update(string $table,array $values,array $where): int|false {if(!$this->row||$this->row->version!==($where['version']??null))return 0;$this->writes++;$this->row=(object)array_replace((array)$this->row,$values);return 1;}
 }
 require SN_DIR.'includes/class-sn-future-superset.php';
 $checks=0;
@@ -71,4 +74,21 @@ $check($lock['status']==='available','Verified provider can advertise available 
 $allowed=SN_Future_Superset::set_conversation_lock($request);
 $check($allowed instanceof WP_REST_Response,'Valid step-up may enable lock');
 $check($wpdb->writes===1,'Successful enable creates exactly one canonical record');
+$stepUp='absent';
+$privateSearch=new WP_REST_Request(['route'=>'/sabri-network/v2/conversations/42/search']);
+$blocked=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
+$check(is_wp_error($blocked)&&$blocked->get_error_code()==='sn_conversation_step_up_required',
+    'After provider loss, a previously locked private search must fail closed');
+$deniedChange=SN_Future_Superset::set_conversation_lock(new WP_REST_Request(['id'=>42,'enabled'=>false]));
+$check(is_wp_error($deniedChange),'Provider loss cannot bypass an existing conversation lock by disabling it');
+$check($wpdb->writes===1,'Rejected unlock cannot mutate the saved lock');
+$stepUp='valid';
+$readable=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
+$check($readable===null,'Valid fresh step-up may continue the authorized private search route');
+$unlocked=SN_Future_Superset::set_conversation_lock(new WP_REST_Request(['id'=>42,'enabled'=>false]));
+$check($unlocked instanceof WP_REST_Response,'Valid step-up can disable an existing protected lock');
+$check($wpdb->writes===2,'Authenticated disable updates the same canonical lock');
+$stepUp='absent';
+$after=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
+$check($after===null,'After authorized unlock, no stale lock remains to block the route');
 echo "V12.3 conversation lock provider: $checks PASS, 0 FAIL\\n";
