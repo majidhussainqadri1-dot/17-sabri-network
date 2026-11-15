@@ -60,6 +60,12 @@ if ! unzip -Z -1 "$approved_zip" > "$temp/approved-archive-names" 2>/dev/null; t
   exit 13
 fi
 LC_ALL=C sort "$temp/approved-archive-names" > "$temp/approved-archive-sorted"
+# A ZIP symbolic link is not equivalent to a regular deployed plugin source file,
+# even if the literal link target bytes happen to match the expected file digest.
+if unzip -Z -l "$approved_zip" 2>/dev/null | grep -q '^l'; then
+  printf 'PARITY BLOCKED: approved ZIP contains a symbolic-link archive member\n' >&2
+  exit 18
+fi
 if ! cmp -s -- "$temp/expected-sorted" "$temp/approved-archive-sorted"; then
   printf 'PARITY BLOCKED: approved ZIP has missing, duplicate or unmanifested members\n' >&2
   exit 14
