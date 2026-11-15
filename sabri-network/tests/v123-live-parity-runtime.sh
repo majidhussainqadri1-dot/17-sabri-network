@@ -30,6 +30,36 @@ if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/archive-
   printf 'FAIL: approved ZIP member changed without manifest change must fail.\n' >&2
   exit 1
 fi
+# A manifest-listed ZIP symlink with hash-matching target bytes is still not a safe regular file.
+cp -- "$tmp/approved.zip" "$tmp/archive-symlink-forged.zip"
+rm -f -- "$tmp/archive-fixture/sabri-network/test.txt"
+ln -s if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved.zip" >/dev/null 2>&1; then
+  printf 'FAIL: altered installed code must never match exact-zip parity.\n' >&2
+  exit 1
+fi
+printf 'visible, approved content\n' > "$tmp/sabri-network/test.txt"
+printf 'stray source\n' > "$tmp/sabri-network/extra.php"
+if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved.zip" >/dev/null 2>&1; then
+  printf 'FAIL: extra installed source must never pass strict exact-zip parity.\n' >&2
+  exit 1
+fi
+rm -f -- "$tmp/sabri-network/extra.php"
+printf 'altered manifest\n' >> "$tmp/sabri-network/MANIFEST.sha256"
+if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved.zip" >/dev/null 2>&1; then
+  printf 'FAIL: modified installed manifest must never pass parity.\n' >&2
+  exit 1
+fi
+# The freeze must collect each first-party schema version separately without changing the live site.
+grep -q 'sn_two_plan_schema_version' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'sn_future_superset_schema_version' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'sn_meet_db_version' "$ROOT/tools/file17-live-freeze.sh"
+printf 'File-17 exact ZIP parity read-only regression: PASS\n'
+visible, approved content\n' "$tmp/archive-fixture/sabri-network/test.txt"
+(cd "$tmp/archive-fixture" && zip -X -y -q "$tmp/archive-symlink-forged.zip" sabri-network/test.txt)
+if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/archive-symlink-forged.zip" >/dev/null 2>&1; then
+  printf 'FAIL: a ZIP symlink with matching target bytes must not pass installed regular-file parity.\n' >&2
+  exit 1
+fi
 printf 'changed\n' > "$tmp/sabri-network/test.txt"
 if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved.zip" >/dev/null 2>&1; then
   printf 'FAIL: altered installed code must never match exact-zip parity.\n' >&2
