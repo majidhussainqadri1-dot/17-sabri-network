@@ -91,3 +91,19 @@ Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provis
 - **Per-clause map:** `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md` is now the governing current mapping for F17-CEN, RCD, AJ and F17-FUT acceptance gaps. Both CI and owner/prod acceptance are still distinct.
 - **Unverified**: true E2EE, independent key transparency, SFU media, File16 language provider, real File19 notification queue, real scanner/private storage, WordPress database/migration, browser/mobile/RTL/a11y and live sign-off.
 - **Verified live defects resolved**: NONE claimed.
+
+## Seventh source-review defect accounting — 15 November 2026
+
+This is **source-code / test-coverage** accounting. It does not classify failures in the deployed site.
+
+| ID | Independently observed repository gap or defect | Source action | Repository state | Live confirmation |
+| --- | --- | --- | --- | --- |
+| SRC-01 | FUT-17/18/21 had no current-state readout or quality telemetry-consent form in the advanced workspace | Added three governed REST UI paths and Node/static negative tests | Patched; exact new HEAD CI required | Not verified |
+| SRC-02 | High jitter and very low bandwidth were ignored in call quality grading | Added shared conservative grading, advisory thresholds and isolated PHP tests | Patched; exact new HEAD CI required | Not verified |
+| SRC-03 | Bandwidth-only degradation incorrectly suggested ICE retry | Limited ICE-retry advice to severe jitter/RTT/loss | Patched; exact new HEAD CI required | Not verified |
+| SRC-04 | Four zero-valued UI metric defaults permitted a misleading grade with no observed measurements | Removed defaults, retained required fields and regression | Patched; exact new HEAD CI required | Not verified |
+| SRC-05 | REST-quality values were silently clamped; missing, non-numeric and invalid values could be misclassified | Added strict finite/range/whole-value server validation | Patched; exact new HEAD CI required | Not verified |
+| SRC-06 | Read-only live freeze omitted the two-plan schema state option | Included `sn_two_plan_schema_version` and regression check | Patched; exact new HEAD CI required | Cannot run on live connector |
+| TEST-01 | New quality PHP test accidentally interpolated a source marker instead of treating it literally | Corrected fixture string quoting following actual CI failure | Patched; needs rerun | Not a live bug |
+
+**Source total in this increment:** six identified source/interface/audit gaps + one test-fixture defect. **Claimed live defects resolved:** 0. **Unresolved:** real provider readiness, schema/migrations, staging role and media tests, deployed artifact parity, live re-test and cross-module agreements.
