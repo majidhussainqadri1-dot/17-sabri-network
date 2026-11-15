@@ -136,6 +136,8 @@
     "<form id=\"snf-revoke-record-form\" class=\"snf-card\"><h3>Erase my advanced private record</h3><p>Only server-authorized record types may be deleted. This action may be irreversible.</p><label>Record ID<input name=\"id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Request record erasure</button></form>",
     "<form id=\"snf-invite-revoke-form\" class=\"snf-card\"><h3>Revoke a community invitation</h3><label>My invitation record ID<input name=\"id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Revoke invitation</button></form>",
     "<form id=\"snf-mentorship-end-form\" class=\"snf-card\"><h3>End a mentorship</h3><label>Mentorship record ID<input name=\"id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">End mentorship safely</button></form>",
+    "<form id=\"snf-reminder-cancel-form\" class=\"snf-card\"><h3>Cancel my pending reminder</h3><p>Read the current record version from My reminders before changing it.</p><label>Reminder ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Current version<input name=\"expected_version\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Cancel my reminder</button></form>",
+    "<form id=\"snf-reminder-reschedule-form\" class=\"snf-card\"><h3>Reschedule my reminder</h3><p>Only the current owner and current message/conversation member may reschedule it.</p><label>Reminder ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Current version<input name=\"expected_version\" type=\"number\" min=\"1\" required></label><label>New reminder time (local)<input name=\"remind_at\" type=\"datetime-local\" required></label><button type=\"submit\">Change reminder time</button></form>",
     "</div></details>",
   ].join('');
   root.insertAdjacentHTML('beforeend', nextJourneyForms);
@@ -175,5 +177,11 @@
   bind('snf-revoke-record-form', data => { if (!window.confirm('Request erasure of this authorized private record? This may be irreversible.')) throw new Error('Record erasure not submitted.'); return api('future/records/' + Number(data.get('id')), {method:'DELETE'}); });
   bind('snf-invite-revoke-form', data => { if (!window.confirm('Revoke this invitation? A previously copied link should cease working.')) throw new Error('Invitation revocation not submitted.'); return api('future/community-invites/' + Number(data.get('id')) + '/revoke', {method:'POST'}); });
   bind('snf-mentorship-end-form', data => { if (!window.confirm('End this mentorship?')) throw new Error('Mentorship end not submitted.'); return api('future/mentorships/' + Number(data.get('id')) + '/end', {method:'POST'}); });
+  // A reminder cannot be changed after dispatch starts; server enforces record ownership and CAS.
+  bind('snf-reminder-cancel-form', data => {
+    if (!window.confirm('Cancel this pending reminder?')) throw new Error('Reminder cancellation not submitted.');
+    return api('future/reminders/' + Number(data.get('id')) + '/cancel', {method:'POST',body:{expected_version:Number(data.get('expected_version'))}});
+  });
+  bind('snf-reminder-reschedule-form', data => api('future/reminders/' + Number(data.get('id')) + '/reschedule', {method:'POST',body:{expected_version:Number(data.get('expected_version')),remind_at:futureISO(data.get('remind_at'))}}));
   loadCapabilities();
 })();
