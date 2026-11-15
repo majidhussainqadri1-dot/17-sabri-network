@@ -81,7 +81,7 @@ trait SN_Future_Superset_Part_1 {
         if(is_wp_error($at))return $at;
         $c=absint($r->get_param('conversation_id'));
         // An orphan scope must never be acknowledged as a valid reminder.
-        if($c<=0||!self::conversation_member($c,$u))return self::not_found();
+        if($c<=0||!SN_DB::is_active_conversation_member($c,$u))return self::not_found();
         $raw_message=$r->get_param('message_id');
         if($raw_message!==null&&$raw_message!==''&&!preg_match('/^(0|[1-9][0-9]*)$/',(string)$raw_message))
             return self::error('sn_reminder_message_invalid','Choose a valid message within this conversation.',400);
