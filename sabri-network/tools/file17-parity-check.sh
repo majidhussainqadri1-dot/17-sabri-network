@@ -34,7 +34,9 @@ fi
 # No absolute paths, traversal, missing hashes, or backslashes may be accepted from a package manifest.
 if ! awk '
   {
-    if ($0 !~ /^[0-9a-f]{64}  sabri-network\/[A-Za-z0-9._\/-]+$/) bad=1;
+    hash=substr($0,1,64);
+    path=substr($0,67);
+    if (length(hash)!=64 || hash !~ /^[0-9a-f]+$/ || substr($0,65,2)!="  " || path !~ /^sabri-network\/[A-Za-z0-9._\/-]+$/) bad=1;
     if ($0 ~ /\/\.\.\/|\/\.\.$|\/\.\//) bad=1;
     n++;
   }
