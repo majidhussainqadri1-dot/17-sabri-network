@@ -92,12 +92,16 @@ final class FakeReminderDB {
         }
         return null;
     }
+    public function get_results(string $query):array{
+        return str_contains($query,'wp_sn_future_records')
+            ?array_values($this->records):[];
+    }
     public function insert(string $table,array $row):int|false{
         $key=(string)($row['client_key']??'');
         if(isset($this->records[$key]))return false;
         ++$this->successful_inserts;
         $this->insert_id=++$this->next_id;
-        $this->records[$key]=(object)(['id'=>$this->insert_id]+$row);
+        $this->records[$key]=(object)(['id'=>$this->insert_id,'version'=>1]+$row);
         return 1;
     }
 }
@@ -157,5 +161,13 @@ $conversationOnly=SN_Future24_Review_Hardening_M::create_reminder($req([
 $check($conversationOnly instanceof WP_REST_Response&&$conversationOnly->get_status()===201,
     'A member may set a conversation-level reminder with no selected message');
 $check($wpdb->successful_inserts===2,'Authorized conversation-only operation creates one separate row');
+
+$listed=SN_Future_Superset::list_reminders();
+$items=$listed->get_data()['items']??[];
+$check(count($items)===2,'Reminder list projects both active canonical records');
+$check(isset($items[0]['version'])&&$items[0]['version']===1,
+    'Reminder list exposes authoritative expected_version for CAS mutations');
+$check(isset($items[1]['version'])&&$items[1]['version']===1,
+    'Every returned reminder includes its version, not just the latest item');
 
 echo "V12.3 F17-FUT-07 authorized create: $checks PASS, 0 FAIL\n";
