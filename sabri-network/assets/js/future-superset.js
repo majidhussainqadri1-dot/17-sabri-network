@@ -212,16 +212,24 @@
   bind('snf-lock-form', data => api(`future/conversation-locks/${Number(data.get('conversation_id'))}`, {
     method: 'POST', body: {enabled: data.get('enabled') === 'on'}
   }));
+  // Keep one client-owned request identity across an ambiguous lost response.
+  // A confirmed success or genuinely changed form starts a new operation.
+  let pendingReminderCreation = null;
   bind('snf-reminder-form', async data => {
-    const remindAt = exactLocalIso(data.get('remind_at'));
+    const body = {
+      conversation_id: Number(data.get('conversation_id')),
+      remind_at: exactLocalIso(data.get('remind_at')),
+      label: String(data.get('label') || '')
+    };
+    const fingerprint = JSON.stringify(body);
+    if (!pendingReminderCreation || pendingReminderCreation.fingerprint !== fingerprint) {
+      pendingReminderCreation = {fingerprint, idempotencyKey: uuid()};
+    }
     await api('future/reminders', {
-      method: 'POST',
-      body: {
-        conversation_id: Number(data.get('conversation_id')),
-        remind_at: remindAt,
-        label: String(data.get('label') || '')
-      }
+      method: 'POST', body,
+      idempotencyKey: pendingReminderCreation.idempotencyKey
     });
+    pendingReminderCreation = null;
     await loadReminders();
   });
   bind('snf-template-form', data => api('future/templates', {
