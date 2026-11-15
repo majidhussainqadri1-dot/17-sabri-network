@@ -1,5 +1,17 @@
 # Changelog
 
+## V12.3 source candidate — third code/QA pass (15 November 2026; unreleased)
+
+- Increased advanced communication workspace to 33 governed controls; added current-authority conversation suggestions, device-key and key history read-only views without implying audited E2EE.
+- Added versioned reminder cancellation/rescheduling and message/current-membership/block checks before File19 notification handoff; kept due reminders pending without a registered notification consumer and suppressed locked-conversation notification previews.
+- Changed F17-FUT-05/06 assignment into one named-lock and SQL-transaction workflow, current version precondition, conversation-active and current member checks, no partial commit on second-record failure; exposed team state version in UI.
+- Added owner-scoped, variable-allowlisted, manual-review-only saved reply preview, rejecting clinical directives without approved policy and forbidding autonomous message sending.
+- Added opt-in translation task with File16 context authorization and File20/translation-locale provider approval, denying unapproved locale or provider.
+- Added four isolated V12.3 PHP runtime/refusal suites alongside the prior 53 and expanded the Node DOM/fetch UI suite. Full quality gate now lists 57 PHP suites.
+- Added read-only deployed runtime+schema+embedded-manifest SHA freeze command and V12.3 clause-to-code acceptance matrix; no WordPress config, DB or live artifact modified.
+- Actual SFU/TURN/E2EE/AI/index/scanner/storage staging verification and live deployment parity remain mandatory; **not operationally accepted**.
+
+
 ## V12.3 advanced communication source candidate — 2026-11-15 (unreleased / no plugin version change)
 
 - Updated V12.3 source-to-plan gap/release ledger; distinguished the verified 19 October 2026 baseline CI from staging/live truth.
