@@ -41,6 +41,7 @@ function absint(mixed $value):int{return abs((int)$value);}
 function is_wp_error(mixed $v):bool{return $v instanceof WP_Error;}
 function current_time(string $type,bool $gmt=false):string{return gmdate('Y-m-d H:i:s');}
 function sanitize_text_field(string $text):string{return trim($text);}
+function sanitize_key(string $text):string{return strtolower(preg_replace('/[^a-z0-9_-]/','',$text));}
 $GLOBALS['notification_listener']=false;
 $GLOBALS['notifications']=[];
 function has_action(string $name):int|false{
@@ -101,49 +102,92 @@ $check=static function(bool $ok,string $why)use(&$checks):void {
     ++$checks;if(!$ok){fwrite(STDERR,"FAIL: $why\n");exit(1);}
 };
 $wpdb=new FakeReminderDB();$wpdb->seed();
-$GLOBALS['notification_listener']=false;$GLOBALS['notifications']=[];
+$GLOBALS['notification_listener']=true;$GLOBALS['notifications']=[];
 SN_DB::$audits=[];
 SN_Future_Superset::cleanup();
-$check($wpdb->due->state==='active','Without File19 listener reminder remains retryable, never fired');
-$check(count($GLOBALS['notifications'])===0,'Missing File19 consumer cannot receive a ghost notification');
-$check(count(SN_DB::$audits)===1&&SN_DB::$audits[0]['event']==='future_reminder_handoff_failed',
-    'Unaccepted handoff is privacy-safe audited');
-$check($wpdb->state_writes===2,'Failed dispatch releases the firing claim without dropping the reminder');
+$check($wpdb->due->state==='active','File19 API absence cannot mark a reminder fired');
+$check(count($GLOBALS['notifications'])===0,'Legacy action listener is not a File19 persistence receipt');
+$check((SN_DB::$audits[0]['details']['reason']??'')==='file19_notification_contract_unavailable',
+    'Missing File19 canonical interface is recorded without private content');
+$check($wpdb->state_writes===2,'Missing provider releases firing claim for a retry');
 
-$GLOBALS['notification_listener']=true;$GLOBALS['notifications']=[];
+$GLOBALS['file19_mode']='processed';
+$GLOBALS['file19_events']=[];
+$GLOBALS['file19_contracts']=[];
+if(!function_exists('sun_register_notification_producer')){
+    function sun_register_notification_producer(string $name,array $contract):bool {
+        $GLOBALS['file19_contracts'][]=['name'=>$name,'contract'=>$contract];
+        return $GLOBALS['file19_mode']!=='registration_failed';
+    }
+    function sun_ingest_domain_event(array $event):array|WP_Error {
+        $GLOBALS['file19_events'][]=$event;
+        $mode=(string)$GLOBALS['file19_mode'];
+        if($mode==='exception')throw new RuntimeException('provider_failure');
+        if($mode==='error')return new WP_Error('temporary_unavailable');
+        if($mode==='invalid')return ['status'=>'queued','event_public_id'=>'sun-event-1'];
+        if($mode==='missing_id')return ['status'=>'processed'];
+        return ['status'=>$mode==='duplicate'?'duplicate':'processed',
+            'event_public_id'=>'sun-event-1'];
+    }
+}
 SN_Future_Superset::cleanup();
-$check($wpdb->due->state==='fired','Registered hook receives a request before fired state is set');
-$check(count($GLOBALS['notifications'])===1,'One reminder sends one notification-request hook');
-$payload=$GLOBALS['notifications'][0]['payload'];
-$check(($payload['idempotency_key']??'')==='file17-future-reminder:17',
-    'Downstream retry identity remains stable across failed first dispatch');
-$check(($payload['recipient_id']??0)===7&&($payload['entity_id']??0)===42,
-    'Source owner and scope are preserved without raw private message content');
+$check($wpdb->due->state==='fired','Processed File19 intake finalizes the due reminder');
+$check(count($GLOBALS['file19_events'])===1,'Exactly one canonical File19 event was ingested');
+$check(count($GLOBALS['notifications'])===0,'Old unacknowledged hook is never emitted as a parallel transport');
+$event=$GLOBALS['file19_events'][0];
+$check(($event['producer']??'')==='sabri-file17'
+    &&($event['owner']??'')==='File 17'
+    &&($event['event_type']??'')==='Communication.ReminderDue'
+    &&($event['schema_version']??'')==='1.0.0',
+    'Exact owner, producer, event and schema match File19 source contracts');
+$check(($event['event_id']??'')==='f17-reminder-17'
+    &&($event['idempotency_key']??'')==='f17-reminder-17',
+    'Stable source identity permits cross-plugin idempotent retries');
+$check(($event['recipients'][0]['user_id']??0)===7
+    &&($event['sensitivity']??'')==='sensitive',
+    'Only the canonical recipient ID and sensitivity are shared');
+$check(!str_contains(json_encode($event),'Read now')
+    &&!str_contains(json_encode($event),'message_id')
+    &&!str_contains(json_encode($event),'sender_id'),
+    'No private reminder label or chat contents leave File17');
+$check(($GLOBALS['file19_contracts'][0]['contract']['event_types'][0]??'')
+    ==='Communication.ReminderDue'
+    &&($GLOBALS['file19_contracts'][0]['contract']['owner']??'')==='File 17',
+    'Producer registry authorizes only File17-specific reminder facts');
 SN_Future_Superset::cleanup();
-$check(count($GLOBALS['notifications'])===1,'Already fired reminder never re-emits on next cleanup');
+$check(count($GLOBALS['file19_events'])===1,'Already fired reminder cannot duplicate File19 intake');
 
 $wpdb=new FakeReminderDB();$wpdb->seed(18);
-$wpdb->fail_finalization=true;$GLOBALS['notifications']=[];SN_DB::$audits=[];
+$wpdb->fail_finalization=true;$GLOBALS['file19_events']=[];SN_DB::$audits=[];
+$GLOBALS['file19_mode']='processed';
 SN_Future_Superset::cleanup();
-$check($wpdb->due->state==='active','Finalization write failure leaves reminder available for retry');
-$check(count($GLOBALS['notifications'])===1,'A failed finalization does not conceal an attempted handoff');
+$check($wpdb->due->state==='active','Finalization write failure keeps canonical reminder retryable');
+$check(count($GLOBALS['file19_events'])===1,'File19 may have durably accepted before File17 finalization fails');
 $check((SN_DB::$audits[0]['details']['reason']??'')==='reminder_finalization_conflict',
-    'Failed finalization reason is auditable without exposing message body');
-$wpdb->fail_finalization=false;
+    'File17 failed finalization stays auditable');
+$wpdb->fail_finalization=false;$GLOBALS['file19_mode']='duplicate';
 SN_Future_Superset::cleanup();
-$check($wpdb->due->state==='fired','Successful retry can eventually finalize');
-$check(count($GLOBALS['notifications'])===2,
-    'A recoverable retry may re-emit; downstream File19 must deduplicate by idempotency key');
-$check($GLOBALS['notifications'][0]['payload']['idempotency_key']===
-       $GLOBALS['notifications'][1]['payload']['idempotency_key'],
-    'Retried dispatch retains exact downstream deduplication identity');
+$check($wpdb->due->state==='fired','Idempotent File19 duplicate receipt allows finalization after prior acceptance');
+$check(count($GLOBALS['file19_events'])===2
+    &&$GLOBALS['file19_events'][0]['event_id']===$GLOBALS['file19_events'][1]['event_id'],
+    'Retry never changes producer-scoped event identity');
 
+foreach(['registration_failed','error','invalid','missing_id','exception'] as $i=>$mode){
+    $wpdb=new FakeReminderDB();$wpdb->seed(30+$i);
+    $GLOBALS['file19_events']=[];SN_DB::$audits=[];$GLOBALS['file19_mode']=$mode;
+    SN_Future_Superset::cleanup();
+    $check($wpdb->due->state==='active',"Provider failure ($mode) cannot return terminal success");
+    $check(count(SN_DB::$audits)===1
+        &&SN_DB::$audits[0]['event']==='future_reminder_handoff_failed',
+        "Provider failure ($mode) is recorded for retry");
+}
+$GLOBALS['file19_mode']='processed';
 
-// Simulate a revoked member or source change *after* the earlier preflight hook
-// but *before* the actual due dispatch. The scheduler must never emit.
+// Simulate a changed authorization AFTER the earlier due-preflight hook.
 foreach(['revoked','archived','hidden','blocked','deleted','missing','scope','failed_cancel'] as $i=>$mode){
-    $wpdb=new FakeReminderDB();$wpdb->seed(40+$i);
-    SN_DB::$member=true;SN_DB::$active=true;SN_DB::$blocked=[];SN_Message_Operations::$hidden=[];
+    $wpdb=new FakeReminderDB();$wpdb->seed(50+$i);
+    SN_DB::$member=true;SN_DB::$active=true;
+    SN_DB::$blocked=[];SN_Message_Operations::$hidden=[];
     if($mode==='revoked'||$mode==='failed_cancel')SN_DB::$member=false;
     if($mode==='archived')SN_DB::$active=false;
     if($mode==='hidden')SN_Message_Operations::$hidden[11]=true;
@@ -152,17 +196,16 @@ foreach(['revoked','archived','hidden','blocked','deleted','missing','scope','fa
     if($mode==='missing')$wpdb->message_exists=false;
     if($mode==='scope')$wpdb->due->scope_id=0;
     if($mode==='failed_cancel')$wpdb->fail_cancellation=true;
-    SN_DB::$audits=[];$GLOBALS['notifications']=[];
-    $GLOBALS['notification_listener']=true;
+    SN_DB::$audits=[];$GLOBALS['file19_events']=[];
     SN_Future_Superset::cleanup();
-    $check(count($GLOBALS['notifications'])===0,
-        "Changed due authorization ($mode) never reaches File19");
+    $check(count($GLOBALS['file19_events'])===0,
+        "Changed authorization ($mode) cannot reach File19 intake");
     $expected=$mode==='failed_cancel'?'firing':'cancelled';
     $check($wpdb->due->state===$expected,
-        "Revoked due fact ($mode) becomes terminal or safely held, never fired");
-    $check(count(SN_DB::$audits)===1
-        && SN_DB::$audits[0]['event']==='future_reminder_authorization_revoked',
-        "Revoked fact ($mode) is auditable without private message text");
+        "Revoked due reminder ($mode) is never marked fired");
+    $check((SN_DB::$audits[0]['event']??'')==='future_reminder_authorization_revoked',
+        "Denied reminder ($mode) is audited with no message body");
 }
-SN_DB::$member=true;SN_DB::$blocked=[];SN_Message_Operations::$hidden=[];
-echo "V12.3 F17-FUT-07 fail-closed handoff: $checks PASS, 0 FAIL\n";
+SN_DB::$member=true;SN_DB::$active=true;SN_DB::$blocked=[];
+SN_Message_Operations::$hidden=[];
+echo "V12.3 F17-FUT-07 File19 durable intake and ACL: $checks PASS, 0 FAIL\n";
