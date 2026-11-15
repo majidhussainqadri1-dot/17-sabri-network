@@ -45,6 +45,7 @@ js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
+bash -n tools/file17-live-freeze.sh
 node tests/future-workspace-runtime.test.js
 
 echo '== All File 17 review and correction suites =='
@@ -95,6 +96,16 @@ assert '#087a4e' in green and '#ff8a1f' in green
 assert '#sn-notifications-button' in green and 'display: none !important' in green
 assert ':focus-visible' in green
 print('CSS integrity: PASS')
+PY
+
+python3 - <<'PY'
+from pathlib import Path
+s=Path('tools/file17-live-freeze.sh').read_text(encoding='utf-8')
+for marker in ('--skip-plugins --skip-themes','option get','INFORMATION_SCHEMA.TABLES','MANIFEST.sha256','sha256sum','Runtime error logs: NOT READ'):
+    assert marker in s,marker
+for forbidden in ('option update ','db import','plugin activate','plugin deactivate','plugin install','plugin delete','search-replace','wp eval'):
+    assert forbidden not in s,'Dangerous write operation in read-only evidence capture: '+forbidden
+print('File 17 read-only live parity contract: PASS')
 PY
 
 echo '== Repository hygiene and private-communication invariants =='
