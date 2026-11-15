@@ -78,7 +78,7 @@ vm.runInNewContext(source,{document,window,fetch:fetchStub,FormData:FakeFormData
 
 const run = async () => {
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(forms.size,27,'3 legacy + 4 prior + 12 Next + 8 lifecycle/privacy forms should be wired');
+  assert.equal(forms.size,29,'3 legacy + 4 prior + 12 Next + 8 lifecycle/privacy + 2 reminder controls should be wired');
   assert.match(status.innerHTML,/24 advanced File 17 capabilities/);
   assert.ok(!status.innerHTML.includes('<img'),'capability names must be HTML-escaped');
 
@@ -151,7 +151,19 @@ const run = async () => {
   assert.equal(nodes.find(node=>node.id==='snf-feedback').textContent,'Approved provider unavailable — simulated refusal','provider unavailability must fail visibly');
   assert.equal(nodes.find(node=>node.id==='snf-feedback').className,'snf-status snf-error');
   deniedEndpoint = '';
+  await forms.get('snf-reminder-cancel-form').submit({id:'78',expected_version:'2'});
+  assert.equal(requests.at(-1).endpoint,'future/reminders/78/cancel');
+  assert.equal(JSON.parse(requests.at(-1).options.body).expected_version,2);
+  const futureDate = new Date(Date.now()+3600000).toISOString();
+  await forms.get('snf-reminder-reschedule-form').submit({id:'78',expected_version:'3',remind_at:futureDate});
+  assert.equal(requests.at(-1).endpoint,'future/reminders/78/reschedule');
+  assert.equal(JSON.parse(requests.at(-1).options.body).expected_version,3);
+  assert.equal(JSON.parse(requests.at(-1).options.body).remind_at,futureDate);
+  confirmResult = false;
+  const deniedCount=requests.length;
+  await forms.get('snf-reminder-cancel-form').submit({id:'79',expected_version:'1'});
+  assert.equal(requests.length,deniedCount,'reminder cancellation requires explicit confirmation');
   for (const form of forms.values()) assert.equal(form.button.disabled,false,'button must re-enable after completion/refusal: '+form.id);
-  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (27 forms, consent, batch, escaping, feedback)\n');
+  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (29 forms, consent, batch, escaping, feedback)\n');
 };
 run().catch(error=>{console.error(error);process.exitCode=1;});
