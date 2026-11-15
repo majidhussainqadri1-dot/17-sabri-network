@@ -151,6 +151,7 @@ final class SN_Future_Superset {
         self::route('/future/reminders/(?P<id>\d+)/cancel','POST','cancel_reminder',$a);
         self::route('/future/reminders/(?P<id>\d+)/reschedule','POST','reschedule_reminder',$a);
         register_rest_route('sabri-network/v2','/future/templates',[['methods'=>'GET','callback'=>[self::class,'list_templates'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'save_template'],'permission_callback'=>$a]]);
+        self::route('/future/templates/(?P<id>\d+)/preview','POST','preview_template',$a);
         self::route('/future/messages/(?P<id>\d+)/versions','GET','message_versions',$a); self::route('/future/conversations/bulk','POST','bulk_conversations',$a);
         register_rest_route('sabri-network/v2','/future/conversations/bulk/(?P<id>\d+)',[['methods'=>'GET','callback'=>[self::class,'bulk_job_status'],'permission_callback'=>$a],['methods'=>'DELETE','callback'=>[self::class,'cancel_bulk_job'],'permission_callback'=>$a]]);
         register_rest_route('sabri-network/v2','/future/smart-views',[['methods'=>'GET','callback'=>[self::class,'list_smart_views'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'save_smart_view'],'permission_callback'=>$a]]);
