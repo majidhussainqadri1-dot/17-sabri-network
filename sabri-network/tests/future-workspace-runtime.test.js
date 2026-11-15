@@ -78,7 +78,7 @@ vm.runInNewContext(source,{document,window,fetch:fetchStub,FormData:FakeFormData
 
 const run = async () => {
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(forms.size,30,'3 legacy + 4 prior + 12 Next + 8 lifecycle/privacy + 2 reminder + 1 team read controls should be wired');
+  assert.equal(forms.size,31,'3 original + 4 initial + 12 Next + 8 lifecycle/privacy + 2 reminder + 1 team read + 1 template preview controls should be wired');
   assert.match(status.innerHTML,/24 advanced File 17 capabilities/);
   assert.ok(!status.innerHTML.includes('<img'),'capability names must be HTML-escaped');
 
@@ -168,7 +168,11 @@ const run = async () => {
   const deniedCount=requests.length;
   await forms.get('snf-reminder-cancel-form').submit({id:'79',expected_version:'1'});
   assert.equal(requests.length,deniedCount,'reminder cancellation requires explicit confirmation');
+  await forms.get('snf-template-preview-form').submit({id:'91',recipient_name:'Ahmad',clinic_name:'Sabri Clinic',appointment_date:'2026-11-16'});
+  assert.equal(requests.at(-1).endpoint,'future/templates/91/preview','template preview must go to its private owner-scoped endpoint');
+  assert.equal(JSON.parse(requests.at(-1).options.body).variables.recipient_name,'Ahmad','safe template variables are explicit');
+  assert.ok(!requests.some(item=>item.endpoint.includes('/messages/send')),'template preview must never auto-send messages');
   for (const form of forms.values()) assert.equal(form.button.disabled,false,'button must re-enable after completion/refusal: '+form.id);
-  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (30 forms, consent, batch, escaping, feedback)\n');
+  process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (31 forms, consent, batch, escaping, feedback)\n');
 };
 run().catch(error=>{console.error(error);process.exitCode=1;});
