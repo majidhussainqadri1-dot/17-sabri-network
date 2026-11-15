@@ -126,6 +126,8 @@ final class SN_Future_Superset {
         self::route('/future/device-keys/(?P<user_id>\d+)/safety-number','GET','safety_number',$a); self::route('/future/key-transparency/(?P<user_id>\d+)','GET','key_transparency',$a);
         self::route('/future/conversation-locks/(?P<id>\d+)','POST','set_conversation_lock',$a); self::route('/future/team-inbox/(?P<id>\d+)','GET','get_team_inbox',$a); self::route('/future/team-inbox/(?P<id>\d+)','POST','set_team_inbox',$a); self::route('/future/team-inbox/(?P<id>\d+)/handoff','POST','handoff_team_inbox',$a);
         register_rest_route('sabri-network/v2','/future/reminders',[['methods'=>'GET','callback'=>[self::class,'list_reminders'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'create_reminder'],'permission_callback'=>$a]]);
+        self::route('/future/reminders/(?P<id>\d+)/cancel','POST','cancel_reminder',$a);
+        self::route('/future/reminders/(?P<id>\d+)/reschedule','POST','reschedule_reminder',$a);
         register_rest_route('sabri-network/v2','/future/templates',[['methods'=>'GET','callback'=>[self::class,'list_templates'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'save_template'],'permission_callback'=>$a]]);
         self::route('/future/messages/(?P<id>\d+)/versions','GET','message_versions',$a); self::route('/future/conversations/bulk','POST','bulk_conversations',$a);
         register_rest_route('sabri-network/v2','/future/conversations/bulk/(?P<id>\d+)',[['methods'=>'GET','callback'=>[self::class,'bulk_job_status'],'permission_callback'=>$a],['methods'=>'DELETE','callback'=>[self::class,'cancel_bulk_job'],'permission_callback'=>$a]]);
