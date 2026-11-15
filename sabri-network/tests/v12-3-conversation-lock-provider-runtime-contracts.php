@@ -103,4 +103,17 @@ $check($wpdb->writes===3,'Authenticated disable updates the same canonical lock'
 $stepUp='absent';
 $after=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
 $check($after===null,'After authorized unlock, no stale lock remains to block the route');
+$realCipher=(string)$wpdb->row->payload_cipher;
+$wpdb->row->payload_cipher='sealed:%%invalid%%';
+$corruptRead=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
+$check(is_wp_error($corruptRead)&&$corruptRead->get_error_code()==='sn_conversation_lock_state_unavailable',
+    'Corrupt encrypted lock state must fail closed for private search, not allow access');
+$writeCountBeforeCorrupt=$wpdb->writes;
+$corruptMutation=SN_Future_Superset::set_conversation_lock(new WP_REST_Request(['id'=>42,'enabled'=>false]));
+$check(is_wp_error($corruptMutation)&&$wpdb->writes===$writeCountBeforeCorrupt,
+    'Corrupt encrypted lock state cannot be silently overwritten as an unlock');
+$wpdb->row->payload_cipher=$realCipher;
+$restoredSearch=SN_Future_Superset::pre_dispatch(null,null,$privateSearch);
+$check($restoredSearch===null,'Restoring readable unlocked state removes false denial');
+
 echo "V12.3 conversation lock provider: $checks PASS, 0 FAIL\\n";
