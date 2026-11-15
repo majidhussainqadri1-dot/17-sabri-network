@@ -57,4 +57,7 @@ $assert(str_contains($advancedUI,"api('future/device-keys')")&&str_contains($adv
 $assert(str_contains($advancedUI,'NOT an E2EE certification'),'Read-only device key records must not be mistaken for independent audited E2EE.');
 $assert(str_contains($advancedUI,"api('conversations')")&&str_contains($advancedUI,"Number.isSafeInteger(id)")&&str_contains($advancedUI,"option.label = String(item?.title"),'V12.3 conversation picker must use only authorized File-17 conversation IDs with plain-text labels.');
 $assert(!str_contains($advancedUI,"option.innerHTML"),'V12.3 suggestion titles must never enter raw HTML.');
+$assert(str_contains($advancedUI,'snf-lobby-read-form')&&str_contains($advancedUI,'snf-speaker-queue-read-form'),'V12.3: call lobby and speaker queue current-state views must remain accessible.');
+$assert(str_contains($advancedUI,'snf-network-quality-form')&&str_contains($advancedUI,'telemetry_consent'),'V12.3: network guidance must separate client measurements from optional telemetry storage consent.');
+$assert(str_contains($advancedUI,"number('packet_loss_pct',0,100)")&&str_contains($advancedUI,"number('jitter_ms',0,5000)"),'V12.3: network diagnostic form must reject out-of-range measurements before transport.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
