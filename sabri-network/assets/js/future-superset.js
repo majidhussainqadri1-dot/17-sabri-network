@@ -59,6 +59,16 @@
     label.append(field);
     inviteOutput.append(label);
   };
+  const showReadout = (title, payload) => {
+    inviteOutput.replaceChildren();
+    const heading = document.createElement('strong');
+    heading.textContent = String(title);
+    const pre = document.createElement('pre');
+    pre.className = 'snf-readout';
+    pre.textContent = JSON.stringify(payload, null, 2).slice(0, 16000);
+    inviteOutput.append(heading, pre);
+    inviteOutput.hidden = false;
+  };
   const featureList = items => `<div class="snf-feature-list">${items.map(item => `<article class="snf-feature"><div><strong>${esc(item.id)} — ${esc(item.label)}</strong><small>${esc(item.phase)}${item.provider ? ` · provider: ${esc(item.provider)}` : ''}</small></div><span class="snf-badge snf-${esc(item.status)}">${esc(item.status)}</span></article>`).join('')}</div>`;
   async function loadCapabilities() { try { const data = await api('future/capabilities'); status.innerHTML = `<strong>${Number(data.feature_count || 0)} advanced File 17 capabilities</strong>${featureList(data.items || [])}`; status.className='snf-status'; } catch (error) { announce(error.message,true); } }
   const bind = (id, handler) => {
@@ -78,6 +88,7 @@
           : (result?.status_message || 'Request accepted. Final processing or provider confirmation may still be required.');
         announce(message);
         if (typeof result?.qr_payload === 'string') showInvitation(result.qr_payload);
+        if (result?.workspace_readout) showReadout(result.workspace_title || 'Authorized response', result.workspace_readout);
         if (id !== 'snf-lock-form' && id !== 'snf-bulk-form') form.reset();
       } catch (error) {
         announce(error?.message || 'The request failed.', true);
@@ -102,5 +113,51 @@
   bind('snf-team-inbox-form', data => api(`future/team-inbox/${Number(data.get('conversation_id'))}`, {method:'POST', body:{assignee_id:Number(data.get('assignee_id') || 0), status:String(data.get('status') || 'open'), enabled:data.get('enabled')==='on'}}));
   bind('snf-citation-form', data => api('future/citations', {method:'POST', body:{conversation_id:Number(data.get('conversation_id')), source_owner:String(data.get('source_owner') || ''), canonical_id:String(data.get('canonical_id') || ''), title:String(data.get('title') || ''), locator:String(data.get('locator') || '')}}));
   bind('snf-mentorship-form', data => api('future/mentorships', {method:'POST', body:{student_id:Number(data.get('student_id')), conversation_id:Number(data.get('conversation_id') || 0)}}));
+  // V12.3 Next/SCALE/Advanced: no duplicate data truth; use current authoritative REST handlers.
+  const nextJourneyForms = [
+    "<details id=\"snf-more\" class=\"snf-more\"><summary>Further File 17 actions: version history, bulk operations, invitations, supervised communication and provider-gated services</summary><p>Actions require current account permissions. A provider-gated capability can return unavailable until independently approved; this interface does not grant access.</p><div class=\"snf-grid\">",
+    "<form id=\"snf-revisions-form\" class=\"snf-card\"><h3>Authorized message revisions</h3><label>Message ID<input name=\"message_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Read permitted versions</button></form>",
+    "<form id=\"snf-bulk-form\" class=\"snf-card\"><h3>Bounded conversation batch</h3><label>Conversation IDs (comma-separated, up to 100)<textarea name=\"conversation_ids\" maxlength=\"1100\" required></textarea></label><label>Action<select name=\"action\"><option value=\"archive\">Archive</option><option value=\"unarchive\">Restore archive</option><option value=\"mute\">Mute</option><option value=\"unmute\">Unmute</option><option value=\"mark_read\">Mark read</option><option value=\"mark_unread\">Mark unread</option><option value=\"label\">Label</option><option value=\"assign\">Assign</option><option value=\"export_request\">Request export</option></select></label><label>Optional label<input name=\"label\" maxlength=\"80\"></label><label>Optional assignee ID<input name=\"assignee_id\" type=\"number\" min=\"0\"></label><label><input type=\"checkbox\" name=\"preview\" checked> Preview only (recommended)</label><button type=\"submit\">Submit bounded batch</button></form>",
+    "<form id=\"snf-invite-create-form\" class=\"snf-card\"><h3>Expiring community invitation</h3><label>Community ID<input name=\"space_id\" type=\"number\" min=\"1\" required></label><label>Invite role<select name=\"role\"><option value=\"member\">Member</option><option value=\"observer\">Observer</option></select></label><label>Expires in hours<input name=\"expires_in_hours\" type=\"number\" min=\"1\" max=\"168\" value=\"24\" required></label><label>Maximum uses<input name=\"max_uses\" type=\"number\" min=\"1\" max=\"100\" value=\"1\" required></label><button type=\"submit\">Create limited invitation</button></form>",
+    "<form id=\"snf-invite-redeem-form\" class=\"snf-card\"><h3>Redeem community invitation</h3><p>Never post an invitation token publicly. Normal identity, age and guardian checks still apply.</p><label>Private signed token<textarea name=\"token\" maxlength=\"3000\" required></textarea></label><button type=\"submit\">Redeem my invitation</button></form>",
+    "<form id=\"snf-temp-member-form\" class=\"snf-card\"><h3>Time-limited membership</h3><label>Community ID<input name=\"space_id\" type=\"number\" min=\"1\" required></label><label>Eligible account ID<input name=\"user_id\" type=\"number\" min=\"1\" required></label><label>Role<select name=\"role\"><option value=\"observer\">Observer</option><option value=\"member\">Member</option></select></label><label>Expires at (your local time)<input name=\"expires_at\" type=\"datetime-local\" required></label><button type=\"submit\">Grant scoped access</button></form>",
+    "<form id=\"snf-mentorship-decision-form\" class=\"snf-card\"><h3>Respond to mentorship invitation</h3><label>Invitation ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Decision<select name=\"decision\"><option value=\"decline\">Decline</option><option value=\"accept\">Accept</option></select></label><button type=\"submit\">Submit my decision</button></form>",
+    "<form id=\"snf-case-form\" class=\"snf-card\"><h3>De-identified professional discussion</h3><p>Verified professional approval and patient consent are required. Do not enter names, phone numbers, addresses, identifiers or identifying photos. This is not a patient chart.</p><label>Authorized conversation ID<input name=\"conversation_id\" type=\"number\" min=\"1\" required></label><label>Age band<input name=\"age_band\" maxlength=\"40\"></label><label>Sex (if relevant)<select name=\"sex\"><option value=\"unspecified\">Unspecified</option><option value=\"female\">Female</option><option value=\"male\">Male</option></select></label><label>De-identified summary<textarea name=\"summary\" maxlength=\"12000\" required></textarea></label><label><input type=\"checkbox\" name=\"consent_asserted\" required> I confirm applicable consent and removal of direct identifiers</label><button type=\"submit\">Submit for authorized discussion</button></form>",
+    "<form id=\"snf-handraise-form\" class=\"snf-card\"><h3>Raise or lower my hand</h3><label>Current call ID<input name=\"call_id\" type=\"number\" min=\"1\" required></label><label><input name=\"raised\" type=\"checkbox\" checked> Hand raised</label><button type=\"submit\">Update hand status</button></form>",
+    "<form id=\"snf-lobby-form\" class=\"snf-card\"><h3>Call host: waiting-room moderation</h3><p>Provider-dependent. Host authority, membership, age, blocks and current call state are checked on the server.</p><label>Call ID<input name=\"call_id\" type=\"number\" min=\"1\" required></label><label>Participant account ID<input name=\"user_id\" type=\"number\" min=\"1\" required></label><label>Action<select name=\"state\"><option value=\"waiting\">Waiting</option><option value=\"admitted\">Admit</option><option value=\"rejected\">Reject</option></select></label><button type=\"submit\">Update waiting room</button></form>",
+    "<form id=\"snf-ai-form\" class=\"snf-card\"><h3>AI helper — opt-in, File 16 approved provider only</h3><p>Selected message context may be sent to an approved AI adapter only after policy checks and your explicit consent. Do not include patient identifiers without lawful authorization.</p><label>Conversation ID<input name=\"conversation_id\" type=\"number\" min=\"1\" required></label><label>Selected message IDs, comma-separated<input name=\"message_ids\" maxlength=\"400\" required></label><label>Approved task<select name=\"task\"><option value=\"summary\">Summary</option><option value=\"draft\">Draft</option><option value=\"action_items\">Action items</option><option value=\"explain\">Explain</option></select></label><label><input name=\"explicit_consent\" type=\"checkbox\" required> I explicitly consent to this request and selected context</label><button type=\"submit\">Request governed AI assistance</button></form>",
+    "<form id=\"snf-semantic-form\" class=\"snf-card\"><h3>Private semantic search — separately opt-in</h3><p>Requires active per-user consent and an approved private-index adapter. Never sent to public File 26 search.</p><label>Conversation ID<input name=\"conversation_id\" type=\"number\" min=\"1\" required></label><label>Private search text<input name=\"query\" maxlength=\"500\" minlength=\"2\" required></label><button type=\"submit\">Search authorized conversation</button></form>",
+    "<form id=\"snf-safety-form\" class=\"snf-card\"><h3>Device safety-number comparison</h3><p>Only a cryptographic device-binding comparison. It is not proof that audited E2EE is available.</p><label>Other participant account ID<input name=\"user_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Show safety comparison</button></form>",
+    "</div></details>",
+  ].join('');
+  root.insertAdjacentHTML('beforeend', nextJourneyForms);
+
+  const parseIds = (raw, limit = 100) => {
+    const parts = String(raw || '').trim().split(/[\s,]+/).filter(Boolean);
+    if (!parts.length || parts.length > limit || parts.some(value => !/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value)))) throw new Error('Enter between 1 and ' + limit + ' valid positive numeric IDs.');
+    return [...new Set(parts.map(Number))];
+  };
+  const futureISO = raw => {
+    const date = new Date(String(raw || ''));
+    if (!Number.isFinite(date.getTime()) || date.getTime() <= Date.now()) throw new Error('Select a future local date and time.');
+    return date.toISOString();
+  };
+  bind('snf-revisions-form', async data => ({status_message:'Authorized message revision response is displayed below.',workspace_readout:await api('future/messages/' + Number(data.get('message_id')) + '/versions'),workspace_title:'Authorized message versions — private'}));
+  bind('snf-bulk-form', data => {
+    const preview = data.get('preview') === 'on';
+    if (!preview && !window.confirm('Execute this operation across the selected conversations? Each item requires its own authorization.')) throw new Error('Batch cancelled before submission.');
+    return api('future/conversations/bulk', {method:'POST',body:{conversation_ids:parseIds(data.get('conversation_ids')),action:String(data.get('action') || ''),label:String(data.get('label') || ''),assignee_id:Number(data.get('assignee_id') || 0),preview}});
+  });
+  bind('snf-invite-create-form', data => api('future/community-invites', {method:'POST',body:{space_id:Number(data.get('space_id')),role:String(data.get('role')),expires_in_hours:Number(data.get('expires_in_hours')),max_uses:Number(data.get('max_uses'))}}));
+  bind('snf-invite-redeem-form', data => api('future/community-invites/redeem', {method:'POST',body:{token:String(data.get('token') || '')}}));
+  bind('snf-temp-member-form', data => api('future/temporary-memberships', {method:'POST',body:{space_id:Number(data.get('space_id')),user_id:Number(data.get('user_id')),role:String(data.get('role') || 'observer'),expires_at:futureISO(data.get('expires_at'))}}));
+  bind('snf-mentorship-decision-form', data => api('future/mentorships/' + Number(data.get('id')), {method:'POST',body:{decision:String(data.get('decision') || 'decline')}}));
+  bind('snf-case-form', data => api('future/case-discussions', {method:'POST',body:{conversation_id:Number(data.get('conversation_id')),age_band:String(data.get('age_band') || ''),sex:String(data.get('sex') || 'unspecified'),summary:String(data.get('summary') || ''),consent_asserted:data.get('consent_asserted') === 'on'}}));
+  bind('snf-handraise-form', data => api('calls/' + Number(data.get('call_id')) + '/hand-raise', {method:'POST',body:{raised:data.get('raised') === 'on'}}));
+  bind('snf-lobby-form', data => api('calls/' + Number(data.get('call_id')) + '/lobby', {method:'POST',body:{user_id:Number(data.get('user_id')),state:String(data.get('state') || 'waiting')}}));
+  bind('snf-ai-form', async data => ({status_message:'An authorized AI adapter returned a response. Review any output before using it.',workspace_readout:await api('future/ai-assistant', {method:'POST',body:{conversation_id:Number(data.get('conversation_id')),message_ids:parseIds(data.get('message_ids'),20),task:String(data.get('task') || 'summary'),explicit_consent:data.get('explicit_consent') === 'on'}}),workspace_title:'AI response — not a clinical decision'}));
+  bind('snf-semantic-form', async data => ({status_message:'Private authorized semantic search result is shown below.',workspace_readout:await api('future/semantic-search', {method:'POST',body:{conversation_id:Number(data.get('conversation_id')),query:String(data.get('query') || '')}}),workspace_title:'Private semantic search results'}));
+  bind('snf-safety-form', async data => ({status_message:'Compare this number out of band with the other participant; do not infer E2EE from the number alone.',workspace_readout:await api('future/device-keys/' + Number(data.get('user_id')) + '/safety-number'),workspace_title:'Safety number comparison'}));
+
   loadCapabilities();
 })();
