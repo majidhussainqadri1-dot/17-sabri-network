@@ -1,4 +1,6 @@
-# Repository Manifest — File 17 v2.0.0
+# Repository Manifest — File 17 v2.1.0
+
+The following file enumeration is historical, not exhaustive. The exact package manifest produced by tools/package.sh and validated in CI is authoritative.
 
 `CHECKSUMS.sha256` is the canonical integrity manifest for the exact installable package source tree. The quality gate proves that its file list equals the files selected by `tools/package.sh`, verifies every digest, then rebuilds the ZIP twice and compares the outputs byte-for-byte. Tests, tools and repository evidence documents are deliberately excluded from the installable package.
 

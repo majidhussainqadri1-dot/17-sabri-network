@@ -1,5 +1,58 @@
 # Changelog
 
+## V12.3 privacy hardening and smart-view regression — 2026-11-15 (unreleased)
+
+- Blocked sensitive conversation disclosure in private saved views without current step-up; fail closed on corrupt lock.
+- Corrected unreadable-lock reminder labels and message references in File 19 notification handoff.
+- Fail visibly on DB errors in saved private-view query rather than returning misleading empty success.
+- Added real-handler PHP saved-view runtime suite: locked/authorized/corrupt/revoked and SQL failure. 64 PHP suites in full quality inventory.
+- No live deployment, migration or actual provider verification claimed.
+
+
+## V12.3 Security hardening follow-up — 2026-11-15 (unreleased)
+
+- Verified actual InnoDB storage engines at key-change time; fail closed on MyISAM/unverified engine and declare InnoDB for new key/audit tables. No automatic conversion of existing production tables.
+- Extended read-only live-freeze evidence to capture table storage engines and added nontransactional-storage regression coverage.
+- Current exact full gate contains 63 explicit PHP suites; historical counts in earlier notes are not current release metrics.
+
+
+- Fail closed on corrupt conversation lock state and redact sensitive previews from locked conversation lists.
+- Serialize device-key registration/rotation and local audit-log append; reject and rollback unlogged changes.
+- Gate E2EE, key verification/transparency and other external features on evidence of approved providers, rather than code presence.
+- Paginate local device-key history and explicitly distinguish unsigned local audit from independently verified transparency proof.
+- Add four runtime test suites and full quality gate coverage. Not a live/deployment acceptance statement.
+
+
+## V12.3 source candidate — third code/QA pass (15 November 2026; unreleased)
+
+- Increased advanced communication workspace to 33 governed controls; added current-authority conversation suggestions, device-key and key history read-only views without implying audited E2EE.
+- Added versioned reminder cancellation/rescheduling and message/current-membership/block checks before File19 notification handoff; kept due reminders pending without a registered notification consumer and suppressed locked-conversation notification previews.
+- Changed F17-FUT-05/06 assignment into one named-lock and SQL-transaction workflow, current version precondition, conversation-active and current member checks, no partial commit on second-record failure; exposed team state version in UI.
+- Added owner-scoped, variable-allowlisted, manual-review-only saved reply preview, rejecting clinical directives without approved policy and forbidding autonomous message sending.
+- Added opt-in translation task with File16 context authorization and File20/translation-locale provider approval, denying unapproved locale or provider.
+- Added four isolated V12.3 PHP runtime/refusal suites alongside the prior 53 and expanded the Node DOM/fetch UI suite. Full quality gate now lists 57 PHP suites.
+- Added read-only deployed runtime+schema+embedded-manifest SHA freeze command and V12.3 clause-to-code acceptance matrix; no WordPress config, DB or live artifact modified.
+- Actual SFU/TURN/E2EE/AI/index/scanner/storage staging verification and live deployment parity remain mandatory; **not operationally accepted**.
+
+
+### QoS input and grading corrective candidate — 15 Nov 2026
+- Proven source issue: packet jitter and downlink were ignored in quality grading and invalid REST values were silently clamped.
+- Implemented a shared conservative grade helper for authoritative/fallback handlers, limited ICE retry hints to conditions indicating transport instability, removed invented zero input defaults and fail-closed validated untrusted metrics.
+- Added an isolated executable PHP regression for grades, numeric boundaries and opt-out contracts (58 PHP suites including this addition).
+- No claim of actual browser-collected network speed, SFU integration or deployed fix.
+
+## V12.3 advanced communication source candidate — 2026-11-15 (unreleased / no plugin version change)
+
+- Updated V12.3 source-to-plan gap/release ledger; distinguished the verified 19 October 2026 baseline CI from staging/live truth.
+- Added 24 advanced-workspace controls across two source review passes to the original 3 forms (27 total), reusing governed REST endpoints instead of parallel message or contact data stores.
+- Added private semantic consent withdrawal and visible asynchronous purge-pending state, explicit user approval for potentially destructive operations, safe bounded bulk-preview/cancel/status, and consent refusal before sending selected AI/case context.
+- Preserved capability inventory while displaying action results and errors in a dedicated accessible status; rendered authorized results as text (never as response HTML).
+- Added accessible native checkbox/select sizing, keyboard focus and mobile progressive disclosure.
+- Added a native Node DOM/fetch runtime suite to the full quality gate and extended the existing Future-24 PHP static contracts.
+- No new custom DB tables or migrations, no change to protected message backend ownership, no live installation or production acceptance claim.
+- Audited E2EE, independent key transparency, SFU calls, private semantic/AI provider integration, scanner/storage and cross-module staging remain separate fail-closed acceptance gates.
+
+
 ## 2.1.0 — 2026-08-11 onward — Current governing-plan repository corrective candidate
 
 ### Governing reconciliation
@@ -102,3 +155,9 @@
 
 ## Status law
 A successful source review, CI run or deterministic ZIP is not equivalent to staging acceptance, live deployment or operational completion. Those states require separate real-environment evidence and Founder acceptance.
+
+### V12.3 source increment: call readouts and opt-in diagnostics (15 Nov 2026)
+
+- Added three authorized progressive-disclosure forms for call lobby, speaker queue and manually entered network metrics, reusing protected existing File-17 REST API routes.
+- Preserved opt-in telemetry default=false, range validation and clear statement that metrics are client supplied, not a measured speed test.
+- Expanded Node regression to 36 forms; real SFU/WebRTC and browser-device quality verification still pending.

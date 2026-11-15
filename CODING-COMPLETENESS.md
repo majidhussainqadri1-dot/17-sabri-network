@@ -1,3 +1,20 @@
+**Newest V12.3 source QA inventory (15 Nov 2026): 64 PHP suites, 9 JavaScript syntax checks, 1 Node workspace runtime test, 36 advanced UI forms; 13 source-level corrections. No live acceptance.**
+
+**Most recent V12.3 source QA inventory (15 Nov 2026): 63 explicitly invoked PHP review/runtime suites, 9 production JS syntax checks, 1 Node DOM/fetch workspace runtime test and 1 read-only ZIP/live-parity fixture. Advanced Communication contains 36 UI forms. These counts are NOT 100% implementation or live readiness.**
+
+> V12.3 current source update (15 November 2026): 33 Advanced Communication UI controls, 57 PHP review/runtime suites, 1 Node DOM/fetch runtime suite, read-only live parity script and clause-by-clause F17-FUT-01–24 acceptance mapping were added on draft PR #27. Important backend corrections include transactional CAS team assignments and guarded reminder lifecycle, safe template preview and translation provider gates. These are repository candidates only; staging/live deployment, package parity, real providers and cross-file clinical/privacy integrations remain unverified. The historical sixth-cycle metrics below must not be read as the current V12.3 final operational acceptance. See `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md`.
+
+# V12.3 reconciliation — 15 November 2026
+
+Plan: Sabri Website Master Plan V12.3 (13 November 2026); plugin candidate 2.1.0.
+Verified main HEAD: 8ae656e51796d1f05865d8be5dca2480443d79ca (25 September 2026).
+Exact-HEAD GitHub Actions run 39201819466 (19 October 2026): PHP 8.1 boundary job SUCCESS; PHP 8.3 full-quality/deterministic package job SUCCESS.
+These checks are for the baseline SHA, not for this review branch, current deployed code, migrations or live functionality.
+V12.3 postdates the baseline commit. Full clause-by-clause acceptance is not established.
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+---
+
 # File 17 — Coding Completeness Assessment
 
 **Assessment target:** Sabri Network and Messages 2.1.0  

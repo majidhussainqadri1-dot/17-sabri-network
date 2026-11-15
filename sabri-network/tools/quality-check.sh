@@ -45,6 +45,11 @@ js_files=(assets/js/network.js assets/js/meet.js assets/js/messages.js assets/js
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
+bash -n tools/file17-live-freeze.sh
+bash -n tools/file17-parity-check.sh
+bash -n tests/v123-live-parity-runtime.sh
+bash tests/v123-live-parity-runtime.sh
+node tests/future-workspace-runtime.test.js
 
 echo '== All File 17 review and correction suites =='
 tests=(
@@ -66,7 +71,7 @@ tests=(
  forty-round-review-1-governance-identity-crypto-contracts.php forty-round-review-2-transfer-smail-privacy-contracts.php forty-round-review-3-canonical-safety-resilience-contracts.php forty-round-review-4-release-truth-contracts.php
  two-plan-completion-contracts.php future24-forty-round-corrective-static-contracts.php fourth-fresh-twenty-round-contracts.php
  fifth-fresh-twenty-round-contracts.php fifth-fresh-migration-contracts.php fifth-fresh-closure-contracts.php fifth-fresh-release-truth-contracts.php
- sixth-fresh-twenty-round-contracts.php file03-profile-contracts.php
+ sixth-fresh-twenty-round-contracts.php file03-profile-contracts.php v123-team-assignment-runtime-contracts.php v123-reminder-lifecycle-runtime-contracts.php v123-template-preview-runtime-contracts.php v123-ai-translation-runtime-contracts.php v123-network-quality-runtime-contracts.php v123-sensitive-lock-preview-runtime-contracts.php v123-device-key-atomic-runtime-contracts.php v123-provider-availability-runtime-contracts.php v123-key-history-pagination-runtime-contracts.php v123-smart-view-lock-runtime-contracts.php
 )
 for test_file in "${tests[@]}"; do php "tests/$test_file"; done
 mapfile -t expected_tests < <(find tests -maxdepth 1 -type f -name '*.php' -printf '%f\n' | LC_ALL=C sort)
@@ -94,6 +99,16 @@ assert '#087a4e' in green and '#ff8a1f' in green
 assert '#sn-notifications-button' in green and 'display: none !important' in green
 assert ':focus-visible' in green
 print('CSS integrity: PASS')
+PY
+
+python3 - <<'PY'
+from pathlib import Path
+s=Path('tools/file17-live-freeze.sh').read_text(encoding='utf-8')
+for marker in ('--skip-plugins --skip-themes','option get','INFORMATION_SCHEMA.TABLES','MANIFEST.sha256','sha256sum','Runtime error logs: NOT READ'):
+    assert marker in s,marker
+for forbidden in ('option update ','db import','plugin activate','plugin deactivate','plugin install','plugin delete','search-replace','wp eval'):
+    assert forbidden not in s,'Dangerous write operation in read-only evidence capture: '+forbidden
+print('File 17 read-only live parity contract: PASS')
 PY
 
 echo '== Repository hygiene and private-communication invariants =='

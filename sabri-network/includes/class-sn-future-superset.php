@@ -59,11 +59,37 @@ final class SN_Future_Superset {
         $stale = gmdate('Y-m-d H:i:s', time() - 15 * MINUTE_IN_SECONDS);
         $wpdb->query($wpdb->prepare("UPDATE " . self::records_table() . " SET state='active',updated_at=%s,version=version+1 WHERE feature_id='F17-FUT-07' AND state='firing' AND updated_at<%s", $now, $stale));
         $due = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-07' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
+        // File 19 owns delivery; an event without a registered consumer is not completion.
+        if(has_action('sn_network_notification_requested')===false&&is_array($due)&&$due){
+            SN_DB::audit('future_reminder_delivery_unavailable','future_record',0,'failure',['reason'=>'notification_consumer_unavailable'],0);
+        }
         foreach (is_array($due) ? $due : [] as $record) {
+            if(has_action('sn_network_notification_requested')===false)break;
             $data = self::decode($record); if (is_wp_error($data)) continue;
+            // A reminder is not a perpetual grant to disclose a revoked conversation.
+            if (!self::reminder_authorized($record,$data)) {
+                $wpdb->update(self::records_table(),['state'=>'cancelled','updated_at'=>$now,'version'=>(int)$record->version+1],['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]);
+                continue;
+            }
             $claimed = $wpdb->update(self::records_table(), ['state'=>'firing','updated_at'=>$now,'version'=>(int)$record->version+1], ['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]); if ($claimed !== 1) continue;
             try {
-                do_action('sn_network_notification_requested', ['owner'=>'file-17','recipient_id'=>(int)$record->owner_id,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>(int)$record->scope_id,'message_id'=>(int)($data['message_id']??0),'idempotency_key'=>'file17-future-reminder:' . (int)$record->id]);
+                if (!self::reminder_authorized($record,$data)) {
+                    $wpdb->update(self::records_table(),['state'=>'cancelled','updated_at'=>self::now(),'version'=>(int)$record->version+2],['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                    continue;
+                }
+                $conversation=(int)$record->scope_id;
+                $lock=$conversation>0?self::active_record('F17-FUT-04',(int)$record->owner_id,'conversation',$conversation):null;
+                $lockData=$lock?self::decode($lock):[];
+                // Locked-conversation notifications never expose user text or a message preview reference.
+                $private=(bool)$lock&&(is_wp_error($lockData)||(is_array($lockData)&&!empty($lockData['enabled'])));
+                do_action('sn_network_notification_requested', [
+                    'owner'=>'file-17','recipient_id'=>(int)$record->owner_id,
+                    'type'=>'communication_reminder','title'=>'Communication reminder',
+                    'body'=>$private?'Private reminder':mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),
+                    'entity_type'=>'conversation','entity_id'=>$conversation,
+                    'message_id'=>$private?0:(int)($data['message_id']??0),
+                    'idempotency_key'=>'file17-future-reminder:'.(int)$record->id
+                ]);
                 $wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
             } catch (Throwable $error) {
                 $wpdb->update(self::records_table(), ['state'=>'active','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
@@ -82,12 +108,35 @@ final class SN_Future_Superset {
         add_filter('wp_privacy_personal_data_exporters',[self::class,'register_exporter']); add_filter('wp_privacy_personal_data_erasers',[self::class,'register_eraser']);
         add_action('wp_enqueue_scripts',[self::class,'register_assets'],6); add_shortcode('sabri_communication_advanced',[self::class,'render_workspace']); add_action('sn_network_future_contract_request',[self::class,'emit_contract']);
     }
+    /**
+     * Re-evaluate canonical permissions before scheduling or handing off a
+     * communication reminder. The reminder record itself is never authority.
+     */
+    private static function reminder_authorized(object $record,array $data): bool {
+        $u=(int)$record->owner_id;
+        if($u<1||!get_user_by('id',$u)||SN_Policy::is_suspended($u))return false;
+        $c=(int)$record->scope_id;
+        if($c>0){
+            if(!SN_DB::is_member($c,$u))return false;
+            global $wpdb;
+            $state=$wpdb->get_var($wpdb->prepare('SELECT status FROM '.SN_DB::table('conversations').' WHERE id=%d',$c));
+            if((string)$state!=='active')return false;
+        }
+        $message=absint($data['message_id']??0);
+        if($message>0){
+            if($c<=0)return false;
+            $m=self::message_row($message);
+            if(!$m||(int)$m->conversation_id!==$c||$m->deleted_at||SN_Message_Operations::is_hidden($u,$message)||SN_DB::is_blocked($u,(int)$m->sender_id))return false;
+        }
+        return true;
+    }
+
     public static function maybe_upgrade(): void { if((string)get_option('sn_future_superset_schema_version','')!==self::SCHEMA_VERSION) self::install(); }
     public static function install(): void {
         global $wpdb; require_once ABSPATH.'wp-admin/includes/upgrade.php'; $c=$wpdb->get_charset_collate();
         dbDelta("CREATE TABLE ".self::records_table()." (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,feature_id VARCHAR(24) NOT NULL,owner_id BIGINT UNSIGNED NOT NULL DEFAULT 0,scope_type VARCHAR(24) NOT NULL DEFAULT 'user',scope_id BIGINT UNSIGNED NOT NULL DEFAULT 0,state VARCHAR(24) NOT NULL DEFAULT 'active',payload_cipher LONGTEXT NULL,client_key CHAR(64) NULL DEFAULT NULL,expires_at DATETIME NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,version BIGINT UNSIGNED NOT NULL DEFAULT 1,PRIMARY KEY(id),UNIQUE KEY client_key(client_key),KEY owner_feature(owner_id,feature_id,state,id),KEY scope_feature(scope_type,scope_id,feature_id,state,id),KEY expiry(state,expires_at)) $c;");
-        dbDelta("CREATE TABLE ".self::device_keys_table()." (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,device_id VARCHAR(96) NOT NULL,algorithm VARCHAR(48) NOT NULL,public_key LONGTEXT NOT NULL,fingerprint CHAR(64) NOT NULL,state VARCHAR(24) NOT NULL DEFAULT 'active',created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,revoked_at DATETIME NULL,PRIMARY KEY(id),UNIQUE KEY user_device(user_id,device_id),KEY user_state(user_id,state,id),KEY fingerprint(fingerprint)) $c;");
-        dbDelta("CREATE TABLE ".self::key_log_table()." (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,device_id VARCHAR(96) NOT NULL,event VARCHAR(32) NOT NULL,fingerprint CHAR(64) NOT NULL,previous_fingerprint CHAR(64) NOT NULL DEFAULT '',entry_hash CHAR(64) NOT NULL,created_at DATETIME NOT NULL,PRIMARY KEY(id),KEY user_created(user_id,id),KEY device_created(device_id,id)) $c;");
+        dbDelta("CREATE TABLE ".self::device_keys_table()." (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,device_id VARCHAR(96) NOT NULL,algorithm VARCHAR(48) NOT NULL,public_key LONGTEXT NOT NULL,fingerprint CHAR(64) NOT NULL,state VARCHAR(24) NOT NULL DEFAULT 'active',created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,revoked_at DATETIME NULL,PRIMARY KEY(id),UNIQUE KEY user_device(user_id,device_id),KEY user_state(user_id,state,id),KEY fingerprint(fingerprint)) ENGINE=InnoDB $c;");
+        dbDelta("CREATE TABLE ".self::key_log_table()." (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,device_id VARCHAR(96) NOT NULL,event VARCHAR(32) NOT NULL,fingerprint CHAR(64) NOT NULL,previous_fingerprint CHAR(64) NOT NULL DEFAULT '',entry_hash CHAR(64) NOT NULL,created_at DATETIME NOT NULL,PRIMARY KEY(id),KEY user_created(user_id,id),KEY device_created(device_id,id)) ENGINE=InnoDB $c;");
         dbDelta("CREATE TABLE ".self::versions_table()." (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,message_id BIGINT UNSIGNED NOT NULL,conversation_id BIGINT UNSIGNED NOT NULL,editor_id BIGINT UNSIGNED NOT NULL,revision BIGINT UNSIGNED NOT NULL,body_cipher LONGTEXT NOT NULL,source_hash CHAR(64) NOT NULL,created_at DATETIME NOT NULL,PRIMARY KEY(id),UNIQUE KEY message_revision(message_id,revision),KEY conversation_message(conversation_id,message_id,id)) $c;");
         update_option('sn_future_superset_schema_version',self::SCHEMA_VERSION,false);
     }
@@ -99,7 +148,10 @@ final class SN_Future_Superset {
         self::route('/future/device-keys/(?P<user_id>\d+)/safety-number','GET','safety_number',$a); self::route('/future/key-transparency/(?P<user_id>\d+)','GET','key_transparency',$a);
         self::route('/future/conversation-locks/(?P<id>\d+)','POST','set_conversation_lock',$a); self::route('/future/team-inbox/(?P<id>\d+)','GET','get_team_inbox',$a); self::route('/future/team-inbox/(?P<id>\d+)','POST','set_team_inbox',$a); self::route('/future/team-inbox/(?P<id>\d+)/handoff','POST','handoff_team_inbox',$a);
         register_rest_route('sabri-network/v2','/future/reminders',[['methods'=>'GET','callback'=>[self::class,'list_reminders'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'create_reminder'],'permission_callback'=>$a]]);
+        self::route('/future/reminders/(?P<id>\d+)/cancel','POST','cancel_reminder',$a);
+        self::route('/future/reminders/(?P<id>\d+)/reschedule','POST','reschedule_reminder',$a);
         register_rest_route('sabri-network/v2','/future/templates',[['methods'=>'GET','callback'=>[self::class,'list_templates'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'save_template'],'permission_callback'=>$a]]);
+        self::route('/future/templates/(?P<id>\d+)/preview','POST','preview_template',$a);
         self::route('/future/messages/(?P<id>\d+)/versions','GET','message_versions',$a); self::route('/future/conversations/bulk','POST','bulk_conversations',$a);
         register_rest_route('sabri-network/v2','/future/conversations/bulk/(?P<id>\d+)',[['methods'=>'GET','callback'=>[self::class,'bulk_job_status'],'permission_callback'=>$a],['methods'=>'DELETE','callback'=>[self::class,'cancel_bulk_job'],'permission_callback'=>$a]]);
         register_rest_route('sabri-network/v2','/future/smart-views',[['methods'=>'GET','callback'=>[self::class,'list_smart_views'],'permission_callback'=>$a],['methods'=>'POST','callback'=>[self::class,'save_smart_view'],'permission_callback'=>$a]]);

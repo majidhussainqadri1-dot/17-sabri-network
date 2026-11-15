@@ -1,0 +1,126 @@
+<?php
+/** File 17 V12.3 F17-FUT-04: lock preview and corrupted-policy fail-closed runtime. */
+declare(strict_types=1);
+define('ABSPATH', __DIR__ . '/');
+class WP_REST_Request {
+    public function __construct(private string $route, private string $method='GET',private array $params=[]){}
+    public function get_route():string{return $this->route;}
+    public function get_method():string{return $this->method;}
+    public function get_param(string $key):mixed{return $this->params[$key]??null;}
+}
+class WP_REST_Response {
+    public function __construct(private array $data,private int $status=200){}
+    public function get_data():array{return $this->data;}
+    public function set_data(array $data):void{$this->data=$data;}
+    public function get_status():int{return $this->status;}
+}
+class WP_Error {
+    public function __construct(private string $code,private string $message,private array $data=[]){}
+    public function get_error_code():string{return $this->code;}
+    public function get_error_data():array{return $this->data;}
+}
+function absint(mixed $v):int{return abs((int)$v);}
+function get_current_user_id():int{return 7;}
+function is_wp_error(mixed $v):bool{return $v instanceof WP_Error;}
+function apply_filters(string $name,mixed $default,...$args):mixed{
+    return $name==='sn_network_step_up_verified' ? (bool)($GLOBALS['stepup_verified']??false) : $default;
+}
+function sanitize_key(string $s):string{return strtolower(preg_replace('/[^a-z0-9_-]/','',$s));}
+class SN_DB {
+    public static function table(string $part):string{return 'wp_sn_'.$part;}
+    public static function direct_key(int $a,int $b):string{$ids=[$a,$b];sort($ids,SORT_NUMERIC);return hash('sha256',implode(':',$ids));}
+}
+class FakeLockDB {
+    public string $last_error='';
+    public ?int $existingId=17;
+    public bool $failLookup=false;
+    public function prepare(string $sql,mixed ...$values):string {
+        if(!str_contains($sql,'wp_sn_conversations')||!str_contains($sql,'direct_key'))throw new RuntimeException('Unexpected lookup query');
+        return $sql;
+    }
+    public function get_var(string $sql):?int{
+        if($this->failLookup){$this->last_error='simulated DB failure';return null;}
+        $this->last_error='';return $this->existingId;
+    }
+}
+$wpdb=new FakeLockDB();
+require_once dirname(__DIR__).'/includes/class-sn-future-superset-part-1.php';
+final class SN_Future_Superset {
+    use SN_Future_Superset_Part_1;
+    public static array $locks=[];
+    private static function conversation_member(int $conversation,int $user):bool {return $user===7&&in_array($conversation,[17,18],true);}
+    private static function active_record(string $feature,int $user,string $scope,int $id):?object {
+        if($feature!=='F17-FUT-04'||$user!==7||$scope!=='conversation')return null;
+        return array_key_exists($id,self::$locks)?(object)['id'=>$id]:null;
+    }
+    private static function decode(object $row):array|WP_Error{
+        $d=self::$locks[$row->id]??null;
+        return $d==='corrupt'?new WP_Error('cannot_decrypt','decryption unavailable'):($d?:[]);
+    }
+    private static function not_found():WP_Error{return self::error('not_found','Conversation unavailable.',404);}
+    private static function error(string $code,string $message,int $status):WP_Error{
+        return new WP_Error($code,$message,['status'=>$status]);
+    }
+}
+function check(bool $condition,string $message):void{if(!$condition){fwrite(STDERR,"FAIL: $message\n");exit(1);}}
+function rows():WP_REST_Response{return new WP_REST_Response(['conversations'=>[
+    ['id'=>17,'title'=>'Private peer','description'=>'Sensitive notes','last_message'=>['body'=>'secret message'],'avatar'=>'private-avatar','owner_id'=>42,'updated_at'=>'private-timestamp','unread_count'=>8,'can_post'=>true],
+    ['id'=>18,'title'=>'Public chat','description'=>'Open','last_message'=>['body'=>'visible message'],'unread_count'=>2,'can_post'=>true],
+]]);}
+$list=new WP_REST_Request('/sabri-network/v2/conversations');
+SN_Future_Superset::$locks=[17=>['enabled'=>true,'step_up_ttl'=>120]];
+$GLOBALS['stepup_verified']=false;
+check(SN_Future_Superset::sensitive_preview_access(7,17)===false,'Private saved views must not reveal locked conversations without step-up.');
+check(SN_Future_Superset::sensitive_preview_access(7,18)===true,'Unrestricted conversation remains visible to authorized owner.');
+check(SN_Future_Superset::sensitive_preview_access(9,17) instanceof WP_Error,'Unauthorized viewer cannot inspect lock state.');
+$blocked=SN_Future_Superset::post_dispatch(rows(),null,$list);
+check($blocked->get_status()===200,'Listing remains usable when individual lock is active.');
+$data=$blocked->get_data();
+check($data['conversations'][0]['last_message']===null,'Locked preview text must not be returned.');
+check($data['conversations'][0]['title']==='Locked conversation','Locked title must be neutral.');
+check($data['conversations'][0]['description']===''&&$data['conversations'][0]['unread_count']===0,'Locked metadata must be suppressed.');
+check(($data['conversations'][0]['sensitive_locked']??false)===true,'Client must receive an explicit lock badge state.');
+check(($data['conversations'][0]['owner_id']??-1)===0 && ($data['conversations'][0]['updated_at']??'x')==='', 'Locked creator and activity metadata must not leak.');
+$restore=new WP_REST_Request('/sabri-network/v2/conversations','POST');
+$existing=rows()->get_data()['conversations'][0];
+$restoreResponse=SN_Future_Superset::post_dispatch(new WP_REST_Response(['conversation'=>$existing,'existing'=>true]),null,$restore)->get_data();
+check($restoreResponse['conversation']['last_message']===null,'Restoring an existing locked conversation must not disclose preview through POST.');
+check($restoreResponse['conversation']['title']==='Locked conversation','Restore reply must hide a locked peer title.');
+check(($restoreResponse['conversation']['owner_id']??-1)===0,'Restore reply must hide sensitive peer owner metadata.');
+
+check($data['conversations'][1]['last_message']['body']==='visible message','Unlocked conversation must remain usable.');
+$pre=SN_Future_Superset::pre_dispatch(null,null,new WP_REST_Request('/sabri-network/v2/conversations/17'));
+check($pre instanceof WP_Error&&$pre->get_error_code()==='sn_conversation_step_up_required','Direct locked conversation must require step-up.');
+$directRestore=new WP_REST_Request('/sabri-network/v2/conversations','POST',['type'=>'direct','user_id'=>8]);
+$restorePre=SN_Future_Superset::pre_dispatch(null,null,$directRestore);
+check($restorePre instanceof WP_Error&&$restorePre->get_error_code()==='sn_conversation_step_up_required','Restoring an existing locked direct conversation must require fresh step-up before any mutation.');
+$normalizedRestore=new WP_REST_Request('/sabri-network/v2/conversations','POST',['member_ids'=>[7,8,8]]);
+$normalizedResult=SN_Future_Superset::pre_dispatch(null,null,$normalizedRestore);
+check($normalizedResult instanceof WP_Error&&$normalizedResult->get_error_code()==='sn_conversation_step_up_required','Member IDs containing self first must not bypass restored direct-chat lock.');
+
+$wpdb->existingId=null;
+check(SN_Future_Superset::pre_dispatch(null,null,$directRestore)===null,'A genuinely new conversation must not inherit another chat lock.');
+$wpdb->existingId=17;$wpdb->failLookup=true;
+$restoreDBFail=SN_Future_Superset::pre_dispatch(null,null,$directRestore);
+check($restoreDBFail instanceof WP_Error&&$restoreDBFail->get_error_code()==='sn_conversation_lock_lookup_unavailable','Failed existing-chat lookup must fail closed.');
+$wpdb->failLookup=false;
+
+$GLOBALS['stepup_verified']=true;
+check(SN_Future_Superset::sensitive_preview_access(7,17)===true,'Fresh step-up permits private saved view inclusion.');
+$unlocked=SN_Future_Superset::post_dispatch(rows(),null,$list)->get_data();
+check($unlocked['conversations'][0]['last_message']['body']==='secret message','Fresh approved step-up may reveal content.');
+SN_Future_Superset::$locks=[17=>['enabled'=>false]];
+$GLOBALS['stepup_verified']=false;
+$disabled=SN_Future_Superset::post_dispatch(rows(),null,$list)->get_data();
+check($disabled['conversations'][0]['last_message']['body']==='secret message','Disabled lock must not redact.');
+SN_Future_Superset::$locks=[17=>'corrupt'];
+check(SN_Future_Superset::sensitive_preview_access(7,17) instanceof WP_Error,'Corrupt lock must fail closed for saved private views.');
+$failed=SN_Future_Superset::post_dispatch(rows(),null,$list);
+check($failed instanceof WP_REST_Response && $failed->get_status()===503,'Corrupt stored lock state must fail the entire preview listing closed.');
+check(!str_contains(json_encode($failed->get_data()),'secret message'),'Corrupt-policy failure must not leak message previews.');
+$restoreCorrupt=SN_Future_Superset::post_dispatch(new WP_REST_Response(['conversation'=>rows()->get_data()['conversations'][0]]),null,new WP_REST_Request('/sabri-network/v2/conversations','POST'));
+check($restoreCorrupt instanceof WP_REST_Response&&$restoreCorrupt->get_status()===503,'Corrupt lock in restore reply must fail closed, not return existing-message metadata.');
+$preFailed=SN_Future_Superset::pre_dispatch(null,null,new WP_REST_Request('/sabri-network/v2/conversations/17'));
+check($preFailed instanceof WP_Error&&$preFailed->get_error_code()==='sn_conversation_lock_state_unavailable','Direct access with corrupt lock must fail closed.');
+check(SN_Future_Superset::pre_dispatch(null,null,new WP_REST_Request('/other-plugin/v1/example'))===null,'Other REST namespaces remain unaffected.');
+echo "V12.3 sensitive lock preview and corruption fail-closed: PASS\n";
