@@ -59,6 +59,7 @@ const document = {
 let confirmResult = false;
 let uuidNumber = 0;
 const requests = [];
+let deniedEndpoint = '';
 const restUrl = 'https://example.invalid/wp-json/sabri-network/v2/';
 const responses = {
   'future/capabilities':{feature_count:24,items:[{id:'F17-FUT-01',label:'<img src=x onerror=alert(1)>',phase:'Advanced',status:'provider-gated'}]},
@@ -67,6 +68,7 @@ const responses = {
 async function fetchStub(url, options) {
   const endpoint = String(url).replace(restUrl, '');
   requests.push({endpoint,options});
+  if (endpoint === deniedEndpoint) return {ok:false,json:async()=>({message:'Approved provider unavailable — simulated refusal'})};
   const payload = endpoint === 'future/ai-assistant' ? {result:'<script>escape this text</script>'} : (responses[endpoint] || {id:12,items:[]});
   return {ok:true,json:async () => payload};
 }
@@ -142,6 +144,13 @@ const run = async () => {
   await forms.get('snf-mentorship-end-form').submit({id:'77'});
   assert.equal(requests.at(-1).endpoint,'future/mentorships/77/end');
 
+  deniedEndpoint = 'calls/4/lobby';
+  count = requests.length;
+  await forms.get('snf-lobby-form').submit({call_id:'4',user_id:'9',state:'admitted'});
+  assert.equal(requests.length,count+1,'provider request may be attempted only once');
+  assert.equal(nodes.find(node=>node.id==='snf-feedback').textContent,'Approved provider unavailable — simulated refusal','provider unavailability must fail visibly');
+  assert.equal(nodes.find(node=>node.id==='snf-feedback').className,'snf-status snf-error');
+  deniedEndpoint = '';
   for (const form of forms.values()) assert.equal(form.button.disabled,false,'button must re-enable after completion/refusal: '+form.id);
   process.stdout.write('File-17 V12.3 advanced workspace runtime contracts: PASS (27 forms, consent, batch, escaping, feedback)\n');
 };
