@@ -139,6 +139,7 @@
     "<form id=\"snf-reminder-cancel-form\" class=\"snf-card\"><h3>Cancel my pending reminder</h3><p>Read the current record version from My reminders before changing it.</p><label>Reminder ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Current version<input name=\"expected_version\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Cancel my reminder</button></form>",
     "<form id=\"snf-reminder-reschedule-form\" class=\"snf-card\"><h3>Reschedule my reminder</h3><p>Only the current owner and current message/conversation member may reschedule it.</p><label>Reminder ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Current version<input name=\"expected_version\" type=\"number\" min=\"1\" required></label><label>New reminder time (local)<input name=\"remind_at\" type=\"datetime-local\" required></label><button type=\"submit\">Change reminder time</button></form>",
     "<form id=\"snf-team-inbox-read-form\" class=\"snf-card\"><h3>Read current team assignment</h3><p>Obtain the current version, then enter it above before changing any assignment.</p><label>Conversation ID<input name=\"conversation_id\" type=\"number\" min=\"1\" required></label><button type=\"submit\">Read team state and version</button></form>",
+    "<form id=\"snf-template-preview-form\" class=\"snf-card\"><h3>Preview my saved reply — never auto-send</h3><p>Only three safe variables are supported: recipient_name, clinic_name and appointment_date. The preview remains private until you manually send it through the canonical Messages interface.</p><label>My template ID<input name=\"id\" type=\"number\" min=\"1\" required></label><label>Recipient name<input name=\"recipient_name\" maxlength=\"191\"></label><label>Clinic name<input name=\"clinic_name\" maxlength=\"191\"></label><label>Appointment date<input name=\"appointment_date\" maxlength=\"191\"></label><button type=\"submit\">Preview without sending</button></form>",
     "</div></details>",
   ].join('');
   root.insertAdjacentHTML('beforeend', nextJourneyForms);
@@ -185,5 +186,12 @@
   });
   bind('snf-reminder-reschedule-form', data => api('future/reminders/' + Number(data.get('id')) + '/reschedule', {method:'POST',body:{expected_version:Number(data.get('expected_version')),remind_at:futureISO(data.get('remind_at'))}}));
   bind('snf-team-inbox-read-form', async data => ({status_message:'Current authorized team assignment shown below. Copy the version into the team assignment form before updating.',workspace_readout:await api('future/team-inbox/' + Number(data.get('conversation_id'))),workspace_title:'Team assignment version'}));
+  bind('snf-template-preview-form', async data => ({
+    status_message:'Preview generated privately. No message was sent.',
+    workspace_readout:await api('future/templates/' + Number(data.get('id')) + '/preview', {method:'POST',body:{
+      variables:{recipient_name:String(data.get('recipient_name') || ''),clinic_name:String(data.get('clinic_name') || ''),appointment_date:String(data.get('appointment_date') || '')}
+    }}),
+    workspace_title:'Plain-text saved reply preview — NOT SENT'
+  }));
   loadCapabilities();
 })();
