@@ -67,6 +67,8 @@ if [[ "$(printf '%s\n' "${discovered_js[@]}")" != "$(printf '%s\n' "${declared_j
   exit 1
 fi
 for file in "${js_files[@]}"; do node --check "$file"; printf 'PASS %s\n' "$file"; done
+echo '== V12.3 reminder UI DOM and timezone journeys =='
+for zone in UTC America/New_York; do TZ="$zone" node tests/v12-3-reminder-workspace-dom.js; done
 bash -n tools/quality-check.sh
 bash -n tools/package.sh
 
