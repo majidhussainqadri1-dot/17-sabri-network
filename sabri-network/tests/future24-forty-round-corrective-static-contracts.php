@@ -52,4 +52,7 @@ $assert(str_contains($aiHardening,"'summary','draft','action_items','explain','t
 $assert(str_contains($aiHardening,'sn_network_ai_translation_locale_allowed')&&str_contains($aiHardening,'sn_ai_translation_locale_not_approved'),'F17-FUT-22 translation locale must fail closed under authoritative language-owner approval.');
 $assert(str_contains($aiHardening,"'target_locale'=>\$task==='translate'?\$targetLocale:null"),'F17-FUT-22 translation must pass only the approved locale to the File-16 adapter.');
 $assert(str_contains($advancedUI,'Translate (approved locale)')&&str_contains($advancedUI,"target_locale:String(data.get('target_locale')"),'F17-FUT-22 consented translation UI must send its target locale.');
+$assert(str_contains($advancedUI,'snf-device-list-form')&&str_contains($advancedUI,'snf-key-transparency-form'),'F17-FUT-02/03 must expose governed, read-only key evidence UI.');
+$assert(str_contains($advancedUI,"api('future/device-keys')")&&str_contains($advancedUI,"api('future/key-transparency/'"),'Key evidence UI must use server-authorized File-17 routes and never create private key state.');
+$assert(str_contains($advancedUI,'NOT an E2EE certification'),'Read-only device key records must not be mistaken for independent audited E2EE.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
