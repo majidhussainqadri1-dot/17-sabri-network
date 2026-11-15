@@ -55,4 +55,6 @@ $assert(str_contains($advancedUI,'Translate (approved locale)')&&str_contains($a
 $assert(str_contains($advancedUI,'snf-device-list-form')&&str_contains($advancedUI,'snf-key-transparency-form'),'F17-FUT-02/03 must expose governed, read-only key evidence UI.');
 $assert(str_contains($advancedUI,"api('future/device-keys')")&&str_contains($advancedUI,"api('future/key-transparency/'"),'Key evidence UI must use server-authorized File-17 routes and never create private key state.');
 $assert(str_contains($advancedUI,'NOT an E2EE certification'),'Read-only device key records must not be mistaken for independent audited E2EE.');
+$assert(str_contains($advancedUI,"api('conversations')")&&str_contains($advancedUI,"Number.isSafeInteger(id)")&&str_contains($advancedUI,"option.label = String(item?.title"),'V12.3 conversation picker must use only authorized File-17 conversation IDs with plain-text labels.');
+$assert(!str_contains($advancedUI,"option.innerHTML"),'V12.3 suggestion titles must never enter raw HTML.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
