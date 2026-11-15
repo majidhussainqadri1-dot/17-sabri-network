@@ -1,3 +1,7 @@
+## V12.3 lock/workspace follow-up (source candidate only)
+
+Two new regression suites validate fail-closed conversation-lock activation and safe effective-route workspace controls. Current candidate: **69 PHP suites** and **10 source JS entry points**; exact branch-head CI is a separate gate. Earlier 67-suite results at `8f9d333a...` are historical immutable snapshots and not proof of current source or live behavior.
+
 # V12.3 candidate update — 15 November 2026
 
 This addendum takes precedence over the historical 2026-08 assessment below **for the PR #25 candidate only**. It does not prove the installed site has these updates.
@@ -43,7 +47,7 @@ The sixth fresh cycle began from exact fifth-cycle reviewed source `a3a435b16216
 | Measure | Current repository result |
 |---|---:|
 | Runtime candidate | **2.1.0** |
-| Explicit PHP review suites in full quality gate | **67** |
+| Explicit PHP review suites in full quality gate | **69** |
 | JavaScript entry points syntax-checked | **10** |
 | Permanent sixth-cycle regression suite | `sixth-fresh-twenty-round-contracts.php` |
 | Founder-approved Future Communication Superset | **24/24 repository capability paths represented; provider-dependent paths fail closed** |

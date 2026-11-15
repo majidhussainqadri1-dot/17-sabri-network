@@ -1,3 +1,7 @@
+## V12.3 lock/workspace branch — exact-head CI acceptance pending
+
+This stacked candidate is based on PR #25 exact SHA `db3ecf2b8de020842a3b85fb5ce1e60ba9785ce8`. Its runtime candidate remains version 2.1.0. The 69 PHP test inventory includes two new V12.3 lock/UX suites; **a successful CI result must belong to the exact new commit**. Previous 67-suite runs are preserved as historical evidence only. No staging or live acceptance is implied.
+
 # V12.3 File17 — exact candidate checkpoint, 15 November 2026
 
 - This status concerns **source candidate only**, not deployed WordPress. The original 2026-08/10 source report below remains historical.
@@ -29,7 +33,7 @@
 **Target:** File 17 — Sabri Network and Messages 2.1.0  
 **Historical sixth-cycle state (as written 2026-08-18):** sixth fresh 20-round sequential review completed; exact-head CI/package evidence was then pending  
 **Frozen starting source:** `a3a435b162167c9078ded22b08d6c8fb39b6ca27`  
-**Configured explicit PHP review suites:** **67**  
+**Configured explicit PHP review suites:** **69**  
 **JavaScript syntax entry points:** **10**  
 **Staging/live/operational:** pending / unverified
 

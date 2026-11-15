@@ -1,1 +1,4 @@
-Expected fifth-cycle full quality inventory after final synchronization: all PHP review suites present under tests/ and all ten File-17 JavaScript entry points. Exact counts are asserted by tools/quality-check.sh and current GitHub Actions.
+Current V12.3 lock/workspace candidate: 69 explicit PHP review/runtime suites, 10 JavaScript syntax entry points, reminder UTC/New York DOM checks and exact-head PHP 8.1/8.3 workflow gates.
+All PHP tests are enumerated by sabri-network/tools/quality-check.sh; omissions fail the build.
+Historical PR #25 checkpoint: 67 PHP suites; it is not the present branch inventory.
+Real staging/live/DB/provider status: unverified.
