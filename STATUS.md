@@ -1,3 +1,18 @@
+# V12.3 File17 — exact candidate checkpoint, 15 November 2026
+
+- This status concerns **source candidate only**, not deployed WordPress. The original 2026-08/10 source report below remains historical.
+- Repository `main` SHA: `8ae656e51796d1f05865d8be5dca2480443d79ca`, **unchanged**.
+- Stacked Draft PRs: #23 (main review), #24 (4 earlier source paths), #25 (15 further source paths); no merge or live deploy performed.
+- Independent source reviews A–G: 15 additional uniquely tracked **repository-source failure paths** corrected in PR #25; preceding #23/#24 4 paths. Count = **19 source paths**, **0 live-verified fixes**. Do not conflate issue paths with independent root causes.
+- Exact code/quality SHA at review G: `8f9d333a15b1e9d7de6a60099add2f4643f3a3d9`; Actions run `43669265546` PHP 8.1 and PHP 8.3 **success**, **188 PHP files, 67 PHP suites, 10 JS entry points**, File19 intake mocks 52 checks, reminder active-membership 10 checks.
+- Inner installable ZIP SHA-256 at that immutable source SHA: `cd53bca420d658ab78e75c5b3e14ba13a1486a58fb51f7aba9027582fd6f313c`. This is not GitHub artifact-wrapper digest or production deployed checksum.
+- File19's documented PHP source contract was independently inspected at its separate `main` SHA `3cd8f01a4614e96c0104d0ff82faa4ad3f02f4e4`. File17's new producer-bound `Communication.ReminderDue` adapter accepts only File19 processing/idempotent intake receipts, not listener presence; **actual deployed plugin, File01 outbox, MySQL/notification rendering and end-device delivery remain unverified**.
+- Acceptance: Source coded and automated QA passed on exact code SHA; real staging WordPress/MySQL, integration, 2 independent full E2E reviews, browser/RTL/a11y, backup/restore/rollback, Founder go/no-go, live parity/re-test all **PENDING/UNVERIFIED**.
+- Live connection: Jetpack site `256120819` reports `site_disconnected`; WPVibe has no registered site and a fresh connection attempt received HTTP 530. Neither proves the cause.
+- Release decision: **NO-GO / NOT OPERATIONAL**. Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+---
+
 # Current GitHub-only evidence checkpoint — 2026-10-19
 
 - Audited `main` HEAD: `8ae656e51796d1f05865d8be5dca2480443d79ca`.
@@ -14,7 +29,7 @@
 **Target:** File 17 — Sabri Network and Messages 2.1.0  
 **Historical sixth-cycle state (as written 2026-08-18):** sixth fresh 20-round sequential review completed; exact-head CI/package evidence was then pending  
 **Frozen starting source:** `a3a435b162167c9078ded22b08d6c8fb39b6ca27`  
-**Configured explicit PHP review suites:** **60**  
+**Configured explicit PHP review suites:** **67**  
 **JavaScript syntax entry points:** **10**  
 **Staging/live/operational:** pending / unverified
 

@@ -46,6 +46,8 @@ jobs:
           node --check sabri-network/assets/js/future-superset.js
           node --check sabri-network/assets/js/fifth-fresh-ui.js
           node --check sabri-network/assets/js/round20-correction.js
+          TZ=UTC node sabri-network/tests/v12-3-reminder-workspace-dom.js
+          TZ=America/New_York node sabri-network/tests/v12-3-reminder-workspace-dom.js
           python3 - <<'PY'
           from pathlib import Path
           css=Path('sabri-network/assets/css/future-superset.css').read_text(encoding='utf-8')
@@ -91,6 +93,13 @@ jobs:
           run_test v12-3-effective-handoff-route-runtime-contracts.php
           run_test v12-3-future-idempotency-semantics-runtime-contracts.php
           run_test v12-3-bulk-reasoned-handoff-runtime-contracts.php
+          run_test v12-3-reminder-authorized-create-runtime-contracts.php
+          run_test v12-3-reminder-dispatch-failclosed-runtime-contracts.php
+          run_test v12-3-reminder-versioned-mutations-runtime-contracts.php
+          run_test v12-3-private-results-post-provider-revocation-runtime-contracts.php
+          run_test v12-3-reminder-dst-timezone-runtime-contracts.php
+          run_test v12-3-reminder-workspace-static-contracts.php
+          run_test v12-3-reminder-active-conversation-membership-runtime-contracts.php
           run_test file03-profile-contracts.php
 
   quality-and-package:

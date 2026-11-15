@@ -75,7 +75,31 @@ trait SN_Future_Superset_Part_1 {
         return rest_ensure_response(['conversation_id' => $c, 'team_inbox' => $d]);
     }
     public static function handoff_team_inbox(WP_REST_Request $r): WP_REST_Response|WP_Error {$r->set_param('enabled',true);return self::set_team_inbox($r);}
-    public static function create_reminder(WP_REST_Request $r): WP_REST_Response|WP_Error {$u=get_current_user_id();$at=self::future_time((string)$r->get_param('remind_at'),365*DAY_IN_SECONDS);if(is_wp_error($at))return $at;$c=absint($r->get_param('conversation_id'));if($c&&!self::conversation_member($c,$u))return self::not_found();$id=self::create_record('F17-FUT-07',$u,'conversation',$c,['message_id'=>absint($r->get_param('message_id')),'label'=>mb_substr(sanitize_text_field((string)$r->get_param('label')),0,191)],self::client($r,$u,'reminder'),$at);return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'remind_at'=>$at],201);}
+    public static function create_reminder(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        $u=get_current_user_id();
+        $at=self::future_time((string)$r->get_param('remind_at'),365*DAY_IN_SECONDS);
+        if(is_wp_error($at))return $at;
+        $c=absint($r->get_param('conversation_id'));
+        // An orphan scope must never be acknowledged as a valid reminder.
+        if($c<=0||!SN_DB::is_active_conversation_member($c,$u))return self::not_found();
+        $raw_message=$r->get_param('message_id');
+        if($raw_message!==null&&$raw_message!==''&&!preg_match('/^(0|[1-9][0-9]*)$/',(string)$raw_message))
+            return self::error('sn_reminder_message_invalid','Choose a valid message within this conversation.',400);
+        $message_id=absint($raw_message);
+        if($raw_message!==null&&$raw_message!==''&&$message_id===0&&(string)$raw_message!=='0')
+            return self::error('sn_reminder_message_invalid','Choose a valid message within this conversation.',400);
+        if($message_id>0){
+            $m=self::message_row($message_id);
+            if(!$m||(int)$m->conversation_id!==$c||!empty($m->deleted_at)
+                ||SN_Message_Operations::is_hidden($u,$message_id)
+                ||SN_DB::is_blocked($u,(int)$m->sender_id))return self::not_found();
+        }
+        $id=self::create_record('F17-FUT-07',$u,'conversation',$c,[
+            'message_id'=>$message_id,
+            'label'=>mb_substr(sanitize_text_field((string)$r->get_param('label')),0,191)
+        ],self::client($r,$u,'reminder'),$at);
+        return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'remind_at'=>$at],201);
+    }
     public static function list_reminders(): WP_REST_Response {return rest_ensure_response(['items'=>self::owned('F17-FUT-07',get_current_user_id())]);}
     public static function save_template(WP_REST_Request $r): WP_REST_Response|WP_Error {$u=get_current_user_id();$title=mb_substr(sanitize_text_field((string)$r->get_param('title')),0,120);$body=mb_substr(sanitize_textarea_field(wp_unslash((string)$r->get_param('body'))),0,8000);if($title===''||$body==='')return self::error('sn_template_invalid','A title and template body are required.',400);if(self::looks_clinical_directive($body)&&!(bool)apply_filters('sn_network_professional_template_allowed',false,$u,$body))return self::error('sn_template_clinical_guard','Clinical directive templates require an approved professional policy.',403);$id=self::create_record('F17-FUT-08',$u,'user',$u,['title'=>$title,'body'=>$body],self::client($r,$u,'template'),null);return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'title'=>$title],201);}
     public static function list_templates(): WP_REST_Response {return rest_ensure_response(['items'=>self::owned('F17-FUT-08',get_current_user_id())]);}

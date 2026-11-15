@@ -59,9 +59,26 @@ final class SN_Future_Superset {
         foreach (is_array($due) ? $due : [] as $record) {
             $data = self::decode($record); if (is_wp_error($data)) continue;
             $claimed = $wpdb->update(self::records_table(), ['state'=>'firing','updated_at'=>$now,'version'=>(int)$record->version+1], ['id'=>(int)$record->id,'state'=>'active','version'=>(int)$record->version]); if ($claimed !== 1) continue;
+            // Earlier preflight happens on a separate hook. Authority can change
+            // after preflight and before this due event is actually dispatched.
+            if (!self::reminder_dispatch_authorized($record, $data)) {
+                $cancelled=$wpdb->update(self::records_table(),
+                    ['state'=>'cancelled','updated_at'=>self::now(),'version'=>(int)$record->version+2],
+                    ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                SN_DB::audit('future_reminder_authorization_revoked','future_record',
+                    (int)$record->id,$cancelled===1?'success':'failure',
+                    ['reason'=>'authorization_or_source_changed'],
+                    (int)$record->owner_id);
+                // A failed cancel is not permission to notify. The stale-firing
+                // recovery job will re-enter this check before a later attempt.
+                continue;
+            }
             try {
-                do_action('sn_network_notification_requested', ['owner'=>'file-17','recipient_id'=>(int)$record->owner_id,'type'=>'communication_reminder','title'=>'Communication reminder','body'=>mb_substr(sanitize_text_field((string)($data['label']??'Reminder')),0,191),'entity_type'=>'conversation','entity_id'=>(int)$record->scope_id,'message_id'=>(int)($data['message_id']??0),'idempotency_key'=>'file17-future-reminder:' . (int)$record->id]);
-                $wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                // WordPress actions have no acceptance receipt. File19's documented
+                // canonical PHP ingestion API returns one after a durable transaction.
+                self::ingest_file19_reminder($record);
+                $completed=$wpdb->update(self::records_table(), ['state'=>'fired','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
+                if($completed!==1)throw new RuntimeException('reminder_finalization_conflict');
             } catch (Throwable $error) {
                 $wpdb->update(self::records_table(), ['state'=>'active','updated_at'=>self::now(),'version'=>(int)$record->version+2], ['id'=>(int)$record->id,'state'=>'firing','version'=>(int)$record->version+1]);
                 SN_DB::audit('future_reminder_handoff_failed','future_record',(int)$record->id,'failure',['reason'=>$error->getMessage()],(int)$record->owner_id);
@@ -71,6 +88,66 @@ final class SN_Future_Superset {
         $temp = $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::records_table() . " WHERE feature_id='F17-FUT-13' AND state='active' AND expires_at<=%s ORDER BY id ASC LIMIT 200", $now));
         foreach (is_array($temp) ? $temp : [] as $record) self::expire_temp($record);
         $wpdb->query($wpdb->prepare("UPDATE " . self::records_table() . " SET state='expired',updated_at=%s,version=version+1 WHERE state='active' AND expires_at IS NOT NULL AND expires_at<%s AND feature_id NOT IN ('F17-FUT-07','F17-FUT-10','F17-FUT-13')", $now, $now));
+    }
+
+    /**
+     * File19 owns delivery. File17 emits only an idempotent fact; an intake
+     * receipt is not proof of actual push/SMS/email delivery.
+     */
+    private static function ingest_file19_reminder(object $record): void {
+        if(!function_exists('sun_register_notification_producer')
+            ||!function_exists('sun_ingest_domain_event'))
+            throw new RuntimeException('file19_notification_contract_unavailable');
+        $registered=sun_register_notification_producer('sabri-file17',[
+            'owner'=>'File 17',
+            'event_types'=>['Communication.ReminderDue'],
+            'schema_versions'=>['1.0.0'],
+            'allowed_data_fields'=>['action_name','summary']
+        ]);
+        if($registered!==true)throw new RuntimeException('file19_producer_registration_failed');
+        $event_id='f17-reminder-'.(int)$record->id;
+        $accepted=sun_ingest_domain_event([
+            'producer'=>'sabri-file17',
+            'owner'=>'File 17',
+            'event_id'=>$event_id,
+            'event_type'=>'Communication.ReminderDue',
+            'schema_version'=>'1.0.0',
+            'occurred_at'=>gmdate('c'),
+            'recipients'=>[['user_id'=>(int)$record->owner_id]],
+            'category'=>'messages',
+            'priority'=>'normal',
+            'sensitivity'=>'sensitive',
+            'data'=>[
+                'action_name'=>'Communication reminder',
+                'summary'=>'A private communication reminder is ready.'
+            ],
+            'idempotency_key'=>$event_id
+        ]);
+        if(is_wp_error($accepted))
+            throw new RuntimeException('file19_intake_'.sanitize_key($accepted->get_error_code()));
+        if(!is_array($accepted)
+            ||!in_array((string)($accepted['status']??''),['processed','duplicate'],true)
+            ||empty($accepted['event_public_id']))
+            throw new RuntimeException('file19_intake_unverified');
+    }
+
+    /**
+     * Authoritative check immediately before File19 receives a due-reminder fact.
+     * The hourly preflight is useful cleanup, not proof of a durable permission.
+     */
+    private static function reminder_dispatch_authorized(object $record,array $data): bool {
+        global $wpdb;
+        $owner=(int)$record->owner_id;
+        $conversation=(int)$record->scope_id;
+        if($owner<=0||$conversation<=0||!SN_DB::is_active_conversation_member($conversation,$owner))return false;
+        $message=absint($data['message_id']??0);
+        if($message<=0)return true;
+        $m=$wpdb->get_row($wpdb->prepare(
+            'SELECT id,sender_id,deleted_at FROM '.SN_DB::table('messages').
+            ' WHERE id=%d AND conversation_id=%d LIMIT 1',$message,$conversation));
+        if(!$m||!empty($m->deleted_at)||SN_Message_Operations::is_hidden($owner,$message)
+            ||SN_DB::is_blocked($owner,(int)$m->sender_id))return false;
+        return true;
     }
 
     public static function register(): void {
