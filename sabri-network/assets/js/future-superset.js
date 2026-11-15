@@ -30,11 +30,24 @@
   };
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const announce = (message, error = false) => { status.className = error ? 'snf-status snf-error' : 'snf-status'; status.textContent = message; };
-  const featureList = items => `<div class="snf-feature-list">${items.map(item => `<article class="snf-feature"><div><strong>${esc(item.id)} — ${esc(item.label)}</strong><small>${esc(item.phase)}${item.provider ? ` · provider: ${esc(item.provider)}` : ''}</small></div><span class="snf-badge snf-${esc(item.status)}">${esc(item.status)}</span></article>`).join('')}</div>`;
+  const featureList = items => `<div class="snf-feature-list">${items.map(item => `<article class="snf-feature"><div><strong>${esc(item.id)} — ${esc(item.label)}</strong><small>${esc(item.phase)}${item.provider ? ` · provider: ${esc(item.provider)}` : ''} · ${item.ui_mode === 'workspace' ? 'Workspace controls' : 'API capability (not a full interface)'}</small></div><span class="snf-badge snf-${esc(item.status)}">${esc(item.status)}</span></article>`).join('')}</div>`;
   async function loadCapabilities() { try { const data = await api('future/capabilities'); status.innerHTML = `<strong>${Number(data.feature_count || 0)} advanced File 17 capabilities</strong>${featureList(data.items || [])}`; status.className='snf-status'; } catch (error) { announce(error.message,true); } }
-  const bind = (id, handler) => { const form=document.getElementById(id); if(!form)return; form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button[type="submit"]');if(button)button.disabled=true;try{await handler(new FormData(form));announce('Saved successfully.');if(id!=='snf-lock-form')form.reset();}catch(error){announce(error.message,true);}finally{if(button)button.disabled=false;}}); };
+  const bind = (id, handler) => { const form=document.getElementById(id); if(!form)return; form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button[type="submit"]');if(button)button.disabled=true;try{await handler(new FormData(form));announce(id==='snf-history-form' ? 'Authorized message history loaded.' : 'Saved successfully.');if(!['snf-lock-form','snf-history-form'].includes(id))form.reset();}catch(error){announce(error.message,true);}finally{if(button)button.disabled=false;}}); };
   bind('snf-lock-form', data => api(`future/conversation-locks/${Number(data.get('conversation_id'))}`, {method:'POST', body:{enabled:data.get('enabled')==='on'}}));
   bind('snf-reminder-form', data => { const local=String(data.get('remind_at')||'');const parsed=local?new Date(local):null;return api('future/reminders',{method:'POST',body:{conversation_id:Number(data.get('conversation_id')),remind_at:parsed&&!Number.isNaN(parsed.getTime())?parsed.toISOString():local,label:String(data.get('label')||'')}}); });
   bind('snf-template-form', data => api('future/templates',{method:'POST',body:{title:String(data.get('title')||''),body:String(data.get('body')||'')}}));
+  bind('snf-team-form', data => api('future/team-inbox/' + Number(data.get('conversation_id')), {method:'POST', body:{enabled:data.get('enabled')==='on',assignee_id:Number(data.get('assignee_id') || 0),status:String(data.get('status') || 'open')}}));
+  bind('snf-view-form', data => api('future/smart-views', {method:'POST',body:{name:String(data.get('name')||''),criteria:{unread:data.get('unread')==='on',has_files:data.get('has_files')==='on',days:Math.max(1,Math.min(365,Number(data.get('days')||30)))}}}));
+  bind('snf-history-form', async data => {
+    const output = document.getElementById('snf-history-output');
+    output.textContent = 'Reading authorized history…';
+    try {
+      const result = await api('future/messages/' + Number(data.get('message_id')) + '/versions');
+      output.textContent = (result.versions || []).length ? result.versions.map(item => 'Revision ' + Number(item.revision) + ' · ' + String(item.created_at || '') + '\n' + String(item.body || '')).join('\n\n') : 'No previous versions available.';
+    } catch (error) {
+      output.textContent = 'History unavailable.';
+      throw error;
+    }
+  });
   loadCapabilities();
 })();
