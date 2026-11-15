@@ -107,3 +107,13 @@ This is **source-code / test-coverage** accounting. It does not classify failure
 | TEST-01 | New quality PHP test accidentally interpolated a source marker instead of treating it literally | Corrected fixture string quoting following actual CI failure | Patched; needs rerun | Not a live bug |
 
 **Source total in this increment:** six identified source/interface/audit gaps + one test-fixture defect. **Claimed live defects resolved:** 0. **Unresolved:** real provider readiness, schema/migrations, staging role and media tests, deployed artifact parity, live re-test and cross-module agreements.
+
+## Exact-approved-package parity source vulnerability — 15 November 2026
+
+**Verified issue in original read-only helper (not a proven live compromise):** The parity checker compared the deployed plugin to the manifest embedded in an approved ZIP, but did not separately verify that *all ZIP members and their decompressed bytes* matched that same manifest. An archive-only extra payload or a forged listed member could therefore be missed by the archive-check stage, even with pristine installed files. A symlink ZIP member with literal bytes equal to a manifest-listed regular file was also possible.
+
+**Source correction:** `tools/file17-parity-check.sh` now rejects missing/unlisted/duplicate ZIP members; independently hashes each archived member against the approved manifest; checks the manifest contains no duplicate paths; and rejects Unix symbolic-link members. This is a read-only gate: it never unpacks arbitrary ZIP members into the WordPress tree and makes no deployed changes.
+
+**Negative fixture tests:** `tests/v123-live-parity-runtime.sh` now creates (a) an archive-only unlisted extra, (b) a manifest-listed file with forged archive bytes, and (c) a symlink ZIP member with the *same literal bytes* as the approved file. All three must be rejected while a normal deterministic package still passes.
+
+**Accounting:** SRC-07 package attestation gap identified and source-patched; this increment has **seven source/interface/audit findings and one test-fixture defect**. Live verification remains zero.
