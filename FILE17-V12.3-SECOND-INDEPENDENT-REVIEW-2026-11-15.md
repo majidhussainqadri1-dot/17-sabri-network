@@ -73,3 +73,17 @@ Mandatory final fields: Repository HEAD / Deployed Version / DB Version / Migrat
 | F17-V123-R07-DST-05 | P1/P2, wrong scheduled instant | Effective `SN_Future24_Review_Hardening_M::normalize_time()` currently creates `new DateTimeImmutable($value,new DateTimeZone($timezone))` without validating the requested wall time. PHP normalizes the nonexistent `America/New_York 2027-03-14 02:30` to `03:30` silently; the repeated fall-back `2027-11-07 01:30` accepts one offset without disambiguation. V12.3 F17-FUT-07 explicitly requires DST/timezone correctness. | Reject invalid/nonexistent/ambiguous **local wall times** with a clear error; require an explicit UTC offset or Z to select an ambiguous instant. Preserve valid UTC/offset-based requests and normal local wall time. Test next-year real IANA transition windows and dynamic validity. |
 
 The no-listener safeguard for F17-FUT-07 still does **not** prove File19 durable acceptance; that remains an independent integration blocker.
+
+## Review C closure and UX review D freeze — 15 November 2026
+- R07-DST-05: corrected strict local ISO + IANA DST gap/overlap validation in `class-sn-future24-review-hardening-m.php`, regression `tests/v12-3-reminder-dst-timezone-runtime-contracts.php` with explicit-offset disambiguation.
+- Exact corrected 65-suite SHA `599681c8e441ccc12e404f9964fc2736b25af065`; GitHub Actions run `43665590391` **success**, PHP 8.1 and PHP 8.3 full quality/package both passed. Source only.
+- V12.3 mapping: `FILE17-V12.3-26-ID-TRACEABILITY-ACCEPTANCE-MATRIX-2026-11-15.md`; live/DB freeze runbook is not executed.
+
+### UX review D: findings frozen before UI code changes
+| Finding | Source evidence | Required correction and negative coverage |
+|---|---|---|
+| F17-V123-REM-UX-06 | Effective shortcode `SN_Future_Superset_Core::render_workspace()` renders *only* a reminder creation form. `assets/js/future-superset.js` binds create only, despite F17-FUT-07 requiring users to view, reschedule and cancel reminders, and backend returning `expected_version`. | Add a visible, accessible refresh/list/reschedule/cancel workflow. Populate from canonical `future/reminders`, never display private message bodies. Always supply the record's actual `version` on POST/DELETE. Surface error from stale version instead of suppressing it; do not fake success. |
+| F17-V123-REM-UX-07 | Existing `datetime-local` input becomes `new Date(local).toISOString()`. JavaScript silently normalizes nonexistent DST wall times and chooses one of two repeated wall times, circumventing the backend's explicit named-timezone DST rule. | Reject silent DST gap/overlap in client input before converting to UTC, with user-friendly explanation; permit valid local instants. Add automated regression/static contract, real browser/time-zone test remains staging. |
+| F17-V123-REM-UX-08 | Initial creation success only reports generic `Saved successfully.` and does not refresh or expose versioned reminders. | Refresh the list after create, reschedule, cancel and user-requested refresh; preserve button disabled state / error semantics and keyboard/RTL usability. |
+
+All three findings form **one user-journey UX root-cause family**. Count as three distinct source gaps, not as three confirmed live incidents. No edits made to UI before this review freeze.
