@@ -1,1 +1,1 @@
-Expected fifth-cycle full quality inventory after final synchronization: all PHP review suites present under tests/ and all nine File-17 JavaScript entry points. Exact counts are asserted by tools/quality-check.sh and current GitHub Actions.
+File 17 2.1.0 V12.3 reconciliation: the current exact PHP review suite inventory is determined by tools/quality-check.sh (53 suites); 9 JS entry points are checked. Successful exact-branch CI/package is required before release. Staging, provider and live verification are separate and unverified.
