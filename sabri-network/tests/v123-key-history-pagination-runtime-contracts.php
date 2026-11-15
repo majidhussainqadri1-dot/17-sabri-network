@@ -28,7 +28,7 @@ class FakeHistoryDB {
         for($i=1;$i<=230;$i++)$this->history[]=(object)['id'=>$i,'device_id'=>'mobile','event'=>'rotated','fingerprint'=>'f-'.$i,'previous_fingerprint'=>'f-'.($i-1),'entry_hash'=>'hash-'.$i,'created_at'=>'2026-11-15 00:00:00'];
     }
     public function prepare(string $query,mixed ...$args):string{
-        $i=0;return preg_replace_callback('/%d/',static fn($m)=>strval($args[$i++]??0),$query);
+        $i=0;return preg_replace_callback('/%d/',static function($m) use (&$i,$args):string{return (string)($args[$i++]??0);},$query);
     }
     public function get_results(string $sql):array|false{
         if($this->failQuery){$this->last_error='simulated unavailable DB';return false;}
