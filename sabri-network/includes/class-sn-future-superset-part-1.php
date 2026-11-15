@@ -10,7 +10,44 @@ trait SN_Future_Superset_Part_1 {
         $c=absint($r->get_param('conversation_id'));$u=get_current_user_id();if(!self::conversation_manager($c,$u))return self::error('forbidden','Conversation management permission is required.',403);$enabled=rest_sanitize_boolean($r->get_param('enabled'));$p=(array)apply_filters('sn_network_e2ee_provider_status',[],$c,$u);if($enabled&&(empty($p['ready'])||empty($p['audited'])||empty($p['protocol'])))return self::error('sn_e2ee_provider_unavailable','Audited E2EE cannot be enabled until an approved audited protocol provider is ready.',503);$data=['enabled'=>$enabled,'protocol'=>$enabled?sanitize_text_field((string)$p['protocol']):'','provider_audit_ref'=>$enabled?sanitize_text_field((string)($p['audit_ref']??'')):''];$id=self::upsert_record('F17-FUT-01',0,'conversation',$c,$data,'e2ee:'.$c,null);return is_wp_error($id)?$id:rest_ensure_response(['conversation_id'=>$c,'policy'=>$data]);
     }
     public static function register_device_key(WP_REST_Request $r): WP_REST_Response|WP_Error {
-        global $wpdb;$u=get_current_user_id();$device=mb_substr(sanitize_text_field((string)$r->get_param('device_id')),0,96);$alg=mb_substr(sanitize_key((string)$r->get_param('algorithm')),0,48);$key=trim((string)$r->get_param('public_key'));if($device===''||$alg===''||$key===''||strlen($key)>16384)return self::error('sn_device_key_invalid','A valid device identifier, algorithm and public key are required.',400);if(!has_filter('sn_network_device_public_key_valid')||!(bool)apply_filters('sn_network_device_public_key_valid',false,$alg,$key,$u,$device))return self::error('sn_device_key_provider_unavailable','Device-key registration requires an approved key-validation provider.',503);$fp=hash('sha256',$alg.'|'.$key);$old=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::device_keys_table().' WHERE user_id=%d AND device_id=%s',$u,$device));$now=self::now();$ok=$old?$wpdb->update(self::device_keys_table(),['algorithm'=>$alg,'public_key'=>$key,'fingerprint'=>$fp,'state'=>'active','updated_at'=>$now,'revoked_at'=>null],['id'=>(int)$old->id]):$wpdb->insert(self::device_keys_table(),['user_id'=>$u,'device_id'=>$device,'algorithm'=>$alg,'public_key'=>$key,'fingerprint'=>$fp,'state'=>'active','created_at'=>$now,'updated_at'=>$now]);if($ok===false)return self::db_error();self::append_key_log($u,$device,$old?'rotated':'registered',$fp,$old?(string)$old->fingerprint:'');return rest_ensure_response(['device_id'=>$device,'fingerprint'=>self::pretty_fp($fp)]);
+        global $wpdb;
+        $u=get_current_user_id();
+        $device=mb_substr(sanitize_text_field((string)$r->get_param('device_id')),0,96);
+        $alg=mb_substr(sanitize_key((string)$r->get_param('algorithm')),0,48);
+        $key=trim((string)$r->get_param('public_key'));
+        if($device===''||$alg===''||$key===''||strlen($key)>16384)return self::error('sn_device_key_invalid','A valid device identifier, algorithm and public key are required.',400);
+        if(!has_filter('sn_network_device_public_key_valid')||!(bool)apply_filters('sn_network_device_public_key_valid',false,$alg,$key,$u,$device))
+            return self::error('sn_device_key_provider_unavailable','Device-key registration requires an approved key-validation provider.',503);
+        $fp=hash('sha256',$alg.'|'.$key);
+        // Serializing the global commitment chain prevents two valid rotations
+        // from calculating the same predecessor and silently forking the log.
+        $lock='sn:f17:device-key-log';
+        $locked=(int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,%d)',$lock,5));
+        if($locked!==1)return self::error('sn_device_key_log_busy','Device key changes are busy; retry safely.',503);
+        $inTransaction=false;
+        try {
+            if($wpdb->query('START TRANSACTION')===false)return self::db_error();
+            $inTransaction=true;
+            $old=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.self::device_keys_table().' WHERE user_id=%d AND device_id=%s FOR UPDATE',$u,$device));
+            if($old&&(string)$old->fingerprint===$fp&&(string)$old->state==='active'){
+                if($wpdb->query('COMMIT')===false)return self::db_error();
+                $inTransaction=false;
+                return rest_ensure_response(['device_id'=>$device,'fingerprint'=>self::pretty_fp($fp),'unchanged'=>true]);
+            }
+            $now=self::now();
+            $ok=$old
+                ?$wpdb->update(self::device_keys_table(),['algorithm'=>$alg,'public_key'=>$key,'fingerprint'=>$fp,'state'=>'active','updated_at'=>$now,'revoked_at'=>null],['id'=>(int)$old->id])
+                :$wpdb->insert(self::device_keys_table(),['user_id'=>$u,'device_id'=>$device,'algorithm'=>$alg,'public_key'=>$key,'fingerprint'=>$fp,'state'=>'active','created_at'=>$now,'updated_at'=>$now]);
+            if($ok!==1)return self::error('sn_device_key_write_failed','The device key change did not commit.',503);
+            if(!self::append_key_log($u,$device,$old?'rotated':'registered',$fp,$old?(string)$old->fingerprint:''))
+                return self::error('sn_device_key_log_failed','The key change was rejected because its audit commitment could not be stored.',503);
+            if($wpdb->query('COMMIT')===false)return self::db_error();
+            $inTransaction=false;
+            return rest_ensure_response(['device_id'=>$device,'fingerprint'=>self::pretty_fp($fp)]);
+        } finally {
+            if($inTransaction)$wpdb->query('ROLLBACK');
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));
+        }
     }
     public static function list_device_keys(): WP_REST_Response {global $wpdb;$u=get_current_user_id();$rows=$wpdb->get_results($wpdb->prepare('SELECT device_id,algorithm,fingerprint,state,created_at,updated_at FROM '.self::device_keys_table().' WHERE user_id=%d ORDER BY id DESC',$u));return rest_ensure_response(['items'=>array_map(static fn($x)=>['device_id'=>(string)$x->device_id,'algorithm'=>(string)$x->algorithm,'fingerprint'=>self::pretty_fp((string)$x->fingerprint),'state'=>(string)$x->state,'created_at'=>(string)$x->created_at,'updated_at'=>(string)$x->updated_at],is_array($rows)?$rows:[])]);}
     public static function safety_number(WP_REST_Request $r): WP_REST_Response|WP_Error {
