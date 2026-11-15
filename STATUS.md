@@ -1,3 +1,5 @@
+**Latest source enhancement (15 Nov):** 36 governed interactive forms (33 prior + authorized read-only lobby, speaker queue and consent-minimized call diagnostics). Independent Node mock tests assert bounds and opt-out. This is *not* proof of real SFU media, actual client network measurements or live completeness.
+
 ## V12.3 source development current snapshot — 15 November 2026
 
 **Current candidate:** 33 governed Advanced Communication forms; 57 PHP review/runtime suites + nine JS entry syntax checks + one Node DOM/fetch runtime suite; one additional read-only live freeze utility. These numbers are source/test inventories, NOT overall feature or production-readiness percentages. The earlier '27 controls' paragraph below is historical. The newer plan-to-code map is `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md`.
