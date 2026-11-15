@@ -81,3 +81,13 @@ Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provis
 - **Live administration blocked:** connection attempts to both https://www.sabrihomeopathy.com and https://sabrihomeopathy.com returned HTTP 530 via the WordPress connector. This response does not establish the failing origin/hop or root cause; no live code, schema or firewall change was made.
 - **Important:** old section calling out *only three advanced UI forms* is a baseline historical observation and is superseded **for source code only** by the 27-control inventory above. All separate V12.3 acceptance obligations remain open until exercised in a real environment.
 
+
+## Current supplemental source evidence — V12.3 pass III (15 November 2026)
+
+- **33** UI controls present in current PR source (the earlier 27-control count is a historical mid-review snapshot, not the final source inventory).
+- **57** PHP suites in explicit quality gate (53 older + four new V12.3 runtime tests); one new Node DOM/fetch UI test and nine JS syntax entry checks.
+- **Proved source-level design issues addressed in current PR:** partial shared team assignment on second-record failure / absent CAS; missing reminder cancel/reschedule and stale-access checks; absent saved-reply safe preview; unsupported translation task/locale gate; capability list overwritten by action feedback; missing native input geometry and keyboard styling; numeric-only conversation selection without contextual suggestions. These are source gaps, not demonstrated incidents in deployed website.
+- **New parity utility:** `sabri-network/tools/file17-live-freeze.sh`, read-only; it must be run only against the authorized exact WordPress root, then its manifest hash reconciled with the tested ZIP. Merely adding the tool does not freeze the real website.
+- **Per-clause map:** `FILE17-V12.3-ACCEPTANCE-TRACEABILITY.md` is now the governing current mapping for F17-CEN, RCD, AJ and F17-FUT acceptance gaps. Both CI and owner/prod acceptance are still distinct.
+- **Unverified**: true E2EE, independent key transparency, SFU media, File16 language provider, real File19 notification queue, real scanner/private storage, WordPress database/migration, browser/mobile/RTL/a11y and live sign-off.
+- **Verified live defects resolved**: NONE claimed.
