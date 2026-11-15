@@ -37,6 +37,7 @@ final class SN_Message_Operations {
     public static array $hidden=[];
     public static function is_hidden(int $viewer,int $message):bool{return !empty(self::$hidden[$message]);}
 }
+function absint(mixed $value):int{return abs((int)$value);}
 function is_wp_error(mixed $v):bool{return $v instanceof WP_Error;}
 function current_time(string $type,bool $gmt=false):string{return gmdate('Y-m-d H:i:s');}
 function sanitize_text_field(string $text):string{return trim($text);}
