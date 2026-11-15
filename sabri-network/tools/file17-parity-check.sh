@@ -53,6 +53,33 @@ fi
 sed -E 's/^[0-9a-f]{64}  //' "$temp/approved.sha256" > "$temp/expected-names"
 printf 'sabri-network/MANIFEST.sha256\n' >> "$temp/expected-names"
 LC_ALL=C sort "$temp/expected-names" > "$temp/expected-sorted"
+# The ZIP itself, not just its embedded manifest, must be the complete approved artifact.
+# Reject unlisted payloads, duplicate names and archive content that disagrees with the manifest.
+if ! unzip -Z -1 "$approved_zip" > "$temp/approved-archive-names" 2>/dev/null; then
+  printf 'PARITY BLOCKED: cannot read exact approved ZIP member list\n' >&2
+  exit 13
+fi
+LC_ALL=C sort "$temp/approved-archive-names" > "$temp/approved-archive-sorted"
+if ! cmp -s -- "$temp/expected-sorted" "$temp/approved-archive-sorted"; then
+  printf 'PARITY BLOCKED: approved ZIP has missing, duplicate or unmanifested members\n' >&2
+  exit 14
+fi
+if [[ "$(LC_ALL=C sort -u "$temp/expected-names" | wc -l)" -ne "$(wc -l < "$temp/expected-names")" ]]; then
+  printf 'PARITY BLOCKED: approved manifest lists a duplicate file path\n' >&2
+  exit 15
+fi
+while IFS= read -r line; do
+  advertised="${line:0:64}"
+  archive_path="${line:66}"
+  if ! actual="$(unzip -p "$approved_zip" "$archive_path" 2>/dev/null | sha256sum | awk '{print $1}')"; then
+    printf 'PARITY BLOCKED: cannot read an approved ZIP member\n' >&2
+    exit 16
+  fi
+  if [[ "$advertised" != "$actual" ]]; then
+    printf 'PARITY BLOCKED: approved ZIP member does not match embedded manifest\n' >&2
+    exit 17
+  fi
+done < "$temp/approved.sha256"
 (
   cd -- "$(dirname -- "$deployed")"
   find sabri-network -type f -print | LC_ALL=C sort
