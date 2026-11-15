@@ -28,3 +28,8 @@
 - Jetpack site-disconnected; WPVibe no connected site at review opening. Exact deployed code/DB/migration/host logs unavailable.
 - No production writes, deploy, merger or live re-test authorized or attempted.
 - **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+## Review F addendum — independent schema-state finding, frozen before correction
+- **R07-REV-F-03 (P1/source):** canonical `SN_DB::is_member()` checks only an active member row (`left_at IS NULL`), **not** the canonical `sn_conversations.status`. The database defines `conversations.status`, and `SN_DB::share_active_conversation()` explicitly joins `c.status='active'`. The effective F17-FUT-07 `create_reminder`, `M::preflight_due`, `cleanup` and `M::reschedule` paths currently rely on membership alone. Consequently an archived/non-active conversation with retained membership can receive a new due reminder, be rescheduled or fire. V12.3 expressly requires correct behavior for deleted conversation and revoked membership. This is distinct from revocation *between* preflight and dispatch.
+- **Corrective design:** implement an explicit **active conversation + current member** predicate in the canonical File17 DB owner. Use it only in reminder create, reminder preflight, due dispatch and reschedule, rather than silently changing the meaning of `is_member()` for all File17 contracts. Test non-active conversation with membership still present, a currently active conversation, and safe cancellation after removal.
+- **No live evidence:** do not call this a proven production incident; the actually deployed schema and source remain unverified.
