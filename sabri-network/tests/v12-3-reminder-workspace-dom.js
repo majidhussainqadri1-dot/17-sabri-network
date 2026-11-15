@@ -33,6 +33,7 @@ class Element {
   addEventListener(type, fn) { this.events[type] = fn; }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   focus() { this.focused = true; }
+  reset() { this.fields = {}; }
   remove() {
     if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this);
     this.parent = null;
@@ -178,6 +179,8 @@ async function submit(form) {
   await submit(elements['snf-reminder-form']);
   check(records.length===2&&records[1].version===1,'Creation persists a separate caller-owned reminder');
   check(listText().includes('Second reminder'),'Creation refreshes reminder list');
+  check(elements['snf-status'].textContent === 'Saved successfully.',
+    'Successful creation surfaces success and resets the submitted form');
 
   const before = requests.filter(x=>x.resource==='future/reminders'&&x.method==='POST').length;
   if (process.env.TZ==='America/New_York') {
