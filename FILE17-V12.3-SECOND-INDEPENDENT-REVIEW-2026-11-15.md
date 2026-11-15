@@ -87,3 +87,29 @@ The no-listener safeguard for F17-FUT-07 still does **not** prove File19 durable
 | F17-V123-REM-UX-08 | Initial creation success only reports generic `Saved successfully.` and does not refresh or expose versioned reminders. | Refresh the list after create, reschedule, cancel and user-requested refresh; preserve button disabled state / error semantics and keyboard/RTL usability. |
 
 All three findings form **one user-journey UX root-cause family**. Count as three distinct source gaps, not as three confirmed live incidents. No edits made to UI before this review freeze.
+
+## Review D — correction, executable UI evidence and closeout
+Effective source corrections:
+- `SN_Future_Superset_Core::render_workspace()` now has `snf-reminder-manager` with visible refresh and live status region.
+- `assets/js/future-superset.js` renders owner-scoped canonical list via DOM `textContent` (never raw private message), enables reschedule/cancel only with valid `version`, submits `expected_version` to the dedicated POST/DELETE routes and re-fetches on create/edit/cancel.
+- Client `exactLocalIso()` rejects DST gaps, repeated wall times, malformed or past input before converting to an explicit UTC instant. The server's stricter IANA rules remain authoritative.
+- `assets/css/future-superset.css` supplies Sabri Green, 44px controls, accessible keyboard focus, mobile and RTL layout.
+- `tests/v12-3-reminder-workspace-dom.js`: executable fake-DOM journey on both `TZ=UTC` and `TZ=America/New_York` including future create, list, reschedule, stale cancellation, current-version cancellation, missing/nonexistent/ambiguous DST and visible errors.
+- `tests/v12-3-reminder-workspace-static-contracts.php`: executable 35-point markup, XSS-safe projection, CAS, timezone and responsive/RTL contract check.
+- Executable quality gate now **66 PHP suites, 10 JS source entry points, one additional JS DOM runtime suite run twice** (UTC/New York).
+- Exact previously green code+tests SHA `8f5b9389e362dca005716ec5f4d0ed6eae35b1f1`, CI run `43666300823` **success**: PHP 8.1 boundary pass; PHP 8.3 full quality/deterministic package pass. Logs show **187 PHP files**, **66 suites**, **10 JS source entry points**, DOM **18 assertions UTC** + **22 assertions New York**, PHP UI contract **35 PASS**. Source build/automated only; no browser/real provider acceptance.
+- Small subsequent test-harness correction at SHA `3562296dd69df5323aca92060d3a1052c2ae32c1` adds simulated `form.reset()` and checks actual `Saved successfully` status. Its own exact-head CI result must be confirmed separately.
+
+### Counts — bounded new independent source review
+| Class | Number | Status |
+|---|---:|---|
+| Review A confirmed reminder creation/dispatch/CAS paths | 3 | Source patches and regression tests; listener presence only, not durable File19 acceptance |
+| Review A dependent list version projection | 1 | Source correction and tested |
+| Review B AI and semantic post-provider privacy timing paths | 2 | Source correction and negative runtime tests |
+| Review C nonexistent/ambiguous DST input | 1 | Server and client guards; dynamic timezone runtime test |
+| Review D three user-facing reminder journey gaps | 3 | One UI implementation, one DOM runtime suite in two timezones + PHP static suite |
+| **Total newly identified repository-source issues** | **10** | **10 targeted source corrections**, automated tests passed on applicable immutable SHAs; **0 confirmed live fixes** |
+| Additional earlier independently tracked PR #23/#24 source paths | 4 | Unmerged draft candidates, separate evidence; **not recounted as newly found here** |
+| Proven deployed/production failures resolved | **0** | Live deployed bytes, DB/schema/migration and functional re-tests remain unavailable |
+
+**Honest limitations:** two distinct source review passes and a third edge-case/UX pass are recorded; these do **not** qualify as V12.3's two complete independent WordPress/real-provider/backup/restore/live acceptance cycles. The registered File19 notification hook is **not** proof of durable acceptance or delivered notification. Approval gate is **STOP**, no merge, install or deployment.
