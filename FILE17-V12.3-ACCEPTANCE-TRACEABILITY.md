@@ -63,3 +63,13 @@ Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provis
 - FUT-18: read-only speaker queue through current call membership; moderator changes still require server permission and concurrent-device staging.
 - FUT-21: explicit user-entered metric diagnostics for packet loss/latency/jitter/bandwidth, range-validated in JS, with telemetry_consent default false. Values are *not* browser-measured; actual poor-network simulation and consent-based server retention remain to be tested.
 - New 36-form DOM/fetch test covers route shape, read-only GETs, invalid packet loss rejection, fractional precision and consent opt-in/out.
+
+## Quality grading source-level root-cause audit — 15 Nov 2026
+
+**Verified source defect (not verified in the deployed site):** The 2.1.0 code previously normalized jitter and downlink metrics but assessed a call solely from packet loss and RTT. Thus reported jitter=150ms and downlink=100kbps could still have produced "good" if packet loss/RTT appeared low. The advanced form also supplied four zero-valued defaults, allowing an artificial grade without entering measurements.
+
+**Repository remedy:** Both canonical/fallback File-17 grading paths now use the single pure `SN_Future24_Review_Hardening_G::assess_network_quality` heuristic. Conditions are advisory: poor if loss ≥8%, RTT ≥700ms, jitter ≥120ms or downlink under 150kbps; fair if loss ≥3%, RTT ≥350ms, jitter ≥40ms or downlink under 750kbps; otherwise good. These are conservative starting thresholds, not guaranteed audio/video measurements or provider-specific QoS standards. Downlink-only degradation recommends audio-only/reduced video, **not an unjustified ICE retry**; severe loss, RTT or jitter may suggest ICE recovery. All four form measurements are explicitly required; no pre-filled fake zeros. Server authorization remains call-member checked and storage requires per-request telemetry consent (default off).
+
+**Regression:** `tests/v123-network-quality-runtime-contracts.php` executes grade boundaries and opt-out contract assertions. The DOM/fetch test checks accepted vs rejected client metrics, preserved precision, and affirmative consent. Real packet-loss/jitter/bandwidth simulation, WebRTC client collection, peer reconnect, retention audit and actual staging provider testing remain pending.
+
+**Live status:** This is a proven repository algorithm issue only; exact deployed build and migration parity remain unknown. No live fix claimed.
