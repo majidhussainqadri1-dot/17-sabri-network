@@ -20,9 +20,20 @@ final class SN_Communication_Crypto {
 }
 final class SN_DB {
     public static array $audits=[];
+    public static bool $member=true;
+    public static array $blocked=[];
+    public static function is_member(int $conversation,int $owner):bool {
+        return self::$member&&$conversation===42&&$owner===7;
+    }
+    public static function table(string $name):string{return 'wp_sn_'.$name;}
+    public static function is_blocked(int $user,int $sender):bool{return !empty(self::$blocked[$sender]);}
     public static function audit(string $event,string $object,int $id,string $state,array $details,int $user=0):void{
         self::$audits[]=['event'=>$event,'object'=>$object,'id'=>$id,'state'=>$state,'details'=>$details,'user'=>$user];
     }
+}
+final class SN_Message_Operations {
+    public static array $hidden=[];
+    public static function is_hidden(int $viewer,int $message):bool{return !empty(self::$hidden[$message]);}
 }
 function is_wp_error(mixed $v):bool{return $v instanceof WP_Error;}
 function current_time(string $type,bool $gmt=false):string{return gmdate('Y-m-d H:i:s');}
@@ -51,6 +62,12 @@ final class FakeReminderDB {
         ];
     }
     public function prepare(string $sql,mixed ...$args):string{return $sql;}
+    public function get_row(string $sql):?object {
+        if(str_contains($sql,'wp_sn_messages')){
+            return (object)['id'=>11,'conversation_id'=>42,'sender_id'=>8,'deleted_at'=>null];
+        }
+        return null;
+    }
     public function query(string $sql):int{
         $this->queries[]=$sql;return 1;
     }
