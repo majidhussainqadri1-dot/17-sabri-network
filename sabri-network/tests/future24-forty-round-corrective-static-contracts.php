@@ -23,4 +23,7 @@ foreach (['future/smart-views','future/team-inbox/','future/citations','future/m
 $assert(str_contains($advancedUI,"data.get('enabled')==='on'"), 'V12.3: shared team inbox enablement must remain explicit.');
 $assert(str_contains($advancedUI,"data.get('source_owner')"), 'V12.3: citation cards must identify the canonical knowledge owner.');
 $assert(str_contains($advancedUI,"data.get('student_id')"), 'V12.3: mentorship must specify its student subject.');
+$advancedCSS=$read('assets/css/future-superset.css');
+$assert(str_contains($advancedCSS,'input[type="checkbox"]')&&str_contains($advancedCSS,'min-height:20px'), 'V12.3: checkbox geometry must not inherit full-width text-input controls.');
+$assert(str_contains($advancedCSS,'select:focus-visible'), 'V12.3: advanced selector must expose keyboard focus.');
 echo "Future-24 forty-round corrective static contracts: PASS\n";
