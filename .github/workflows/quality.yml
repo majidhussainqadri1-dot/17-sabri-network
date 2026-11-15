@@ -94,6 +94,7 @@ jobs:
           run_test v12-3-reminder-authorized-create-runtime-contracts.php
           run_test v12-3-reminder-dispatch-failclosed-runtime-contracts.php
           run_test v12-3-reminder-versioned-mutations-runtime-contracts.php
+          run_test v12-3-private-results-post-provider-revocation-runtime-contracts.php
           run_test file03-profile-contracts.php
 
   quality-and-package:
