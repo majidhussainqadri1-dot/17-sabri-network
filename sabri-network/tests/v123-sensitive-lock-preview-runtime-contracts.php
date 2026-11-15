@@ -57,6 +57,7 @@ final class SN_Future_Superset {
         $d=self::$locks[$row->id]??null;
         return $d==='corrupt'?new WP_Error('cannot_decrypt','decryption unavailable'):($d?:[]);
     }
+    private static function not_found():WP_Error{return self::error('not_found','Conversation unavailable.',404);}
     private static function error(string $code,string $message,int $status):WP_Error{
         return new WP_Error($code,$message,['status'=>$status]);
     }
