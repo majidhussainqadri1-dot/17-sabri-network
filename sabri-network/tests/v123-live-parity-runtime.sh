@@ -68,4 +68,8 @@ fi
 grep -q 'sn_two_plan_schema_version' "$ROOT/tools/file17-live-freeze.sh"
 grep -q 'sn_future_superset_schema_version' "$ROOT/tools/file17-live-freeze.sh"
 grep -q 'sn_meet_db_version' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'INFORMATION_SCHEMA.COLUMNS' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'INFORMATION_SCHEMA.STATISTICS' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'INFORMATION_SCHEMA.TABLE_ROWS' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'TABLE_ROWS estimates only' "$ROOT/tools/file17-live-freeze.sh"
 printf 'File-17 exact ZIP parity and migration-inventory regression: PASS\n'
