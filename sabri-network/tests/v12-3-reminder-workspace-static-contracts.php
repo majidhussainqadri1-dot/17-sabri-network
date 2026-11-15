@@ -50,6 +50,12 @@ $check(str_contains($js,"node('h4', String(item.data?.label"),
     'Saved label is represented as textContent, never interpolated HTML');
 $check(!str_contains($js,"reminderList.innerHTML"),
     'Reminder state is not interpolated into unsafe HTML');
+$check(str_contains($js,'pendingReminderCreation.idempotencyKey'),
+    'Reminder retry identity is caller-owned and persists across ambiguous response failure');
+$check(str_contains($js,'pendingReminderCreation = null'),
+    'Confirmed successful creation retires the retry key for the next intentional operation');
+$check(str_contains($js,'fingerprint = JSON.stringify(body)'),
+    'Different reminder form parameters create a different retry identity');
 $check(str_contains($js,"if (state === 'active'"),
     'Terminal reminders never render mutation buttons');
 $check(str_contains($js,"catch (error) { announce(error.message, true); }"),
