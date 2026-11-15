@@ -30,3 +30,21 @@ Prepared 2026-11-15. **Frozen before File17 adapter correction.**
 
 **Counts at freeze:** 1 additional source-level cross-file acceptance defect (G-01); code fix not yet applied. No live deployment.
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+## Review G correction and independent retest
+**G-01 corrected in File17's source candidate:** `SN_Future_Superset::ingest_file19_reminder()` uses the **documented File19 PHP entry points** and requires a real producer-specific acknowledgement; legacy `do_action('sn_network_notification_requested')` is no longer treated as an acceptance guarantee. Incoming File19 `WP_Error`, missing functions, registration failure, malformed receipt, missing `event_public_id` or thrown exception keep File17 due state retryable; `processed` / `duplicate` receipt may finalize File17. A File19 acknowledgment does **not** prove end-user delivery.
+- Canonical envelope: `sabri-file17` / `File 17` / `Communication.ReminderDue` / `1.0.0` / recipient's canonical ID. Unique producer-scoped event `f17-reminder-{id}` is also the stable `idempotency_key`. No arbitrary label, message body, contact graph, clinical case or attachment is transferred; File19 may render generic in-app copy and apply its own opt-out/policy.
+- Existing `tests/v12-3-reminder-dispatch-failclosed-runtime-contracts.php` now exercises **52 checks**: no File19 API even with legacy listener, strict producer scope, safe envelope, processed receipt, duplicate receipt after failed File17 finalization, File19 error/malformed/exception/registration failure and pre-dispatch membership/archived/hidden/deleted/blocked checks.
+- Existing `tests/future24-forty-round-corrective-static-contracts.php` now checks the **same stable source event_id and idempotency_key** instead of outdated legacy WordPress action text.
+- **Exact new source SHA:** `8f9d333a15b1e9d7de6a60099add2f4643f3a3d9`. GitHub Actions **43669265546**: PHP 8.1 **SUCCESS**, PHP 8.3 full QA/reproducible package **SUCCESS**; 188 PHP files, 10 JavaScript source checks, **67 PHP suites**; File19 runtime bridge mock **52 PASS**; active membership suite **10 PASS**.
+- Deterministic **inner installable ZIP SHA-256** at this source SHA: `cd53bca420d658ab78e75c5b3e14ba13a1486a58fb51f7aba9027582fd6f313c`. The GitHub Actions artifact-wrapper digest is different; neither is evidence of deployed bytes.
+
+## Release limits and revised defect ledger
+- Exact File19 main source `3cd8f01a4614e96c0104d0ff82faa4ad3f02f4e4` was **read**; its runtime installation and File01 event bus/DB state were **not inspected**. Actual real MySQL processed/duplicate persistence/transaction semantics and notification rendering are staged acceptance requirements.
+- **Review G newly found source paths: 1; targeted corrections: 1; automated regression: pass; live verified corrections: 0.**
+- Cumulative newly found *candidate-source paths* within PR #25 continuation: Review A–E **11**, Review F **3**, Review G **1** = **15**. Earlier PR #23/#24 **4** distinct paths, hence **19** in total across draft source candidates, **none** is proven a live defect or resolved production change. These are findings/paths, not 19 independent root causes.
+- The remaining critical path is **site access + staging actual installed File17/File19/File01 versions and schema**, real provider receipt/readability, two independent complete E2E reviews, backup/restore/rollback, founder approval and exact deployed parity. Do not label `Operational` before those gates.
+- No File19 repository modification, no merge to File17 main, no production deployment.
+- **Repository HEAD:** main `8ae656e51796d1f05865d8be5dca2480443d79ca`, audit source `8f9d333a15b1e9d7de6a60099add2f4643f3a3d9`.
+- **Deployed Version:** UNVERIFIED. **DB Version:** UNVERIFIED. **Migration State:** UNVERIFIED. **Live Verification Status:** UNVERIFIED.
+- **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
