@@ -166,3 +166,12 @@ The stronger parity helper also verifies the exact proposed ZIP *itself*: every 
 - New repository fixes are **not merged, not deployed, and not independently verified live**. Live fixes claimed: **0**.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+
+## V12.3 additional transactional-storage and live freeze correction (15 November 2026)
+
+7. The key registration/audit transaction previously relied on unverified table storage engines: MyISAM or another non-transactional engine would not honor rollback. New installations explicitly declare InnoDB for the two key-related tables; the runtime refuses new key changes unless both *deployed* engines can be verified as InnoDB in INFORMATION_SCHEMA.TABLES. This avoids silently claiming atomicity on an incompatible site. The live freeze script now reports storage engines without querying private table content. Historical production engines and migration states remain unknown; existing tables are not auto-converted or modified by this review.
+
+**Current automated inventory:** 63 PHP review/runtime suites, 9 JS entry syntax checks, 1 Node workspace runtime suite, 36 advanced forms and read-only ZIP/parity regression. The source-level **7 defect conditions** were addressed in the isolated PR; 1 test-fixture parameter-cursor mistake was corrected during CI. Live verified fixes remain zero. PHP 8.1/8.3 and deterministic package passed on the exact source commit `579cbc2768e1bef851855af94085c60788e371af` (workflow 43738225834). Any new documentation commit must pass its own CI before that result transfers.
+
+**Live truth:** Deployment version UNKNOWN; DB version UNKNOWN; migration state UNKNOWN; runtime storage engines UNKNOWN; live re-test NOT DONE. WordPress authorization handshake was blocked by HTTP 530 again on 15 November 2026; the response does not prove origin/root cause.
