@@ -13,6 +13,23 @@ printf 'visible, approved content\n' > "$tmp/sabri-network/test.txt"
 )
 parity_result="$(bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved.zip")"
 grep -q 'EXACT DEPLOYED ARTIFACT PARITY: PASS' <<< "$parity_result"
+# The approved ZIP must be self-consistent even if the installed plugin is pristine.
+cp -- "$tmp/approved.zip" "$tmp/archive-only-extra.zip"
+mkdir -p "$tmp/archive-fixture/unlisted"
+printf 'unauthorized archive-only payload\n' > "$tmp/archive-fixture/unlisted/payload.php"
+(cd "$tmp/archive-fixture" && zip -X -q "$tmp/archive-only-extra.zip" unlisted/payload.php)
+if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/archive-only-extra.zip" >/dev/null 2>&1; then
+  printf 'FAIL: approved ZIP with unmanifested extra member must fail even when deployed files match.\n' >&2
+  exit 1
+fi
+cp -- "$tmp/approved.zip" "$tmp/archive-content-forged.zip"
+mkdir -p "$tmp/archive-fixture/sabri-network"
+printf 'forged archive bytes\n' > "$tmp/archive-fixture/sabri-network/test.txt"
+(cd "$tmp/archive-fixture" && zip -X -q "$tmp/archive-content-forged.zip" sabri-network/test.txt)
+if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/archive-content-forged.zip" >/dev/null 2>&1; then
+  printf 'FAIL: approved ZIP member changed without manifest change must fail.\n' >&2
+  exit 1
+fi
 printf 'changed\n' > "$tmp/sabri-network/test.txt"
 if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved.zip" >/dev/null 2>&1; then
   printf 'FAIL: altered installed code must never match exact-zip parity.\n' >&2
