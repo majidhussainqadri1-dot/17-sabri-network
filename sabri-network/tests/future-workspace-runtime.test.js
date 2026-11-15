@@ -51,6 +51,8 @@ const status = new Element();
 const root = new Element();
 const grid = new Element();
 root.querySelector = selector => selector === '.snf-grid' ? grid : null;
+const suggestionField = new Element('input');
+root.querySelectorAll = selector => selector === 'input[name="conversation_id"]' ? [suggestionField] : [];
 const nodes = [root,status,grid];
 const document = {
   getElementById(id) { if (id === 'sn-future-workspace') return root; if (id === 'snf-status') return status; return forms.get(id) || null; },
@@ -62,6 +64,7 @@ const requests = [];
 let deniedEndpoint = '';
 const restUrl = 'https://example.invalid/wp-json/sabri-network/v2/';
 const responses = {
+  'conversations':{conversations:[{id:17,title:'<img src=x onerror=alert(1)>'},{id:17,title:'duplicate'},{id:'unsafe-id',title:'not allowed'}]},
   'future/capabilities':{feature_count:24,items:[{id:'F17-FUT-01',label:'<img src=x onerror=alert(1)>',phase:'Advanced',status:'provider-gated'}]},
   'future/community-invites':{id:61,qr_payload:'sn-network://community-invite?token=secret-example'}
 };
@@ -78,6 +81,12 @@ vm.runInNewContext(source,{document,window,fetch:fetchStub,FormData:FakeFormData
 
 const run = async () => {
   await new Promise(resolve=>setImmediate(resolve));
+  const suggestions = root.children.find(element => element.tag === 'datalist');
+  assert.ok(suggestions,'Currently authorized conversation IDs should be offered as optional suggestions');
+  assert.equal(suggestions.children.length,1,'Duplicate and invalid conversation identifiers must not enter suggestions');
+  assert.equal(suggestions.children[0].label,'<img src=x onerror=alert(1)>','Conversation titles remain literal text');
+  assert.equal(suggestions.children[0].innerHTML,'','Untrusted conversation labels must never become HTML');
+  assert.equal(suggestionField.attributes.list,suggestions.id,'Numeric conversation fields should use the authorized datalist');
   assert.equal(forms.size,33,'3 original + 4 initial + 12 Next + 8 lifecycle/privacy + 2 reminder + 1 team read + 1 template preview + 2 key-history controls should be wired');
   assert.match(status.innerHTML,/24 advanced File 17 capabilities/);
   assert.ok(!status.innerHTML.includes('<img'),'capability names must be HTML-escaped');
