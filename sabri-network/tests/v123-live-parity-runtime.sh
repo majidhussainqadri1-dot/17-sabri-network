@@ -30,4 +30,8 @@ if bash "$ROOT/tools/file17-parity-check.sh" "$tmp/sabri-network" "$tmp/approved
   printf 'FAIL: modified installed manifest must never pass parity.\n' >&2
   exit 1
 fi
+# The freeze must collect each first-party schema version separately without changing the live site.
+grep -q 'sn_two_plan_schema_version' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'sn_future_superset_schema_version' "$ROOT/tools/file17-live-freeze.sh"
+grep -q 'sn_meet_db_version' "$ROOT/tools/file17-live-freeze.sh"
 printf 'File-17 exact ZIP parity read-only regression: PASS\n'
