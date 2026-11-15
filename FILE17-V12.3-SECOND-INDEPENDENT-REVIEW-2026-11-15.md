@@ -119,3 +119,21 @@ Effective source corrections:
 |---|---|---|---|
 | F17-V123-REM-RETRY-09 | Reminder creation request loss and user retry | The UI `api()` utility creates a fresh random `Idempotency-Key/client_id` on **every** POST when no persistent per-operation key is supplied. If the server commits a reminder and the HTTP response is lost, a user resubmitting the unchanged creation form gets a **different** caller-owned ID, so the database cannot detect a retry; a second reminder is legitimately created. | Hold one caller-owned creation key for an unchanged form payload across ambiguous network failures. Use a new key only if submitted parameters change or a successful response is received. Add a deterministic DOM test simulating server commit then lost HTTP response and verify exactly one record after resubmission. |
 Do not apply this to separate intentional operations: identical payloads submitted **after a confirmed success** must still receive different IDs. This review does **not** assert that a corresponding defect exists in the unverified deployed version.
+
+## Review E — corrected retry identity and exact source-only acceptance
+- `assets/js/future-superset.js` now keeps `pendingReminderCreation = {fingerprint, idempotencyKey}` across an ambiguous response loss when form parameters remain unchanged. A **confirmed success** clears that key; changed form data creates a new key.
+- `tests/v12-3-reminder-workspace-dom.js` simulates *database insert succeeded, response lost*, re-submission with the same client ID (no second row), and a separate intentional creation after confirmed success (new client ID/new row). Also tests untrusted label escaping through DOM `textContent` and disabling versionless mutation controls.
+- Static source contract adds three permanent assertions on retry ID ownership, retirement after success, and payload fingerprint semantics. No user data or server secrets are exposed by the test.
+- Immutable code+test SHA **`fd7e5e0f741167ce5e8b906fa2b06e314480f42a`** passed exact Actions run **`43666687413`**: PHP 8.1 boundary **success**; PHP 8.3 full QA/package **success**; **187 PHP source+test files, 66 PHP review suites, 10 JavaScript source entries**, DOM **28 PASS UTC** and **32 PASS New York**, PHP reminder UI source **38 PASS**. Deterministic inner installable ZIP SHA-256 recorded by quality log: `1822ba192f6d54a0072ac76739e02358811ab1e656ff44b7477d99990b685ed8` (**valid only for this immutable SHA**, not for subsequent documentation commits). No live counterpart checksum is yet available.
+
+### Count correction: new scope vs historical
+- Review A: **3** source paths (reminder create/dispatch/CAS) and **1** list-version dependency.
+- Review B: **2** private post-provider/post-projection revocation paths.
+- Review C: **1** DST ambiguity/nonexistent wall time path.
+- Review D: **3** reminder-management UX gaps, one user-journey root-cause group.
+- Review E: **1** lost-response retry identity path.
+- **Total new source discrepancies in this review series: 11.** Targeted repository corrections exist for all 11, and relevant automated QA passed on the above exact SHA. Durable File19 acceptance remains **unverified**, not claimed corrected by a presence-only hook check. **0 live defects proven resolved** and **0 live re-tests performed**.
+- Prior independent PR #23/#24: **4 additional** candidate-source defect paths already counted in those historical reviews. Across both candidate chains, **15 uniquely tracked source paths** are present, but there is no basis to call 15 deployed defects.
+- The review corpus contains successive independent source examinations and new adversarial tests. It does **not** establish V12.3's two completed independent real WordPress/MySQL/provider/browser reviews or acceptance.
+
+**Mandatory status:** Repository candidate = source-verified only; deployed version, DB version, migration state and live verification = UNVERIFIED. Release gate = STOP.
