@@ -107,4 +107,31 @@ trait SN_Future_Superset_Part_1 {
     public static function list_reminders(): WP_REST_Response {return rest_ensure_response(['items'=>self::owned('F17-FUT-07',get_current_user_id())]);}
     public static function save_template(WP_REST_Request $r): WP_REST_Response|WP_Error {$u=get_current_user_id();$title=mb_substr(sanitize_text_field((string)$r->get_param('title')),0,120);$body=mb_substr(sanitize_textarea_field(wp_unslash((string)$r->get_param('body'))),0,8000);if($title===''||$body==='')return self::error('sn_template_invalid','A title and template body are required.',400);if(self::looks_clinical_directive($body)&&!(bool)apply_filters('sn_network_professional_template_allowed',false,$u,$body))return self::error('sn_template_clinical_guard','Clinical directive templates require an approved professional policy.',403);$id=self::create_record('F17-FUT-08',$u,'user',$u,['title'=>$title,'body'=>$body],self::client($r,$u,'template'),null);return is_wp_error($id)?$id:new WP_REST_Response(['id'=>$id,'title'=>$title],201);}
     public static function list_templates(): WP_REST_Response {return rest_ensure_response(['items'=>self::owned('F17-FUT-08',get_current_user_id())]);}
+    /**
+     * Preview saved text without creating/sending any message. Variables are an
+     * explicit allowlist, and no caller-provided HTML is interpreted.
+     */
+    public static function preview_template(WP_REST_Request $r): WP_REST_Response|WP_Error {
+        global $wpdb;
+        $u=get_current_user_id();$id=absint($r['id']);
+        if($u<=0||SN_Policy::is_suspended($u)||$id<=0)return self::not_found();
+        $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM ".self::records_table()." WHERE id=%d AND feature_id='F17-FUT-08' AND owner_id=%d AND state='active' LIMIT 1",$id,$u));
+        if(!$row)return self::not_found();
+        $data=self::decode($row);if(is_wp_error($data))return $data;
+        $body=(string)($data['body']??'');
+        $inputs=$r->get_param('variables');
+        if(!is_array($inputs))$inputs=[];
+        $allow=['recipient_name','clinic_name','appointment_date'];
+        $replace=[];
+        foreach($inputs as $key=>$value){
+            if(!is_string($key)||!in_array($key,$allow,true)||!is_scalar($value))return self::error('sn_template_variable_forbidden','Only approved plain-text template variables are permitted.',400);
+            $replace['{{'.$key.'}}']=mb_substr(sanitize_text_field((string)$value),0,191);
+        }
+        $preview=strtr($body,$replace);
+        if(preg_match('/{{[^{}]*}}|{{|}}/u',$preview))return self::error('sn_template_variables_unresolved','Provide approved values for all variables before using a saved reply.',409);
+        if(mb_strlen($preview)>10000)return self::error('sn_template_preview_too_large','Rendered template is too long.',413);
+        if(self::looks_clinical_directive($preview)&&!(bool)apply_filters('sn_network_professional_template_allowed',false,$u,$preview))return self::error('sn_template_clinical_guard','Professional clinical text requires the approved policy.',403);
+        SN_DB::audit('future_template_preview','future_record',$id,'success',['rendered_length'=>mb_strlen($preview),'not_sent'=>true],$u);
+        return rest_ensure_response(['id'=>$id,'preview'=>$preview,'not_sent'=>true,'requires_manual_review'=>true]);
+    }
 }
