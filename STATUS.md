@@ -1,3 +1,8 @@
+## Second V12.3 source implementation pass — 15 November 2026
+The Advanced Communication workspace now registers **27 interactive forms**: 3 original, 4 from the first V12.3 review and 20 further Next/SCALE/Advanced user and lifecycle journeys added in the second pass. They reuse existing File-17 REST handlers, current server authorization and provider fail-closed gates; this count is **not** the count of operationally approved features. New user actions include authorized revision viewing, bounded preview/confirmed batches and job polling/cancellation, community invite issuance/redeem/revoke, temporary community access, mentorship accept/end, de-identified case consent, call controls, optional File 16 AI, private semantic consent/withdrawal and purge-state reporting, authorized saved view and private-record operations.
+A Node DOM/fetch runtime contract for these 27 forms runs in full `tools/quality-check.sh`, alongside the 53 existing PHP suites. Future-specific PHP static assertions cover consent, safe response rendering and UI guards. The capability inventory remains visible after action feedback.
+**Live/staging status remains UNVERIFIED.** No production or database change is claimed. The current exact-commit CI result must be checked separately before this branch is treated as a validated repository candidate.
+
 # V12.3 reconciliation — 15 November 2026
 
 Plan: Sabri Website Master Plan V12.3 (13 November 2026); plugin candidate 2.1.0.
